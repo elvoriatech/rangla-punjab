@@ -1,0 +1,38 @@
+# Backup failure
+
+## What
+
+The nightly Postgres backup job did not complete successfully, or the
+weekly restore-drill (once P2-8 lands) failed. Signals data-loss risk
+if compounded with a subsequent incident.
+
+## Impact
+
+**No immediate customer impact.** But the site's RPO (recovery point
+objective — the maximum data you're willing to lose) is compromised
+until the next successful backup completes. A hardware failure or
+data-corruption incident now would restore from an older snapshot
+than the SLA promises.
+
+## First steps
+
+1. Check the backup job log: `kubectl -n elvoria logs job/pg-backup-<date>`
+   (once P2-8 wires the CronJob). Common failure modes: object storage
+   429 rate-limit, expired credentials, disk full on the source.
+2. Kick a manual backup right away so we're back to a known-good
+   state: `pg_dump --format=custom ... | aws s3 cp - s3://.../on-demand-<ts>.dump`.
+   Do this even if the root cause isn't yet identified.
+3. Verify the restore path is still healthy: pull the most recent
+   nightly to a scratch instance and run `pg_restore -l` — if it
+   lists the expected tables, the corpus is intact.
+4. Confirm PITR (point-in-time-recovery) is still armed: IONOS console
+   → Managed PG → PITR window shows the last 7 days. If PITR is off,
+   turn it back on immediately (independent of the failed nightly).
+
+## Escalation
+
+Page `@on-call-eng` and file a ticket for `@data-team` regardless of
+whether the manual backup succeeded — a backup failure is a
+policy-level miss, not just an operational blip. If two consecutive
+nightlies fail, this becomes a customer-comms event under our stated
+RPO/RTO promises (see `/legal/dpa` §6).

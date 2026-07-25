@@ -1,0 +1,39 @@
+# Error rate spike
+
+## What
+
+The `dashboard_error_rate` SLO has burned > 5% of its 28-day budget
+inside 1 hour — the `http_requests_total{status="5xx"}` counter for
+`/dashboard/*` and `/api/*` has spiked. Fires on the fast-burn
+threshold from `src/lib/slo.ts`.
+
+## Impact
+
+Signed-in operators cannot save menu edits, cannot publish, cannot
+run through onboarding, cannot pay. Public menus stay green (CDN-
+fronted) but the business dashboard is effectively down. This is the
+loudest, most customer-visible SLO breach we page on.
+
+## First steps
+
+1. Confirm the spike is real by looking at the top 10 5xx routes:
+   Grafana → "5xx by route" panel. If a single route dominates, jump
+   straight to that route's logs.
+2. Pull the Sentry error stream for the last 15 minutes — grouped by
+   exception + release SHA. A recent deploy that introduced a null-
+   pointer regression is the modal cause.
+3. If the top exception matches a recent deploy → **roll back**:
+   `kubectl -n elvoria rollout undo deployment/app`. Only investigate
+   root cause after the rollback lands.
+4. If the errors span multiple routes and multiple exception types,
+   the root cause is likely infrastructural — jump to the
+   `db-saturation` or `cache-hit-drop` runbook based on which
+   dependency's saturation signal is highest.
+
+## Escalation
+
+Page `@on-call-eng`. If the rollback restores service, the incident
+downgrades to a review-in-morning ticket — but still write the
+postmortem. If the rollback does *not* restore service, escalate to
+`@platform` and consider invoking the "hard freeze" (disable writes
+via feature flag) to protect data while root-causing.

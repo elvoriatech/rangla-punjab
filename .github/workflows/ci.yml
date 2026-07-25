@@ -1,0 +1,208 @@
+name: CI
+
+# Lint → typecheck → test → build image. Runs on every PR and on pushes to main.
+# The image build stays inside the workflow (never pushed) so a failing PR still
+# proves the runtime container is producible.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The RLS/isolation test hits a real Postgres — mocking it out would defeat
+    # the whole point of that test (see CLAUDE.md: "RLS on every tenant_id
+    # table from day one + a CI test that cross-tenant reads fail").
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: elvoria
+          POSTGRES_PASSWORD: elvoria_dev
+          POSTGRES_DB: elvoria
+          # Trust is safe here: the postgres service is only reachable
+          # from this runner, never from the network. Prod connects to
+          # the remote managed Postgres over TLS with a real password.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U elvoria -d elvoria"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+      mailhog:
+        # Same image the dev sink uses (P1-3). No healthcheck on the raw
+        # image, but the SMTP+HTTP ports come up in <1s so tests just retry.
+        image: mailhog/mailhog:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+      redis:
+        # Rate-limit counters (P1-2c). No auth; test-only.
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Migrations connect as the superuser; the app + tests connect as the
+      # least-privilege RLS-enforced role (see prisma/dev-roles.sql).
+      DATABASE_URL: postgresql://elvoria:elvoria_dev@localhost:5432/elvoria?schema=public
+      APP_DATABASE_URL: postgresql://elvoria_app:elvoria_app_dev@localhost:5432/elvoria?schema=public
+      # env.ts is strict but not yet imported by app code — still supply the
+      # full contract so future imports don't break the pipeline.
+      REDIS_URL: redis://localhost:6379
+      # Deterministic CI value — real secret comes from the secret store.
+      SESSION_SECRET: ci-only-not-a-real-secret-32-bytes-minimum-abcdefgh
+      EMAIL_TRANSPORT: mailhog
+      EMAIL_FROM: Elvoria CI <ci@elvoria.local>
+      MAILHOG_SMTP_HOST: localhost
+      MAILHOG_SMTP_PORT: "1025"
+      MAILHOG_API_URL: http://localhost:8025
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version is pinned by the `packageManager` field in package.json,
+      # which action-setup honours — no version drift between local and CI.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Check migrations (P2-8 expand-contract gate)
+        # Reject any DROP TABLE / DROP COLUMN / ALTER COLUMN TYPE /
+        # SET NOT NULL that lacks a paired expand-contract marker.
+        # See `scripts/check-migrations.ts`.
+        run: pnpm check:migrations
+
+      - name: Apply migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Create least-privilege RLS role
+        # dev-roles.sql is idempotent (guarded by `IF NOT EXISTS`).
+        env:
+          PGPASSWORD: elvoria_dev
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U elvoria -d elvoria -f prisma/dev-roles.sql
+
+      - name: Test
+        run: pnpm test
+
+      - name: Legal-ready gate (advisory)
+        # P1-22b: scans src/content/legal/*.mdx for `TODO: legal review`.
+        # Non-blocking today — placeholder copy still ships. Flips to
+        # blocking in P1-30 when we exit the MVP smoke gate.
+        continue-on-error: true
+        run: pnpm check:legal-ready
+
+      # ---------- P1-25: axe accessibility gate ---------------------------
+
+      - name: Resolve Playwright version
+        # Read the pinned version from package.json so the browser cache
+        # key changes when we bump Playwright. Without this the cache
+        # would silently serve stale browsers after an upgrade.
+        id: playwright
+        run: |
+          v=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace(/^\D+/, '')")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        # Chromium alone is ~150 MB — cache keyed on Playwright version so
+        # upgrades pick up new binaries automatically.
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        # Even on a cache hit the OS-level libraries required by Chromium
+        # (fonts, GTK, etc.) are not cached — the cache only holds the
+        # browser binary. This step is a no-op when they're already there.
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Build the app for axe
+        # The playwright.config webServer runs `pnpm start`, which needs
+        # a prior `pnpm build`. `output: "standalone"` keeps the build fast.
+        run: pnpm build
+
+      - name: Seed demo venue
+        # Idempotent seed — creates the `/r/demo` fixture the axe spec
+        # navigates to. Skipped silently on re-run in developer envs.
+        run: pnpm seed:demo
+
+      - name: Axe accessibility check on /r/demo (P1-25)
+        run: pnpm test:axe
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      # ---------- P1-26: Lighthouse mobile budget --------------------------
+
+      - name: Lighthouse CI on /r/demo (P1-26)
+        # Reuses the pnpm build from the axe step. Reuses the ms-playwright
+        # cache indirectly — Lighthouse falls back to system Chrome on the
+        # GitHub runner (chromium is pre-installed). Fails the PR if any
+        # category score regresses below its floor (perf ≥ 0.90, a11y ≥
+        # 0.95, SEO ≥ 0.95, best-practices ≥ 0.95). Metric budgets (LCP,
+        # bundle size) are `warn` only — regressing a category is a hard
+        # stop; nudging bytes is a review-time discussion.
+        run: pnpm test:lhci
+
+      - name: Upload Lighthouse report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: lighthouse-report/
+          retention-days: 7
+
+      # ---------- Container build (last, so a11y failures land earlier) ---
+
+      - name: Build image
+        # Same Dockerfile the runtime uses. We don't push — this step just
+        # proves the image is buildable from HEAD.
+        run: docker build -t elvoria-menu:ci .

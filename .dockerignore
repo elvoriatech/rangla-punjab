@@ -1,0 +1,44 @@
+# Keep the build context lean and reproducible. Anything the Dockerfile needs
+# must be re-added by NOT matching a rule here.
+
+# Version control + editor state
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# Docker itself
+.dockerignore
+Dockerfile*
+
+# Local dev / tooling
+docker-compose*
+.husky
+.claude
+
+# Build artefacts (rebuilt inside the image)
+node_modules
+.next
+out
+build
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Env files — never bake secrets into an image; only the contract stays.
+.env
+.env.*
+!.env.example
+
+# Project docs and non-app assets
+BACKLOG.md
+CLAUDE.md
+AGENTS.md
+ELVORIA_MENU_SPEC.md
+ELVORIA_ROADMAP.md
+README.md
+themes images
+
+# Dev-only DB seed
+prisma/dev-roles.sql

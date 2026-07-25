@@ -1,0 +1,41 @@
+# Cache-hit ratio drop
+
+## What
+
+The `cdn_cache_hit_ratio` SLO has dropped below 99% for 15 minutes,
+or the origin request-rate on `/r/*` has spiked by > 5× vs. the
+28-day median. Signals a Cloudflare cache invalidation, a
+misconfigured cache-control header from the origin, or a purge storm.
+
+## Impact
+
+Origin load rises, `dashboard_error_rate` starts burning as the app
+replicas absorb requests that should have hit the CDN edge. Public
+menu p95 latency climbs. If the ratio drops below ~80% for a
+sustained period, expect the primary Postgres to saturate next
+(escalate to the `db-saturation` runbook).
+
+## First steps
+
+1. Confirm the SLO burn is real, not a stale metric: hit `/r/demo` a
+   few times with `curl -I`. `cf-cache-status: HIT` is what we want;
+   `MISS`, `EXPIRED`, `DYNAMIC` are the failure modes.
+2. Check the origin cache-control header:
+   `curl -sI http://<origin>/r/demo | grep -i cache-control`.
+   The P0-8 header is `public, s-maxage=…`. If it's `no-cache` or
+   missing, a recent deploy dropped the header — roll back the app.
+3. Look at recent purge activity: Cloudflare API →
+   `GET /zones/<zone>/purge_cache`. A misfiring purge job (P2-17) can
+   evict every venue's cache — pause the queue if so.
+4. If a specific tenant is the offender (they have millions of URL
+   variants because of an unbounded query-string) → temporarily block
+   their slug at the CDN edge until root-caused.
+
+## Escalation
+
+Page `@on-call-eng`. If the origin cache-control is correct and the
+CDN is genuinely thrashing → escalate to `@platform` and open a
+Cloudflare support ticket. If the drop coincides with a large
+publish burst (many venues touched at once) → escalate to
+`@data-team` to review whether the publish→purge flow is emitting
+tag purges instead of URL purges.

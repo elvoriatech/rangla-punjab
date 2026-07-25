@@ -1,0 +1,45 @@
+# Restore drill
+
+## What
+
+`scripts/restore-drill.ts` is the "prove we can restore" gate — a
+self-contained script that (a) creates an ephemeral scratch database
+inside the running Postgres container, (b) loads
+`prisma/fixtures/demo.sql`, (c) applies every migration + the
+RLS dev-roles + `scripts/seed-demo-venue.ts`, (d) computes a
+content-based checksum over the `items` table, and (e) diffs the
+result against `scripts/restore-drill.golden.json`. Exit code 0
+means "the code and the fixture agree on what a fresh restore
+should look like".
+
+## Impact
+
+A failing drill doesn't mean prod data is at risk *right now*, but
+it means our belief that we could recover from a `pg_dump` is
+untested against the current schema. If the drill fails after a
+migration lands, either the migration silently changed the shape
+of the seeded dataset, or the seed no longer matches the fixture,
+or the RLS policies now reject the seed writes. Any of the three
+is worth a code review before shipping.
+
+## First steps
+
+1. Ensure the docker-compose stack is up (`docker compose ps` shows
+   `elvoria-postgres` healthy).
+2. Run the drill:
+   `set -a && . .env && set +a && pnpm exec tsx scripts/restore-drill.ts`.
+3. If the drift is intentional (a legitimate migration + seed
+   change that alters the checksum), re-record the golden:
+   `pnpm exec tsx scripts/restore-drill.ts --write-golden`, then
+   commit `scripts/restore-drill.golden.json` alongside the change.
+4. If the drift is unexpected, roll back the offending commit or
+   fix the seed so it matches the current schema.
+
+## Escalation
+
+Page `@on-call-eng` only if the drill fails against `main` (a
+green branch should never break the drill). If the failure appears
+on a feature branch, block the PR — the drill is a merge gate.
+For a genuine restore emergency (as opposed to a drill), see
+`backup-failure.mdx` — that runbook covers what to do when the
+nightly snapshot itself failed.

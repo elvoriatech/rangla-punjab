@@ -1,0 +1,11 @@
+# TLS origin behind Cloudflare (orange-cloud proxied, SSL mode "Full (strict)").
+# Caddy obtains/renews Let's Encrypt certificates automatically.
+#
+# APP_DOMAIN comes from the compose environment (prod.env). Images are
+# served by the app itself (the /img route resizes from disk), so there
+# is no separate image host to proxy.
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

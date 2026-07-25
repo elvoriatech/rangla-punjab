@@ -1,0 +1,39 @@
+# Database saturation
+
+## What
+
+Postgres primary is CPU- or connection-bound: `cpu_usage > 80%` for 10
+minutes, or active connections > 90% of `max_connections`, or replica
+lag > 30 s on the read replica (once P2-14 lands). The
+`dashboard_error_rate` SLO usually starts burning within a few minutes
+of the underlying saturation.
+
+## Impact
+
+Dashboard writes (menu edits, publish, checkout webhook processing)
+slow down or return 500. Public menu reads served from the CDN stay
+green until the cache expires, giving 5–10 minutes of grace to
+mitigate before customer-visible impact.
+
+## First steps
+
+1. Pull the top offenders: `psql -c "SELECT pid, state, wait_event,
+   query FROM pg_stat_activity WHERE state <> 'idle' ORDER BY
+   query_start LIMIT 20;"`. Look for a runaway query or long-idle
+   transaction.
+2. Kill a specific runaway: `SELECT pg_terminate_backend(<pid>);`.
+   Never do a wholesale kill — you'll re-elect a duplicate.
+3. Check connection count — `SELECT count(*) FROM pg_stat_activity;`
+   against `max_connections`. The app connects directly to Postgres
+   (no pooler), so a leak shows up here as idle-in-transaction rows.
+4. If the load is genuine (traffic spike), scale the app replicas
+   *first* so read pressure spreads to the replica, then bump the
+   primary instance size only if the replica also saturates.
+
+## Escalation
+
+Page `@on-call-eng`. If a query plan regression is suspected (a
+recently-deployed migration or code change) → escalate to
+`@data-team` for `EXPLAIN ANALYZE` review and consider a rollback. If
+the incident spans > 30 minutes without recovery, invoke the
+customer-comms runbook to post to the status page.

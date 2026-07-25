@@ -1,0 +1,183 @@
+import { randomUUID } from "node:crypto";
+import { afterEach, describe, expect, it } from "vitest";
+import { prisma } from "./db";
+import { signupUser } from "./auth-service";
+import { completeOnboarding, saveStep1, saveStep2, saveStep3 } from "./onboarding-service";
+import { asTenant, asUser } from "./tenant";
+import { createCategory } from "./categories-service";
+import { createItem } from "./items-service";
+import { publishDraft } from "./menu-versions-service";
+import { resolvePreviewContext } from "./preview-context";
+import { formatPrice, loadPublicMenu } from "./public-menu";
+
+describe("public menu loader", () => {
+  const createdUserIds: string[] = [];
+  const createdTenantIds: string[] = [];
+
+  async function seedPublishedMenu(): Promise<{
+    userId: string;
+    tenantId: string;
+    venueSlug: string;
+  }> {
+    const email = `p1-10-${randomUUID()}@ex.com`;
+    const signup = await signupUser({
+      email,
+      password: "S3cureP4ssPhrase!",
+      tenantName: "Placeholder",
+    });
+    if (!signup.ok) throw new Error("signup failed");
+    createdUserIds.push(signup.userId);
+    createdTenantIds.push(signup.tenantId);
+    await saveStep1(signup.userId, { venueName: "Ristorante Volpe" });
+    await saveStep2(signup.userId, { importBranch: "manual" });
+    await saveStep3(signup.userId, { primaryColor: "#1f3b2e" });
+    if (!(await completeOnboarding(signup.userId)).ok) throw new Error("onboarding failed");
+
+    const starters = await createCategory(signup.userId, { name: "Starters" });
+    const mains = await createCategory(signup.userId, { name: "Mains" });
+    if (!starters.ok || !mains.ok) throw new Error("category failed");
+
+    await createItem(signup.userId, {
+      categoryId: starters.value.id,
+      name: "Burrata",
+      priceCents: 1400,
+      allergens: ["milk"],
+      dietary: ["vegetarian"],
+      variants: [],
+    });
+    await createItem(signup.userId, {
+      categoryId: mains.value.id,
+      name: "Risotto",
+      priceCents: 1800,
+      allergens: ["gluten", "milk"],
+      dietary: ["vegetarian"],
+      variants: [
+        { name: "Regular", priceDeltaCents: 0 },
+        { name: "Truffle", priceDeltaCents: 500 },
+      ],
+    });
+
+    const publish = await publishDraft(signup.userId);
+    if (!publish.ok) throw new Error("publish failed");
+
+    const venue = await asUser(signup.userId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { slug: true } }),
+    );
+    return { userId: signup.userId, tenantId: signup.tenantId, venueSlug: venue.slug };
+  }
+
+  afterEach(async () => {
+    for (const tid of createdTenantIds) {
+      await asTenant(tid, (tx) => tx.itemVariant.deleteMany({}));
+      await asTenant(tid, (tx) => tx.item.deleteMany({}));
+      await asTenant(tid, (tx) => tx.category.deleteMany({}));
+      await asTenant(tid, (tx) => tx.menu.updateMany({ data: { publishedVersion: null } }));
+      await asTenant(tid, (tx) => tx.menuVersion.deleteMany({}));
+      await asTenant(tid, (tx) => tx.menu.deleteMany({}));
+      await asTenant(tid, (tx) => tx.venue.deleteMany({}));
+      await asTenant(tid, (tx) => tx.membership.deleteMany({}));
+      await asTenant(tid, (tx) => tx.tenant.deleteMany({}));
+    }
+    if (createdUserIds.length) {
+      await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+    createdUserIds.length = 0;
+    createdTenantIds.length = 0;
+  });
+
+  it("loads the published tree in order with variants and badges", async () => {
+    const { venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+    expect(context).not.toBeNull();
+    if (!context) return;
+
+    const menu = await loadPublicMenu(context);
+    expect(menu).not.toBeNull();
+    if (!menu) return;
+
+    expect(menu.venue.name).toBe("Ristorante Volpe");
+    expect(menu.venue.branding.primaryColor).toBe("#1f3b2e");
+    expect(menu.isPreview).toBe(false);
+    expect(menu.categories.map((c) => c.name)).toEqual(["Starters", "Mains"]);
+
+    const risotto = menu.categories[1]!.items[0]!;
+    expect(risotto.name).toBe("Risotto");
+    expect(risotto.allergens).toEqual(["gluten", "milk"]);
+    expect(risotto.dietary).toEqual(["vegetarian"]);
+    expect(risotto.variants.map((v) => v.name)).toEqual(["Regular", "Truffle"]);
+    expect(risotto.variants.map((v) => v.priceDeltaCents)).toEqual([0, 500]);
+  });
+
+  it("returns null when the venue has never published", async () => {
+    // Seed an onboarded venue but never publish. `resolvePreviewContext`
+    // gives us the public context with `publishedVersionId: null`, and the
+    // loader must not try to read against a null version.
+    const email = `p1-10-nopub-${randomUUID()}@ex.com`;
+    const signup = await signupUser({
+      email,
+      password: "S3cureP4ssPhrase!",
+      tenantName: "Placeholder",
+    });
+    if (!signup.ok) throw new Error();
+    createdUserIds.push(signup.userId);
+    createdTenantIds.push(signup.tenantId);
+    await saveStep1(signup.userId, { venueName: "V" });
+    await saveStep2(signup.userId, { importBranch: "manual" });
+    await saveStep3(signup.userId, { primaryColor: "#1f3b2e" });
+    await completeOnboarding(signup.userId);
+    const venue = await asUser(signup.userId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { slug: true } }),
+    );
+
+    const context = await resolvePreviewContext(venue.slug, null);
+    expect(context?.mode).toBe("public");
+    const menu = await loadPublicMenu(context!);
+    expect(menu).toBeNull();
+  });
+
+  it("preview context loads the DRAFT tree, not the published one", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    // Publish once — public and draft trees are equal now. Then edit the
+    // draft; the loader in preview mode should reflect the edit, but public
+    // mode should not.
+    const cats = await asUser(userId, (tx) =>
+      tx.category.findMany({
+        where: { menuVersion: { status: "draft" } },
+        orderBy: { orderIndex: "asc" },
+      }),
+    );
+    await asUser(userId, (tx) =>
+      tx.category.update({ where: { id: cats[0]!.id }, data: { name: "Antipasti" } }),
+    );
+
+    // Public: still says "Starters" because we didn't re-publish.
+    const publicCtx = await resolvePreviewContext(venueSlug, null);
+    const publicMenu = await loadPublicMenu(publicCtx!);
+    expect(publicMenu?.categories[0]!.name).toBe("Starters");
+
+    // Preview: sees the edit.
+    const { signPreviewToken } = await import("./preview-token");
+    const venue = await asUser(userId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { id: true, tenantId: true } }),
+    );
+    const token = signPreviewToken(venue.tenantId, venue.id);
+    const previewCtx = await resolvePreviewContext(venueSlug, token);
+    const previewMenu = await loadPublicMenu(previewCtx!);
+    expect(previewMenu?.categories[0]!.name).toBe("Antipasti");
+    expect(previewMenu?.isPreview).toBe(true);
+  });
+});
+
+describe("formatPrice", () => {
+  it("formats integer cents as localised currency", () => {
+    // German locale uses a comma decimal separator; English uses a dot.
+    expect(formatPrice(1400, "EUR", "de-DE").replace(/\s| /g, " ").trim()).toMatch(
+      /14,00 €|14,00€/,
+    );
+    expect(formatPrice(1400, "EUR", "en-GB")).toMatch(/€14\.00|€ 14.00/);
+  });
+
+  it("falls back gracefully on a bogus locale", () => {
+    expect(formatPrice(2500, "EUR", "not-a-locale-!!!" as string)).toContain("25.00");
+  });
+});

@@ -1,0 +1,158 @@
+import { randomUUID } from "node:crypto";
+import { afterEach, describe, expect, it } from "vitest";
+import { prisma } from "./db";
+import { signupUser } from "./auth-service";
+import { completeOnboarding, saveStep1, saveStep2, saveStep3 } from "./onboarding-service";
+import { asTenant, asUser } from "./tenant";
+import { createCategory, renameCategory } from "./categories-service";
+import { createItem } from "./items-service";
+import { getMenuStatus, publishDraft } from "./menu-versions-service";
+
+describe("draft/publish workflow", () => {
+  const createdUserIds: string[] = [];
+  const createdTenantIds: string[] = [];
+
+  async function onboardedUserWithMenu(): Promise<{
+    userId: string;
+    tenantId: string;
+    categoryId: string;
+  }> {
+    const email = `p1-7-${randomUUID()}@ex.com`;
+    const signup = await signupUser({
+      email,
+      password: "S3cureP4ssPhrase!",
+      tenantName: "Placeholder",
+    });
+    if (!signup.ok) throw new Error("signup failed");
+    createdUserIds.push(signup.userId);
+    createdTenantIds.push(signup.tenantId);
+    await saveStep1(signup.userId, { venueName: "Test Venue" });
+    await saveStep2(signup.userId, { importBranch: "manual" });
+    await saveStep3(signup.userId, { primaryColor: "#1f3b2e" });
+    if (!(await completeOnboarding(signup.userId)).ok) throw new Error("onboarding failed");
+    const cat = await createCategory(signup.userId, { name: "Mains" });
+    if (!cat.ok) throw new Error("category failed");
+    return { userId: signup.userId, tenantId: signup.tenantId, categoryId: cat.value.id };
+  }
+
+  afterEach(async () => {
+    for (const tid of createdTenantIds) {
+      await asTenant(tid, (tx) => tx.itemVariant.deleteMany({}));
+      await asTenant(tid, (tx) => tx.item.deleteMany({}));
+      await asTenant(tid, (tx) => tx.category.deleteMany({}));
+      // Clear the published pointer before deleting versions, otherwise
+      // Prisma keeps the FK-target row alive.
+      await asTenant(tid, (tx) => tx.menu.updateMany({ data: { publishedVersion: null } }));
+      await asTenant(tid, (tx) => tx.menuVersion.deleteMany({}));
+      await asTenant(tid, (tx) => tx.menu.deleteMany({}));
+      await asTenant(tid, (tx) => tx.venue.deleteMany({}));
+      await asTenant(tid, (tx) => tx.membership.deleteMany({}));
+      await asTenant(tid, (tx) => tx.tenant.deleteMany({}));
+    }
+    if (createdUserIds.length) {
+      await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+    createdUserIds.length = 0;
+    createdTenantIds.length = 0;
+  });
+
+  it("publish snapshots the draft into a new version and stamps published_at", async () => {
+    const { userId, categoryId } = await onboardedUserWithMenu();
+    await createItem(userId, { categoryId, name: "Risotto", priceCents: 1800, variants: [] });
+
+    const before = await getMenuStatus(userId);
+    expect(before.publishedVersionId).toBeNull();
+
+    const publish = await publishDraft(userId);
+    expect(publish.ok).toBe(true);
+    if (!publish.ok) return;
+
+    const after = await getMenuStatus(userId);
+    expect(after.publishedVersionId).toBe(publish.publishedVersionId);
+    expect(after.publishedAt).toBeInstanceOf(Date);
+
+    // The new version has its own copy of the category + item.
+    const publishedCats = await asUser(userId, (tx) =>
+      tx.category.findMany({ where: { menuVersionId: publish.publishedVersionId } }),
+    );
+    expect(publishedCats).toHaveLength(1);
+    expect(publishedCats[0]!.name).toBe("Mains");
+    const publishedItems = await asUser(userId, (tx) =>
+      tx.item.findMany({ where: { categoryId: publishedCats[0]!.id } }),
+    );
+    expect(publishedItems).toHaveLength(1);
+    expect(publishedItems[0]!.name).toBe("Risotto");
+  });
+
+  it("editing after publish leaves the published version unchanged until re-publish", async () => {
+    const { userId, categoryId } = await onboardedUserWithMenu();
+    await createItem(userId, { categoryId, name: "Risotto", priceCents: 1800, variants: [] });
+
+    const first = await publishDraft(userId);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    // Edit the DRAFT category — this must not touch the published version.
+    const rename = await renameCategory(userId, { id: categoryId, name: "Primi Piatti" });
+    expect(rename.ok).toBe(true);
+
+    const publishedCatBefore = await asUser(userId, (tx) =>
+      tx.category.findFirst({ where: { menuVersionId: first.publishedVersionId } }),
+    );
+    expect(publishedCatBefore?.name).toBe("Mains"); // still the old name
+
+    // Now re-publish; the new published version reflects the edit.
+    const second = await publishDraft(userId);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.publishedVersionId).not.toBe(first.publishedVersionId);
+
+    const publishedCatAfter = await asUser(userId, (tx) =>
+      tx.category.findFirst({ where: { menuVersionId: second.publishedVersionId } }),
+    );
+    expect(publishedCatAfter?.name).toBe("Primi Piatti");
+
+    // Menu.publishedVersion now points at the newer one.
+    const status = await getMenuStatus(userId);
+    expect(status.publishedVersionId).toBe(second.publishedVersionId);
+  });
+
+  it("publish refuses an empty draft", async () => {
+    const { userId } = await onboardedUserWithMenu();
+    // Delete the placeholder category so the draft has zero categories.
+    await asUser(userId, (tx) => tx.category.deleteMany({}));
+    const publish = await publishDraft(userId);
+    expect(publish.ok).toBe(false);
+    if (!publish.ok) expect(publish.error).toBe("empty_menu");
+  });
+
+  it("publish snapshots variants and allergens verbatim", async () => {
+    const { userId, categoryId } = await onboardedUserWithMenu();
+    await createItem(userId, {
+      categoryId,
+      name: "Risotto",
+      priceCents: 1800,
+      allergens: ["gluten", "milk"],
+      dietary: ["vegetarian"],
+      variants: [
+        { name: "Regular", priceDeltaCents: 0 },
+        { name: "Truffle", priceDeltaCents: 500 },
+      ],
+    });
+
+    const publish = await publishDraft(userId);
+    expect(publish.ok).toBe(true);
+    if (!publish.ok) return;
+
+    const publishedItem = await asUser(userId, (tx) =>
+      tx.item.findFirst({
+        where: { category: { menuVersionId: publish.publishedVersionId } },
+        include: { variants: { orderBy: { orderIndex: "asc" } } },
+      }),
+    );
+    expect(publishedItem?.allergens).toEqual(["gluten", "milk"]);
+    expect(publishedItem?.variants).toHaveLength(2);
+    expect(publishedItem?.variants.map((v) => v.name)).toEqual(["Regular", "Truffle"]);
+    expect(publishedItem?.variants.map((v) => v.priceDeltaCents)).toEqual([0, 500]);
+  });
+});

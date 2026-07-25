@@ -1,0 +1,142 @@
+{/* TODO: legal review — AI-drafted placeholder copy, not legally binding. Counsel replaces this file in P1-22c-ii and removes this marker. Sub-processor list stays code-owned. */}
+
+import { SubprocessorsTable } from "@/app/legal/_components/subprocessors-table";
+
+export const meta = {
+  title: "Data Processing Agreement",
+  lastUpdated: "2026-07-12-draft",
+};
+
+## 1. Parties and roles
+
+This Data Processing Agreement ("DPA") forms part of the Terms of Service between the
+Subscriber (the "Controller") and the operator of the Guesto platform (the "Processor",
+identified in the [Impressum](/legal/impressum)). It governs the processing by the Processor
+of personal data on behalf of the Controller within the meaning of Article 28 GDPR.
+
+## 2. Subject-matter, duration and scope
+
+The Processor processes personal data on behalf of the Controller for the duration of the
+underlying Terms of Service. The subject-matter is the operation of the Guesto multi-tenant
+menu platform. The nature of the processing includes storage, retrieval, transmission,
+transformation for translation and image resizing, and deletion. The purposes are (a)
+providing the dashboard to the Controller's authorised staff, (b) publishing the Controller's
+menu to the general public via the QR route, and (c) generating aggregate, non-identifying
+usage counts for the Controller's own analytics view.
+
+## 3. Categories of data subjects and personal data
+
+Data subjects are: (a) staff of the Controller invited to a dashboard workspace and (b) any
+natural persons named in menu content authored by the Controller (for example a chef, a
+supplier contact, or a producer credit). Categories of personal data are: email addresses,
+hashed authentication credentials, membership role, activity timestamps, and any personal
+data contained in free-text menu fields authored by the Controller.
+
+## 4. Instructions
+
+The Processor processes personal data only on documented instructions from the Controller,
+including with regard to transfers to third countries or international organisations, unless
+required to do so by Union or Member State law to which the Processor is subject. The
+Controller's instructions are set out in this DPA, in the product's default behaviour, and in
+any change the Controller makes to workspace settings through the dashboard.
+
+## 5. Confidentiality
+
+The Processor ensures that persons authorised to process personal data have committed
+themselves to confidentiality or are under an appropriate statutory obligation of
+confidentiality. Access to production data is limited to named engineers, is logged, and
+requires a break-glass ticket that is auto-reviewed weekly.
+
+## 6. Security measures (Art. 32 GDPR)
+
+- **Tenant isolation:** row-level security enforced on every `tenant_id` table at the
+  database level, with a continuously-run cross-tenant read test in CI.
+- **Transport security:** TLS 1.2 or higher between all internal services and the public
+  internet. HSTS on all Guesto hostnames.
+- **At-rest encryption:** database volumes and object storage volumes are encrypted at rest
+  using AES-256.
+- **Authentication:** passwords are hashed with Argon2id at OWASP 2024 parameters. Session
+  cookies are HMAC-SHA256 signed, `httpOnly`, `sameSite=lax`, `secure` in production.
+- **Backups:** daily encrypted backups retained 14 days; restore drills quarterly.
+- **Segregation:** production and staging environments are physically separate database
+  instances with no shared credentials.
+- **Vulnerability management:** dependency scanning on every merge; monthly patching cadence
+  for base images.
+
+## 7. Sub-processors
+
+The Processor uses the sub-processors listed below. Any addition or replacement of a
+sub-processor is notified to affected Controllers at least 30 days in advance by email to the
+account owner. The Controller may object in writing within that period; where the objection
+cannot be accommodated, the Controller may terminate the affected service at no additional
+cost with a pro-rata refund for any prepaid period.
+
+<SubprocessorsTable />
+
+## 8. Assistance to the Controller
+
+The Processor assists the Controller by appropriate technical and organisational measures,
+insofar as this is possible, in fulfilling the Controller's obligation to respond to requests
+for exercising the data subject's rights under Chapter III GDPR. Export and deletion tooling
+is available in the dashboard for the categories of personal data listed in section 3.
+
+## 9. Personal data breaches
+
+The Processor notifies the Controller without undue delay after becoming aware of a personal
+data breach within the meaning of Article 4(12) GDPR affecting the Controller's data, and in
+any event within 72 hours of confirmation. The notification includes the categories and
+approximate number of data subjects concerned, the likely consequences, and the measures
+taken to address the breach.
+
+## 10. Audit
+
+The Controller has the right to audit the Processor's compliance with this DPA once per year
+on reasonable notice, either by reviewing an up-to-date third-party attestation the Processor
+provides (SOC 2 Type II or ISO 27001 — placeholder, added when the certification is issued)
+or, where such attestation is unavailable, by conducting an on-site audit at the Controller's
+cost.
+
+## 11. Return or deletion at end of contract
+
+At the choice of the Controller, the Processor deletes or returns all personal data to the
+Controller after the end of the provision of services relating to processing, and deletes
+existing copies unless Union or Member State law requires storage of the personal data.
+
+## 12. AI-assisted menu import (Anthropic Claude Vision)
+
+When a Controller opts into the AI menu-import feature, the Processor transmits the source
+photo the Controller has uploaded — and only that photo — to a further sub-processor,
+Anthropic PBC ("Anthropic"), for structured extraction of menu categories, items, prices,
+allergens, and dietary flags. The transmission is a single request per import job over TLS
+1.2+; no other tenant data (email addresses, staff names, billing records) is sent alongside.
+
+**Categories of data transmitted.** The photo is a picture of a printed or handwritten
+menu. Its primary content is *product* information (dish names, prices, ingredient lists) —
+not personal data within the meaning of Article 4(1) GDPR. Personal data may appear
+incidentally where the menu names a natural person (a chef credit, a supplier attribution,
+a printed signature). Where such incidental personal data appears, the Processor's lawful
+basis for onward transmission is Article 6(1)(f) GDPR (legitimate interest of the
+Controller in operating an efficient menu-import workflow), balanced against the data
+subject's rights and freedoms as the printed information is already public on the
+Controller's premises.
+
+**Retention at the sub-processor.** Anthropic's Enterprise data-processing addendum
+provides that inputs and outputs are not used to train Anthropic's models and are retained
+only for the duration required to serve the request plus operational logging. The Processor
+does not enable Anthropic's optional persistence features (message-history logging, admin
+console retention). Placeholder — counsel confirms the exact contractual retention window
+before release.
+
+**Residency.** The Processor executes the Anthropic EU data-residency addendum so the
+request routes to Anthropic's EU-hosted inference endpoints. Placeholder — counsel confirms
+the addendum has been executed and records the effective date in the Impressum.
+
+**Human review.** Extraction output is written to a `menu_import_drafts` row in `queued /
+extracting / ready / failed` state and is never applied to the published menu without an
+explicit "Confirm & save" action by the Controller's staff (P1-29 review UI). No automated
+decision within the meaning of Article 22 GDPR is made on the basis of the extraction.
+
+**Feature switch-off.** The AI menu-import feature is off by default and only activates
+when the deployment carries a valid `ANTHROPIC_API_KEY` env variable. When the variable is
+absent (dev, CI, and any deployment where counsel has not signed off), the Processor uses a
+fixture-backed fake provider and no data leaves the Processor's infrastructure.

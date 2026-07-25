@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: elvoria-postgres
+    # P2-13: preload `pg_stat_statements` so the slow-query-report cron
+    # has anything to read. shared_preload_libraries can only be set at
+    # server start; runtime `ALTER SYSTEM SET` won't do it. Production
+    # (IONOS Managed Postgres) sets the equivalent config on the
+    # instance. CI cannot override CMD on a GH Actions service, so the
+    # migration + report code both skip gracefully there.
+    command: postgres -c shared_preload_libraries=pg_stat_statements
+    environment:
+      POSTGRES_USER: elvoria
+      POSTGRES_PASSWORD: elvoria_dev
+      POSTGRES_DB: rangla-punjab-resturant
+      # Dev-only: accept any password over host-based connections.
+      # localhost port bindings + the internal docker network are the
+      # only reachable surfaces. Production connects to the remote
+      # managed Postgres over TLS with a real password.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elvoria -d rangla-punjab-resturant"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: elvoria-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    # SMTP sink for dev + test: catches every outbound mail and exposes them
+    # at http://localhost:8025 (Web UI + JSON API on the same port). Never
+    # forwards mail to the real internet — MailHog only stores.
+    image: mailhog/mailhog:latest
+    container_name: elvoria-mailhog
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # HTTP UI + API
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -qO- http://127.0.0.1:8025 >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: elvoria-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      # Inside the compose network, services are reachable by name on their
+      # internal ports — not the host-side 5433 mapping.
+      APP_DATABASE_URL: postgresql://elvoria_app:elvoria_app_dev@postgres:5432/rangla-punjab-resturant?schema=public
+      DATABASE_URL: postgresql://elvoria:elvoria_dev@postgres:5432/rangla-punjab-resturant?schema=public
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: dev-only-do-not-use-in-prod-32-bytes-minimum-abcdefgh
+      EMAIL_TRANSPORT: mailhog
+      EMAIL_FROM: Elvoria Dev <dev@elvoria.local>
+      MAILHOG_SMTP_HOST: mailhog
+      MAILHOG_SMTP_PORT: "1025"
+      MAILHOG_API_URL: http://mailhog:8025
+    # Uploaded images live on disk under public/uploads — persist them
+    # across container rebuilds so dev uploads survive `compose up --build`.
+    volumes:
+      - uploads:/app/public/uploads
+
+volumes:
+  pgdata:
+  uploads:

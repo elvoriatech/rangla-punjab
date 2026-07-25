@@ -1,0 +1,77 @@
+{/* TODO: legal review — AI-drafted placeholder copy, not legally binding. Counsel replaces this file in P1-22c-ii and removes this marker. */}
+
+export const meta = {
+  title: "Privacy Policy",
+  lastUpdated: "2026-07-12-draft",
+};
+
+## 1. Controller and contact
+
+The controller responsible for processing personal data collected on the Guesto marketing
+site and dashboard is the legal entity identified in the [Impressum](/legal/impressum).
+For all other personal data that flows through Guesto on behalf of a Subscriber — namely
+staff email addresses invited into a tenant dashboard and any personal names contained in
+menu content — the Subscriber is the controller and Guesto is the processor under Article
+4 GDPR. The [Data Processing Agreement](/legal/dpa) governs that processor relationship.
+
+## 2. Categories of personal data and purposes
+
+We process:
+
+- **Account data:** email, hashed password, display name, tenant membership and role. Purpose:
+  authentication and access control. Legal basis: Art. 6(1)(b) GDPR (performance of contract).
+- **Billing data:** invoicing address, VAT-ID, subscription events, receipt history. The
+  payment instrument itself is stored by the payments sub-processor, not by Guesto. Legal
+  basis: Art. 6(1)(b) GDPR and Art. 6(1)(c) GDPR (tax retention).
+- **Menu content:** dish names, descriptions, prices, translations and images uploaded by
+  the Subscriber. Personal names may appear where a menu references a chef or supplier. Legal
+  basis: processor role on behalf of the Subscriber (see DPA).
+- **Server logs and error traces:** IP address, request URL, user-agent and timing.
+  Retained 30 days for security monitoring and abuse triage. Legal basis: Art. 6(1)(f) GDPR
+  (legitimate interest in operating and securing the service).
+- **Aggregated menu scan counts:** counted at the public route without any per-guest
+  identifier, cookie or fingerprint. This is not personal data.
+
+## 3. The public menu route: zero-cookie by design
+
+The public `/r/[slug]` route sets no cookies, writes nothing to `localStorage`, embeds no
+third-party trackers, and does not send analytics beacons. The only outbound requests a
+guest's browser makes on that page are to the Guesto CDN for images. There is no consent
+banner because there is nothing to consent to.
+
+## 4. Retention
+
+- Account data: for the life of the account plus 30 days after deletion (restore window).
+- Billing data: 10 years, as required by § 147 AO for tax records.
+- Server logs and error traces: 30 days.
+- Menu images: for the life of the tenant workspace; deleted from object storage with a
+  best-effort background job within 7 days of tenant deletion.
+
+## 5. Recipients and international transfers
+
+Personal data is stored in the European Union. A list of sub-processors, their region, and
+their DPA is maintained in the [DPA](/legal/dpa). Any transfer to a third country outside the
+EU/EEA relies on Standard Contractual Clauses under Commission Implementing Decision (EU)
+2021/914 combined with a case-by-case transfer impact assessment. Placeholder — counsel
+confirms the list of third-country recipients (if any) before release.
+
+## 6. Your rights
+
+Under Articles 15 to 22 GDPR you have the right to request access, rectification, erasure,
+restriction of processing, portability, and to object to processing based on legitimate
+interest. Requests can be sent to the contact address in the Impressum and are answered
+within one month of receipt. You also have the right to lodge a complaint with a supervisory
+authority; for Guesto the competent authority is placeholder — counsel names the competent
+Landesdatenschutzbeauftragte based on the entity's seat.
+
+## 7. Automated decisions
+
+Guesto does not carry out fully automated decisions with legal effect on data subjects
+within the meaning of Article 22 GDPR. The AI-assisted menu-import feature (P1-27) is a
+manual-review-required workflow: the Subscriber's staff approves every extracted item before
+publication.
+
+## 8. Changes to this Policy
+
+Material changes are notified to the account owner by email at least 30 days in advance and
+recorded in a version history at the foot of this page (added by counsel at release).

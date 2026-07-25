@@ -1,0 +1,39 @@
+# Queue backlog
+
+## What
+
+The `menu-import` BullMQ queue has more than **20 waiting jobs** for 15
+consecutive minutes, or a single job has been sitting in `waiting`
+longer than 10 minutes. Fires from the
+`bullmq_jobs_total{queue="menu-import",outcome="waiting"}` metric
+combined with `bullmq_job_duration_seconds{queue="menu-import"}` p95.
+
+## Impact
+
+Menu extractions delayed — the operator sees a spinning "queued"
+status in `/dashboard/menu-import/[id]/review` and cannot publish new
+imports. The public menu at `/r/[slug]` is unaffected because
+published menus are cache-fronted; this is a dashboard-experience
+degradation, not a customer-visible outage.
+
+## First steps
+
+1. Confirm the worker process is running: on the cluster, run
+   `kubectl -n elvoria get pods -l role=worker` — you should see at
+   least one `Running` pod. If none, restart the worker deployment.
+2. Check Redis health: `redis-cli -h <redis-host> info replication` +
+   `info memory`. High `used_memory` (>80% of `maxmemory`) blocks new
+   jobs — scale the Redis instance or purge stale keys.
+3. Look for a poison job in the failed set:
+   `bullmq listFailed --queue menu-import` — one job that keeps
+   erroring on retry starves the queue.
+4. If the AnthropicAiImportProvider is the bottleneck, temporarily
+   unset `ANTHROPIC_API_KEY` in the worker env — the FakeAiImportProvider
+   drains the backlog quickly while the operator retries individually.
+
+## Escalation
+
+Page `@on-call-eng`. If the root cause is Redis saturation → escalate
+to `@platform`. If a poison job is triggering a downstream data
+corruption pattern → escalate to `@data-team` and freeze the queue
+with `menuImportQueue.pause()` from a shell.

@@ -1,0 +1,589 @@
+// Elvoria data model — spec §5.
+// Conventions: integer cents (never floats), soft-delete on tenant-owned entities,
+// created_at/updated_at everywhere, tenant_id on every tenant-owned table so RLS
+// (P0-4) can enforce isolation directly rather than via joins.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Prisma 7 no longer accepts `url` or `directUrl` in the schema.
+  // Every connection URL lives in `prisma.config.ts` (migrate + shadow
+  // DB) and in `src/lib/db.ts` (app runtime via a driver adapter).
+  provider = "postgresql"
+}
+
+// ---------- enums ----------
+
+enum Role {
+  owner
+  staff
+}
+
+enum TenantStatus {
+  active
+  suspended
+  cancelled
+}
+
+enum VenueStatus {
+  active
+  disabled
+}
+
+enum MenuVersionStatus {
+  draft
+  published
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  grace
+  canceled
+  incomplete
+  unpaid
+}
+
+// 14 EU-regulated allergens (Reg. 1169/2011). Structured, never free text.
+enum Allergen {
+  gluten
+  crustaceans
+  eggs
+  fish
+  peanuts
+  soybeans
+  milk
+  nuts
+  celery
+  mustard
+  sesame
+  sulphites
+  lupin
+  molluscs
+}
+
+enum Dietary {
+  vegetarian
+  vegan
+  halal
+  kosher
+  gluten_free
+  dairy_free
+}
+
+// P2-1: operator fee model. `upfront` ⇒ 0% per order (the operator bills a
+// one-time lump sum out of band); `percentage` ⇒ `feeBp` basis points on
+// orders strictly over `feeMinCents`.
+enum FeeMode {
+  upfront
+  percentage
+}
+
+// P1-28a: AI menu-import lifecycle.
+// `queued` → `extracting` → `ready` on a happy path; either state can
+// transition to `failed`. `discarded` is a user-invoked close for drafts
+// that the operator does not want to keep. `confirmed` (P1-29) means the
+// ---------- tenancy ----------
+
+model Tenant {
+  id                     String       @id @default(cuid())
+  name                   String
+  status                 TenantStatus @default(active)
+  // P1-4 onboarding wizard state — see migration comments. JSONB so the
+  // shape can evolve without a migration per step.
+  onboardingState        Json         @default("{\"step\":1}") @map("onboarding_state")
+  onboardingCompletedAt  DateTime?    @map("onboarding_completed_at")
+  // Plan OVERRIDE (admin exceptions). NULL = follow the Stripe
+  // subscription — the normal state. See src/lib/plan-state.ts.
+  plan                   String?
+  entitlementOverrides   Json         @default("{}") @map("entitlement_overrides")
+  // Stripe Connect: the restaurant's own account — guest payments land
+  // there; Elvoria takes an application fee (src/lib/connect-service.ts).
+  stripeAccountId        String?      @map("stripe_account_id")
+  stripeChargesEnabled   Boolean      @default(false) @map("stripe_charges_enabled")
+
+  // "Own keys" payout mode (upfront/flat-fee plans): the restaurant charges
+  // guests with their OWN Stripe account, collecting 100%. Keys are encrypted
+  // at rest (src/lib/secrets.ts); *_mask is a safe display hint. Used only
+  // when ownKeysEnabled AND the operator fee mode is upfront.
+  stripeOwnSecretEnc   String?  @map("stripe_own_secret_enc")
+  stripeOwnSecretMask  String?  @map("stripe_own_secret_mask")
+  stripeOwnWebhookEnc  String?  @map("stripe_own_webhook_enc")
+  stripeOwnWebhookMask String?  @map("stripe_own_webhook_mask")
+  stripeOwnEnabled     Boolean  @default(false) @map("stripe_own_enabled")
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  deletedAt              DateTime?
+
+  memberships   Membership[]
+  venues        Venue[]
+  menus         Menu[]
+  menuVersions  MenuVersion[]
+  categories    Category[]
+  items         Item[]
+  itemVariants  ItemVariant[]
+  translations  Translation[]
+  media         Media[]
+  subscription  Subscription?
+  orders        Order[]
+  orderItems    OrderItem[]
+
+  @@map("tenants")
+}
+
+model MenuTemplate {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  name      String
+  cuisine   String
+  emoji     String  @default("🍽")
+  locale    String  @default("de")
+  active    Boolean @default(true)
+  sortIndex Int     @default(0) @map("sort_index")
+  // Category → item tree; validated by src/lib/menu-template-service.ts.
+  content   Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("menu_templates")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  // citext so "Alice@Ex.com" and "alice@ex.com" collide on the unique index —
+  // enforced at the DB, not by app-side lowercasing (see migration comments).
+  email           String    @unique @db.Citext
+  passwordHash    String    @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  // Session cutoff: cookies with `iat < sessions_valid_from` are rejected,
+  // so password reset (P1-2b) invalidates every outstanding session in one
+  // DB write without needing a server-side session store.
+  sessionsValidFrom DateTime @default(now()) @map("sessions_valid_from")
+  // Elvoria staff flag — grants /admin, deliberately not a membership.
+  isPlatformAdmin   Boolean  @default(false) @map("is_platform_admin")
+  locale          String    @default("en")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  memberships             Membership[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+
+  @@map("users")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model Membership {
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  tenantId String @map("tenant_id")
+  role     Role   @default(staff)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("memberships")
+}
+
+// ---------- venues & menus ----------
+
+model Venue {
+  id             String      @id @default(cuid())
+  tenantId       String      @map("tenant_id")
+  name           String
+  slug           String      @unique // immutable; renames create SlugRedirect
+  timezone       String      @default("Europe/Berlin")
+  currency       String      @default("EUR")
+  defaultLocale  String      @default("en") @map("default_locale")
+  enabledLocales String[]    @default(["en"]) @map("enabled_locales")
+  branding       Json        @default("{}")
+  // Owner-side ordering switches + delivery zones (src/lib/ordering-config.ts).
+  ordering       Json        @default("{}")
+  // Weekly opening hours (src/lib/opening-hours.ts); {} = not set.
+  hours          Json        @default("{}")
+  status         VenueStatus @default(active)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menus     Menu[]
+  redirects SlugRedirect[]
+  orders    Order[]
+
+  @@index([tenantId])
+  @@map("venues")
+}
+
+model SlugRedirect {
+  id        String   @id @default(cuid())
+  oldSlug   String   @unique @map("old_slug")
+  venueId   String   @map("venue_id")
+  createdAt DateTime @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@map("slug_redirects")
+}
+
+model Menu {
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  venueId          String   @map("venue_id")
+  name             String
+  schedule         Json     @default("{}")
+  isDefault        Boolean  @default(false) @map("is_default")
+  publishedVersion String?  @map("published_version")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  versions MenuVersion[]
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@map("menus")
+}
+
+model MenuVersion {
+  id          String            @id @default(cuid())
+  tenantId    String            @map("tenant_id")
+  menuId      String            @map("menu_id")
+  status      MenuVersionStatus @default(draft)
+  publishedAt DateTime?         @map("published_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menu       Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  categories Category[]
+
+  @@index([tenantId])
+  @@index([menuId])
+  @@map("menu_versions")
+}
+
+model Category {
+  id            String  @id @default(cuid())
+  tenantId      String  @map("tenant_id")
+  menuVersionId String  @map("menu_version_id")
+  name          String // default-locale display; other locales in Translation
+  orderIndex    Int     @default(0) @map("order_index")
+  photoMediaId  String? @map("photo_media_id")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menuVersion MenuVersion @relation(fields: [menuVersionId], references: [id], onDelete: Cascade)
+  photoMedia  Media?      @relation(fields: [photoMediaId], references: [id], onDelete: SetNull)
+  items       Item[]
+
+  @@index([tenantId])
+  @@index([menuVersionId])
+  @@map("categories")
+}
+
+model Item {
+  id            String     @id @default(cuid())
+  tenantId      String     @map("tenant_id")
+  categoryId    String     @map("category_id")
+  name          String // default-locale display
+  description   String?
+  priceCents    Int        @map("price_cents")
+  currency      String     @default("EUR")
+  orderIndex    Int        @default(0) @map("order_index")
+  isAvailable   Boolean    @default(true) @map("is_available")
+  allergens     Allergen[] @default([])
+  traces        Allergen[] @default([])
+  dietary       Dietary[]  @default([])
+  spice         Int        @default(0)
+  flags         Json       @default("{}")
+  photoMediaId  String?    @map("photo_media_id")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category   Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  photoMedia Media?        @relation(fields: [photoMediaId], references: [id], onDelete: SetNull)
+  variants   ItemVariant[]
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@map("items")
+}
+
+model ItemVariant {
+  id              String @id @default(cuid())
+  tenantId        String @map("tenant_id")
+  itemId          String @map("item_id")
+  name            String
+  priceDeltaCents Int    @default(0) @map("price_delta_cents")
+  orderIndex      Int    @default(0) @map("order_index")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([itemId])
+  @@map("item_variants")
+}
+
+model Translation {
+  id         String @id @default(cuid())
+  tenantId   String @map("tenant_id")
+  entityType String @map("entity_type") // "item" | "category" | "venue" | ...
+  entityId   String @map("entity_id")
+  locale     String
+  field      String // "name" | "description" | ...
+  value      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, locale, field])
+  @@index([tenantId])
+  @@map("translations")
+}
+
+model Media {
+  id         String @id @default(cuid())
+  tenantId   String @map("tenant_id")
+  storageKey String @map("storage_key")
+  width      Int
+  height     Int
+  bytes      Int
+  altText    String? @map("alt_text")
+  // Original upload filename, normalised (lowercase basename). The join
+  // key for bulk image upload + Excel import: re-uploading the same
+  // filename replaces the image, and menu rows reference photos by it.
+  filename   String? @map("filename")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  Item[]
+  categories Category[]
+
+  @@index([tenantId])
+  @@map("media")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  tenantId             String             @unique @map("tenant_id")
+  stripeCustomerId     String?            @map("stripe_customer_id")
+  stripeSubscriptionId String?            @map("stripe_subscription_id")
+  planCode             String             @default("trial") @map("plan_code")
+  status               SubscriptionStatus @default(trialing)
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  trialEnd             DateTime?          @map("trial_end")
+  cancelAt             DateTime?          @map("cancel_at")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // The DB-level uniqueness is a *partial* index (see migration) — one
+  // live row per tenant, but soft-deleted rows don't block resubscribes.
+  // Prisma sees a plain `@unique` for one-to-one typegen; drift is
+  // harmless because the app always filters `deletedAt: null`.
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// Per-event guest scan record. P2-9 reshaped from the earlier
+// aggregate-counter table so the partition manager (P2-10) can move
+// old months into cold storage. No PII stored — `uaClass` +
+// `referrerClass` are bucket names (e.g. `mobile-safari`, `search`),
+// not raw user-agent strings.
+//
+// PARTITION BY RANGE ("at") monthly. Prisma does not model partitions
+// natively; the migration attaches `PARTITION BY RANGE ("at")` to the
+// parent + creates monthly child tables. FKs cannot cross into a
+// partitioned parent, so `venueId` is denormalised (no relation).
+model ScanStat {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  venueId         String   @map("venue_id")
+  path            String
+  uaClass         String   @map("ua_class")
+  referrerClass   String   @map("referrer_class")
+  at              DateTime @db.Timestamptz(6)
+
+  @@index([venueId, at])
+  @@index([tenantId, at])
+  @@map("scan_stats")
+}
+
+// Append-only audit log. Same partition shape as `scan_stats`;
+// retained longer (24 months by policy P2-10 vs 12 for scans) because
+// audit trails have compliance implications.
+model AuditEvent {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  actorUserId   String?  @map("actor_user_id")
+  kind          String
+  targetKind    String   @map("target_kind")
+  targetId      String   @map("target_id")
+  meta          Json     @default("{}")
+  at            DateTime @db.Timestamptz(6)
+
+  @@index([tenantId, at])
+  @@index([actorUserId, at])
+  @@map("audit_events")
+}
+
+// Guest self-ordering (no payment yet). An order snapshots name + price
+// per line at placement time — later menu edits must never rewrite a
+// receipt. `orderNumber` is a per-venue running number for the printed
+// receipt; uniqueness is enforced so the create path can retry on race.
+model Order {
+  id          String  @id @default(cuid())
+  tenantId    String  @map("tenant_id")
+  venueId     String  @map("venue_id")
+  orderNumber Int     @map("order_number")
+  tableNumber String? @map("table_number")
+  // dine_in | takeaway | delivery — CHECK-constrained in the migration.
+  orderType     String  @default("dine_in") @map("order_type")
+  customerName  String? @map("customer_name")
+  customerPhone String? @map("customer_phone")
+  // {street, zip, city, note} for delivery orders.
+  deliveryAddress Json? @map("delivery_address")
+  // none = pay at restaurant; pending/paid/failed = online payment.
+  paymentStatus       String  @default("none") @map("payment_status")
+  paymentRef          String? @map("payment_ref")
+  applicationFeeCents Int     @default(0) @map("application_fee_cents")
+  status      String  @default("placed")
+  // Guest-requested fulfilment time (pickup/delivery). NULL = ASAP.
+  requestedFor DateTime? @map("requested_for")
+  totalCents  Int     @map("total_cents")
+  currency    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venue  Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  items  OrderItem[]
+
+  @@unique([venueId, orderNumber])
+  @@index([tenantId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  orderId  String @map("order_id")
+  // Plain reference (no FK): the source item lives inside a menu version
+  // that may be superseded or cleaned up; the snapshot below is the truth.
+  itemId     String? @map("item_id")
+  name       String
+  priceCents Int     @map("price_cents")
+  quantity   Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ---------- operator (deploy-level) settings ----------
+
+// P2-1: a single-row table holding the operator-tunable knobs for this
+// deploy. Not tenant-scoped — one deploy serves one operator. The row is
+// pinned to a fixed id so there is always exactly one; the migration seeds
+// it and the accessor in src/lib/operator-settings.ts falls back to the
+// same defaults if it is ever missing.
+model OperatorSettings {
+  id          String  @id @default("singleton")
+  feeMode     FeeMode @default(percentage) @map("fee_mode")
+  feeBp       Int     @default(500) @map("fee_bp")
+  feeMinCents Int     @default(2000) @map("fee_min_cents")
+  siteActive  Boolean @default(true) @map("site_active")
+
+  // Optional runtime overrides for the email seam. NULL means "use the
+  // env value" (EMAIL_TRANSPORT / EMAIL_FROM), so an unset deploy behaves
+  // exactly as before; setting them from the Operator Console changes
+  // delivery live, with no restart. The Resend API key stays an env
+  // secret (never stored here).
+  emailTransport String? @map("email_transport")
+  emailFrom      String? @map("email_from")
+
+  // Active app theme id (drives data-theme on <html>). NULL ⇒ the default
+  // "Rangla Punjab" theme; other ids (e.g. "reztro") re-skin every surface.
+  appTheme String? @map("app_theme")
+
+  // Platform Stripe keys, operator-managed from /admin (so they change
+  // without a redeploy). *_enc = AES-GCM ciphertext (src/lib/secrets.ts);
+  // *_mask = safe-to-display hint. NULL ⇒ fall back to the env value.
+  stripeSecretEnc         String? @map("stripe_secret_enc")
+  stripeSecretMask        String? @map("stripe_secret_mask")
+  stripeWebhookEnc        String? @map("stripe_webhook_enc")
+  stripeWebhookMask       String? @map("stripe_webhook_mask")
+  stripeConnectWebhookEnc String? @map("stripe_connect_webhook_enc")
+  stripeConnectWebhookMask String? @map("stripe_connect_webhook_mask")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("operator_settings")
+}

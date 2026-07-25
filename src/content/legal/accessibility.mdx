@@ -1,0 +1,81 @@
+{/* TODO: legal review — AI-drafted placeholder copy, not legally binding. Counsel replaces this file in P1-22c-ii and removes this marker. */}
+
+export const meta = {
+  title: "Accessibility Statement",
+  lastUpdated: "2026-07-12-draft",
+};
+
+## 1. Standard and scope
+
+Guesto commits to conforming with the **Web Content Accessibility Guidelines (WCAG) 2.1
+at level AA** across the entire user-facing surface of the platform. The standard is
+enforced by the design system, by automated axe checks in the CI pipeline, and by manual
+review against the applicable success criteria before every release. The relevant European
+harmonised standard is EN 301 549 v3.2.1, which incorporates WCAG 2.1 AA by reference; the
+Guesto conformance target is therefore aligned with the European Accessibility Act (Directive
+(EU) 2019/882) as it is transposed into the Member State law applicable at the seat of the
+operator.
+
+## 2. Conformance status by surface
+
+- **Public menu (`/r/[slug]` and `/r/[slug]/[locale]`):** semantic markup, `<html lang>` set
+  per locale, no JavaScript required, allergen and dietary information carried in text (never
+  by colour alone), touch targets ≥ 44 × 44 px, focus indicators visible at 3:1 contrast
+  against the background. Public pages are the surface a restaurant guest sees and are the
+  strictest of the conformance targets — they are held to WCAG 2.1 AA with no known
+  exceptions at the time of writing.
+- **Dashboard (`/`, `/menus`, `/settings`, `/billing`):** targeting WCAG 2.1 AA. Automated
+  axe checks land in CI with the P1-25 task; manual review of the editor covers keyboard
+  navigation, screen-reader labels on custom inputs, and the drag-and-drop reorder handles
+  which fall back to keyboard-only reorder buttons.
+- **Marketing site and legal pages (this document):** WCAG 2.1 AA; verified by axe on every
+  merge to `main`.
+
+## 3. Known limitations
+
+The following are known partial conformances at the date of this statement. Placeholder —
+counsel and the accessibility auditor confirm this list before release:
+
+- The QR-code image on the print sheet is decorative and marked with an empty `alt`; the
+  human-readable venue slug is printed below it as the accessible alternative.
+- The colour-picker in the branding editor exposes contrast information but does not yet
+  offer an accessible-name suggestion — noted as a follow-up (P1-24).
+- Localised menu content is only as accessible as the source content the tenant provides; a
+  tenant that writes in ALL CAPS or hides ingredients in image-only fields can produce a page
+  that will fail on its content even though the surrounding shell is compliant.
+
+## 4. Assistive technology tested against
+
+Placeholder — the accessibility auditor confirms the exact combination before release. The
+target combinations for the initial audit are: VoiceOver on iOS Safari, TalkBack on Android
+Chrome, NVDA on Firefox and Chrome on Windows, and VoiceOver on macOS Safari.
+
+## 5. Preparation of this statement
+
+This statement was prepared using the self-evaluation method described in Commission
+Implementing Decision (EU) 2018/1523 for public-sector bodies and adapted to the private
+context of Guesto. The statement is reviewed at least once per year and re-issued whenever
+a material change to the user interface would affect the conformance status.
+
+## 6. Feedback and contact procedure
+
+If you encounter an accessibility barrier on any Guesto page, please write to
+accessibility@elvoria.local (placeholder — counsel replaces with the monitored inbox at
+release) with (a) the URL where the barrier occurred, (b) the assistive technology and
+browser you were using, and (c) a short description of what you expected and what actually
+happened. We aim to acknowledge feedback within two business days and to propose a resolution
+or an accessible alternative within 15 working days.
+
+## 7. Enforcement procedure
+
+If you are dissatisfied with the response to your feedback, you may lodge a complaint with
+the competent enforcement body. Placeholder — counsel names the competent
+Schlichtungsstelle nach dem Behindertengleichstellungsgesetz (BGG) or the relevant Member
+State body applicable at Guesto's seat, and confirms the address and complaint form URL.
+
+## 8. Review cadence
+
+This statement is next scheduled for review no later than 12 months from the `lastUpdated`
+date above. A scheduled review is performed sooner if a material change to the platform (a
+redesign, a new locale, a new interactive surface) affects the accessibility conformance
+status.
