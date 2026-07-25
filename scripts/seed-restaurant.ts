@@ -15,11 +15,11 @@ import { templateContentSchema } from "../src/lib/menu-template-service";
  * connection (DATABASE_URL) — this is operator-provisioned setup data,
  * not tenant-authored content, so RLS is not the barrier here.
  *
- * Config via env (all optional; defaults provision Rangla Punjab):
- *   RESTAURANT_NAME   default "Rangla Punjab"
- *   RESTAURANT_SLUG   default "rangla-punjab"
- *   OWNER_EMAIL       default "owner@rangla-punjab.local"
- *   OWNER_PASSWORD    default "Rangla-Owner-2026!" (dev only; prod uses invite email)
+ * Config via env (all optional; defaults provision a demo restaurant):
+ *   RESTAURANT_NAME   default "Demo Restaurant"
+ *   RESTAURANT_SLUG   default "demo-restaurant"
+ *   OWNER_EMAIL       default "owner@example.com"
+ *   OWNER_PASSWORD    default "Resto-Owner-2026!" (dev only; set in prod.env on deploy)
  *   TEMPLATE_KEY      default "indian-pakistani"
  *   CURRENCY          default "EUR"
  *   DEFAULT_LOCALE    default "en"
@@ -27,10 +27,10 @@ import { templateContentSchema } from "../src/lib/menu-template-service";
  *   pnpm exec tsx --env-file=.env scripts/seed-restaurant.ts
  */
 
-const RESTAURANT_NAME = process.env.RESTAURANT_NAME ?? "Rangla Punjab";
-const RESTAURANT_SLUG = process.env.RESTAURANT_SLUG ?? "rangla-punjab";
-const OWNER_EMAIL = process.env.OWNER_EMAIL ?? "owner@rangla-punjab.local";
-const OWNER_PASSWORD = process.env.OWNER_PASSWORD ?? "Rangla-Owner-2026!";
+const RESTAURANT_NAME = process.env.RESTAURANT_NAME ?? "Demo Restaurant";
+const RESTAURANT_SLUG = process.env.RESTAURANT_SLUG ?? "demo-restaurant";
+const OWNER_EMAIL = process.env.OWNER_EMAIL ?? "owner@example.com";
+const OWNER_PASSWORD = process.env.OWNER_PASSWORD ?? "Resto-Owner-2026!";
 const TEMPLATE_KEY = process.env.TEMPLATE_KEY ?? "indian-pakistani";
 const CURRENCY = process.env.CURRENCY ?? "EUR";
 const DEFAULT_LOCALE = process.env.DEFAULT_LOCALE ?? "en";

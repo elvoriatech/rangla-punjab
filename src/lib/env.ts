@@ -42,7 +42,7 @@ const envSchema = z.object({
   // Email adapter (P1-3). `mailhog` = local SMTP sink, `resend` = prod HTTPS
   // API (needs RESEND_API_KEY), `console` = stdout for CI smoke.
   EMAIL_TRANSPORT: z.enum(["mailhog", "resend", "console"]).default("mailhog"),
-  EMAIL_FROM: z.string().min(3).default("Rangla Punjab <dev@rangla-punjab.local>"),
+  EMAIL_FROM: z.string().min(3).default("Resto <dev@example.local>"),
   MAILHOG_SMTP_HOST: z.string().default("localhost"),
   MAILHOG_SMTP_PORT: z.coerce.number().int().positive().default(1025),
   MAILHOG_API_URL: z.string().url().default("http://localhost:8025"),

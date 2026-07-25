@@ -1,4 +1,4 @@
-# Rangla Punjab — White-Label Ordering Platform · Backlog
+# resto — White-label ordering platform · Backlog
 
 Single source of truth for the autonomous build loop. `/next` works the topmost unchecked task
 whose dependencies are all checked.
@@ -7,8 +7,8 @@ whose dependencies are all checked.
 
 > **Context:** This repo began life as **Elvoria** — a multi-tenant QR-menu SaaS for 20k+ tenants.
 > We are converting it into a **white-label, single-restaurant ordering platform**: one deploy per
-> client, own DB + domain + Stripe. **Rangla Punjab** is deployment #1. The old SaaS backlog is
-> archived at [docs/BACKLOG.elvoria-saas-archive.md](docs/BACKLOG.elvoria-saas-archive.md).
+> client, own DB + domain + Stripe. Each sale is a **separate deploy** with its own `prod.env`.
+> The old SaaS backlog is archived at [docs/BACKLOG.elvoria-saas-archive.md](docs/BACKLOG.elvoria-saas-archive.md).
 
 ---
 
@@ -34,10 +34,9 @@ whose dependencies are all checked.
   **removed** — do NOT reintroduce them.
 - **Config split:** `.env` holds **secrets + infra only**; everything a human would change lives in
   `/admin` or `/dashboard`.
-- **DB name:** local dev uses `rangla-punjab-resturant` (user's spelling, kept verbatim). The live
-  deploy runs on a **cloud Postgres** (`rangla_database` @ 31.70.87.185, owner `rangla_user`);
-  `DATABASE_URL`/`APP_DATABASE_URL` point there. RLS is **disabled** on that DB — single restaurant,
-  one tenant, nothing to isolate — so the app connects as the owner role.
+- **DB name:** local dev may use any Postgres DB name (see `docker-compose.yml`). Production uses
+  `resto_database` / `resto_user` on the client's DB VPS (`DB_HOST` private IP in `prod.env`).
+  RLS is **disabled** — single restaurant per deploy; app connects as the owner role.
 - **Hosting:** single small VPS + Docker + Caddy (auto-TLS). ~€5–10/mo.
 - **Images (revised 2026-07-22):** stored on the app's own **local disk** under
   `public/uploads` and resized on the fly by the `/img` route (sharp) — **no S3/R2, no

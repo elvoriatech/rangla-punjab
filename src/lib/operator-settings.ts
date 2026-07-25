@@ -23,7 +23,7 @@ export function asEmailTransport(v: string | null | undefined): EmailTransport |
   return v && (EMAIL_TRANSPORTS as readonly string[]).includes(v) ? (v as EmailTransport) : null;
 }
 
-/** Selectable app themes. "default" = the built-in Rangla Punjab look; each
+/** Selectable app themes. "default" = the built-in Resto look; each
  *  other id maps to a `:root[data-theme="<id>"]` block in globals.css. */
 export interface AppTheme {
   id: string;
@@ -33,7 +33,7 @@ export interface AppTheme {
 export const APP_THEMES: readonly AppTheme[] = [
   {
     id: "default",
-    label: "Rangla Punjab",
+    label: "Resto",
     tagline: "Espresso, cream & burnt-orange — the default look.",
   },
   { id: "reztro", label: "Reztro", tagline: "Clean light dashboard with a fresh-green accent." },

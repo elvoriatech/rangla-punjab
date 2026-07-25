@@ -29,7 +29,7 @@ max_connections = 100                              # single app instance stays w
 
 ```conf
 # app VPS via private network (single owner role — app connects directly)
-host  rangla_database  rangla_user  APP_PRIVATE_IP/32  scram-sha-256
+host  resto_database  resto_user  APP_PRIVATE_IP/32  scram-sha-256
 ```
 
 ```bash
@@ -53,41 +53,35 @@ Single restaurant, RLS disabled — one owner role the app connects as directly.
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE DATABASE rangla_database;
-CREATE ROLE rangla_user LOGIN PASSWORD '<DB_OWNER_PASSWORD from prod.env>';
-ALTER DATABASE rangla_database OWNER TO rangla_user;
-\c rangla_database
+CREATE DATABASE resto_database;
+CREATE ROLE resto_user LOGIN PASSWORD '<DB_OWNER_PASSWORD from prod.env>';
+ALTER DATABASE resto_database OWNER TO resto_user;
+\c resto_database
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 CREATE EXTENSION IF NOT EXISTS citext;
 SQL
 ```
 
-The migrations (run from the app server as `elvoria`) create every table,
-the RLS policies, and grant `elvoria_app` exactly what it needs — grant
-nothing else by hand.
+The migrations (run from the app server) create every table and extension —
+grant nothing else by hand beyond the owner role above.
 
-## 5. Nightly backups → R2 (off-machine, non-negotiable)
+## 5. Nightly backups (off-machine)
 
 ```bash
 sudo apt install -y rclone
-# configure an rclone remote named r2 for the Cloudflare R2 bucket, then:
-sudo tee /etc/cron.d/elvoria-backup <<'CRON'
-15 3 * * * postgres pg_dump -Fc guesto_db > /var/backups/guesto-$(date +\%F).dump && rclone copy /var/backups/guesto-$(date +\%F).dump r2:guesto-media/backups/ && find /var/backups -name 'guesto-*.dump' -mtime +7 -delete
+# Configure rclone for your object store, then:
+sudo mkdir -p /var/backups
+sudo tee /etc/cron.d/rangla-backup <<'CRON'
+15 3 * * * postgres pg_dump -Fc resto_database > /var/backups/resto-$(date +\%F).dump && rclone copy /var/backups/resto-$(date +\%F).dump REMOTE:backups/resto/ && find /var/backups -name 'resto-*.dump' -mtime +7 -delete
 CRON
 ```
 
-Retention on R2: keep 30 days (lifecycle rule on the `backups/` prefix).
-Prove restorability quarterly with `scripts/restore-drill.ts` against a
-scratch database.
+Replace `REMOTE:backups/rangla/` with your bucket path. Keep ~30 days retention.
 
 ## 6. Verify from the app server
 
 ```bash
-# owner (migrations path)
-psql "postgresql://elvoria:<owner-pw>@DB_PRIVATE_IP:5432/elvoria" -c "select 1"
-# app role
-psql "postgresql://elvoria_app:<app-pw>@DB_PRIVATE_IP:5432/elvoria" -c "select 1"
+psql "postgresql://resto_user:<DB_OWNER_PASSWORD>@DB_PRIVATE_IP:5432/resto_database" -c "select 1"
 ```
 
-Both succeed → set `DB_HOST=DB_PRIVATE_IP` plus the two passwords in
-`prod.env` on the app server, and continue with `deploy/deploy.sh`.
+Success → set `DB_HOST=DB_PRIVATE_IP` and `DB_OWNER_PASSWORD` in `prod.env` on the app server, then run `./deploy/deploy.sh release` (see `docs/DEPLOY-IONOS-VPS.md`).

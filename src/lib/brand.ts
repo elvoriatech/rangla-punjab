@@ -13,7 +13,7 @@
  * and lives on the tenant/venue, not here.
  */
 export const BRAND = {
-  name: process.env.NEXT_PUBLIC_APP_BRAND_NAME ?? process.env.APP_BRAND_NAME ?? "Rangla Punjab",
+  name: process.env.NEXT_PUBLIC_APP_BRAND_NAME ?? process.env.APP_BRAND_NAME ?? "Resto",
   tagline:
     process.env.NEXT_PUBLIC_APP_BRAND_TAGLINE ??
     process.env.APP_BRAND_TAGLINE ??

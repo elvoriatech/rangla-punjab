@@ -1,7 +1,7 @@
-# Guesto/Guesto — production compose for the APP VPS.
+# resto — production compose for the APP VPS.
 #
-# Topology: PostgreSQL is a REMOTE managed Postgres (rangla_database @
-# ${DB_HOST}) — deliberately not a container here. Single restaurant,
+# Topology: PostgreSQL is REMOTE (resto_database @ ${DB_HOST} private IP).
+# Deliberately not a container here. Single restaurant,
 # one tenant, RLS disabled: the app connects DIRECTLY to the remote DB
 # as the owner role, no connection pooler in between.
 # This file runs only the stateless/replaceable pieces:
@@ -37,7 +37,7 @@ services:
       - app
 
   app:
-    image: ${APP_IMAGE:-guesto-app:latest}
+    image: ${APP_IMAGE:-resto-app:latest}
     restart: unless-stopped
     env_file:
       - ../prod.env
@@ -47,8 +47,8 @@ services:
       # remote managed Postgres as the owner role. Same URL for runtime,
       # migrations, and shadow DB — there is no pooler and no separate
       # least-privilege role to distinguish.
-      APP_DATABASE_URL: postgresql://${DB_OWNER_USER:-rangla_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-rangla_database}?schema=public
-      DATABASE_URL: postgresql://${DB_OWNER_USER:-rangla_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-rangla_database}?schema=public
+      APP_DATABASE_URL: postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public
+      DATABASE_URL: postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public
       REDIS_URL: redis://redis:6379
     depends_on:
       redis:
