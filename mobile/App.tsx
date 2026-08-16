@@ -3,6 +3,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  useFonts,
+  PlayfairDisplay_700Bold,
+  PlayfairDisplay_800ExtraBold,
+  PlayfairDisplay_600SemiBold_Italic,
+} from "@expo-google-fonts/playfair-display";
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
@@ -196,6 +202,14 @@ function TabButton({
 }
 
 export default function App(): React.ReactElement {
+  // The mockup's display serif; until it's ready render brand red so the
+  // launch never flashes unstyled text.
+  const [fontsLoaded] = useFonts({
+    PlayfairDisplay_700Bold,
+    PlayfairDisplay_800ExtraBold,
+    PlayfairDisplay_600SemiBold_Italic,
+  });
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.red }} />;
   return (
     <SafeAreaProvider>
       <I18nProvider>

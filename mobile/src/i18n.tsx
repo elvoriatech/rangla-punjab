@@ -12,6 +12,15 @@ export type Lang = "de" | "en";
 const STRINGS = {
   de: {
     restaurant: "RESTAURANT",
+    featCuisine: "Authentische\nKüche",
+    featFresh: "Frische\nZutaten",
+    featRecipes: "Traditionelle\nRezepte",
+    featLove: "Mit Liebe\nServiert",
+    welcome: "Willkommen",
+    taglineTop: "Authentischer Geschmack",
+    taglineBottom: "Traditionelle Rezepte",
+    startOrdering: "Bestellung Starten",
+    signInRegister: "Anmelden / Registrieren",
     tabStart: "Start",
     tabMenu: "Kategorien",
     tabCart: "Warenkorb",
@@ -100,6 +109,15 @@ const STRINGS = {
   },
   en: {
     restaurant: "RESTAURANT",
+    featCuisine: "Authentic\nCuisine",
+    featFresh: "Fresh\nIngredients",
+    featRecipes: "Traditional\nRecipes",
+    featLove: "Served\nwith Love",
+    welcome: "Welcome",
+    taglineTop: "Authentic taste",
+    taglineBottom: "Traditional recipes",
+    startOrdering: "Start ordering",
+    signInRegister: "Sign in / Register",
     tabStart: "Home",
     tabMenu: "Menu",
     tabCart: "Cart",
@@ -200,12 +218,9 @@ const I18nContext = createContext<I18nApi | null>(null);
 const KEY = "rangla-lang";
 
 function deviceDefault(): Lang {
-  try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? "de";
-    return locale.toLowerCase().startsWith("en") ? "en" : "de";
-  } catch {
-    return "de";
-  }
+  // German is the house default regardless of device locale; the switcher
+  // on the Konto screen persists an explicit choice.
+  return "de";
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }): React.ReactElement {

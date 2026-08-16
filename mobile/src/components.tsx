@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, money, radius } from "./theme";
+import { colors, fonts, money, radius } from "./theme";
 import { useI18n } from "./i18n";
 import type { ApiItem } from "./api";
 
@@ -14,11 +14,12 @@ export function BrandHeader({
 }): React.ReactElement {
   return (
     <View style={styles.header}>
-      <Image source={require("../assets/rangla-logo.png")} style={styles.headerLogo} />
-      <View style={{ flex: 1 }}>
+      <Image source={require("../assets/chef.png")} style={styles.headerLogo} />
+      <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>{title}</Text>
         {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
       </View>
+      <View style={{ width: 40 }} />
     </View>
   );
 }
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
   },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   headerCenter: { flex: 1, alignItems: "center" },
-  headerTitle: { color: colors.onRed, fontSize: 19, fontWeight: "800" },
+  headerTitle: { color: colors.onRed, fontSize: 20, fontFamily: fonts.display },
   headerSubtitle: { color: colors.goldSoft, fontSize: 11, letterSpacing: 3, marginTop: 1 },
   sectionRow: {
     flexDirection: "row",

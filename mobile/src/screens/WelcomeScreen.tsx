@@ -8,16 +8,30 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useI18n } from "../i18n";
-import { colors, radius } from "../theme";
+import { colors, fonts, radius } from "../theme";
 
 /**
- * The launch screen — the mockup's red Willkommen page: wave artwork,
- * logo medallion, brand wordmark, tagline, and the two entries
- * ("Bestellung Starten" → menu, "Anmelden / Registrieren" → account).
- * Shown on every cold start while the menu loads; both buttons enable
- * the moment it has.
+ * The launch screen — the mockup's red Willkommen page, element for
+ * element: wave artwork, logo medallion, serif wordmark, gold flourish,
+ * the four-feature icon row, a second flourish, italic Willkommen +
+ * tagline, then the two entries ("Bestellung Starten" → menu,
+ * "Anmelden / Registrieren" → account). Shown on every cold start while
+ * the menu loads; both buttons enable the moment it has.
  */
+
+const ORNAMENT = require("../../assets/ornament.png");
+
+function Feature({ icon, label }: { icon: React.ReactNode; label: string }): React.ReactElement {
+  return (
+    <View style={styles.feature}>
+      {icon}
+      <Text style={styles.featureLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export function WelcomeScreen({
   ready,
   loadError,
@@ -31,13 +45,12 @@ export function WelcomeScreen({
   onStart: () => void;
   onAccount: () => void;
 }): React.ReactElement {
-  const { t, lang } = useI18n();
-  const de = lang === "de";
+  const { t } = useI18n();
   return (
     <ImageBackground source={require("../../assets/artwork.jpg")} style={styles.bg}>
       <View style={styles.scrim}>
         <View style={styles.logoRing}>
-          <Image source={require("../../assets/rangla-logo.png")} style={styles.logo} />
+          <Image source={require("../../assets/chef.png")} style={styles.logo} />
         </View>
         <Text style={styles.brand}>Rangla Punjab</Text>
         <View style={styles.ruleRow}>
@@ -45,12 +58,41 @@ export function WelcomeScreen({
           <Text style={styles.sub}>{t.restaurant}</Text>
           <View style={styles.rule} />
         </View>
+        <Image source={ORNAMENT} style={styles.ornamentSmall} resizeMode="contain" />
 
-        <Text style={styles.welcome}>{de ? "Willkommen" : "Welcome"}</Text>
+        <View style={styles.featureRow}>
+          <Feature
+            icon={
+              <MaterialCommunityIcons name="room-service-outline" size={26} color={colors.onRed} />
+            }
+            label={t.featCuisine}
+          />
+          <View style={styles.featureDivider} />
+          <Feature
+            icon={<Ionicons name="leaf-outline" size={24} color={colors.onRed} />}
+            label={t.featFresh}
+          />
+          <View style={styles.featureDivider} />
+          <Feature
+            icon={
+              <MaterialCommunityIcons name="pot-steam-outline" size={26} color={colors.onRed} />
+            }
+            label={t.featRecipes}
+          />
+          <View style={styles.featureDivider} />
+          <Feature
+            icon={<Ionicons name="heart-outline" size={24} color={colors.onRed} />}
+            label={t.featLove}
+          />
+        </View>
+
+        <Image source={ORNAMENT} style={styles.ornamentWide} resizeMode="contain" />
+
+        <Text style={styles.welcome}>{t.welcome}</Text>
         <Text style={styles.tagline}>
-          {de ? "Authentischer Geschmack" : "Authentic taste"}
+          {t.taglineTop}
           {"\n"}
-          {de ? "Traditionelle Rezepte" : "Traditional recipes"}
+          {t.taglineBottom}
         </Text>
 
         {loadError ? (
@@ -68,9 +110,7 @@ export function WelcomeScreen({
               style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
             >
               {ready ? (
-                <Text style={styles.primaryText}>
-                  {de ? "Bestellung Starten" : "Start ordering"}
-                </Text>
+                <Text style={styles.primaryText}>{t.startOrdering}</Text>
               ) : (
                 <ActivityIndicator color={colors.ink} />
               )}
@@ -83,9 +123,7 @@ export function WelcomeScreen({
                 (!ready || pressed) && { opacity: 0.7 },
               ]}
             >
-              <Text style={styles.secondaryText}>
-                {de ? "Anmelden / Registrieren" : "Sign in / Register"}
-              </Text>
+              <Text style={styles.secondaryText}>{t.signInRegister}</Text>
             </Pressable>
           </>
         )}
@@ -104,33 +142,50 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(110, 14, 14, 0.45)",
   },
   logoRing: {
-    width: 118,
-    height: 118,
-    borderRadius: 59,
+    width: 122,
+    height: 122,
+    borderRadius: 61,
     borderWidth: 2,
     borderColor: colors.goldSoft,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.cream,
-    marginBottom: 18,
+    overflow: "hidden",
+    marginBottom: 16,
   },
-  logo: { width: 104, height: 104, borderRadius: 52 },
+  logo: { width: 112, height: 112, borderRadius: 56 },
   brand: {
     color: colors.onRed,
-    fontSize: 34,
-    fontWeight: "800",
+    fontSize: 36,
+    fontFamily: fonts.display,
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowRadius: 6,
   },
-  ruleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
+  ruleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
   rule: { width: 42, height: 1, backgroundColor: colors.goldSoft },
   sub: { color: colors.goldSoft, fontSize: 12, letterSpacing: 4, fontWeight: "700" },
+  ornamentSmall: { width: 150, height: 28, marginTop: 10, opacity: 0.95 },
+  featureRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    justifyContent: "center",
+    marginTop: 22,
+  },
+  feature: { flex: 1, alignItems: "center", gap: 6, paddingHorizontal: 3 },
+  featureDivider: { width: 1, backgroundColor: "rgba(232,193,92,0.55)", marginVertical: 2 },
+  featureLabel: {
+    color: colors.onRed,
+    fontSize: 10,
+    lineHeight: 13,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  ornamentWide: { width: 220, height: 40, marginTop: 24, opacity: 0.95 },
   welcome: {
     color: colors.onRed,
-    fontSize: 26,
-    fontWeight: "700",
-    fontStyle: "italic",
-    marginTop: 42,
+    fontSize: 30,
+    fontFamily: fonts.displayItalic,
+    marginTop: 12,
   },
   tagline: {
     color: colors.goldSoft,
@@ -138,7 +193,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     marginTop: 8,
-    marginBottom: 36,
+    marginBottom: 32,
   },
   primaryBtn: {
     alignSelf: "stretch",

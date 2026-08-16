@@ -20,6 +20,13 @@ export const colors = {
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
+/** Display serif from the mockup (Playfair Display), loaded in App.tsx. */
+export const fonts = {
+  display: "PlayfairDisplay_700Bold",
+  displayHeavy: "PlayfairDisplay_800ExtraBold",
+  displayItalic: "PlayfairDisplay_600SemiBold_Italic",
+} as const;
+
 export function money(cents: number, currency = "EUR"): string {
   const eur = (cents / 100).toFixed(2).replace(".", ",");
   return currency === "EUR" ? `€${eur}` : `${eur} ${currency}`;
