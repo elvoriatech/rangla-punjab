@@ -4,6 +4,7 @@ import type { ApiTracking } from "../api";
 import { fetchOrderStatus, payPageUrl, receiptUrl } from "../api";
 import { BrandHeader } from "../components";
 import { colors, money, radius } from "../theme";
+import { useI18n } from "../i18n";
 
 /**
  * Bestellung verfolgen — the mockup's tracking screen. Polls the v1
@@ -22,6 +23,7 @@ export function TrackScreen({
   canPayOnline: boolean;
   onBack: () => void;
 }): React.ReactElement {
+  const { t, lang } = useI18n();
   const [tracking, setTracking] = useState<ApiTracking | null>(null);
   const [error, setError] = useState(false);
 
@@ -50,10 +52,10 @@ export function TrackScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title="Bestellung verfolgen" />
+      <BrandHeader title={t.trackTitle} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <Pressable onPress={onBack} hitSlop={8}>
-          <Text style={styles.back}>‹ Zurück</Text>
+          <Text style={styles.back}>{t.back}</Text>
         </Pressable>
         {!tracking ? (
           <Text style={styles.loading}>
@@ -62,13 +64,15 @@ export function TrackScreen({
         ) : (
           <View style={styles.card}>
             <Text style={styles.confirmed}>
-              {tracking.status === "done" ? "Bestellung abgeschlossen" : "Bestellung bestätigt"}
+              {tracking.status === "done" ? t.orderDone : t.orderConfirmed}
             </Text>
             <Text style={styles.orderNo}>
               Bestellnummer #{String(tracking.orderNumber).padStart(4, "0")}
             </Text>
             {tracking.tableNumber ? (
-              <Text style={styles.meta}>Tisch {tracking.tableNumber}</Text>
+              <Text style={styles.meta}>
+                {t.table} {tracking.tableNumber}
+              </Text>
             ) : null}
 
             <View style={styles.steps}>
@@ -104,7 +108,9 @@ export function TrackScreen({
                       <Text style={[styles.stepDe, !step.reached && { opacity: 0.5 }]}>
                         {step.labelDe}
                       </Text>
-                      <Text style={styles.stepEn}>{step.labelEn}</Text>
+                      <Text style={styles.stepEn}>
+                        {lang === "de" ? step.labelEn : step.labelDe}
+                      </Text>
                     </View>
                   </View>
                 );
@@ -112,7 +118,7 @@ export function TrackScreen({
             </View>
 
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Gesamt</Text>
+              <Text style={styles.totalLabel}>{t.total}</Text>
               <Text style={styles.totalValue}>{money(tracking.totalCents, tracking.currency)}</Text>
             </View>
             <Text style={styles.payState}>
@@ -124,14 +130,14 @@ export function TrackScreen({
                 onPress={() => void Linking.openURL(payPageUrl(orderId, token))}
                 style={styles.payBtn}
               >
-                <Text style={styles.payBtnText}>Online bezahlen (Karte / PayPal)</Text>
+                <Text style={styles.payBtnText}>{t.payOnline}</Text>
               </Pressable>
             ) : null}
             <Pressable
               onPress={() => void Linking.openURL(receiptUrl(orderId, token))}
               style={styles.receiptBtn}
             >
-              <Text style={styles.receiptBtnText}>Beleg herunterladen (PDF)</Text>
+              <Text style={styles.receiptBtnText}>{t.receiptPdf}</Text>
             </Pressable>
           </View>
         )}

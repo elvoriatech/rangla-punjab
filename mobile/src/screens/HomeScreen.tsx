@@ -11,6 +11,7 @@ import {
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
 import { colors, radius } from "../theme";
+import { useI18n } from "../i18n";
 
 /**
  * Start — the mockup's home: red brand header, artwork hero, the
@@ -29,13 +30,14 @@ export function HomeScreen({
   onBrowseAll: () => void;
   onStartOrder: (type: "takeaway" | "delivery") => void;
 }): React.ReactElement {
+  const { t } = useI18n();
   const popular = menu.categories
     .flatMap((c) => c.items)
     .filter((i) => i.isAvailable)
     .slice(0, 6);
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title={menu.venue.name} subtitle="RESTAURANT" />
+      <BrandHeader title={menu.venue.name} subtitle={t.restaurant} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <ImageBackground
           source={require("../../assets/artwork.jpg")}
@@ -43,7 +45,7 @@ export function HomeScreen({
           imageStyle={{ borderRadius: radius.lg }}
         >
           <View style={styles.heroInner}>
-            <Text style={styles.heroText}>Leckeres Essen{"\n"}nur einen Klick entfernt!</Text>
+            <Text style={styles.heroText}>{t.heroLine}</Text>
           </View>
         </ImageBackground>
 
@@ -51,21 +53,21 @@ export function HomeScreen({
           {menu.ordering.delivery ? (
             <Pressable style={styles.modeCard} onPress={() => onStartOrder("delivery")}>
               <Text style={styles.modeEmoji}>🛵</Text>
-              <Text style={styles.modeTitle}>Lieferung</Text>
-              <Text style={styles.modeSub}>Wir liefern zu dir</Text>
+              <Text style={styles.modeTitle}>{t.delivery}</Text>
+              <Text style={styles.modeSub}>{t.deliverySub}</Text>
             </Pressable>
           ) : null}
           {menu.ordering.takeaway ? (
             <Pressable style={styles.modeCard} onPress={() => onStartOrder("takeaway")}>
               <Text style={styles.modeEmoji}>🛍️</Text>
-              <Text style={styles.modeTitle}>Abholung</Text>
-              <Text style={styles.modeSub}>Bestelle & hole ab</Text>
+              <Text style={styles.modeTitle}>{t.pickup}</Text>
+              <Text style={styles.modeSub}>{t.pickupSub}</Text>
             </Pressable>
           ) : null}
         </View>
 
-        <SectionTitle action="Alle anzeigen" onAction={onBrowseAll}>
-          Kategorien
+        <SectionTitle action={t.showAll} onAction={onBrowseAll}>
+          {t.categories}
         </SectionTitle>
         <ScrollView
           horizontal
@@ -88,8 +90,8 @@ export function HomeScreen({
           ))}
         </ScrollView>
 
-        <SectionTitle action="Alle anzeigen" onAction={onBrowseAll}>
-          Beliebte Gerichte
+        <SectionTitle action={t.showAll} onAction={onBrowseAll}>
+          {t.popular}
         </SectionTitle>
         <View style={{ gap: 10 }}>
           {popular.map((item) => (

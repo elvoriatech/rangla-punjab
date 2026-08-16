@@ -1,0 +1,236 @@
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+/**
+ * App languages: German (default) and English. One dictionary, one hook —
+ * the choice persists on the device and also rides the menu request
+ * (?locale=) so translated menu content follows when the restaurant
+ * maintains translations.
+ */
+export type Lang = "de" | "en";
+
+const STRINGS = {
+  de: {
+    restaurant: "RESTAURANT",
+    tabStart: "Start",
+    tabMenu: "Kategorien",
+    tabCart: "Warenkorb",
+    tabOrders: "Bestellungen",
+    tabAccount: "Konto",
+    heroLine: "Leckeres Essen\nnur einen Klick entfernt!",
+    delivery: "Lieferung",
+    deliverySub: "Wir liefern zu dir",
+    pickup: "Abholung",
+    pickupSub: "Bestelle & hole ab",
+    categories: "Kategorien",
+    popular: "Beliebte Gerichte",
+    showAll: "Alle anzeigen",
+    all: "Alle",
+    soldOut: "ausverkauft",
+    offer: "ANGEBOT",
+    cartTitle: "Warenkorb",
+    cartEmpty: "Dein Warenkorb ist leer",
+    cartEmptySub: "Füge Gerichte aus der Speisekarte hinzu.",
+    dineIn: "Im Restaurant",
+    tableOptional: "Tischnummer (optional)",
+    tablePlaceholder: "z. B. 12",
+    name: "Name",
+    namePlaceholder: "Dein Name",
+    phone: "Telefon",
+    street: "Straße & Hausnummer",
+    chooseZip: "Liefergebiet — PLZ wählen",
+    zipPick: "Bitte wähle deine PLZ aus den Liefergebieten.",
+    deliveryFee: "Liefergebühr",
+    free: "gratis",
+    minOrder: "Mindestbestellwert",
+    freeOver: "gratis ab",
+    toMinimum: "bis zum Mindestbestellwert für",
+    still: "Noch",
+    noteOptional: "Hinweis (optional)",
+    notePlaceholder: "z. B. 2. Etage, bei Khan klingeln",
+    subtotal: "Zwischensumme",
+    total: "Gesamt",
+    placeOrder: "Bestellung aufgeben",
+    payAtRestaurant: "Bezahlung im Restaurant — bar oder mit Karte.",
+    payAfterOrder: "Bezahle nach der Bestellung online oder im Restaurant.",
+    orderFailed: "Bestellung fehlgeschlagen — bitte erneut versuchen.",
+    orderingPaused: "Bestellungen sind gerade pausiert — bitte versuche es später.",
+    outsideArea: "Leider liefern wir nicht in diese PLZ.",
+    belowMin: "Der Mindestbestellwert ist noch nicht erreicht.",
+    menuChanged: "Die Karte wurde aktualisiert — bitte Warenkorb prüfen.",
+    trackTitle: "Bestellung verfolgen",
+    back: "‹ Zurück",
+    loadingOrder: "Lade Bestellung…",
+    retrying: "Verbindung fehlgeschlagen — neuer Versuch…",
+    orderConfirmed: "Bestellung bestätigt",
+    orderDone: "Bestellung abgeschlossen",
+    orderNo: "Bestellnummer",
+    table: "Tisch",
+    paidOnline: "✓ Online bezahlt",
+    payAtRest: "Zahlung im Restaurant",
+    payOnline: "Online bezahlen (Karte / PayPal)",
+    receiptPdf: "Beleg herunterladen (PDF)",
+    ordersTitle: "Bestellungen",
+    ordersEmpty: "Noch keine Bestellungen",
+    ordersEmptySub: "Deine Bestellungen von diesem Gerät erscheinen hier.",
+    accountOrders: "Meine Bestellungen (Konto)",
+    accountTitle: "Konto",
+    language: "Sprache",
+    signInLead: "Melde dich an, um deine Bestellungen auf allen Geräten zu sehen.",
+    signInGoogle: "Mit Google anmelden",
+    signInMicrosoft: "Mit Microsoft / Hotmail anmelden",
+    signInDev: "Dev-Login (nur lokal)",
+    signInWaiting: "Warte auf Anmeldung im Browser…",
+    signInCancel: "Abbrechen",
+    signedInAs: "Angemeldet als",
+    signOut: "Abmelden",
+    signInOptional: "Bestellen geht auch ohne Konto — die Anmeldung ist optional.",
+    hours: "Öffnungszeiten",
+    closed: "geschlossen",
+    more: "Mehr",
+    webMenu: "Speisekarte im Web",
+    imprint: "Impressum",
+    privacy: "Datenschutz",
+    footer: "Traditionelle Rezepte mit Liebe serviert 🌿",
+    bootLoading: "Speisekarte wird geladen…",
+    bootError: "Keine Verbindung zur Küche.",
+    bootRetry: "Erneut versuchen",
+    days: ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
+    typeLabels: { dine_in: "Im Restaurant", takeaway: "Abholung", delivery: "Lieferung" },
+  },
+  en: {
+    restaurant: "RESTAURANT",
+    tabStart: "Home",
+    tabMenu: "Menu",
+    tabCart: "Cart",
+    tabOrders: "Orders",
+    tabAccount: "Account",
+    heroLine: "Delicious food,\njust one tap away!",
+    delivery: "Delivery",
+    deliverySub: "We deliver to you",
+    pickup: "Pickup",
+    pickupSub: "Order & collect",
+    categories: "Categories",
+    popular: "Popular dishes",
+    showAll: "Show all",
+    all: "All",
+    soldOut: "sold out",
+    offer: "OFFER",
+    cartTitle: "Cart",
+    cartEmpty: "Your cart is empty",
+    cartEmptySub: "Add dishes from the menu.",
+    dineIn: "Dine-in",
+    tableOptional: "Table number (optional)",
+    tablePlaceholder: "e.g. 12",
+    name: "Name",
+    namePlaceholder: "Your name",
+    phone: "Phone",
+    street: "Street & number",
+    chooseZip: "Delivery area — choose your ZIP",
+    zipPick: "Please pick your ZIP from the delivery areas.",
+    deliveryFee: "Delivery fee",
+    free: "free",
+    minOrder: "Minimum order",
+    freeOver: "free over",
+    toMinimum: "to the minimum order for",
+    still: "Still",
+    noteOptional: "Note (optional)",
+    notePlaceholder: "e.g. 2nd floor, ring Khan",
+    subtotal: "Subtotal",
+    total: "Total",
+    placeOrder: "Place order",
+    payAtRestaurant: "Pay at the restaurant — cash or card.",
+    payAfterOrder: "Pay online after ordering, or at the restaurant.",
+    orderFailed: "Order failed — please try again.",
+    orderingPaused: "Ordering is paused right now — please try again later.",
+    outsideArea: "Sorry, we don't deliver to this ZIP.",
+    belowMin: "The minimum order value hasn't been reached yet.",
+    menuChanged: "The menu was updated — please review your cart.",
+    trackTitle: "Track order",
+    back: "‹ Back",
+    loadingOrder: "Loading order…",
+    retrying: "Connection failed — retrying…",
+    orderConfirmed: "Order confirmed",
+    orderDone: "Order completed",
+    orderNo: "Order number",
+    table: "Table",
+    paidOnline: "✓ Paid online",
+    payAtRest: "Pay at the restaurant",
+    payOnline: "Pay online (card / PayPal)",
+    receiptPdf: "Download receipt (PDF)",
+    ordersTitle: "Orders",
+    ordersEmpty: "No orders yet",
+    ordersEmptySub: "Orders from this device will appear here.",
+    accountOrders: "My orders (account)",
+    accountTitle: "Account",
+    language: "Language",
+    signInLead: "Sign in to see your orders on every device.",
+    signInGoogle: "Sign in with Google",
+    signInMicrosoft: "Sign in with Microsoft / Hotmail",
+    signInDev: "Dev login (local only)",
+    signInWaiting: "Waiting for sign-in in the browser…",
+    signInCancel: "Cancel",
+    signedInAs: "Signed in as",
+    signOut: "Sign out",
+    signInOptional: "Ordering works without an account — signing in is optional.",
+    hours: "Opening hours",
+    closed: "closed",
+    more: "More",
+    webMenu: "Menu on the web",
+    imprint: "Imprint",
+    privacy: "Privacy",
+    footer: "Traditional recipes, served with love 🌿",
+    bootLoading: "Loading the menu…",
+    bootError: "Can't reach the kitchen.",
+    bootRetry: "Try again",
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    typeLabels: { dine_in: "Dine-in", takeaway: "Pickup", delivery: "Delivery" },
+  },
+} as const;
+
+export type Strings = (typeof STRINGS)["de"];
+
+interface I18nApi {
+  lang: Lang;
+  t: Strings;
+  setLang: (lang: Lang) => void;
+}
+
+const I18nContext = createContext<I18nApi | null>(null);
+const KEY = "rangla-lang";
+
+function deviceDefault(): Lang {
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? "de";
+    return locale.toLowerCase().startsWith("en") ? "en" : "de";
+  } catch {
+    return "de";
+  }
+}
+
+export function I18nProvider({ children }: { children: React.ReactNode }): React.ReactElement {
+  const [lang, setLangState] = useState<Lang>(deviceDefault());
+  useEffect(() => {
+    AsyncStorage.getItem(KEY).then((saved) => {
+      if (saved === "de" || saved === "en") setLangState(saved);
+    });
+  }, []);
+  const api = useMemo<I18nApi>(
+    () => ({
+      lang,
+      t: STRINGS[lang] as Strings,
+      setLang: (next) => {
+        setLangState(next);
+        AsyncStorage.setItem(KEY, next).catch(() => {});
+      },
+    }),
+    [lang],
+  );
+  return <I18nContext.Provider value={api}>{children}</I18nContext.Provider>;
+}
+
+export function useI18n(): I18nApi {
+  const ctx = useContext(I18nContext);
+  if (!ctx) throw new Error("useI18n outside I18nProvider");
+  return ctx;
+}

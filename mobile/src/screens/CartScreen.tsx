@@ -13,6 +13,8 @@ import {
 import type { ApiMenu, OrderType, PlacedOrder } from "../api";
 import { placeOrder } from "../api";
 import { useCart } from "../cart";
+import { useAuth } from "../auth";
+import { useI18n } from "../i18n";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, PrimaryButton, QtyStepper } from "../components";
 import { colors, money, radius } from "../theme";
@@ -32,13 +34,15 @@ export function CartScreen({
   onPlaced: (order: PlacedOrder) => void;
 }): React.ReactElement {
   const cart = useCart();
+  const auth = useAuth();
+  const { t } = useI18n();
   const allowed = useMemo(() => {
     const types: { key: OrderType; label: string; emoji: string }[] = [];
-    if (menu.ordering.dineIn) types.push({ key: "dine_in", label: "Im Restaurant", emoji: "🍽️" });
-    if (menu.ordering.takeaway) types.push({ key: "takeaway", label: "Abholung", emoji: "🛍️" });
-    if (menu.ordering.delivery) types.push({ key: "delivery", label: "Lieferung", emoji: "🛵" });
+    if (menu.ordering.dineIn) types.push({ key: "dine_in", label: t.dineIn, emoji: "🍽️" });
+    if (menu.ordering.takeaway) types.push({ key: "takeaway", label: t.pickup, emoji: "🛍️" });
+    if (menu.ordering.delivery) types.push({ key: "delivery", label: t.delivery, emoji: "🛵" });
     return types;
-  }, [menu.ordering]);
+  }, [menu.ordering, t]);
 
   const [orderType, setOrderType] = useState<OrderType>(
     presetType && allowed.some((t) => t.key === presetType)
@@ -78,32 +82,35 @@ export function CartScreen({
   async function submit(): Promise<void> {
     setBusy(true);
     setError(null);
-    const result = await placeOrder({
-      slug: menu.venue.slug,
-      items: cart.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
-      orderType,
-      tableNumber: orderType === "dine_in" && tableNumber.trim() ? tableNumber.trim() : undefined,
-      customerName: needsContact ? name.trim() : undefined,
-      customerPhone: needsContact ? phone.trim() : undefined,
-      address:
-        orderType === "delivery"
-          ? {
-              street: street.trim(),
-              zip: zip.trim(),
-              city: area?.locality || undefined,
-              note: note.trim() || undefined,
-            }
-          : undefined,
-    });
+    const result = await placeOrder(
+      {
+        slug: menu.venue.slug,
+        items: cart.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+        orderType,
+        tableNumber: orderType === "dine_in" && tableNumber.trim() ? tableNumber.trim() : undefined,
+        customerName: needsContact ? name.trim() : undefined,
+        customerPhone: needsContact ? phone.trim() : undefined,
+        address:
+          orderType === "delivery"
+            ? {
+                street: street.trim(),
+                zip: zip.trim(),
+                city: area?.locality || undefined,
+                note: note.trim() || undefined,
+              }
+            : undefined,
+      },
+      auth.token,
+    );
     setBusy(false);
     if (!result.ok) {
       const messages: Record<string, string> = {
-        ordering_paused: "Bestellungen sind gerade pausiert — bitte versuche es später.",
-        outside_delivery_area: "Leider liefern wir nicht in diese PLZ.",
-        below_minimum: "Der Mindestbestellwert ist noch nicht erreicht.",
-        unknown_items: "Die Karte wurde aktualisiert — bitte Warenkorb prüfen.",
+        ordering_paused: t.orderingPaused,
+        outside_delivery_area: t.outsideArea,
+        below_delivery_minimum: t.belowMin,
+        unknown_items: t.menuChanged,
       };
-      setError(messages[result.error] ?? "Bestellung fehlgeschlagen — bitte erneut versuchen.");
+      setError(messages[result.error] ?? t.orderFailed);
       return;
     }
     await rememberOrder({
@@ -121,7 +128,7 @@ export function CartScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title="Warenkorb" />
+      <BrandHeader title={t.cartTitle} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -130,8 +137,8 @@ export function CartScreen({
           {cart.lines.length === 0 ? (
             <View style={styles.empty}>
               <Text style={{ fontSize: 40 }}>🛒</Text>
-              <Text style={styles.emptyTitle}>Dein Warenkorb ist leer</Text>
-              <Text style={styles.emptySub}>Füge Gerichte aus der Speisekarte hinzu.</Text>
+              <Text style={styles.emptyTitle}>{t.cartEmpty}</Text>
+              <Text style={styles.emptySub}>{t.cartEmptySub}</Text>
             </View>
           ) : (
             <>
@@ -172,16 +179,21 @@ export function CartScreen({
 
               {orderType === "dine_in" ? (
                 <Field
-                  label="Tischnummer (optional)"
+                  label={t.tableOptional}
                   value={tableNumber}
                   onChange={setTableNumber}
-                  placeholder="z. B. 12"
+                  placeholder={t.tablePlaceholder}
                 />
               ) : (
                 <>
-                  <Field label="Name" value={name} onChange={setName} placeholder="Dein Name" />
                   <Field
-                    label="Telefon"
+                    label={t.name}
+                    value={name}
+                    onChange={setName}
+                    placeholder={t.namePlaceholder}
+                  />
+                  <Field
+                    label={t.phone}
                     value={phone}
                     onChange={setPhone}
                     placeholder="+49 …"
@@ -192,7 +204,7 @@ export function CartScreen({
               {orderType === "delivery" ? (
                 <>
                   <Field
-                    label="Straße & Hausnummer"
+                    label={t.street}
                     value={street}
                     onChange={setStreet}
                     placeholder="Bahnhofstraße 15"
@@ -205,34 +217,34 @@ export function CartScreen({
                     keyboardType="number-pad"
                   />
                   <Field
-                    label="Hinweis (optional)"
+                    label={t.noteOptional}
                     value={note}
                     onChange={setNote}
-                    placeholder="z. B. 2. Etage, bei Khan klingeln"
+                    placeholder={t.notePlaceholder}
                   />
                 </>
               ) : null}
 
               <View style={styles.totalBox}>
-                <Row label="Zwischensumme" value={money(cart.totalCents, menu.venue.currency)} />
+                <Row label={t.subtotal} value={money(cart.totalCents, menu.venue.currency)} />
                 {orderType === "delivery" ? (
-                  <Row label="Liefergebühr" value={money(deliveryFee, menu.venue.currency)} />
+                  <Row label={t.deliveryFee} value={money(deliveryFee, menu.venue.currency)} />
                 ) : null}
-                <Row label="Gesamt" value={money(grandTotal, menu.venue.currency)} bold />
+                <Row label={t.total} value={money(grandTotal, menu.venue.currency)} bold />
               </View>
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <PrimaryButton
-                label={`Bestellung aufgeben · ${money(grandTotal, menu.venue.currency)}`}
+                label={`${t.placeOrder} · ${money(grandTotal, menu.venue.currency)}`}
                 tone="red"
                 onPress={() => void submit()}
                 disabled={missing}
                 busy={busy}
               />
               <Text style={styles.payNote}>
-                {menu.ordering.onlinePayment
-                  ? "Bezahle nach der Bestellung online oder im Restaurant."
-                  : "Bezahlung im Restaurant — bar oder mit Karte."}
+                {menu.ordering.onlinePayment || menu.ordering.paypal
+                  ? t.payAfterOrder
+                  : t.payAtRestaurant}
               </Text>
             </>
           )}

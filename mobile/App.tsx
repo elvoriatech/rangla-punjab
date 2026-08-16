@@ -5,6 +5,8 @@ import { StatusBar } from "expo-status-bar";
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
+import { AuthProvider } from "./src/auth";
+import { I18nProvider, useI18n } from "./src/i18n";
 import type { StoredOrder } from "./src/orders-store";
 import { colors } from "./src/theme";
 import { HomeScreen } from "./src/screens/HomeScreen";
@@ -12,7 +14,7 @@ import { MenuScreen } from "./src/screens/MenuScreen";
 import { CartScreen } from "./src/screens/CartScreen";
 import { OrdersScreen } from "./src/screens/OrdersScreen";
 import { TrackScreen } from "./src/screens/TrackScreen";
-import { InfoScreen } from "./src/screens/InfoScreen";
+import { AccountScreen } from "./src/screens/AccountScreen";
 
 /**
  * Rangla Punjab — the single-restaurant guest app. One hand-rolled tab
@@ -30,6 +32,7 @@ interface TrackTarget {
 
 function Shell(): React.ReactElement {
   const cart = useCart();
+  const { t, lang } = useI18n();
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
@@ -40,10 +43,10 @@ function Shell(): React.ReactElement {
 
   const load = useCallback(() => {
     setLoadError(false);
-    fetchMenu()
+    fetchMenu(lang)
       .then(setMenu)
       .catch(() => setLoadError(true));
-  }, []);
+  }, [lang]);
   useEffect(load, [load]);
 
   const onAdd = useCallback((item: ApiItem) => cart.add(item), [cart]);
@@ -60,12 +63,10 @@ function Shell(): React.ReactElement {
       <View style={styles.boot}>
         <Text style={styles.bootBrand}>Rangla Punjab</Text>
         <Text style={styles.bootSub}>RESTAURANT</Text>
-        <Text style={styles.bootState}>
-          {loadError ? "Keine Verbindung zur Küche." : "Speisekarte wird geladen…"}
-        </Text>
+        <Text style={styles.bootState}>{loadError ? t.bootError : t.bootLoading}</Text>
         {loadError ? (
           <Pressable onPress={load} style={styles.bootRetry}>
-            <Text style={styles.bootRetryText}>Erneut versuchen</Text>
+            <Text style={styles.bootRetryText}>{t.bootRetry}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -113,31 +114,46 @@ function Shell(): React.ReactElement {
         {tab === "orders" ? (
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
-        {tab === "info" ? <InfoScreen menu={menu} /> : null}
+        {tab === "info" ? (
+          <AccountScreen
+            menu={menu}
+            onOpenOrder={(orderId, token) => setTrack({ orderId, token })}
+          />
+        ) : null}
       </View>
 
       <View style={styles.tabBar}>
-        <TabButton label="Start" icon="🏠" active={tab === "home"} onPress={() => setTab("home")} />
         <TabButton
-          label="Kategorien"
+          label={t.tabStart}
+          icon="🏠"
+          active={tab === "home"}
+          onPress={() => setTab("home")}
+        />
+        <TabButton
+          label={t.tabMenu}
           icon="🗂️"
           active={tab === "menu"}
           onPress={() => setTab("menu")}
         />
         <TabButton
-          label="Warenkorb"
+          label={t.tabCart}
           icon="🛒"
           badge={cart.count > 0 ? cart.count : undefined}
           active={tab === "cart"}
           onPress={() => setTab("cart")}
         />
         <TabButton
-          label="Bestellungen"
+          label={t.tabOrders}
           icon="🧾"
           active={tab === "orders"}
           onPress={() => setTab("orders")}
         />
-        <TabButton label="Info" icon="ℹ️" active={tab === "info"} onPress={() => setTab("info")} />
+        <TabButton
+          label={t.tabAccount}
+          icon="👤"
+          active={tab === "info"}
+          onPress={() => setTab("info")}
+        />
       </View>
     </View>
   );
@@ -174,12 +190,16 @@ function TabButton({
 export default function App(): React.ReactElement {
   return (
     <SafeAreaProvider>
-      <CartProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.red }} edges={["top"]}>
-          <StatusBar style="light" />
-          <Shell />
-        </SafeAreaView>
-      </CartProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <CartProvider>
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.red }} edges={["top"]}>
+              <StatusBar style="light" />
+              <Shell />
+            </SafeAreaView>
+          </CartProvider>
+        </AuthProvider>
+      </I18nProvider>
     </SafeAreaProvider>
   );
 }

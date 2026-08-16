@@ -97,6 +97,7 @@ export type PlaceOrderResult =
 export async function placeOrder(
   context: { tenantId: string; venueId: string; publishedVersionId: string | null },
   raw: unknown,
+  opts?: { customerId?: string | null },
 ): Promise<PlaceOrderResult> {
   const parsed = placeOrderSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "invalid" };
@@ -222,6 +223,7 @@ export async function placeOrder(
       if (quote.locality) input.address!.city = quote.locality;
     }
     const totalCents = itemsCents + feeCents;
+    const customerId = opts?.customerId ?? null;
 
     // Per-venue running receipt number. The unique index backstops the
     // read-then-write race; on collision we recompute and try again.
@@ -238,6 +240,7 @@ export async function placeOrder(
             venueId: context.venueId,
             orderNumber,
             orderType,
+            customerId,
             tableNumber: orderType === "dine_in" ? input.tableNumber || null : null,
             customerName: orderType === "dine_in" ? null : input.customerName || null,
             customerPhone: orderType === "dine_in" ? null : input.customerPhone || null,

@@ -33,8 +33,17 @@ Status as of 2026-08-16, after the branding/lifecycle/mobile/payments build.
 - ✅ Info: hours, brand hero, web/legal links
 - ✅ Pay-online button in-app (opens the web pay page — card + PayPal) — verified with the fake rail
 - ☐ Push notifications; EAS builds + store submission (client's Apple/Google accounts) ⛔
-- Deliberately absent: login/accounts, loyalty points (needs a customer-identity backend that
-  contradicts the shipped no-account design — separate decision if ever wanted)
+- ✅ **Customer accounts (optional)**: sign in with **Google** or **Microsoft/Hotmail**
+  (hand-rolled OIDC, no auth library; dev fake IdP for local testing). Opaque hashed
+  tokens (never JWTs), tenant-scoped `customers`/`customer_tokens` tables with RLS.
+  Web: /account page. App: device-code login flow (no deep links, works in Expo Go).
+  Orders placed while signed in are linked → cross-device "my orders" with tracking +
+  receipt links via GET/DELETE /api/v1/me. ⛔ Google Cloud + Microsoft Entra client
+  credentials (GOOGLE_CLIENT_ID/SECRET, MICROSOFT_CLIENT_ID/SECRET) are the go-live step.
+- ✅ **Languages: German + English** — full app i18n with persisted switcher (Konto tab,
+  device-locale default); web account/tracker pages carry bilingual copy; menu content
+  translations ride the existing per-item translation system (?locale=)
+- Deliberately absent: loyalty points (own decision when wanted)
 
 ## Staff / owner
 - ✅ Orders dashboard + kitchen board with **lifecycle buttons** (Start preparing → Ready →
@@ -51,7 +60,7 @@ Status as of 2026-08-16, after the branding/lifecycle/mobile/payments build.
 - ✅ `POST /api/orders` (+ CORS) — placement; `POST /api/orders/{id}/pay` — hosted checkout
 
 ## Quality gates (this machine)
-- ✅ 465/465 vitest (serial; the suite is parallel-flaky on many-core machines — pre-existing),
+- ✅ 470/470 vitest (serial; the suite is parallel-flaky on many-core machines — pre-existing),
   incl. new `order-status` lifecycle tests and extended WCAG theme guards
 - ✅ `tsc --noEmit` web + mobile · ✅ eslint (mobile excluded — own toolchain)
 - ✅ E2E verified in browser: web order → kitchen advance → live tracker; mobile order #0002 →

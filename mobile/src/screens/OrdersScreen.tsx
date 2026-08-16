@@ -4,6 +4,7 @@ import type { StoredOrder } from "../orders-store";
 import { listStoredOrders } from "../orders-store";
 import { BrandHeader } from "../components";
 import { colors, money, radius } from "../theme";
+import { useI18n } from "../i18n";
 
 /**
  * Bestellungen — this device's order history. The receipt tokens stored
@@ -17,33 +18,29 @@ export function OrdersScreen({
   refreshKey: number;
   onOpen: (order: StoredOrder) => void;
 }): React.ReactElement {
+  const { t, lang } = useI18n();
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const load = useCallback(() => {
     void listStoredOrders().then(setOrders);
   }, []);
   useEffect(load, [load, refreshKey]);
 
-  const typeLabel: Record<string, string> = {
-    dine_in: "Im Restaurant",
-    takeaway: "Abholung",
-    delivery: "Lieferung",
-  };
+  const typeLabel = t.typeLabels as Record<string, string>;
+  const locale = lang === "de" ? "de-DE" : "en-GB";
   const dateFmt = (iso: string): string => {
     const d = new Date(iso);
-    return `${d.toLocaleDateString("de-DE")} · ${d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
+    return `${d.toLocaleDateString(locale)} · ${d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}`;
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title="Bestellungen" />
+      <BrandHeader title={t.ordersTitle} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 32 }}>
         {orders.length === 0 ? (
           <View style={styles.empty}>
             <Text style={{ fontSize: 40 }}>🧾</Text>
-            <Text style={styles.emptyTitle}>Noch keine Bestellungen</Text>
-            <Text style={styles.emptySub}>
-              Deine Bestellungen von diesem Gerät erscheinen hier.
-            </Text>
+            <Text style={styles.emptyTitle}>{t.ordersEmpty}</Text>
+            <Text style={styles.emptySub}>{t.ordersEmptySub}</Text>
           </View>
         ) : (
           orders.map((order) => (

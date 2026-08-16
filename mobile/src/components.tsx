@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, money, radius } from "./theme";
+import { useI18n } from "./i18n";
 import type { ApiItem } from "./api";
 
 /** Red screen header with the brand mark — the mockup's top bar. */
@@ -86,6 +87,7 @@ export function DishRow({
   item: ApiItem;
   onAdd: (item: ApiItem) => void;
 }): React.ReactElement {
+  const { t } = useI18n();
   return (
     <View style={styles.dishRow}>
       <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} />
@@ -102,7 +104,7 @@ export function DishRow({
           {item.offer ? (
             <>
               <View style={styles.offerBadge}>
-                <Text style={styles.offerBadgeText}>ANGEBOT</Text>
+                <Text style={styles.offerBadgeText}>{t.offer}</Text>
               </View>
               <Text style={styles.dishBasePrice}>
                 {money(item.offer.basePriceCents, item.currency)}
@@ -122,7 +124,7 @@ export function DishRow({
           <Text style={styles.addBtnText}>+</Text>
         </Pressable>
       ) : (
-        <Text style={styles.soldOut}>ausverkauft</Text>
+        <Text style={styles.soldOut}>{t.soldOut}</Text>
       )}
     </View>
   );

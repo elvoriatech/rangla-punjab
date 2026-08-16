@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow } from "../components";
 import { colors, radius } from "../theme";
+import { useI18n } from "../i18n";
 
 /** Kategorien — chip rail + dish list, the mockup's category browser. */
 export function MenuScreen({
@@ -14,20 +15,21 @@ export function MenuScreen({
   initialCategoryId: string | null;
   onAdd: (item: ApiItem) => void;
 }): React.ReactElement {
+  const { t } = useI18n();
   const [activeId, setActiveId] = useState<string | null>(initialCategoryId);
   const active = menu.categories.find((c) => c.id === activeId) ?? null;
   const shown = active ? [active] : menu.categories;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title="Kategorien" />
+      <BrandHeader title={t.categories} />
       <View style={styles.chipBar}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
         >
-          <Chip label="Alle" active={activeId === null} onPress={() => setActiveId(null)} />
+          <Chip label={t.all} active={activeId === null} onPress={() => setActiveId(null)} />
           {menu.categories.map((cat) => (
             <Chip
               key={cat.id}

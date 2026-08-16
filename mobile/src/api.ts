@@ -71,8 +71,9 @@ export interface ApiMenu {
   categories: ApiCategory[];
 }
 
-export async function fetchMenu(): Promise<ApiMenu> {
-  const res = await fetch(`${BASE_URL}/api/v1/menu`);
+export async function fetchMenu(locale?: string): Promise<ApiMenu> {
+  const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  const res = await fetch(`${BASE_URL}/api/v1/menu${qs}`);
   if (!res.ok) throw new Error(`menu ${res.status}`);
   return (await res.json()) as ApiMenu;
 }
@@ -97,10 +98,15 @@ export interface PlacedOrder {
 
 export async function placeOrder(
   input: PlaceOrderInput,
+  customerToken?: string | null,
 ): Promise<{ ok: true; order: PlacedOrder } | { ok: false; error: string }> {
   const res = await fetch(`${BASE_URL}/api/orders`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // Signed-in customers get the order linked to their account.
+      ...(customerToken ? { "X-Customer-Token": customerToken } : {}),
+    },
     body: JSON.stringify(input),
   });
   const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
