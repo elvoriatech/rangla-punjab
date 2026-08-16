@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginLeft: "auto",
   },
-  addBtnText: { color: colors.onRed, fontSize: 20, fontWeight: "700", lineHeight: 22 },
+  addBtnText: { color: colors.onRed, fontSize: 17, fontWeight: "300", lineHeight: 19 },
   soldOut: { color: colors.inkSoft, fontSize: 11, fontStyle: "italic" },
   stepper: { flexDirection: "row", alignItems: "center", gap: 10 },
   stepBtn: {
