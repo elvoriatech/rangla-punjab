@@ -93,7 +93,7 @@ export function DishRow({
     <View style={styles.dishRow}>
       <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} resizeMode="cover" />
       <View style={{ flex: 1, gap: 2, paddingVertical: 10 }}>
-        <Text style={styles.dishName} numberOfLines={1}>
+        <Text style={styles.dishName} numberOfLines={2}>
           {item.name}
         </Text>
         {item.description ? (
@@ -163,7 +163,13 @@ const styles = StyleSheet.create({
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle: { color: colors.onRed, fontSize: 20, fontFamily: fonts.display },
-  headerSubtitle: { color: colors.goldSoft, fontSize: 11, letterSpacing: 3, marginTop: 1 },
+  headerSubtitle: {
+    color: colors.goldSoft,
+    fontFamily: fonts.body,
+    fontSize: 11,
+    letterSpacing: 3,
+    marginTop: 1,
+  },
   sectionRow: {
     flexDirection: "row",
     alignItems: "baseline",
@@ -171,15 +177,15 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 10,
   },
-  sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: "700" },
-  sectionAction: { color: colors.red, fontSize: 13, fontWeight: "600" },
+  sectionTitle: { color: colors.ink, fontSize: 18, fontFamily: fonts.bodyBold },
+  sectionAction: { color: colors.red, fontSize: 13, fontFamily: fonts.bodySemi },
   primaryBtn: {
     backgroundColor: colors.goldSoft,
     borderRadius: radius.pill,
     paddingVertical: 14,
     alignItems: "center",
   },
-  primaryBtnText: { color: colors.ink, fontWeight: "700", letterSpacing: 0.5 },
+  primaryBtnText: { color: colors.ink, fontFamily: fonts.bodyBold, letterSpacing: 0.5 },
   // Photo bleeds to the card's top/bottom/left edge (mockup card layout);
   // the card's own radius clips it, text keeps its inset on the right.
   dishRow: {
@@ -194,11 +200,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   dishPhoto: { width: 96, alignSelf: "stretch", minHeight: 88, backgroundColor: colors.line },
-  dishName: { color: colors.ink, fontSize: 15, fontWeight: "700" },
-  dishDesc: { color: colors.inkSoft, fontSize: 12 },
-  dishPrice: { color: colors.red, fontSize: 14, fontWeight: "700" },
+  dishName: { color: colors.ink, fontSize: 15.5, lineHeight: 20, fontFamily: fonts.bodyBold },
+  dishDesc: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18 },
+  dishPrice: { color: colors.red, fontSize: 14, fontFamily: fonts.bodyBold },
   dishBasePrice: {
     color: colors.inkSoft,
+    fontFamily: fonts.body,
     fontSize: 12,
     textDecorationLine: "line-through",
   },
@@ -208,7 +215,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
-  offerBadgeText: { color: colors.ink, fontSize: 8, fontWeight: "800", letterSpacing: 0.5 },
+  offerBadgeText: {
+    color: colors.ink,
+    fontSize: 8,
+    fontFamily: fonts.bodyHeavy,
+    letterSpacing: 0.5,
+  },
   // Mockup's add control: a soft-cornered SQUARE pinned to the card's
   // bottom-right, sitting on the price row.
   addBtn: {
@@ -220,8 +232,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginLeft: "auto",
   },
-  addBtnText: { color: colors.onRed, fontSize: 17, fontWeight: "300", lineHeight: 19 },
-  soldOut: { color: colors.inkSoft, fontSize: 11, fontStyle: "italic" },
+  addBtnText: { color: colors.onRed, fontSize: 17, fontFamily: fonts.bodyLight, lineHeight: 19 },
+  soldOut: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, fontStyle: "italic" },
   stepper: { flexDirection: "row", alignItems: "center", gap: 10 },
   stepBtn: {
     width: 28,
@@ -232,11 +244,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepBtnText: { color: colors.red, fontSize: 16, fontWeight: "700", lineHeight: 18 },
+  stepBtnText: { color: colors.red, fontSize: 16, fontFamily: fonts.bodyBold, lineHeight: 18 },
   stepQty: {
     color: colors.ink,
     fontSize: 15,
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
     minWidth: 18,
     textAlign: "center",
   },

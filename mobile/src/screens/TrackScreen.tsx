@@ -4,7 +4,7 @@ import * as ExpoLinking from "expo-linking";
 import type { ApiTracking } from "../api";
 import { fetchOrderStatus, payPageUrl, receiptUrl } from "../api";
 import { BrandHeader } from "../components";
-import { colors, money, radius } from "../theme";
+import { colors, fonts, money, radius } from "../theme";
 import { useI18n } from "../i18n";
 
 /**
@@ -178,7 +178,7 @@ export function TrackScreen({
 }
 
 const styles = StyleSheet.create({
-  back: { color: colors.red, fontSize: 15, fontWeight: "700", marginBottom: 10 },
+  back: { color: colors.red, fontSize: 15, fontFamily: fonts.bodyBold, marginBottom: 10 },
   loading: { color: colors.inkSoft, textAlign: "center", marginTop: 60 },
   card: {
     backgroundColor: colors.creamCard,
@@ -187,9 +187,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: 18,
   },
-  confirmed: { color: colors.ink, fontSize: 18, fontWeight: "800", textAlign: "center" },
-  orderNo: { color: colors.inkSoft, fontSize: 13, textAlign: "center", marginTop: 4 },
-  meta: { color: colors.inkSoft, fontSize: 12, textAlign: "center", marginTop: 2 },
+  confirmed: { color: colors.ink, fontSize: 18, fontFamily: fonts.bodyHeavy, textAlign: "center" },
+  orderNo: {
+    color: colors.inkSoft,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  meta: {
+    color: colors.inkSoft,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 2,
+  },
   steps: { marginTop: 20 },
   stepRow: { flexDirection: "row", gap: 12 },
   stepRail: { alignItems: "center", width: 30 },
@@ -203,10 +215,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.cream,
   },
-  dotText: { fontSize: 12, fontWeight: "800", color: colors.creamCard },
+  dotText: { fontSize: 12, fontFamily: fonts.bodyHeavy, color: colors.creamCard },
   railLine: { width: 2, flex: 1, backgroundColor: colors.line, marginVertical: 2 },
-  stepDe: { color: colors.ink, fontSize: 14, fontWeight: "700", paddingTop: 4 },
-  stepEn: { color: colors.inkSoft, fontSize: 11 },
+  stepDe: { color: colors.ink, fontSize: 14, fontFamily: fonts.bodyBold, paddingTop: 4 },
+  stepEn: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
   itemsBox: {
     borderTopWidth: 1,
     borderColor: colors.line,
@@ -216,9 +228,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   itemRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  itemQty: { color: colors.red, fontSize: 13, fontWeight: "800", minWidth: 26 },
-  itemName: { color: colors.ink, fontSize: 13.5, flex: 1 },
-  itemPrice: { color: colors.inkSoft, fontSize: 13, fontWeight: "600" },
+  itemQty: { color: colors.red, fontSize: 13, fontFamily: fonts.bodyHeavy, minWidth: 26 },
+  itemName: { color: colors.ink, fontFamily: fonts.body, fontSize: 13.5, flex: 1 },
+  itemPrice: { color: colors.inkSoft, fontSize: 13, fontFamily: fonts.bodySemi },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -227,9 +239,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginTop: 4,
   },
-  totalLabel: { color: colors.ink, fontSize: 15, fontWeight: "700" },
-  totalValue: { color: colors.red, fontSize: 15, fontWeight: "800" },
-  payState: { color: colors.inkSoft, fontSize: 12, marginTop: 4 },
+  totalLabel: { color: colors.ink, fontSize: 15, fontFamily: fonts.bodyBold },
+  totalValue: { color: colors.red, fontSize: 15, fontFamily: fonts.bodyHeavy },
+  payState: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 4 },
   payBtn: {
     marginTop: 14,
     borderRadius: radius.pill,
@@ -237,7 +249,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  payBtnText: { color: colors.creamCard, fontWeight: "800", fontSize: 13 },
+  payBtnText: { color: colors.creamCard, fontFamily: fonts.bodyHeavy, fontSize: 13 },
   receiptBtn: {
     marginTop: 14,
     borderRadius: radius.pill,
@@ -246,5 +258,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  receiptBtnText: { color: colors.red, fontWeight: "700", fontSize: 13 },
+  receiptBtnText: { color: colors.red, fontFamily: fonts.bodyBold, fontSize: 13 },
 });

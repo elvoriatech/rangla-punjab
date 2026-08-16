@@ -14,7 +14,7 @@ import type { ApiMenu } from "../api";
 import { BASE_URL } from "../api";
 import { useAuth, type AccountOrder } from "../auth";
 import { useI18n, type Lang } from "../i18n";
-import { colors, money, radius } from "../theme";
+import { colors, fonts, money, radius } from "../theme";
 
 /**
  * Konto / Account — language, sign-in (Google · Microsoft/Hotmail · local
@@ -113,7 +113,9 @@ export function AccountScreen({
                       </Text>
                     </View>
                     <Text style={styles.orderTotal}>{money(o.totalCents, o.currency)}</Text>
-                    <Text style={{ color: colors.inkSoft, fontSize: 18 }}>›</Text>
+                    <Text style={{ color: colors.inkSoft, fontFamily: fonts.body, fontSize: 18 }}>
+                      ›
+                    </Text>
                   </Pressable>
                 ))
               )}
@@ -138,7 +140,9 @@ export function AccountScreen({
                   <Text style={styles.loginBtnText}>{providerLabel(p.id)}</Text>
                 </Pressable>
               ))}
-              <Text style={[styles.mutedText, { fontSize: 11 }]}>{t.signInOptional}</Text>
+              <Text style={[styles.mutedText, { fontFamily: fonts.body, fontSize: 11 }]}>
+                {t.signInOptional}
+              </Text>
             </>
           )}
         </View>
@@ -183,7 +187,7 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }): Re
   return (
     <Pressable onPress={onPress} style={styles.linkRow}>
       <Text style={styles.linkText}>{label}</Text>
-      <Text style={{ color: colors.inkSoft, fontSize: 18 }}>›</Text>
+      <Text style={{ color: colors.inkSoft, fontFamily: fonts.body, fontSize: 18 }}>›</Text>
     </Pressable>
   );
 }
@@ -201,7 +205,7 @@ const styles = StyleSheet.create({
   name: {
     color: colors.onRed,
     fontSize: 20,
-    fontWeight: "800",
+    fontFamily: fonts.bodyHeavy,
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowRadius: 5,
   },
@@ -212,7 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: 14,
   },
-  cardTitle: { color: colors.ink, fontSize: 15, fontWeight: "800", marginBottom: 8 },
+  cardTitle: { color: colors.ink, fontSize: 15, fontFamily: fonts.bodyHeavy, marginBottom: 8 },
   langChip: {
     borderWidth: 1.5,
     borderColor: colors.line,
@@ -222,11 +226,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   langChipActive: { backgroundColor: colors.red, borderColor: colors.red },
-  langChipText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
-  profileName: { color: colors.ink, fontSize: 15, fontWeight: "700" },
-  profileMail: { color: colors.inkSoft, fontSize: 12, marginTop: 1 },
-  signOut: { color: colors.red, fontSize: 13, fontWeight: "700", marginTop: 8 },
-  mutedText: { color: colors.inkSoft, fontSize: 13, marginBottom: 8 },
+  langChipText: { color: colors.ink, fontSize: 13, fontFamily: fonts.bodyBold },
+  profileName: { color: colors.ink, fontSize: 15, fontFamily: fonts.bodyBold },
+  profileMail: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 1 },
+  signOut: { color: colors.red, fontSize: 13, fontFamily: fonts.bodyBold, marginTop: 8 },
+  mutedText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, marginBottom: 8 },
   loginBtn: {
     borderWidth: 1.5,
     borderColor: colors.red,
@@ -236,7 +240,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backgroundColor: colors.cream,
   },
-  loginBtnText: { color: colors.red, fontWeight: "800", fontSize: 13 },
+  loginBtnText: { color: colors.red, fontFamily: fonts.bodyHeavy, fontSize: 13 },
   orderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -245,12 +249,12 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     paddingVertical: 10,
   },
-  orderNo: { color: colors.ink, fontWeight: "800", fontSize: 14 },
-  orderMeta: { color: colors.inkSoft, fontSize: 11, marginTop: 1 },
-  orderTotal: { color: colors.red, fontWeight: "800", fontSize: 13 },
+  orderNo: { color: colors.ink, fontFamily: fonts.bodyHeavy, fontSize: 14 },
+  orderMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 1 },
+  orderTotal: { color: colors.red, fontFamily: fonts.bodyHeavy, fontSize: 13 },
   hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
-  hoursDay: { color: colors.inkSoft, fontSize: 13 },
-  hoursTime: { color: colors.ink, fontSize: 13, fontWeight: "600" },
+  hoursDay: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
+  hoursTime: { color: colors.ink, fontSize: 13, fontFamily: fonts.bodySemi },
   linkRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -259,6 +263,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.line,
   },
-  linkText: { color: colors.ink, fontSize: 14, fontWeight: "600" },
-  footer: { color: colors.inkSoft, fontSize: 12, textAlign: "center", marginTop: 8 },
+  linkText: { color: colors.ink, fontSize: 14, fontFamily: fonts.bodySemi },
+  footer: {
+    color: colors.inkSoft,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
+  },
 });

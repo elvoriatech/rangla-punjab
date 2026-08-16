@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
   ruleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
   rule: { width: 42, height: 1, backgroundColor: colors.goldSoft },
-  sub: { color: colors.goldSoft, fontSize: 12, letterSpacing: 4, fontWeight: "700" },
+  sub: { color: colors.goldSoft, fontSize: 12, letterSpacing: 4, fontFamily: fonts.bodyBold },
   ornamentSmall: { width: 150, height: 28, marginTop: 10, opacity: 0.95 },
   featureRow: {
     flexDirection: "row",
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 13,
     textAlign: "center",
-    fontWeight: "600",
+    fontFamily: fonts.bodySemi,
   },
   ornamentWide: { width: 220, height: 40, marginTop: 24, opacity: 0.95 },
   welcome: {
@@ -189,6 +189,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     color: colors.goldSoft,
+    fontFamily: fonts.body,
     fontSize: 14,
     textAlign: "center",
     lineHeight: 22,
@@ -202,7 +203,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: "center",
   },
-  primaryText: { color: colors.ink, fontWeight: "800", fontSize: 15, letterSpacing: 0.3 },
+  primaryText: { color: colors.ink, fontFamily: fonts.bodyHeavy, fontSize: 15, letterSpacing: 0.3 },
   secondaryBtn: {
     alignSelf: "stretch",
     borderWidth: 1.5,
@@ -212,6 +213,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
-  secondaryText: { color: colors.onRed, fontWeight: "700", fontSize: 14 },
-  error: { color: colors.onRed, fontSize: 14, marginBottom: 12 },
+  secondaryText: { color: colors.onRed, fontFamily: fonts.bodyBold, fontSize: 14 },
+  error: { color: colors.onRed, fontFamily: fonts.body, fontSize: 14, marginBottom: 12 },
 });

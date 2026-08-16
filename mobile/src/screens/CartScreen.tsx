@@ -17,7 +17,7 @@ import { useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, PrimaryButton, QtyStepper } from "../components";
-import { colors, money, radius } from "../theme";
+import { colors, fonts, money, radius } from "../theme";
 
 /**
  * Warenkorb + Kasse — the mockup's cart and checkout as one flow.
@@ -136,7 +136,7 @@ export function CartScreen({
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}>
           {cart.lines.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={{ fontSize: 40 }}>🛒</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 40 }}>🛒</Text>
               <Text style={styles.emptyTitle}>{t.cartEmpty}</Text>
               <Text style={styles.emptySub}>{t.cartEmptySub}</Text>
             </View>
@@ -167,7 +167,7 @@ export function CartScreen({
                     onPress={() => setOrderType(t.key)}
                     style={[styles.typeChip, orderType === t.key && styles.typeChipActive]}
                   >
-                    <Text style={{ fontSize: 18 }}>{t.emoji}</Text>
+                    <Text style={{ fontFamily: fonts.body, fontSize: 18 }}>{t.emoji}</Text>
                     <Text
                       style={[styles.typeChipText, orderType === t.key && { color: colors.red }]}
                     >
@@ -301,8 +301,8 @@ function Row({
 
 const styles = StyleSheet.create({
   empty: { alignItems: "center", gap: 6, paddingVertical: 60 },
-  emptyTitle: { color: colors.ink, fontSize: 17, fontWeight: "700" },
-  emptySub: { color: colors.inkSoft, fontSize: 13 },
+  emptyTitle: { color: colors.ink, fontSize: 17, fontFamily: fonts.bodyBold },
+  emptySub: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
   line: {
     flexDirection: "row",
     alignItems: "center",
@@ -314,8 +314,8 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   linePhoto: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.line },
-  lineName: { color: colors.ink, fontWeight: "700", fontSize: 14 },
-  linePrice: { color: colors.red, fontWeight: "700", fontSize: 13, marginTop: 2 },
+  lineName: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },
+  linePrice: { color: colors.red, fontFamily: fonts.bodyBold, fontSize: 13, marginTop: 2 },
   typeRow: { flexDirection: "row", gap: 8, marginTop: 8 },
   typeChip: {
     flex: 1,
@@ -328,8 +328,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
   },
   typeChipActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
-  typeChipText: { color: colors.inkSoft, fontSize: 12, fontWeight: "700" },
-  fieldLabel: { color: colors.inkSoft, fontSize: 12, fontWeight: "600" },
+  typeChipText: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bodyBold },
+  fieldLabel: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bodySemi },
   input: {
     backgroundColor: colors.creamCard,
     borderWidth: 1,
@@ -338,6 +338,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: colors.ink,
+    fontFamily: fonts.body,
     fontSize: 15,
   },
   totalBox: {
@@ -349,9 +350,9 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 6,
   },
-  rowLabel: { color: colors.inkSoft, fontSize: 14 },
-  rowValue: { color: colors.ink, fontSize: 14, fontWeight: "600" },
-  rowBold: { fontWeight: "800", fontSize: 16, color: colors.ink },
+  rowLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14 },
+  rowValue: { color: colors.ink, fontSize: 14, fontFamily: fonts.bodySemi },
+  rowBold: { fontFamily: fonts.bodyHeavy, fontSize: 16, color: colors.ink },
   zipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   zipChip: {
     borderWidth: 1.5,
@@ -364,10 +365,16 @@ const styles = StyleSheet.create({
     minWidth: 86,
   },
   zipChipActive: { backgroundColor: colors.red, borderColor: colors.red },
-  zipChipZip: { color: colors.ink, fontWeight: "800", fontSize: 13 },
-  zipChipCity: { color: colors.inkSoft, fontSize: 10, maxWidth: 90 },
-  zipInfo: { color: colors.inkSoft, fontSize: 12, marginTop: 2 },
-  minWarn: { color: colors.danger, fontSize: 12, fontWeight: "600" },
-  error: { color: colors.danger, fontSize: 13, textAlign: "center" },
-  payNote: { color: colors.inkSoft, fontSize: 12, textAlign: "center", marginTop: 4 },
+  zipChipZip: { color: colors.ink, fontFamily: fonts.bodyHeavy, fontSize: 13 },
+  zipChipCity: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, maxWidth: 90 },
+  zipInfo: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 2 },
+  minWarn: { color: colors.danger, fontSize: 12, fontFamily: fonts.bodySemi },
+  error: { color: colors.danger, fontFamily: fonts.body, fontSize: 13, textAlign: "center" },
+  payNote: {
+    color: colors.inkSoft,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 4,
+  },
 });

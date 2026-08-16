@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow } from "../components";
-import { colors } from "../theme";
+import { colors, fonts } from "../theme";
 import { useI18n } from "../i18n";
 
 /** Kategorien — chip rail + dish list, the mockup's category browser. */
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 0,
   },
   chipTail: { position: "absolute", right: -15, bottom: 0 },
-  chipText: { color: colors.ink, fontSize: 13.5, fontWeight: "600" },
-  chipTextActive: { color: colors.onRed, fontWeight: "700" },
-  catHeading: { color: colors.ink, fontSize: 17, fontWeight: "800", marginTop: 8 },
+  chipText: { color: colors.ink, fontSize: 13.5, fontFamily: fonts.bodySemi },
+  chipTextActive: { color: colors.onRed, fontFamily: fonts.bodyBold },
+  catHeading: { color: colors.ink, fontSize: 17, fontFamily: fonts.bodyHeavy, marginTop: 8 },
 });

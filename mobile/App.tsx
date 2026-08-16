@@ -9,13 +9,20 @@ import {
   PlayfairDisplay_800ExtraBold,
   PlayfairDisplay_600SemiBold_Italic,
 } from "@expo-google-fonts/playfair-display";
+import {
+  Nunito_300Light,
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+} from "@expo-google-fonts/nunito";
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
 import { AuthProvider } from "./src/auth";
 import { I18nProvider, useI18n } from "./src/i18n";
 import type { StoredOrder } from "./src/orders-store";
-import { colors } from "./src/theme";
+import { colors, fonts } from "./src/theme";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { MenuScreen } from "./src/screens/MenuScreen";
 import { CartScreen } from "./src/screens/CartScreen";
@@ -214,6 +221,11 @@ export default function App(): React.ReactElement {
     PlayfairDisplay_700Bold,
     PlayfairDisplay_800ExtraBold,
     PlayfairDisplay_600SemiBold_Italic,
+    Nunito_300Light,
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
   });
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.red }} />;
   return (
@@ -241,9 +253,15 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 24,
   },
-  bootBrand: { color: colors.onRed, fontSize: 30, fontWeight: "800" },
-  bootSub: { color: colors.goldSoft, fontSize: 12, letterSpacing: 4 },
-  bootState: { color: colors.onRed, opacity: 0.85, marginTop: 20, fontSize: 14 },
+  bootBrand: { color: colors.onRed, fontSize: 30, fontFamily: fonts.bodyHeavy },
+  bootSub: { color: colors.goldSoft, fontFamily: fonts.body, fontSize: 12, letterSpacing: 4 },
+  bootState: {
+    color: colors.onRed,
+    opacity: 0.85,
+    marginTop: 20,
+    fontFamily: fonts.body,
+    fontSize: 14,
+  },
   bootRetry: {
     marginTop: 14,
     borderWidth: 1.5,
@@ -252,7 +270,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 10,
   },
-  bootRetryText: { color: colors.goldSoft, fontWeight: "700" },
+  bootRetryText: { color: colors.goldSoft, fontFamily: fonts.bodyBold },
   // The mockup's floating pill bar: inset from the screen edges with a
   // long rounded arc on every corner, buttons drawn in toward each other.
   tabBar: {
@@ -271,8 +289,8 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   tabBtn: { flex: 1, alignItems: "center", gap: 3 },
-  tabLabel: { color: colors.onRed, opacity: 0.6, fontSize: 10 },
-  tabLabelActive: { opacity: 1, fontWeight: "700" },
+  tabLabel: { color: colors.onRed, opacity: 0.6, fontFamily: fonts.body, fontSize: 10 },
+  tabLabelActive: { opacity: 1, fontFamily: fonts.bodyBold },
   badge: {
     position: "absolute",
     top: -4,
@@ -285,5 +303,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 3,
   },
-  badgeText: { color: colors.ink, fontSize: 10, fontWeight: "800" },
+  badgeText: { color: colors.ink, fontSize: 10, fontFamily: fonts.bodyHeavy },
 });
