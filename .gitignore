@@ -64,3 +64,9 @@ prod.env
 # Uploaded menu/venue images (written at runtime; do not commit)
 public/uploads/*
 !public/uploads/.gitkeep
+# Starter-menu photos are SEED ASSETS (shipped with the app), not user
+# uploads — they must deploy with the code. ONLY the indian/ subtree is
+# tracked; everything else under templates/ is test/clone output.
+!public/uploads/templates/
+public/uploads/templates/*
+!public/uploads/templates/indian/
