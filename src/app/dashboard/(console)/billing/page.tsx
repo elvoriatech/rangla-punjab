@@ -288,8 +288,8 @@ export default async function BillingPage({
             {active ? (
               <p className="mt-3 text-sm text-brand-green/70">
                 Guests can pay online at checkout. Money settles directly to your bank account
-                through Stripe; the operator fee configured for your account is deducted
-                automatically per online order. To test end to end, place an order and pay
+                through Stripe — you keep 100% of every order, there is no commission. To test end
+                to end, place an order and pay
                 {isDemo
                   ? " (demo mode simulates the charge)"
                   : " with a Stripe test card (4242 4242 4242 4242)"}
@@ -299,8 +299,8 @@ export default async function BillingPage({
               <p className="mt-3 text-sm text-brand-green/70">
                 Let guests pay by card, Apple Pay, or Google Pay when they order. Stripe collects
                 your payout details once (bank account, a few identity questions) — about five
-                minutes. Payments settle straight to your bank; the operator fee configured for your
-                account is deducted per online order.
+                minutes. Payments settle straight to your bank — you keep 100% of every order, there
+                is no commission and no subscription.
               </p>
             )}
 

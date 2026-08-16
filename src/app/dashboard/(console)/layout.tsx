@@ -26,6 +26,7 @@ function buildNav(base: string) {
     { href: "/kitchen", label: "Kitchen", newTab: true },
     { href: `${base}/categories`, label: "Menu" },
     { href: `${base}/appearance`, label: "Appearance" },
+    { href: `${base}/reports`, label: "Reports" },
     { href: `${base}/qr`, label: "QR codes" },
     { href: `${base}/settings`, label: "Settings" },
     { href: `${base}/billing`, label: "Billing" },
@@ -93,7 +94,7 @@ export default async function DashboardLayout({
             logoUrl={logoUrl}
             railStyle={railStyle}
           />
-          <div className="min-w-0 flex-1">{children}</div>
+          <div className="console-readable min-w-0 flex-1">{children}</div>
         </div>
       </div>
     </>

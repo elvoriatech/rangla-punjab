@@ -33,7 +33,7 @@ export default async function AdminLayout({
   if (!(await isPlatformAdmin(userId))) notFound();
 
   return (
-    <div className="flex min-h-screen bg-admin-bg text-neutral-200">
+    <div className="console-readable flex min-h-screen bg-admin-bg text-neutral-200">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">

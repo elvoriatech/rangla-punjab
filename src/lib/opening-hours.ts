@@ -70,6 +70,12 @@ function minutes(hhmm: string): number {
 }
 
 /** Local weekday + minutes-since-midnight in the venue's timezone. */
+/** Venue-local weekday + minutes-since-midnight for an instant — the
+ *  offer-pricing module prices weekly windows through this. */
+export function localDayMinutes(timezone: string, now: Date): { day: Weekday; mins: number } {
+  return localNow(timezone, now);
+}
+
 function localNow(timezone: string, now: Date): { day: Weekday; mins: number } {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: timezone,

@@ -81,6 +81,7 @@ export function MenuView({
   activeCategoryId,
   orderingModes,
   onlinePayment,
+  paypalPayment,
   openNow,
   requestSlots,
   orderingPaused,
@@ -91,6 +92,7 @@ export function MenuView({
   activeCategoryId?: string | null;
   orderingModes?: EffectiveOrdering;
   onlinePayment?: boolean;
+  paypalPayment?: boolean;
   openNow?: OpenState;
   requestSlots?: string[];
   /** P2-4: operator kill switch — menu stays visible, ordering is closed. */
@@ -106,7 +108,12 @@ export function MenuView({
   // renderer reads colors from these CSS vars, so this style attribute IS
   // the theme switch. The theme also picks the page layout below.
   const theme = resolveMenuTheme(menu.venue.branding.theme);
-  const themeStyle = menuThemeStyle(menu.venue.branding.theme, menu.venue.branding.texture);
+  const themeStyle = menuThemeStyle(
+    menu.venue.branding.theme,
+    menu.venue.branding.texture,
+    menu.venue.branding.backdrop,
+    menu.venue.branding.headingColor,
+  );
   // Self-ordering rides on the published menu only — the preview shows
   // draft item ids the order API would rightly reject. The modes come
   // from plan entitlements ∧ owner switches; no mode → no cart at all.
@@ -258,7 +265,7 @@ export function MenuView({
                 src={
                   menu.venue.branding.logoKey
                     ? menuImageUrl(menu.venue.branding.logoKey, menu.venue.id, 96)
-                    : "/guesto-icon.svg"
+                    : "/brand/icon-192.png"
                 }
                 alt=""
                 width={40}
@@ -325,6 +332,7 @@ export function MenuView({
           modes={modes}
           requestSlots={requestSlots ?? []}
           onlinePayment={Boolean(onlinePayment)}
+          paypalPayment={Boolean(paypalPayment)}
         />
       ) : null}
       {/* Card reveal: ~600 bytes of inline JS. A scroll-scrubbed CSS
@@ -412,14 +420,14 @@ function EditorialSection({
         ) : (
           <span
             aria-hidden="true"
-            className="font-serif text-4xl italic text-[var(--menu-accent)] sm:text-5xl"
+            className="font-serif text-4xl italic text-[var(--menu-heading,var(--menu-accent))] sm:text-5xl"
           >
             {String(catIndex + 1).padStart(2, "0")}
           </span>
         )}
         <h2
           id={`cat-${cat.id}`}
-          className="font-serif text-3xl leading-tight text-[var(--menu-accent)] sm:text-4xl md:text-5xl"
+          className="font-serif text-3xl leading-tight text-[var(--menu-heading,var(--menu-accent))] sm:text-4xl md:text-5xl"
         >
           {cat.name}
         </h2>
@@ -479,7 +487,7 @@ function GridSection({
         ) : null}
         <h2
           id={`cat-${cat.id}`}
-          className="font-serif text-3xl font-semibold leading-tight sm:text-4xl"
+          className="font-serif text-3xl font-semibold leading-tight text-[var(--menu-heading,var(--menu-text))] [text-shadow:0_1px_14px_rgba(0,0,0,0.12)] sm:text-4xl"
         >
           {cat.name}
         </h2>
@@ -514,7 +522,7 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card group relative flex h-full flex-col overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-18px_rgba(36,50,78,0.35)]"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative flex h-full flex-col overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-18px_rgba(36,50,78,0.35)]"
     >
       <div
         aria-hidden="true"
@@ -543,12 +551,12 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
             className={
               item.isAvailable
                 ? "text-sm font-medium leading-snug"
-                : "text-sm font-medium leading-snug text-[var(--menu-text)]/60 line-through"
+                : "text-sm font-medium leading-snug text-[var(--menu-surface-text,var(--menu-text))]/60 line-through"
             }
           >
             {item.name}
             {!item.isAvailable ? (
-              <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
+              <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
                 unavailable
               </span>
             ) : null}
@@ -563,7 +571,9 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
           </div>
         </div>
         {item.description ? (
-          <p className="text-xs leading-relaxed text-[var(--menu-text-soft)]">{item.description}</p>
+          <p className="text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+            {item.description}
+          </p>
         ) : null}
         <MobileAllergenLine
           allergens={item.allergens}
@@ -573,7 +583,7 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
         />
 
         {item.variants.length > 0 ? (
-          <ul className="w-full space-y-0.5 text-xs text-[var(--menu-text-soft)]">
+          <ul className="w-full space-y-0.5 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {item.variants.map((v) => (
               <li key={v.id} className="flex items-baseline justify-between gap-2">
                 <span>{v.name}</span>
@@ -588,8 +598,20 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
         <div className="mt-auto flex w-full items-center justify-between gap-2 pt-2">
           <p
             aria-label="price"
-            className="text-base font-semibold tabular-nums text-[var(--menu-accent)]"
+            className="text-base font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -638,7 +660,7 @@ function ListSection({
         ) : null}
         <h2
           id={`cat-${cat.id}`}
-          className="text-center font-serif text-2xl uppercase tracking-[0.18em] text-[var(--menu-accent)] sm:text-3xl"
+          className="text-center font-serif text-2xl uppercase tracking-[0.18em] text-[var(--menu-heading,var(--menu-accent))] sm:text-3xl"
         >
           {cat.name}
         </h2>
@@ -670,7 +692,7 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card flex h-full items-stretch overflow-hidden rounded-lg border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:border-[var(--menu-accent)]/50"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] flex h-full items-stretch overflow-hidden rounded-lg border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:border-[var(--menu-accent)]/50"
     >
       <div
         aria-hidden="true"
@@ -695,7 +717,7 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
             className={
               item.isAvailable
                 ? "font-serif text-lg leading-snug sm:text-xl"
-                : "font-serif text-lg leading-snug text-[var(--menu-text)]/60 line-through sm:text-xl"
+                : "font-serif text-lg leading-snug text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-xl"
             }
           >
             {item.name}
@@ -710,7 +732,7 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
           </div>
         </div>
         {item.description ? (
-          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-text-soft)]">
+          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {item.description}
           </p>
         ) : null}
@@ -721,11 +743,11 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
           dishName={item.name}
         />
         {item.variants.length > 0 ? (
-          <ul className="mt-1.5 space-y-0.5 text-sm text-[var(--menu-text-soft)]">
+          <ul className="mt-1.5 space-y-0.5 text-sm text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {item.variants.map((v) => (
               <li key={v.id} className="flex items-baseline justify-between gap-3">
                 <span>{v.name}</span>
-                <span className="tabular-nums text-[var(--menu-accent)]">
+                <span className="tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">
                   {v.priceDeltaCents >= 0 ? "+" : ""}
                   {formatPrice(v.priceDeltaCents, item.currency, locale)}
                 </span>
@@ -736,8 +758,20 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
         <div className="mt-auto flex items-center justify-between gap-3 pt-2">
           <p
             aria-label="price"
-            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-accent)] sm:text-xl"
+            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -787,7 +821,7 @@ function ShowcaseSection({
         ) : null}
         <h2
           id={`cat-${cat.id}`}
-          className="font-serif text-3xl italic leading-tight text-[var(--menu-text)] sm:text-4xl md:text-5xl"
+          className="font-serif text-3xl italic leading-tight text-[var(--menu-heading,var(--menu-text))] sm:text-4xl md:text-5xl"
         >
           {cat.name}
         </h2>
@@ -824,7 +858,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card group flex h-full flex-col items-center text-center"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group flex h-full flex-col items-center text-center"
     >
       <div
         aria-hidden="true"
@@ -848,7 +882,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
           className={
             item.isAvailable
               ? "font-serif text-xl leading-snug sm:text-2xl"
-              : "font-serif text-xl leading-snug text-[var(--menu-text)]/60 line-through sm:text-2xl"
+              : "font-serif text-xl leading-snug text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-2xl"
           }
         >
           {item.name}
@@ -863,7 +897,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
         </div>
       </div>
       {item.description ? (
-        <p className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--menu-text-soft)]">
+        <p className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
           {item.description}
         </p>
       ) : null}
@@ -874,7 +908,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
         dishName={item.name}
       />
       {item.variants.length > 0 ? (
-        <ul className="mt-1 w-full max-w-[220px] space-y-0.5 text-xs text-[var(--menu-text-soft)]">
+        <ul className="mt-1 w-full max-w-[220px] space-y-0.5 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
           {item.variants.map((v) => (
             <li key={v.id} className="flex items-baseline justify-between gap-3">
               <span>{v.name}</span>
@@ -889,8 +923,20 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
       <div className="mt-auto flex w-full items-center justify-between gap-3 pt-3">
         <p
           aria-label="price"
-          className="inline-block border border-[var(--menu-accent)]/60 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-accent)]"
+          className="inline-block border border-[var(--menu-accent)]/60 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]"
         >
+          {item.offer ? (
+            <>
+              <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                Angebot
+              </span>
+              <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                <span className="sr-only">regulärer Preis </span>
+                {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+              </s>
+              <span className="sr-only">Angebotspreis </span>
+            </>
+          ) : null}
           {formatPrice(item.priceCents, item.currency, locale)}
         </p>
         {ordering && item.isAvailable ? (
@@ -1075,7 +1121,7 @@ function VenueMark({ venue }: { venue: PublicMenu["venue"] }): React.ReactElemen
   // screens so it never crowds the open/closed pill.
   const logoSrc = venue.branding.logoKey
     ? menuImageUrl(venue.branding.logoKey, venue.id, 96)
-    : "/guesto-icon.svg";
+    : "/brand/icon-192.png";
   return (
     <div className="flex min-w-0 shrink items-center gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1104,7 +1150,7 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:border-[var(--menu-accent)]/60 hover:shadow-[0_0_0_1px_rgba(184,147,95,0.15),0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:border-[var(--menu-accent)]/60 hover:shadow-[0_0_0_1px_rgba(184,147,95,0.15),0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
     >
       <div className="relative self-stretch">
         <DishPhoto item={item} />
@@ -1118,13 +1164,13 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
             id={`item-${item.id}`}
             className={
               item.isAvailable
-                ? "font-serif text-lg leading-tight text-[var(--menu-text)] sm:text-xl"
-                : "font-serif text-lg leading-tight text-[var(--menu-text)]/60 line-through sm:text-xl"
+                ? "font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))] sm:text-xl"
+                : "font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-xl"
             }
           >
             {item.name}
             {!item.isAvailable ? (
-              <span className="ml-2 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
+              <span className="ml-2 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
                 unavailable
               </span>
             ) : null}
@@ -1139,7 +1185,9 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
           </div>
         </div>
         {item.description ? (
-          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-text)]">{item.description}</p>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text,var(--menu-text))]">
+            {item.description}
+          </p>
         ) : null}
         <MobileAllergenLine
           allergens={item.allergens}
@@ -1148,11 +1196,11 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
           dishName={item.name}
         />
         {item.variants.length > 0 ? (
-          <ul className="mt-2 space-y-0.5 text-xs text-[var(--menu-text)]">
+          <ul className="mt-2 space-y-0.5 text-xs text-[var(--menu-surface-text,var(--menu-text))]">
             {item.variants.map((v) => (
               <li key={v.id} className="flex items-baseline justify-between gap-3">
                 <span>{v.name}</span>
-                <span className="tabular-nums text-[var(--menu-accent)]">
+                <span className="tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">
                   {v.priceDeltaCents >= 0 ? "+" : ""}
                   {formatPrice(v.priceDeltaCents, item.currency, locale)}
                 </span>
@@ -1163,8 +1211,20 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
         <div className="mt-auto flex items-center justify-between gap-3 pt-3">
           <p
             aria-label="price"
-            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-accent)] sm:text-xl"
+            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -1231,35 +1291,39 @@ function SideRail({
 }): React.ReactElement {
   const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
   const slugOf = categorySlugs(categories);
-  const linkBase =
-    "block rounded-md px-3 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors";
+  // Modern rail: a soft translucent surface so the labels are readable
+  // over ANY artwork/gradient; the active category is the app's red
+  // bubble with the sharp bottom-right corner.
+  const linkBase = "block rounded-xl px-3.5 py-2 text-[13px] leading-snug transition-colors";
   return (
     <aside className="hidden lg:block">
       <nav
         aria-label="Categories"
-        className="sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto pr-2 [scrollbar-width:thin]"
+        className="sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto rounded-2xl bg-[var(--menu-surface)]/85 p-2 shadow-[0_2px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm [scrollbar-width:thin]"
       >
-        <ul className="space-y-1 border-l border-[var(--menu-line)] pl-3">
+        <ul className="space-y-0.5">
           <li>
-            <a
+            <Link
               href={`/${activeDiet ? `?diet=${activeDiet}` : ""}`}
+              prefetch={false}
               className={`${linkBase} ${
                 active === null
-                  ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
-                  : "text-[var(--menu-text)]/70 hover:text-[var(--menu-text)]"
+                  ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
+                  : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
               }`}
             >
               All
-            </a>
+            </Link>
           </li>
           {categories.map((c) => (
             <li key={c.id}>
-              <a
+              <Link
                 href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
+                prefetch={false}
                 className={`${linkBase} ${
                   active === c.id
-                    ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
-                    : "text-[var(--menu-text)]/70 hover:text-[var(--menu-text)]"
+                    ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
+                    : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
                 }`}
               >
                 {showIcons ? (
@@ -1268,7 +1332,7 @@ function SideRail({
                   </span>
                 ) : null}
                 {c.name}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
@@ -1384,15 +1448,18 @@ function TabLink({
   // with an underline for the active state, subtle background for the
   // hover state. Primary = category rail (bigger, more prominent).
   // Secondary = diet rail (smaller, quieter).
-  const base = "inline-flex items-center px-4 py-2 transition-all duration-200 border-b-2";
+  // The app's navigation language: the active tab is a filled bubble
+  // whose bottom-right corner sweeps to a near-point; inactive tabs are
+  // plain text. Diet tabs stay quieter (soft tinted pill).
+  const base = "inline-flex items-center px-4 py-2 transition-all duration-200";
   const cls =
     variant === "primary"
       ? active
-        ? `${base} border-[var(--menu-accent)] text-[var(--menu-accent)]`
-        : `${base} border-transparent text-[var(--menu-text)] hover:border-[var(--menu-accent)]/40 hover:text-[var(--menu-accent)]`
+        ? `${base} rounded-2xl [border-bottom-right-radius:3px] bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] shadow-sm`
+        : `${base} rounded-2xl text-[var(--menu-text)] hover:text-[var(--menu-accent)]`
       : active
-        ? `${base} border-[var(--menu-accent)] text-[var(--menu-accent)] px-3 py-1.5`
-        : `${base} border-transparent text-[var(--menu-text)] hover:border-[var(--menu-accent)]/40 hover:text-[var(--menu-accent)] px-3 py-1.5`;
+        ? `${base} rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/12 font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`
+        : `${base} rounded-full text-[var(--menu-surface-text,var(--menu-text))] hover:text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`;
   // next/link: with JS this is an in-place RSC transition — no full-page
   // reload, the sticky rails never flash, and the browser scrolls to the
   // top so the newly filtered list is immediately visible below them.

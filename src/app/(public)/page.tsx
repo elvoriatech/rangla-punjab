@@ -115,6 +115,7 @@ export default async function PublicMenuPage({
       menu={filtered}
       orderingModes={access.modes}
       onlinePayment={access.onlinePayment}
+      paypalPayment={access.paypalPayment}
       orderingPaused={!siteActive}
       openNow={currentOpenState(menu.venue.hours, menu.venue.timezone)}
       requestSlots={currentTodaySlotTimes(menu.venue.hours, menu.venue.timezone)}

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { asUser } from "./tenant";
 import { getActiveVenueId } from "./active-venue";
-import { MENU_THEMES, MENU_TEXTURES } from "./menu-themes";
+import { MENU_THEMES, MENU_TEXTURES, MENU_BACKDROPS } from "./menu-themes";
 
 /**
  * Venue reads + writes for the owner dashboard. Same shape as the other
@@ -24,6 +24,8 @@ export interface DashboardVenue {
     bannerKey?: string | null;
     theme?: string;
     texture?: string;
+    backdrop?: string;
+    headingColor?: string;
     categoryIcons?: string;
     navLayout?: string;
     halalFilter?: string;
@@ -43,6 +45,8 @@ function normalizeBranding(raw: unknown): DashboardVenue["branding"] {
       bannerKey: typeof b.bannerKey === "string" ? b.bannerKey : null,
       theme: typeof b.theme === "string" ? b.theme : undefined,
       texture: typeof b.texture === "string" ? b.texture : undefined,
+      backdrop: typeof b.backdrop === "string" ? b.backdrop : undefined,
+      headingColor: typeof b.headingColor === "string" ? b.headingColor : undefined,
       categoryIcons: typeof b.categoryIcons === "string" ? b.categoryIcons : undefined,
       navLayout: typeof b.navLayout === "string" ? b.navLayout : undefined,
       halalFilter: typeof b.halalFilter === "string" ? b.halalFilter : undefined,
@@ -89,6 +93,13 @@ export async function getVenueForUser(userId: string): Promise<ServiceResult<Das
 export const appearanceSchema = z.object({
   theme: z.enum(MENU_THEMES.map((t) => t.id) as [string, ...string[]]),
   texture: z.enum(MENU_TEXTURES.map((t) => t.id) as [string, ...string[]]),
+  // Full-page background artwork; "none" = plain theme color.
+  backdrop: z.enum(MENU_BACKDROPS.map((b) => b.id) as [string, ...string[]]).default("none"),
+  // Custom category-heading color (hex); absent = each layout's default.
+  headingColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
   // "names" (default): category names only. "icons": an icon rides along —
   // the category's uploaded photo when present, an inferred emoji otherwise.
   categoryIcons: z.enum(["names", "icons"]).default("names"),
@@ -113,6 +124,8 @@ export async function updateVenueAppearance(
   input: {
     theme: string;
     texture: string;
+    backdrop?: string;
+    headingColor?: string;
     categoryIcons?: string;
     navLayout?: string;
     kiosk?: string;
@@ -132,6 +145,8 @@ export async function updateVenueAppearance(
       ...normalizeBranding(venue.branding),
       theme: parsed.data.theme,
       texture: parsed.data.texture,
+      backdrop: parsed.data.backdrop,
+      headingColor: parsed.data.headingColor,
       categoryIcons: parsed.data.categoryIcons,
       navLayout: parsed.data.navLayout,
       kiosk: parsed.data.kiosk,

@@ -11,8 +11,8 @@ describe("venueIcons", () => {
   it("falls back to the full Guesto icon set without a logo", () => {
     for (const empty of [null, undefined, ""] as const) {
       const icons = venueIcons(empty);
-      expect(icons.icon.map((i) => i.url)).toEqual(["/guesto-icon.svg", "/favicon.ico"]);
-      expect(icons.apple[0]?.url).toBe("/guesto-icon-180.png");
+      expect(icons.icon.map((i) => i.url)).toEqual(["/favicon.ico", "/rangla-icon-180.png"]);
+      expect(icons.apple[0]?.url).toBe("/rangla-icon-180.png");
     }
   });
 });

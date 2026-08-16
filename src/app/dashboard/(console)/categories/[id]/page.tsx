@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getSessionUserId } from "@/lib/auth";
 import { listCategories } from "@/lib/categories-service";
 import { listItems, type ItemRow } from "@/lib/items-service";
-import { addItemAction, deleteItemAction } from "./actions";
+import { addItemAction, deleteItemAction, updateItemAction } from "./actions";
 import { menuImageUrl } from "@/lib/menu-images";
 import { isDrinkCategory } from "@/lib/category-icons";
 import { getVenueForUser } from "@/lib/venue-service";
@@ -34,10 +34,13 @@ const ALLERGENS = [
  */
 export default async function CategoryDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ edit?: string; saved?: string }>;
 }): Promise<React.ReactElement> {
   const { id } = await params;
+  const { edit, saved } = await searchParams;
   const base = `/dashboard`;
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
@@ -65,6 +68,14 @@ export default async function CategoryDetailPage({
 
   const addAction = addItemAction.bind(null, id);
   const deleteAction = deleteItemAction.bind(null, id);
+  const updateAction = updateItemAction.bind(null, id);
+
+  // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
+  const toLocalInput = (d: Date | null): string => {
+    if (!d) return "";
+    const pad = (n: number): string => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl bg-brand-cream px-6 py-16 text-brand-green">
@@ -75,6 +86,11 @@ export default async function CategoryDetailPage({
           ← All categories
         </Link>
       </div>
+      {saved ? (
+        <p role="status" className="mt-4 border border-brand-gold/40 bg-white px-4 py-2 text-sm">
+          Item saved. Publish the menu to make it live for guests.
+        </p>
+      ) : null}
 
       <form
         action={addAction}
@@ -221,13 +237,142 @@ export default async function CategoryDetailPage({
                 className="h-11 w-11 shrink-0 rounded-sm border border-brand-green/20 object-cover"
               />
               <div className="flex-1">
-                <p className="font-medium">{item.name}</p>
+                <p className="font-medium">
+                  {item.name}
+                  {item.offerPriceCents ? (
+                    <span className="ml-2 rounded-full bg-brand-gold/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-green">
+                      Angebot € {(item.offerPriceCents / 100).toFixed(2)}
+                    </span>
+                  ) : null}
+                </p>
                 <p className="text-xs text-brand-green/60">
                   € {(item.priceCents / 100).toFixed(2)}
                   {item.allergens.length > 0 ? ` · ${item.allergens.join(", ")}` : ""}
                   {item.isAvailable ? "" : " · unavailable"}
                 </p>
+                {edit === item.id ? (
+                  <form
+                    action={updateAction}
+                    className="mt-4 space-y-3 border border-brand-green/20 bg-brand-cream/60 p-4"
+                  >
+                    <input type="hidden" name="id" value={item.id} />
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-medium">Name</span>
+                        <input
+                          name="name"
+                          required
+                          maxLength={120}
+                          defaultValue={item.name}
+                          className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-medium">Price (€)</span>
+                        <input
+                          name="priceEuros"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          required
+                          defaultValue={(item.priceCents / 100).toFixed(2)}
+                          className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="text-xs font-medium">Description</span>
+                      <textarea
+                        name="description"
+                        maxLength={2000}
+                        rows={2}
+                        defaultValue={item.description ?? ""}
+                        className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <label className="block">
+                        <span className="text-xs font-medium">Angebotspreis (€, optional)</span>
+                        <input
+                          name="offerEuros"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          defaultValue={
+                            item.offerPriceCents ? (item.offerPriceCents / 100).toFixed(2) : ""
+                          }
+                          placeholder="z. B. 9.90"
+                          className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-medium">Angebot von (optional)</span>
+                        <input
+                          name="offerStartsAt"
+                          type="datetime-local"
+                          defaultValue={toLocalInput(item.offerStartsAt)}
+                          className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-medium">Angebot bis (optional)</span>
+                        <input
+                          name="offerEndsAt"
+                          type="datetime-local"
+                          defaultValue={toLocalInput(item.offerEndsAt)}
+                          className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-brand-green/60">
+                      Der Angebotspreis muss unter dem regulären Preis liegen. Leer lassen = kein
+                      Angebot. Ohne Datum gilt das Angebot dauerhaft.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <label className="block">
+                        <span className="text-xs font-medium">Neues Foto (optional)</span>
+                        <input
+                          name="photo"
+                          type="file"
+                          accept="image/*"
+                          className="mt-1 block text-xs"
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          name="isAvailable"
+                          defaultChecked={item.isAvailable}
+                          className="accent-brand-green"
+                        />
+                        Available
+                      </label>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        type="submit"
+                        className="bg-brand-green px-4 py-2 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark"
+                      >
+                        Save item
+                      </button>
+                      <Link
+                        href={`${base}/categories/${category.id}`}
+                        className="px-2 py-2 text-xs underline"
+                      >
+                        Cancel
+                      </Link>
+                    </div>
+                  </form>
+                ) : null}
               </div>
+              {edit !== item.id ? (
+                <Link
+                  href={`${base}/categories/${category.id}?edit=${item.id}`}
+                  className="border border-brand-green/20 px-3 py-1 text-sm hover:border-brand-green"
+                >
+                  Edit
+                </Link>
+              ) : null}
               <form action={deleteAction}>
                 <input type="hidden" name="id" value={item.id} />
                 <button

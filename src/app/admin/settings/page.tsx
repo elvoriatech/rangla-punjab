@@ -23,8 +23,6 @@ export default async function AdminSettingsPage({
 
   const { saved } = await searchParams;
   const settings = await getOperatorSettings();
-  const feePercent = (settings.feeBp / 100).toString();
-  const feeMinEuros = (settings.feeMinCents / 100).toString();
   const resendKeySet = Boolean(env.RESEND_API_KEY);
 
   const field = "block border border-white/15 bg-white/[0.03] px-3 py-2 text-sm text-white";
@@ -34,8 +32,8 @@ export default async function AdminSettingsPage({
       <header className="mx-auto max-w-2xl">
         <h1 className="font-serif text-3xl text-white">Settings</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          The per-order operator fee, the public site kill switch, and email delivery for this
-          deployment.
+          The public site kill switch, theme, and email delivery for this deployment. No commission
+          is ever taken — the restaurant keeps 100% of every order.
         </p>
       </header>
 
@@ -81,68 +79,14 @@ export default async function AdminSettingsPage({
 
         <fieldset className="border border-white/10 bg-white/[0.02] p-5">
           <legend className="px-2 text-xs uppercase tracking-[0.2em] text-neutral-500">
-            Operator fee
+            Commission
           </legend>
-
-          <div className="space-y-3">
-            <label className="flex items-start gap-3 text-sm text-white">
-              <input
-                type="radio"
-                name="feeMode"
-                value="percentage"
-                defaultChecked={settings.feeMode === "percentage"}
-                className="mt-1"
-              />
-              <span>
-                <span className="font-medium">Percentage per order</span>
-                <span className="mt-0.5 block text-xs text-neutral-400">
-                  Charge a percentage on orders above the minimum below.
-                </span>
-              </span>
-            </label>
-            <label className="flex items-start gap-3 text-sm text-white">
-              <input
-                type="radio"
-                name="feeMode"
-                value="upfront"
-                defaultChecked={settings.feeMode === "upfront"}
-                className="mt-1"
-              />
-              <span>
-                <span className="font-medium">Upfront (0% per order)</span>
-                <span className="mt-0.5 block text-xs text-neutral-400">
-                  You bill a one-time lump sum out of band; no fee is taken per order.
-                </span>
-              </span>
-            </label>
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-4">
-            <label className="text-xs uppercase tracking-[0.14em] text-neutral-500">
-              Fee %
-              <input
-                type="number"
-                name="feePercent"
-                min="0"
-                step="0.1"
-                defaultValue={feePercent}
-                className={`mt-1 w-full ${field}`}
-              />
-            </label>
-            <label className="text-xs uppercase tracking-[0.14em] text-neutral-500">
-              No fee at or below (€)
-              <input
-                type="number"
-                name="feeMinEuros"
-                min="0"
-                step="0.01"
-                defaultValue={feeMinEuros}
-                className={`mt-1 w-full ${field}`}
-              />
-            </label>
-          </div>
-          <p className="mt-2 text-xs text-neutral-500">
-            Only applied in percentage mode. Orders at or below the threshold pay no fee.
+          <p className="text-sm text-white">
+            None — this deployment takes no per-order fee and no subscription.
+          </p>
+          <p className="mt-1 text-xs text-neutral-400">
+            The restaurant connects its own Stripe / PayPal accounts and keeps 100% of every order.
+            This is fixed in code (computePlatformFeeCents always returns 0).
           </p>
         </fieldset>
 

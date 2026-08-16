@@ -24,16 +24,15 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: `${BRAND.name} — Order Online`,
   description: BRAND.tagline,
-  // Guesto brand favicon for the marketing site, dashboard, and /admin.
-  // Declared via metadata (not the app/favicon.ico file convention) so
-  // the guest menu can fully REPLACE it with the restaurant's own logo —
-  // file-convention icons would be injected on every route and compete.
+  // Rangla Punjab chef favicon on EVERY page — declared via metadata (not
+  // the app/favicon.ico file convention) so the guest menu can swap in an
+  // uploaded restaurant logo without the file-convention icon competing.
   icons: {
     icon: [
-      { url: "/guesto-icon.svg", type: "image/svg+xml" },
       { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" },
     ],
-    apple: [{ url: "/guesto-icon-180.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" }],
   },
   // Site web-app manifest (served dynamically from the restaurant's
   // branding at /menu.webmanifest — /manifest.webmanifest is reserved by

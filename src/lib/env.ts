@@ -57,6 +57,21 @@ const envSchema = z.object({
   // connected accounts) and each gets its OWN signing secret. Dev's
   // `stripe listen` shares one secret for both, so this stays unset there.
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  // PayPal (restaurant's OWN business account — single-merchant checkout).
+  // Both optional so dev + test run on the fake provider; the real REST
+  // wrapper boots only when *both* are set. PAYPAL_ENV picks the endpoint.
+  PAYPAL_CLIENT_ID: z.string().min(1).optional(),
+  PAYPAL_CLIENT_SECRET: z.string().min(1).optional(),
+  PAYPAL_ENV: z.enum(["sandbox", "live"]).default("sandbox"),
+
+  // Customer sign-in (guest accounts). Each pair optional — a provider
+  // only shows on the login surfaces when BOTH its values are set. The
+  // dev fake provider covers local testing with no credentials at all.
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  MICROSOFT_CLIENT_ID: z.string().min(1).optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 function loadEnv() {
