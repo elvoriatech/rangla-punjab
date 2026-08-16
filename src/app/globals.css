@@ -30,7 +30,7 @@
   --rp-gold-dark: #96733a;
   --rp-star: #d69a3a;
   --rp-ink: #2a1a0e;
-  --rp-muted: #6f6052;
+  --rp-muted: #5f5142; /* darkened for AA body contrast on cream */
   --rp-onwarm: #ecdcb6;
   --rp-onwarm-soft: #c9b58c;
 
@@ -180,6 +180,33 @@ body {
     "Segoe UI",
     sans-serif;
   font-feature-settings: "ss01", "cv11";
+  /* Softer, crisper rendering everywhere. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------------------
+ * Console readability — applied to the dashboard + admin work surfaces.
+ * The consoles were written against text-sm/text-xs (14/12px), which reads
+ * small and harsh at desk distance; this bumps the whole scale one gentle
+ * notch and relaxes line-height WITHOUT touching the guest pages (scoped by
+ * class, and the guest menu never mounts .console-readable).
+ * ------------------------------------------------------------------------ */
+.console-readable {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.console-readable .text-sm {
+  font-size: 0.9375rem; /* 15px, was 14 */
+  line-height: 1.55;
+}
+.console-readable .text-xs {
+  font-size: 0.8125rem; /* 13px, was 12 */
+  line-height: 1.5;
+}
+.console-readable .text-\[11px\],
+.console-readable .text-\[10px\] {
+  font-size: 0.75rem;
 }
 
 @media (prefers-reduced-motion: no-preference) {

@@ -6,6 +6,7 @@ import {
   MENU_TEXTURES,
   MENU_BACKDROPS,
   menuThemeStyle,
+  resolveBackdropGradient,
   resolveMenuTheme,
   textureBackgroundImage,
   type MenuTheme,
@@ -480,6 +481,9 @@ function BackdropCard({
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }
+              : {}),
+            ...(!backdrop.image && resolveBackdropGradient(backdrop, theme.vars.bg)
+              ? { backgroundImage: resolveBackdropGradient(backdrop, theme.vars.bg)! }
               : {}),
           }}
         />

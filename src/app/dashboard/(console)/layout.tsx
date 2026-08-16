@@ -93,7 +93,7 @@ export default async function DashboardLayout({
             logoUrl={logoUrl}
             railStyle={railStyle}
           />
-          <div className="min-w-0 flex-1">{children}</div>
+          <div className="console-readable min-w-0 flex-1">{children}</div>
         </div>
       </div>
     </>

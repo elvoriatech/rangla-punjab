@@ -36,7 +36,7 @@ export default async function ResetTokenPage({
       <div className="w-full max-w-md border border-ink/10 bg-white p-10 shadow-[0_24px_60px_-32px_rgba(28,19,11,0.35)]">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/guesto-icon.svg" alt="" className="h-10 w-10 rounded-lg" />
+          <img src="/brand/icon-192.png" alt="" className="h-10 w-10 rounded-lg" />
           <span className="text-xs uppercase tracking-[0.34em] text-gold-dark">{BRAND.name}</span>
         </div>
 

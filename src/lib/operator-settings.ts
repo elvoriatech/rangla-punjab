@@ -86,9 +86,13 @@ const SINGLETON_ID = "singleton";
  *   · otherwise            ⇒ feeBp basis points of the total
  */
 export function computePlatformFeeCents(amountCents: number, settings: OperatorSettings): number {
-  if (settings.feeMode === "upfront") return 0;
-  if (amountCents <= settings.feeMinCents) return 0;
-  return Math.round((amountCents * settings.feeBp) / 10_000);
+  // Rangla Punjab is a single-restaurant white-label: the restaurant runs
+  // its OWN payment gateways and keeps 100% of every order. No commission,
+  // no subscription — structurally, not by configuration. The settings
+  // parameters survive only for API compatibility.
+  void amountCents;
+  void settings;
+  return 0;
 }
 
 /**

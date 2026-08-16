@@ -337,10 +337,58 @@ export interface MenuBackdrop {
   tagline: string;
   /** Public URL under /menu-backdrops, or null for the plain theme color. */
   image: string | null;
+  /**
+   * CSS gradient background instead of an artwork image. May reference the
+   * active theme's plain color via {bg} / {soft} / {deep} placeholders —
+   * these are the "plain colors, as a gradient" options.
+   */
+  gradient?: string;
 }
 
 export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
   { id: "none", label: "None", tagline: "Solid theme color — the default.", image: null },
+  {
+    id: "theme-soft",
+    label: "Sunset Coral",
+    tagline: "Warm coral melting into sunset red — a modern glow.",
+    image: null,
+    gradient: "linear-gradient(160deg, #ffb347 0%, #ff7e5f 45%, #e34f56 100%)",
+  },
+  {
+    id: "theme-glow",
+    label: "Violet Dusk",
+    tagline: "Deep indigo into violet — sleek and contemporary.",
+    image: null,
+    gradient: "linear-gradient(160deg, #6a5ae0 0%, #8b5bbf 55%, #43265e 100%)",
+  },
+  {
+    id: "crimson-silk",
+    label: "Crimson Silk",
+    tagline: "Deep Punjabi red, flowing like silk.",
+    image: null,
+    gradient: "linear-gradient(160deg, #b32e2e 0%, #8f1a1a 45%, #5f0f0f 100%)",
+  },
+  {
+    id: "golden-hour",
+    label: "Golden Hour",
+    tagline: "Warm antique gold, light to amber.",
+    image: null,
+    gradient: "linear-gradient(160deg, #f6e3a8 0%, #e8c15c 48%, #b98f2e 100%)",
+  },
+  {
+    id: "ivory-mist",
+    label: "Ivory Mist",
+    tagline: "Soft parchment cream, barely-there warmth.",
+    image: null,
+    gradient: "linear-gradient(175deg, #fffdf5 0%, #f6ecd4 55%, #e3d2ac 100%)",
+  },
+  {
+    id: "aubergine-dusk",
+    label: "Aubergine Dusk",
+    tagline: "Midnight plum fading into the dark.",
+    image: null,
+    gradient: "linear-gradient(165deg, #4a2450 0%, #301536 55%, #190a1e 100%)",
+  },
   {
     id: "rangla-royal",
     label: "Royal Crimson Wave",
@@ -383,6 +431,31 @@ export function resolveMenuBackdrop(id: string | undefined | null): MenuBackdrop
  * `headingColor` (owner-picked) feeds var(--menu-heading, …) fallbacks in
  * the renderer — absent means each layout's original heading color.
  */
+/** Mix a #rrggbb color toward white (t>0) or black (t<0); returns #rrggbb. */
+function shadeHex(hex: string, t: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1]!, 16);
+  const mix = (c: number): number => {
+    const target = t >= 0 ? 255 : 0;
+    const v = Math.round(c + (target - c) * Math.abs(t));
+    return Math.max(0, Math.min(255, v));
+  };
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+/** Resolve a gradient's {bg}/{soft}/{deep} placeholders against the theme. */
+export function resolveBackdropGradient(backdrop: MenuBackdrop, themeBg: string): string | null {
+  if (!backdrop.gradient) return null;
+  return backdrop.gradient
+    .replaceAll("{bg}", themeBg)
+    .replaceAll("{soft}", shadeHex(themeBg, 0.14))
+    .replaceAll("{deep}", shadeHex(themeBg, -0.28));
+}
+
 /** #rrggbb → rgba() with alpha; used for the heading pill over artwork. */
 function hexToRgba(hex: string, alpha: number): string {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
@@ -419,7 +492,7 @@ export function menuThemeStyle(
     ...(headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)
       ? { "--menu-heading": headingColor }
       : {}),
-    ...(theme.vars.surfaceText && backdrop.image
+    ...(theme.vars.surfaceText && (backdrop.image || backdrop.gradient)
       ? { "--menu-heading-bg": hexToRgba(theme.vars.surface, 0.92) }
       : {}),
   };
@@ -429,6 +502,14 @@ export function menuThemeStyle(
       backgroundImage: `url("${backdrop.image}")`,
       backgroundSize: "cover",
       backgroundPosition: "center top",
+      backgroundAttachment: "fixed",
+    } as React.CSSProperties;
+  }
+  const gradient = resolveBackdropGradient(backdrop, theme.vars.bg);
+  if (gradient) {
+    return {
+      ...vars,
+      backgroundImage: gradient,
       backgroundAttachment: "fixed",
     } as React.CSSProperties;
   }
