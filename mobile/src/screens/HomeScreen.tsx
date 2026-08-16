@@ -22,10 +22,10 @@ import { useI18n } from "../i18n";
 // The design's hero: text on the red wave, a signature dish on the
 // right — rotating through the house plates every few seconds.
 const HERO_SLIDES = [
-  require("../../assets/carousel/hero-biryani.jpg"),
-  require("../../assets/carousel/hero-kebab.jpg"),
-  require("../../assets/carousel/hero-karahi.jpg"),
-  require("../../assets/carousel/hero-biryani-2.jpg"),
+  require("../../assets/carousel/hero-biryani.png"),
+  require("../../assets/carousel/hero-kebab.png"),
+  require("../../assets/carousel/hero-karahi.png"),
+  require("../../assets/carousel/hero-biryani-2.png"),
 ];
 
 function HeroCarousel({ text }: { text: string }): React.ReactElement {
@@ -64,7 +64,7 @@ function HeroCarousel({ text }: { text: string }): React.ReactElement {
         {HERO_SLIDES.map((src, i) => (
           <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
             <Text style={styles.heroText}>{text}</Text>
-            <Image source={src} style={styles.heroDish} />
+            <Image source={src} style={styles.heroDish} resizeMode="contain" />
           </View>
         ))}
       </ScrollView>
@@ -164,14 +164,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
-  heroDish: {
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    borderWidth: 2,
-    borderColor: colors.goldSoft,
-    backgroundColor: colors.creamCard,
-  },
+  // Cut-out plates float straight on the artwork — no frame, no white box.
+  heroDish: { width: 136, height: 124 },
   heroDots: {
     position: "absolute",
     bottom: 8,
