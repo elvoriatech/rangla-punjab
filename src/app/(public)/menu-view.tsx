@@ -487,7 +487,7 @@ function GridSection({
         ) : null}
         <h2
           id={`cat-${cat.id}`}
-          className="rounded-xl px-5 py-1.5 font-serif text-3xl font-semibold leading-tight text-[var(--menu-heading,var(--menu-text))] [background-color:var(--menu-heading-bg,transparent)] sm:text-4xl"
+          className="font-serif text-3xl font-semibold leading-tight text-[var(--menu-heading,var(--menu-text))] [text-shadow:0_1px_14px_rgba(0,0,0,0.12)] sm:text-4xl"
         >
           {cat.name}
         </h2>
@@ -1291,23 +1291,25 @@ function SideRail({
 }): React.ReactElement {
   const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
   const slugOf = categorySlugs(categories);
-  const linkBase =
-    "block rounded-md px-3 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors";
+  // Modern rail: a soft translucent surface so the labels are readable
+  // over ANY artwork/gradient; the active category is the app's red
+  // bubble with the sharp bottom-right corner.
+  const linkBase = "block rounded-xl px-3.5 py-2 text-[13px] leading-snug transition-colors";
   return (
     <aside className="hidden lg:block">
       <nav
         aria-label="Categories"
-        className="sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto pr-2 [scrollbar-width:thin]"
+        className="sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto rounded-2xl bg-[var(--menu-surface)]/85 p-2 shadow-[0_2px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm [scrollbar-width:thin]"
       >
-        <ul className="space-y-1 border-l border-[var(--menu-line)] pl-3">
+        <ul className="space-y-0.5">
           <li>
             <Link
               href={`/${activeDiet ? `?diet=${activeDiet}` : ""}`}
               prefetch={false}
               className={`${linkBase} ${
                 active === null
-                  ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
-                  : "text-[var(--menu-text)]/70 hover:text-[var(--menu-text)]"
+                  ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
+                  : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
               }`}
             >
               All
@@ -1320,8 +1322,8 @@ function SideRail({
                 prefetch={false}
                 className={`${linkBase} ${
                   active === c.id
-                    ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
-                    : "text-[var(--menu-text)]/70 hover:text-[var(--menu-text)]"
+                    ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
+                    : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
                 }`}
               >
                 {showIcons ? (
@@ -1446,15 +1448,18 @@ function TabLink({
   // with an underline for the active state, subtle background for the
   // hover state. Primary = category rail (bigger, more prominent).
   // Secondary = diet rail (smaller, quieter).
-  const base = "inline-flex items-center px-4 py-2 transition-all duration-200 border-b-2";
+  // The app's navigation language: the active tab is a filled bubble
+  // whose bottom-right corner sweeps to a near-point; inactive tabs are
+  // plain text. Diet tabs stay quieter (soft tinted pill).
+  const base = "inline-flex items-center px-4 py-2 transition-all duration-200";
   const cls =
     variant === "primary"
       ? active
-        ? `${base} border-[var(--menu-accent)] text-[var(--menu-accent)]`
-        : `${base} border-transparent text-[var(--menu-text)] hover:border-[var(--menu-accent)]/40 hover:text-[var(--menu-accent)]`
+        ? `${base} rounded-2xl [border-bottom-right-radius:3px] bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] shadow-sm`
+        : `${base} rounded-2xl text-[var(--menu-text)] hover:text-[var(--menu-accent)]`
       : active
-        ? `${base} border-[var(--menu-surface-accent,var(--menu-accent))] text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`
-        : `${base} border-transparent text-[var(--menu-surface-text,var(--menu-text))] hover:border-[var(--menu-surface-accent,var(--menu-accent))]/40 hover:text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`;
+        ? `${base} rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/12 font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`
+        : `${base} rounded-full text-[var(--menu-surface-text,var(--menu-text))] hover:text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`;
   // next/link: with JS this is an in-place RSC transition — no full-page
   // reload, the sticky rails never flash, and the browser scrolls to the
   // top so the newly filtered list is immediately visible below them.
