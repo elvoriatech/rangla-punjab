@@ -77,12 +77,7 @@ export default async function AppearancePage({
             <legend className="text-xs uppercase tracking-[0.28em] text-gold-dark">Theme</legend>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {MENU_THEMES.map((theme) => (
-                <ThemeCard
-                  key={theme.id}
-                  theme={theme}
-                  checked={theme.id === currentTheme.id}
-                  featured={theme.id === "rangla-royal"}
-                />
+                <ThemeCard key={theme.id} theme={theme} checked={theme.id === currentTheme.id} />
               ))}
             </div>
           </fieldset>
@@ -319,18 +314,9 @@ export default async function AppearancePage({
  * A miniature of the real menu page: same vars, same serif, same hairline.
  * Not a screenshot — it can never drift from what the renderer produces.
  */
-function ThemeCard({
-  theme,
-  checked,
-  featured,
-}: {
-  theme: MenuTheme;
-  checked: boolean;
-  /** The house look spans the full row — a horizontal feature card. */
-  featured?: boolean;
-}): React.ReactElement {
+function ThemeCard({ theme, checked }: { theme: MenuTheme; checked: boolean }): React.ReactElement {
   return (
-    <label className={`block cursor-pointer ${featured ? "sm:col-span-2" : ""}`}>
+    <label className="block cursor-pointer">
       <input
         type="radio"
         name="theme"

@@ -283,22 +283,6 @@ export const MENU_THEMES: readonly MenuTheme[] = [
     textureInk: "rgba(60, 42, 29, 0.05)",
   },
   {
-    id: "street-bold",
-    layout: "grid",
-    label: "Street Bold",
-    tagline: "Punchy red, taxi yellow, oversized type — street energy.",
-    vars: {
-      bg: "#fdf1dc",
-      surface: "#ffffff",
-      line: "#17151a",
-      text: "#17151a",
-      textSoft: "#5c5560",
-      accent: "#e63946",
-      positive: "#1f6b3a",
-    },
-    textureInk: "rgba(23, 21, 26, 0.05)",
-  },
-  {
     id: "rangla-royal",
     label: "Rangla Royal",
     layout: "editorial",
@@ -316,6 +300,22 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       surfaceAccent: "#9d1c1c",
     },
     textureInk: "rgba(253, 243, 221, 0.05)",
+  },
+  {
+    id: "street-bold",
+    layout: "grid",
+    label: "Street Bold",
+    tagline: "Punchy red, taxi yellow, oversized type — street energy.",
+    vars: {
+      bg: "#fdf1dc",
+      surface: "#ffffff",
+      line: "#17151a",
+      text: "#17151a",
+      textSoft: "#5c5560",
+      accent: "#e63946",
+      positive: "#1f6b3a",
+    },
+    textureInk: "rgba(23, 21, 26, 0.05)",
   },
 ] as const;
 
