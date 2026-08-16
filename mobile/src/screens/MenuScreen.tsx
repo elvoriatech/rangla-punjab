@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow } from "../components";
 import { colors } from "../theme";
@@ -27,7 +28,7 @@ export function MenuScreen({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
+          contentContainerStyle={{ gap: 14, paddingHorizontal: 16 }}
         >
           <Chip label={t.all} active={activeId === null} onPress={() => setActiveId(null)} />
           {menu.categories.map((cat) => (
@@ -66,6 +67,13 @@ function Chip({
   return (
     <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+      {active ? (
+        // The mockup bubble's tail: hangs off the bottom-right, its top
+        // edge curving INWARD (concave) out to a long sharp point.
+        <Svg width={16} height={15} viewBox="0 0 16 15" style={styles.chipTail}>
+          <Path d="M0 0 C3 9 9 13.4 16 15 L0 15 Z" fill={colors.red} />
+        </Svg>
+      ) : null}
     </Pressable>
   );
 }
@@ -88,8 +96,9 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor: colors.red,
     borderRadius: 18,
-    borderBottomRightRadius: 2,
+    borderBottomRightRadius: 0,
   },
+  chipTail: { position: "absolute", right: -15, bottom: 0 },
   chipText: { color: colors.ink, fontSize: 13.5, fontWeight: "600" },
   chipTextActive: { color: colors.onRed, fontWeight: "700" },
   catHeading: { color: colors.ink, fontSize: 17, fontWeight: "800", marginTop: 8 },
