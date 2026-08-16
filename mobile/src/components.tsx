@@ -91,8 +91,8 @@ export function DishRow({
   const { t } = useI18n();
   return (
     <View style={styles.dishRow}>
-      <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} />
-      <View style={{ flex: 1, gap: 2 }}>
+      <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} resizeMode="cover" />
+      <View style={{ flex: 1, gap: 2, paddingVertical: 10 }}>
         <Text style={styles.dishName} numberOfLines={1}>
           {item.name}
         </Text>
@@ -180,6 +180,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryBtnText: { color: colors.ink, fontWeight: "700", letterSpacing: 0.5 },
+  // Photo bleeds to the card's top/bottom/left edge (mockup card layout);
+  // the card's own radius clips it, text keeps its inset on the right.
   dishRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -188,9 +190,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
-    padding: 10,
+    paddingRight: 10,
+    overflow: "hidden",
   },
-  dishPhoto: { width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.line },
+  dishPhoto: { width: 96, alignSelf: "stretch", minHeight: 88, backgroundColor: colors.line },
   dishName: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   dishDesc: { color: colors.inkSoft, fontSize: 12 },
   dishPrice: { color: colors.red, fontSize: 14, fontWeight: "700" },

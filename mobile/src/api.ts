@@ -71,11 +71,28 @@ export interface ApiMenu {
   categories: ApiCategory[];
 }
 
+/** The server emits absolute image URLs against its own origin; in dev
+ *  that's `localhost`, which an Android emulator can't reach — rebase
+ *  any localhost image onto BASE_URL (10.0.2.2 on Android). */
+function rebaseUrl<T extends string | null>(url: T): T {
+  if (!url) return url;
+  return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, BASE_URL) as T;
+}
+
 export async function fetchMenu(locale?: string): Promise<ApiMenu> {
   const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
   const res = await fetch(`${BASE_URL}/api/v1/menu${qs}`);
   if (!res.ok) throw new Error(`menu ${res.status}`);
-  return (await res.json()) as ApiMenu;
+  const menu = (await res.json()) as ApiMenu;
+  return {
+    ...menu,
+    venue: { ...menu.venue, logoUrl: rebaseUrl(menu.venue.logoUrl) },
+    categories: menu.categories.map((c) => ({
+      ...c,
+      photoUrl: rebaseUrl(c.photoUrl),
+      items: c.items.map((i) => ({ ...i, photoUrl: rebaseUrl(i.photoUrl) })),
+    })),
+  };
 }
 
 export type OrderType = "dine_in" | "takeaway" | "delivery";

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -41,6 +41,7 @@ interface TrackTarget {
 function Shell(): React.ReactElement {
   const cart = useCart();
   const { t, lang } = useI18n();
+  const insets = useSafeAreaInsets();
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
@@ -134,7 +135,7 @@ function Shell(): React.ReactElement {
         ) : null}
       </View>
 
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { marginBottom: Math.max(insets.bottom, 12) }]}>
         <TabButton
           label={t.tabStart}
           icon="home"
@@ -189,7 +190,12 @@ function TabButton({
   return (
     <Pressable onPress={onPress} style={styles.tabBtn} accessibilityLabel={label}>
       <View>
-        <Ionicons name={name} size={22} color={colors.onRed} style={!active && { opacity: 0.6 }} />
+        <Ionicons
+          name={name}
+          size={22}
+          color={active ? colors.goldSoft : colors.onRed}
+          style={!active && { opacity: 0.7 }}
+        />
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge > 99 ? "99" : badge}</Text>
@@ -247,14 +253,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   bootRetryText: { color: colors.goldSoft, fontWeight: "700" },
+  // The mockup's floating pill bar: inset from the screen edges with a
+  // long rounded arc on every corner, buttons drawn in toward each other.
   tabBar: {
     flexDirection: "row",
     backgroundColor: colors.red,
-    paddingTop: 8,
-    paddingBottom: 18,
-    paddingHorizontal: 4,
+    marginHorizontal: 12,
+    marginTop: 6,
+    borderRadius: 28,
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingHorizontal: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  tabBtn: { flex: 1, alignItems: "center", gap: 2 },
+  tabBtn: { flex: 1, alignItems: "center", gap: 3 },
   tabLabel: { color: colors.onRed, opacity: 0.6, fontSize: 10 },
   tabLabelActive: { opacity: 1, fontWeight: "700" },
   badge: {
