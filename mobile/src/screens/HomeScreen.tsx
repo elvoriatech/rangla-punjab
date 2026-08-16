@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image,
   ImageBackground,
@@ -14,9 +14,68 @@ import { colors, radius } from "../theme";
 import { useI18n } from "../i18n";
 
 /**
- * Start — the mockup's home: red brand header, artwork hero, the
- * Lieferung/Abholung entry points, category medallions, popular dishes.
+ * Start — the mockup's home: red brand header, artwork hero carousel,
+ * the Lieferung/Abholung entry points, category medallions, popular
+ * dishes.
  */
+
+// The design's hero: text on the red wave, a signature dish on the
+// right — rotating through the house plates every few seconds.
+const HERO_SLIDES = [
+  require("../../assets/carousel/hero-biryani.jpg"),
+  require("../../assets/carousel/hero-kebab.jpg"),
+  require("../../assets/carousel/hero-karahi.jpg"),
+  require("../../assets/carousel/hero-biryani-2.jpg"),
+];
+
+function HeroCarousel({ text }: { text: string }): React.ReactElement {
+  const [width, setWidth] = useState(0);
+  const [page, setPage] = useState(0);
+  const scroller = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (!width) return;
+    const id = setInterval(() => {
+      setPage((current) => {
+        const next = (current + 1) % HERO_SLIDES.length;
+        scroller.current?.scrollTo({ x: next * width, animated: true });
+        return next;
+      });
+    }, 3500);
+    return () => clearInterval(id);
+  }, [width]);
+
+  return (
+    <ImageBackground
+      source={require("../../assets/artwork.jpg")}
+      style={styles.hero}
+      imageStyle={{ borderRadius: radius.lg }}
+      onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
+    >
+      <ScrollView
+        ref={scroller}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          if (width) setPage(Math.round(e.nativeEvent.contentOffset.x / width));
+        }}
+      >
+        {HERO_SLIDES.map((src, i) => (
+          <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
+            <Text style={styles.heroText}>{text}</Text>
+            <Image source={src} style={styles.heroDish} />
+          </View>
+        ))}
+      </ScrollView>
+      <View style={styles.heroDots} pointerEvents="none">
+        {HERO_SLIDES.map((_, i) => (
+          <View key={i} style={[styles.heroDot, i === page && styles.heroDotActive]} />
+        ))}
+      </View>
+    </ImageBackground>
+  );
+}
 export function HomeScreen({
   menu,
   onAdd,
@@ -39,15 +98,7 @@ export function HomeScreen({
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader title={menu.venue.name} subtitle={t.restaurant} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <ImageBackground
-          source={require("../../assets/artwork.jpg")}
-          style={styles.hero}
-          imageStyle={{ borderRadius: radius.lg }}
-        >
-          <View style={styles.heroInner}>
-            <Text style={styles.heroText}>{t.heroLine}</Text>
-          </View>
-        </ImageBackground>
+        <HeroCarousel text={t.heroLine} />
 
         <View style={styles.modeRow}>
           {menu.ordering.delivery ? (
@@ -104,15 +155,46 @@ export function HomeScreen({
 }
 
 const styles = StyleSheet.create({
-  hero: { height: 150, borderRadius: radius.lg, overflow: "hidden" },
-  heroInner: { flex: 1, justifyContent: "center", padding: 18 },
+  hero: { height: 160, borderRadius: radius.lg, overflow: "hidden" },
+  heroSlide: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  heroDish: {
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    borderWidth: 2,
+    borderColor: colors.goldSoft,
+    backgroundColor: colors.creamCard,
+  },
+  heroDots: {
+    position: "absolute",
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 5,
+  },
+  heroDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(253, 243, 221, 0.45)",
+  },
+  heroDotActive: { backgroundColor: colors.goldSoft },
   heroText: {
     color: colors.onRed,
     fontSize: 20,
     fontWeight: "800",
     textShadowColor: "rgba(0,0,0,0.45)",
     textShadowRadius: 6,
-    maxWidth: 220,
+    flex: 1,
   },
   modeRow: { flexDirection: "row", gap: 12, marginTop: 14 },
   modeCard: {
