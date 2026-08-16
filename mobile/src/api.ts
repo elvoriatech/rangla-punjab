@@ -139,6 +139,12 @@ export interface ApiTrackStep {
   labelEn: string;
   reached: boolean;
 }
+export interface ApiTrackItem {
+  name: string;
+  quantity: number;
+  priceCents: number;
+  lineTotalCents: number;
+}
 export interface ApiTracking {
   id: string;
   orderNumber: number;
@@ -147,6 +153,8 @@ export interface ApiTracking {
   steps: ApiTrackStep[];
   orderType: string;
   paymentStatus: string;
+  /** Optional: older servers don't send the lines. */
+  items?: ApiTrackItem[];
   totalCents: number;
   currency: string;
   tableNumber: string | null;

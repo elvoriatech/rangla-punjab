@@ -48,6 +48,12 @@ export async function GET(
           })),
           orderType: order.orderType,
           paymentStatus: order.paymentStatus,
+          items: order.items.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            priceCents: i.priceCents,
+            lineTotalCents: i.priceCents * i.quantity,
+          })),
           totalCents: order.totalCents,
           currency: order.currency,
           tableNumber: order.tableNumber,

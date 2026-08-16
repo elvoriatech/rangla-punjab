@@ -125,6 +125,19 @@ export default async function OrderStatusPage({
         </ol>
 
         <div className="mt-8 rounded-xl border border-[var(--menu-line)] px-4 py-3 text-sm">
+          <ul className="mb-2 space-y-1 border-b border-[var(--menu-line)] pb-2">
+            {order.items.map((line, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <span className="min-w-6 font-bold text-[var(--menu-surface-accent,var(--menu-accent))]">
+                  {line.quantity}×
+                </span>
+                <span className="flex-1 truncate">{line.name}</span>
+                <span className="tabular-nums text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                  {money.format((line.priceCents * line.quantity) / 100)}
+                </span>
+              </li>
+            ))}
+          </ul>
           <div className="flex justify-between">
             <span>Gesamt / Total</span>
             <span className="font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">

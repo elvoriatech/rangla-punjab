@@ -117,6 +117,22 @@ export function TrackScreen({
               })}
             </View>
 
+            {tracking.items?.length ? (
+              <View style={styles.itemsBox}>
+                {tracking.items.map((line, i) => (
+                  <View key={`${line.name}-${i}`} style={styles.itemRow}>
+                    <Text style={styles.itemQty}>{line.quantity}×</Text>
+                    <Text style={styles.itemName} numberOfLines={1}>
+                      {line.name}
+                    </Text>
+                    <Text style={styles.itemPrice}>
+                      {money(line.lineTotalCents, tracking.currency)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>{t.total}</Text>
               <Text style={styles.totalValue}>{money(tracking.totalCents, tracking.currency)}</Text>
@@ -176,6 +192,18 @@ const styles = StyleSheet.create({
   railLine: { width: 2, flex: 1, backgroundColor: colors.line, marginVertical: 2 },
   stepDe: { color: colors.ink, fontSize: 14, fontWeight: "700", paddingTop: 4 },
   stepEn: { color: colors.inkSoft, fontSize: 11 },
+  itemsBox: {
+    borderTopWidth: 1,
+    borderColor: colors.line,
+    paddingTop: 10,
+    marginTop: 2,
+    marginBottom: 10,
+    gap: 6,
+  },
+  itemRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  itemQty: { color: colors.red, fontSize: 13, fontWeight: "800", minWidth: 26 },
+  itemName: { color: colors.ink, fontSize: 13.5, flex: 1 },
+  itemPrice: { color: colors.inkSoft, fontSize: 13, fontWeight: "600" },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",

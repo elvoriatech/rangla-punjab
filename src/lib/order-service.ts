@@ -495,6 +495,7 @@ export interface OrderTracking {
   requestedFor: Date | null;
   createdAt: Date;
   tableNumber: string | null;
+  items: { name: string; quantity: number; priceCents: number; basePriceCents: number | null }[];
   venue: { timezone: string; branding: unknown };
 }
 
@@ -517,6 +518,10 @@ export async function getOrderTracking(
         requestedFor: true,
         createdAt: true,
         tableNumber: true,
+        items: {
+          select: { name: true, quantity: true, priceCents: true, basePriceCents: true },
+          orderBy: { createdAt: "asc" },
+        },
         venue: { select: { timezone: true, branding: true } },
       },
     }),
