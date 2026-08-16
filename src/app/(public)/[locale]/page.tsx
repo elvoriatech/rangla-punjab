@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
 import { venueIcons } from "@/lib/menu-images";
@@ -28,14 +29,22 @@ interface Params {
   locale: string;
 }
 
+/** Per-request cached loader — metadata + page share ONE tenant
+ *  transaction (see the same pattern on the default-locale page). */
+const getMenuForRequest = cache(async (slug: string, preview: string | null, locale: string) => {
+  const context = await resolvePreviewContext(slug, preview);
+  if (!context) return null;
+  const menu = await loadPublicMenu(context, locale);
+  if (!menu) return null;
+  return { context, menu };
+});
+
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { locale } = await params;
   const slug = await getRestaurantSlug();
-  const context = await resolvePreviewContext(slug, null);
-  if (!context) return {};
-
-  const menu = await loadPublicMenu(context, locale);
-  if (!menu) return {};
+  const loaded = await getMenuForRequest(slug, null, locale);
+  if (!loaded) return {};
+  const { menu } = loaded;
 
   const base = siteUrl();
   const languages: Record<string, string> = {};
@@ -78,11 +87,9 @@ export default async function LocalisedPublicMenuPage({
   const slug = await getRestaurantSlug();
   const { preview, diet } = await searchParams;
 
-  const context = await resolvePreviewContext(slug, preview ?? null);
-  if (!context) notFound();
-
-  const menu = await loadPublicMenu(context, locale);
-  if (!menu) notFound();
+  const loaded = await getMenuForRequest(slug, preview ?? null, locale);
+  if (!loaded) notFound();
+  const { context, menu } = loaded;
 
   // Guardrail: if the venue has not enabled this locale, refuse the URL
   // rather than silently rendering the default translation.
