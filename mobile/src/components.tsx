@@ -113,20 +113,20 @@ export function DishRow({
             </>
           ) : null}
           <Text style={styles.dishPrice}>{money(item.priceCents, item.currency)}</Text>
+          {item.isAvailable ? (
+            <Pressable
+              onPress={() => onAdd(item)}
+              hitSlop={10}
+              accessibilityLabel={`${item.name} hinzufügen`}
+              style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}
+            >
+              <Text style={styles.addBtnText}>+</Text>
+            </Pressable>
+          ) : (
+            <Text style={[styles.soldOut, { marginLeft: "auto" }]}>{t.soldOut}</Text>
+          )}
         </View>
       </View>
-      {item.isAvailable ? (
-        <Pressable
-          onPress={() => onAdd(item)}
-          hitSlop={10}
-          accessibilityLabel={`${item.name} hinzufügen`}
-          style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}
-        >
-          <Text style={styles.addBtnText}>+</Text>
-        </Pressable>
-      ) : (
-        <Text style={styles.soldOut}>{t.soldOut}</Text>
-      )}
     </View>
   );
 }
@@ -209,13 +209,16 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   offerBadgeText: { color: colors.ink, fontSize: 8, fontWeight: "800", letterSpacing: 0.5 },
+  // Mockup's add control: a soft-cornered SQUARE pinned to the card's
+  // bottom-right, sitting on the price row.
   addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: colors.red,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: "auto",
   },
   addBtnText: { color: colors.onRed, fontSize: 20, fontWeight: "700", lineHeight: 22 },
   soldOut: { color: colors.inkSoft, fontSize: 11, fontStyle: "italic" },

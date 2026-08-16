@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow } from "../components";
-import { colors, radius } from "../theme";
+import { colors } from "../theme";
 import { useI18n } from "../i18n";
 
 /** Kategorien — chip rail + dish list, the mockup's category browser. */
@@ -64,11 +64,8 @@ function Chip({
   onPress: () => void;
 }): React.ReactElement {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, active && { backgroundColor: colors.red, borderColor: colors.red }]}
-    >
-      <Text style={[styles.chipText, active && { color: colors.onRed }]}>{label}</Text>
+    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
 }
@@ -80,14 +77,19 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     paddingVertical: 10,
   },
+  // Mockup's category rail: the active category is a red tab with a
+  // sharp bottom-left tail; the rest are plain text, no box.
   chip: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.cream,
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
+    justifyContent: "center",
   },
-  chipText: { color: colors.ink, fontSize: 13, fontWeight: "600" },
+  chipActive: {
+    backgroundColor: colors.red,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+  },
+  chipText: { color: colors.ink, fontSize: 13.5, fontWeight: "600" },
+  chipTextActive: { color: colors.onRed, fontWeight: "700" },
   catHeading: { color: colors.ink, fontSize: 17, fontWeight: "800", marginTop: 8 },
 });
