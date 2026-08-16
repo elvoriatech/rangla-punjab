@@ -160,8 +160,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
-  headerTitle: { color: colors.onRed, fontSize: 20, fontWeight: "700" },
-  headerSubtitle: { color: colors.goldSoft, fontSize: 12, marginTop: 1 },
+  headerCenter: { flex: 1, alignItems: "center" },
+  headerTitle: { color: colors.onRed, fontSize: 19, fontWeight: "800" },
+  headerSubtitle: { color: colors.goldSoft, fontSize: 11, letterSpacing: 3, marginTop: 1 },
   sectionRow: {
     flexDirection: "row",
     alignItems: "baseline",

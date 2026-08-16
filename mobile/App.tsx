@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
@@ -15,6 +16,7 @@ import { CartScreen } from "./src/screens/CartScreen";
 import { OrdersScreen } from "./src/screens/OrdersScreen";
 import { TrackScreen } from "./src/screens/TrackScreen";
 import { AccountScreen } from "./src/screens/AccountScreen";
+import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 
 /**
  * Rangla Punjab — the single-restaurant guest app. One hand-rolled tab
@@ -36,6 +38,7 @@ function Shell(): React.ReactElement {
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
+  const [welcomed, setWelcomed] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [presetType, setPresetType] = useState<OrderType | null>(null);
   const [track, setTrack] = useState<TrackTarget | null>(null);
@@ -58,18 +61,21 @@ function Shell(): React.ReactElement {
     setTrack({ orderId: order.orderId, token: order.receiptToken });
   }, []);
 
-  if (!menu) {
+  if (!menu || !welcomed) {
     return (
-      <View style={styles.boot}>
-        <Text style={styles.bootBrand}>Rangla Punjab</Text>
-        <Text style={styles.bootSub}>RESTAURANT</Text>
-        <Text style={styles.bootState}>{loadError ? t.bootError : t.bootLoading}</Text>
-        {loadError ? (
-          <Pressable onPress={load} style={styles.bootRetry}>
-            <Text style={styles.bootRetryText}>{t.bootRetry}</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <WelcomeScreen
+        ready={Boolean(menu)}
+        loadError={loadError}
+        onRetry={load}
+        onStart={() => {
+          setTab("home");
+          setWelcomed(true);
+        }}
+        onAccount={() => {
+          setTab("info");
+          setWelcomed(true);
+        }}
+      />
     );
   }
 
@@ -125,32 +131,32 @@ function Shell(): React.ReactElement {
       <View style={styles.tabBar}>
         <TabButton
           label={t.tabStart}
-          icon="🏠"
+          icon="home"
           active={tab === "home"}
           onPress={() => setTab("home")}
         />
         <TabButton
           label={t.tabMenu}
-          icon="🗂️"
+          icon="grid"
           active={tab === "menu"}
           onPress={() => setTab("menu")}
         />
         <TabButton
           label={t.tabCart}
-          icon="🛒"
+          icon="cart"
           badge={cart.count > 0 ? cart.count : undefined}
           active={tab === "cart"}
           onPress={() => setTab("cart")}
         />
         <TabButton
           label={t.tabOrders}
-          icon="🧾"
+          icon="receipt"
           active={tab === "orders"}
           onPress={() => setTab("orders")}
         />
         <TabButton
           label={t.tabAccount}
-          icon="👤"
+          icon="person"
           active={tab === "info"}
           onPress={() => setTab("info")}
         />
@@ -167,15 +173,17 @@ function TabButton({
   onPress,
 }: {
   label: string;
-  icon: string;
+  icon: "home" | "grid" | "cart" | "receipt" | "person";
   active: boolean;
   badge?: number;
   onPress: () => void;
 }): React.ReactElement {
+  // Mockup's tab language: filled mark when active, outline when not.
+  const name = (active ? icon : `${icon}-outline`) as keyof typeof Ionicons.glyphMap;
   return (
     <Pressable onPress={onPress} style={styles.tabBtn} accessibilityLabel={label}>
       <View>
-        <Text style={[styles.tabIcon, !active && { opacity: 0.55 }]}>{icon}</Text>
+        <Ionicons name={name} size={22} color={colors.onRed} style={!active && { opacity: 0.6 }} />
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge > 99 ? "99" : badge}</Text>
@@ -233,7 +241,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tabBtn: { flex: 1, alignItems: "center", gap: 2 },
-  tabIcon: { fontSize: 20 },
   tabLabel: { color: colors.onRed, opacity: 0.6, fontSize: 10 },
   tabLabelActive: { opacity: 1, fontWeight: "700" },
   badge: {
