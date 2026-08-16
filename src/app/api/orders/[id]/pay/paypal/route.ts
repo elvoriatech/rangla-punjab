@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sanitizeAppReturnUrl } from "@/lib/app-return";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { createPayPalOrderPayment } from "@/lib/paypal-service";
 import { paypalAvailable } from "@/lib/paypal";
@@ -14,7 +15,12 @@ import { clientIp } from "@/lib/client-ip";
  * switch, same rate limit; returns the approve URL to redirect to.
  */
 
-const bodySchema = z.object({ token: z.string().min(10).max(2048) });
+const bodySchema = z.object({
+  token: z.string().min(10).max(2048),
+  // App deep link for the "Back to the app" return leg; validated by
+  // sanitizeAppReturnUrl (app schemes only), silently dropped otherwise.
+  app: z.string().max(600).optional(),
+});
 
 export async function POST(
   request: Request,
@@ -40,7 +46,12 @@ export async function POST(
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 403 }));
   }
 
-  const result = await createPayPalOrderPayment(verified.tenantId, id, parsed.data.token);
+  const result = await createPayPalOrderPayment(
+    verified.tenantId,
+    id,
+    parsed.data.token,
+    sanitizeAppReturnUrl(parsed.data.app),
+  );
   if (!result.ok) {
     const status =
       result.error === "invalid_token" ? 403 : result.error === "not_found" ? 404 : 409;

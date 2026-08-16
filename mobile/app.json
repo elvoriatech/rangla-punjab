@@ -27,6 +27,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#9d1c1c"
     },
-    "plugins": ["expo-font"]
+    "plugins": ["expo-font"],
+    "scheme": "ranglapunjab"
   }
 }

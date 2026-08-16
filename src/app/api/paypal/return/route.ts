@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sanitizeAppReturnUrl } from "@/lib/app-return";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { finalizePayPalReturn } from "@/lib/paypal-service";
 import { siteUrl } from "@/lib/site-url";
@@ -19,6 +20,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const result = await finalizePayPalReturn(verified.tenantId, orderId);
+  const app = sanitizeAppReturnUrl(req.nextUrl.searchParams.get("app"));
+  const appParam = app ? `&app=${encodeURIComponent(app)}` : "";
   const payPage = `${siteUrl()}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}`;
-  return NextResponse.redirect(`${payPage}&status=${result.paid ? "success" : "failed"}`, 303);
+  return NextResponse.redirect(
+    `${payPage}&status=${result.paid ? "success" : "failed"}${appParam}`,
+    303,
+  );
 }

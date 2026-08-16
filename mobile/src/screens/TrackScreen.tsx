@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import * as ExpoLinking from "expo-linking";
 import type { ApiTracking } from "../api";
 import { fetchOrderStatus, payPageUrl, receiptUrl } from "../api";
 import { BrandHeader } from "../components";
@@ -26,11 +27,13 @@ export function TrackScreen({
   const { t, lang } = useI18n();
   const [tracking, setTracking] = useState<ApiTracking | null>(null);
   const [error, setError] = useState(false);
+  const reloadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     async function load(): Promise<void> {
+      if (timer) clearTimeout(timer);
       try {
         const next = await fetchOrderStatus(orderId, token);
         if (!alive) return;
@@ -43,9 +46,17 @@ export function TrackScreen({
         timer = setTimeout(() => void load(), 15_000);
       }
     }
+    reloadRef.current = () => void load();
     void load();
+    // Coming back from the browser payment (deep link or plain app
+    // switch) → re-read the status immediately so "Paid ✓" shows without
+    // waiting for the next poll tick.
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void load();
+    });
     return () => {
       alive = false;
+      sub.remove();
       if (timer) clearTimeout(timer);
     };
   }, [orderId, token]);
@@ -143,7 +154,11 @@ export function TrackScreen({
 
             {canPayOnline && tracking.paymentStatus !== "paid" ? (
               <Pressable
-                onPress={() => void Linking.openURL(payPageUrl(orderId, token))}
+                onPress={() =>
+                  void Linking.openURL(
+                    payPageUrl(orderId, token, ExpoLinking.createURL("payment-return")),
+                  )
+                }
                 style={styles.payBtn}
               >
                 <Text style={styles.payBtnText}>{t.payOnline}</Text>

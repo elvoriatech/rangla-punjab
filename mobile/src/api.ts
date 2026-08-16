@@ -170,8 +170,9 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
   return body.order;
 }
 
-export function payPageUrl(orderId: string, token: string): string {
-  return `${BASE_URL}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}`;
+export function payPageUrl(orderId: string, token: string, appReturnUrl?: string): string {
+  const app = appReturnUrl ? `&app=${encodeURIComponent(appReturnUrl)}` : "";
+  return `${BASE_URL}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}${app}`;
 }
 
 export function receiptUrl(orderId: string, token: string): string {

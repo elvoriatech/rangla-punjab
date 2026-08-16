@@ -20,6 +20,9 @@ export async function createPayPalOrderPayment(
   tenantId: string,
   orderId: string,
   token: string,
+  /** Sanitized app deep link (see app-return.ts) to carry through the
+   *  round trip so the settled page can offer "Back to the app". */
+  appReturnUrl?: string | null,
 ): Promise<PayPalPayResult> {
   const verified = verifyReceiptToken(token);
   if (!verified || verified.orderId !== orderId || verified.tenantId !== tenantId) {
@@ -41,8 +44,9 @@ export async function createPayPalOrderPayment(
     if (!order) return { ok: false, error: "not_found" as const };
     if (order.paymentStatus === "paid") return { ok: false, error: "already_paid" as const };
 
-    const payPage = `${siteUrl()}/pay/${order.id}?token=${encodeURIComponent(token)}`;
-    const returnUrl = `${siteUrl()}/api/paypal/return?orderId=${encodeURIComponent(order.id)}&t=${encodeURIComponent(token)}`;
+    const appParam = appReturnUrl ? `&app=${encodeURIComponent(appReturnUrl)}` : "";
+    const payPage = `${siteUrl()}/pay/${order.id}?token=${encodeURIComponent(token)}${appParam}`;
+    const returnUrl = `${siteUrl()}/api/paypal/return?orderId=${encodeURIComponent(order.id)}&t=${encodeURIComponent(token)}${appParam}`;
     const approval = await provider.createOrderApproval({
       orderId: order.id,
       amountCents: order.totalCents,

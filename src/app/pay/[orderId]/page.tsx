@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { sanitizeAppReturnUrl } from "@/lib/app-return";
 import { getOrderForReceipt } from "@/lib/order-service";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { verifyReceiptToken } from "@/lib/receipt-token";
@@ -20,10 +21,12 @@ export default async function PayPage({
   searchParams,
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ token?: string; ref?: string; status?: string }>;
+  searchParams: Promise<{ token?: string; ref?: string; status?: string; app?: string }>;
 }): Promise<React.ReactElement> {
   const { orderId } = await params;
-  const { token, ref } = await searchParams;
+  const { token, ref, app } = await searchParams;
+  // Opened from the mobile app? Then the settled state leads back there.
+  const appReturnUrl = sanitizeAppReturnUrl(app);
   if (!token) notFound();
   const verified = verifyReceiptToken(token);
   if (!verified || verified.orderId !== orderId) notFound();
@@ -65,12 +68,21 @@ export default async function PayPage({
           <p className="mt-1 text-sm text-muted">
             Show this screen at the restaurant if asked — the kitchen sees the order as paid.
           </p>
-          <a
-            href={`/`}
-            className="mt-4 inline-block text-sm text-orange-dark underline underline-offset-2"
-          >
-            Back to the menu
-          </a>
+          {appReturnUrl ? (
+            <a
+              href={appReturnUrl}
+              className="mt-4 block w-full bg-orange px-4 py-3.5 text-center text-sm font-semibold uppercase tracking-[0.18em] text-card transition hover:bg-orange-dark"
+            >
+              Zurück zur App / Back to the app
+            </a>
+          ) : (
+            <a
+              href={`/`}
+              className="mt-4 inline-block text-sm text-orange-dark underline underline-offset-2"
+            >
+              Back to the menu
+            </a>
+          )}
         </div>
       ) : !siteActive ? (
         <div className="mt-6 border border-ink/15 bg-card px-4 py-4 text-center">
@@ -89,7 +101,9 @@ export default async function PayPage({
               amountLabel={money(order.totalCents)}
             />
           ) : null}
-          {paypalAvailable() ? <PayPalButton orderId={orderId} token={token} /> : null}
+          {paypalAvailable() ? (
+            <PayPalButton orderId={orderId} token={token} appReturnUrl={appReturnUrl} />
+          ) : null}
           {!ref && !paypalAvailable() ? (
             <p className="mt-6 text-sm text-muted">
               This payment link is incomplete — start again from your order confirmation.

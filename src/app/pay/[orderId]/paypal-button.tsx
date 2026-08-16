@@ -7,9 +7,11 @@ import { useState } from "react";
 export function PayPalButton({
   orderId,
   token,
+  appReturnUrl,
 }: {
   orderId: string;
   token: string;
+  appReturnUrl?: string | null;
 }): React.ReactElement {
   const [state, setState] = useState<"idle" | "starting" | "error">("idle");
 
@@ -24,7 +26,7 @@ export function PayPalButton({
             const res = await fetch(`/api/orders/${orderId}/pay/paypal`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token }),
+              body: JSON.stringify({ token, ...(appReturnUrl ? { app: appReturnUrl } : {}) }),
             });
             const body = (await res.json()) as { url?: string };
             if (res.ok && body.url) {
