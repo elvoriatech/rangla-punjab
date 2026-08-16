@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ApiTracking } from "../api";
-import { fetchOrderStatus, receiptUrl } from "../api";
+import { fetchOrderStatus, payPageUrl, receiptUrl } from "../api";
 import { BrandHeader } from "../components";
 import { colors, money, radius } from "../theme";
 
@@ -14,10 +14,12 @@ import { colors, money, radius } from "../theme";
 export function TrackScreen({
   orderId,
   token,
+  canPayOnline,
   onBack,
 }: {
   orderId: string;
   token: string;
+  canPayOnline: boolean;
   onBack: () => void;
 }): React.ReactElement {
   const [tracking, setTracking] = useState<ApiTracking | null>(null);
@@ -117,6 +119,14 @@ export function TrackScreen({
               {tracking.paymentStatus === "paid" ? "✓ Online bezahlt" : "Zahlung im Restaurant"}
             </Text>
 
+            {canPayOnline && tracking.paymentStatus !== "paid" ? (
+              <Pressable
+                onPress={() => void Linking.openURL(payPageUrl(orderId, token))}
+                style={styles.payBtn}
+              >
+                <Text style={styles.payBtnText}>Online bezahlen (Karte / PayPal)</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={() => void Linking.openURL(receiptUrl(orderId, token))}
               style={styles.receiptBtn}
@@ -171,6 +181,14 @@ const styles = StyleSheet.create({
   totalLabel: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   totalValue: { color: colors.red, fontSize: 15, fontWeight: "800" },
   payState: { color: colors.inkSoft, fontSize: 12, marginTop: 4 },
+  payBtn: {
+    marginTop: 14,
+    borderRadius: radius.pill,
+    backgroundColor: colors.positive,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  payBtnText: { color: colors.creamCard, fontWeight: "800", fontSize: 13 },
   receiptBtn: {
     marginTop: 14,
     borderRadius: radius.pill,

@@ -98,7 +98,19 @@ export function DishRow({
             {item.description}
           </Text>
         ) : null}
-        <Text style={styles.dishPrice}>{money(item.priceCents, item.currency)}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+          {item.offer ? (
+            <>
+              <View style={styles.offerBadge}>
+                <Text style={styles.offerBadgeText}>ANGEBOT</Text>
+              </View>
+              <Text style={styles.dishBasePrice}>
+                {money(item.offer.basePriceCents, item.currency)}
+              </Text>
+            </>
+          ) : null}
+          <Text style={styles.dishPrice}>{money(item.priceCents, item.currency)}</Text>
+        </View>
       </View>
       {item.isAvailable ? (
         <Pressable
@@ -177,7 +189,19 @@ const styles = StyleSheet.create({
   dishPhoto: { width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.line },
   dishName: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   dishDesc: { color: colors.inkSoft, fontSize: 12 },
-  dishPrice: { color: colors.red, fontSize: 14, fontWeight: "700", marginTop: 2 },
+  dishPrice: { color: colors.red, fontSize: 14, fontWeight: "700" },
+  dishBasePrice: {
+    color: colors.inkSoft,
+    fontSize: 12,
+    textDecorationLine: "line-through",
+  },
+  offerBadge: {
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  offerBadgeText: { color: colors.ink, fontSize: 8, fontWeight: "800", letterSpacing: 0.5 },
   addBtn: {
     width: 32,
     height: 32,

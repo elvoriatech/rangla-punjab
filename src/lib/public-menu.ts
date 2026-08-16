@@ -1,5 +1,6 @@
 import { readDb } from "./db";
 import { asTenantRead } from "./tenant";
+import { effectiveItemPrice } from "./offer-pricing";
 import { parseOpeningHours } from "./opening-hours";
 import type { PreviewContext } from "./preview-context";
 
@@ -24,7 +25,14 @@ export interface PublicItem {
   id: string;
   name: string;
   description: string | null;
+  /** The EFFECTIVE unit price at load time — the offer price while an offer
+   *  is active, the regular price otherwise. Placement re-prices server-side
+   *  regardless. */
   priceCents: number;
+  /** Present only while an offer is ACTIVE at load time. `basePriceCents` is
+   *  the regular price for the strikethrough; `endsAt` the date-range end
+   *  (ISO) when it has one — weekly windows carry null. */
+  offer?: { basePriceCents: number; endsAt: string | null } | null;
   currency: string;
   isAvailable: boolean;
   allergens: string[];
@@ -113,6 +121,10 @@ export async function loadPublicMenu(
             name: true,
             description: true,
             priceCents: true,
+            offerPriceCents: true,
+            offerStartsAt: true,
+            offerEndsAt: true,
+            offerWeekly: true,
             currency: true,
             isAvailable: true,
             allergens: true,
@@ -136,28 +148,42 @@ export async function loadPublicMenu(
     const effectiveLocale = locale ?? venue.defaultLocale;
     const translations = await loadTranslations(tx, categories, effectiveLocale);
 
+    /* One instant for the whole menu, so two items in one response can never
+       disagree about whether an offer window is on. */
+    const now = new Date();
+
     const localisedCategories: PublicCategory[] = categories.map((cat) => ({
       id: cat.id,
       name: translated(translations, "category", cat.id, "name") ?? cat.name,
       photoKey: cat.photoMedia?.storageKey ?? null,
-      items: cat.items.map((item) => ({
-        id: item.id,
-        name: translated(translations, "item", item.id, "name") ?? item.name,
-        description: translated(translations, "item", item.id, "description") ?? item.description,
-        priceCents: item.priceCents,
-        currency: item.currency,
-        isAvailable: item.isAvailable,
-        allergens: item.allergens,
-        traces: item.traces,
-        dietary: item.dietary,
-        spice: item.spice,
-        photoKey: item.photoMedia?.storageKey ?? null,
-        variants: item.variants.map((v) => ({
-          id: v.id,
-          name: translated(translations, "item_variant", v.id, "name") ?? v.name,
-          priceDeltaCents: v.priceDeltaCents,
-        })),
-      })),
+      items: cat.items.map((item) => {
+        const priced = effectiveItemPrice(item, venue.timezone, now);
+        return {
+          id: item.id,
+          name: translated(translations, "item", item.id, "name") ?? item.name,
+          description: translated(translations, "item", item.id, "description") ?? item.description,
+          priceCents: priced.unitPriceCents,
+          offer:
+            priced.basePriceCents === null
+              ? null
+              : {
+                  basePriceCents: priced.basePriceCents,
+                  endsAt: item.offerEndsAt ? item.offerEndsAt.toISOString() : null,
+                },
+          currency: item.currency,
+          isAvailable: item.isAvailable,
+          allergens: item.allergens,
+          traces: item.traces,
+          dietary: item.dietary,
+          spice: item.spice,
+          photoKey: item.photoMedia?.storageKey ?? null,
+          variants: item.variants.map((v) => ({
+            id: v.id,
+            name: translated(translations, "item_variant", v.id, "name") ?? v.name,
+            priceDeltaCents: v.priceDeltaCents,
+          })),
+        };
+      }),
     }));
 
     const branding = normaliseBranding(venue.branding);

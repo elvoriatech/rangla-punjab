@@ -50,6 +50,9 @@ export const createItemSchema = z.object({
   isAvailable: z.boolean().default(true),
   photoMediaId: z.string().min(1).optional(),
   variants: z.array(variantSchema).max(20).default([]),
+  offerPriceCents: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  offerStartsAt: z.coerce.date().nullable().optional(),
+  offerEndsAt: z.coerce.date().nullable().optional(),
 });
 
 export const updateItemSchema = z.object({
@@ -62,6 +65,9 @@ export const updateItemSchema = z.object({
   spice: z.number().int().min(0).max(5).optional(),
   isAvailable: z.boolean().optional(),
   photoMediaId: z.string().min(1).nullable().optional(),
+  offerPriceCents: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  offerStartsAt: z.coerce.date().nullable().optional(),
+  offerEndsAt: z.coerce.date().nullable().optional(),
 });
 
 export interface ItemRow {
@@ -78,6 +84,9 @@ export interface ItemRow {
   dietary: string[];
   spice: number;
   photoMediaId: string | null;
+  offerPriceCents: number | null;
+  offerStartsAt: Date | null;
+  offerEndsAt: Date | null;
   /** Storage key of the linked photo, for building /img/ URLs in lists. */
   photoKey: string | null;
   variants: { id: string; name: string; priceDeltaCents: number; orderIndex: number }[];
@@ -100,6 +109,9 @@ const itemSelect = {
   dietary: true,
   spice: true,
   photoMediaId: true,
+  offerPriceCents: true,
+  offerStartsAt: true,
+  offerEndsAt: true,
   photoMedia: { select: { storageKey: true } },
   variants: {
     select: { id: true, name: true, priceDeltaCents: true, orderIndex: true },
@@ -173,6 +185,9 @@ export async function createItem(
         name: input.name,
         description: input.description,
         priceCents: input.priceCents,
+        offerPriceCents: input.offerPriceCents ?? null,
+        offerStartsAt: input.offerStartsAt ?? null,
+        offerEndsAt: input.offerEndsAt ?? null,
         currency: input.currency ?? venue?.currency ?? "EUR",
         allergens: input.allergens,
         traces: input.traces,

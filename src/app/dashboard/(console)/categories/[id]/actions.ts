@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUserId } from "@/lib/auth";
-import { createItem, softDeleteItem } from "@/lib/items-service";
+import { createItem, softDeleteItem, updateItem } from "@/lib/items-service";
 import { saveUploadedImage } from "@/lib/media-service";
 
 async function requireUser(): Promise<string> {
@@ -53,6 +53,54 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
     variants: [],
   });
   revalidatePath("/dashboard/categories/[id]", "page");
+}
+
+/**
+ * Edit an existing item — name, description, price, availability, photo,
+ * and the offer ("Angebot"): a reduced price with an optional date window.
+ * An offer at or above the regular price is refused here AND by the DB
+ * CHECK — a struck-through "was" price must always be a real reduction.
+ */
+export async function updateItemAction(categoryId: string, form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const id = String(form.get("id") ?? "");
+  const name = String(form.get("name") ?? "").trim();
+  const description = String(form.get("description") ?? "").trim();
+  const priceEuros = Number(form.get("priceEuros"));
+  const isAvailable = form.get("isAvailable") === "on";
+  if (!id || !name || Number.isNaN(priceEuros) || priceEuros < 0) return;
+  const priceCents = Math.round(priceEuros * 100);
+
+  const offerRaw = String(form.get("offerEuros") ?? "").trim();
+  const offerCents = offerRaw ? Math.round(Number(offerRaw) * 100) : null;
+  const validOffer = offerCents !== null && offerCents > 0 && offerCents < priceCents;
+  const parseLocal = (v: string): Date | null => {
+    if (!v) return null;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const offerStartsAt = validOffer ? parseLocal(String(form.get("offerStartsAt") ?? "")) : null;
+  const offerEndsAt = validOffer ? parseLocal(String(form.get("offerEndsAt") ?? "")) : null;
+
+  let photoMediaId: string | undefined;
+  const photo = form.get("photo");
+  if (photo instanceof File && photo.size > 0) {
+    const saved = await saveUploadedImage(userId, photo, name);
+    if (saved.ok) photoMediaId = saved.mediaId;
+  }
+
+  await updateItem(userId, id, {
+    name,
+    description: description || undefined,
+    priceCents,
+    isAvailable,
+    ...(photoMediaId ? { photoMediaId } : {}),
+    offerPriceCents: validOffer ? offerCents : null,
+    offerStartsAt,
+    offerEndsAt,
+  });
+  revalidatePath("/dashboard/categories/[id]", "page");
+  redirect(`/dashboard/categories/${categoryId}?saved=1`);
 }
 
 export async function deleteItemAction(categoryId: string, form: FormData): Promise<void> {

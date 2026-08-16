@@ -115,6 +115,7 @@ export function CartDrawer({
   modes,
   requestSlots = [],
   onlinePayment,
+  paypalPayment = false,
 }: {
   slug: string;
   currency: string;
@@ -124,6 +125,7 @@ export function CartDrawer({
    *  from opening hours). Empty = ASAP-only. */
   requestSlots?: string[];
   onlinePayment: boolean;
+  paypalPayment?: boolean;
 }): React.ReactElement | null {
   const lines = useSyncExternalStore(
     subscribeToCart,
@@ -349,6 +351,33 @@ export function CartDrawer({
                   className="block w-full rounded-full bg-[var(--menu-positive)] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em] text-[var(--menu-bg)] transition hover:opacity-90 active:scale-[0.985] disabled:opacity-60"
                 >
                   {payStarting ? "Opening payment…" : `Pay online · ${money(placed.totalCents)}`}
+                </button>
+              ) : null}
+              {paypalPayment && placed ? (
+                <button
+                  type="button"
+                  disabled={payStarting}
+                  onClick={async () => {
+                    setPayStarting(true);
+                    try {
+                      const res = await fetch(`/api/orders/${placed.orderId}/pay/paypal`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ token: placed.receiptToken }),
+                      });
+                      const body = (await res.json()) as { url?: string };
+                      if (res.ok && body.url) {
+                        location.href = body.url;
+                        return;
+                      }
+                      setPayStarting(false);
+                    } catch {
+                      setPayStarting(false);
+                    }
+                  }}
+                  className="block w-full rounded-full border-2 border-[#003087] bg-[#ffc439] px-5 py-3 text-center text-sm font-bold uppercase tracking-[0.14em] text-[#003087] transition hover:opacity-90 active:scale-[0.985] disabled:opacity-60"
+                >
+                  {payStarting ? "Opening PayPal…" : "Mit PayPal zahlen"}
                 </button>
               ) : null}
               <a

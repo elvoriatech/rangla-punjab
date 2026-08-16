@@ -9,7 +9,7 @@ import { Platform } from "react-native";
 // Dev default: the local web app. Android emulators can't see `localhost`,
 // they reach the host via 10.0.2.2. Override per build with
 // EXPO_PUBLIC_API_URL (baked at build time, expo convention).
-const fallback = Platform.OS === "android" ? "http://10.0.2.2:3001" : "http://localhost:3001";
+const fallback = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://localhost:3000";
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? fallback;
 
 export interface ApiVariant {
@@ -22,6 +22,8 @@ export interface ApiItem {
   name: string;
   description: string | null;
   priceCents: number;
+  /** Present while an offer is active: regular price for the strikethrough. */
+  offer?: { basePriceCents: number; endsAt: string | null } | null;
   currency: string;
   isAvailable: boolean;
   allergens: string[];
@@ -39,7 +41,7 @@ export interface ApiCategory {
 }
 export interface ApiDeliveryArea {
   zip: string;
-  city?: string;
+  locality?: string;
   feeCents?: number;
   minCents?: number;
   freeOverCents?: number;
@@ -53,6 +55,7 @@ export interface ApiOrdering {
   deliveryMinCents: number;
   acceptedPayments: string[];
   onlinePayment: boolean;
+  paypal?: boolean;
 }
 export interface ApiMenu {
   ok: true;
@@ -134,6 +137,10 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
   const body = (await res.json().catch(() => null)) as { ok?: boolean; order?: ApiTracking } | null;
   if (!res.ok || !body?.ok || !body.order) throw new Error(`status ${res.status}`);
   return body.order;
+}
+
+export function payPageUrl(orderId: string, token: string): string {
+  return `${BASE_URL}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}`;
 }
 
 export function receiptUrl(orderId: string, token: string): string {

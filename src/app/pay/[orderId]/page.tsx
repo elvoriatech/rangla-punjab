@@ -4,6 +4,8 @@ import { getOperatorSettings } from "@/lib/operator-settings";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { formatPrice } from "@/lib/public-menu";
 import { PayButton } from "./pay-button";
+import { PayPalButton } from "./paypal-button";
+import { paypalAvailable } from "@/lib/paypal";
 
 /**
  * Local payment page. With the FAKE provider this is where the guest
@@ -77,17 +79,23 @@ export default async function PayPage({
             Online payments are paused right now. Please pay at the restaurant, or try again later.
           </p>
         </div>
-      ) : ref ? (
-        <PayButton
-          orderId={orderId}
-          token={token}
-          payRef={ref}
-          amountLabel={money(order.totalCents)}
-        />
       ) : (
-        <p className="mt-6 text-sm text-muted">
-          This payment link is incomplete — start again from your order confirmation.
-        </p>
+        <>
+          {ref ? (
+            <PayButton
+              orderId={orderId}
+              token={token}
+              payRef={ref}
+              amountLabel={money(order.totalCents)}
+            />
+          ) : null}
+          {paypalAvailable() ? <PayPalButton orderId={orderId} token={token} /> : null}
+          {!ref && !paypalAvailable() ? (
+            <p className="mt-6 text-sm text-muted">
+              This payment link is incomplete — start again from your order confirmation.
+            </p>
+          ) : null}
+        </>
       )}
     </main>
   );

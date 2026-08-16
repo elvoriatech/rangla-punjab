@@ -5,4 +5,6 @@ import "dotenv/config";
 // forces getStripeProvider() onto the in-memory fake for every suite —
 // the same guarantee CI has (where the vars are simply absent).
 delete process.env.STRIPE_SECRET_KEY;
+delete process.env.PAYPAL_CLIENT_ID;
+delete process.env.PAYPAL_CLIENT_SECRET;
 delete process.env.STRIPE_WEBHOOK_SECRET;

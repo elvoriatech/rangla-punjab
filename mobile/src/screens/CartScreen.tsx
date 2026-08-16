@@ -54,14 +54,26 @@ export function CartScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const deliveryFee =
-    orderType === "delivery" && cart.totalCents > 0 ? menu.ordering.deliveryFeeCents : 0;
+  // Restaurant-configured delivery areas: the guest PICKS a postcode and
+  // the locality autofills; fee/minimum/free-over come from that row.
+  const areas = menu.ordering.deliveryAreas;
+  const area = areas.length > 0 ? areas.find((a) => a.zip === zip) : undefined;
+  const areaFee = area
+    ? (area.freeOverCents ?? 0) > 0 && cart.totalCents >= (area.freeOverCents ?? 0)
+      ? 0
+      : (area.feeCents ?? 0)
+    : menu.ordering.deliveryFeeCents;
+  const areaMin = area ? (area.minCents ?? 0) : menu.ordering.deliveryMinCents;
+  const deliveryFee = orderType === "delivery" && cart.totalCents > 0 ? areaFee : 0;
   const grandTotal = cart.totalCents + deliveryFee;
+  const belowMinimum =
+    orderType === "delivery" && areaMin > 0 && cart.totalCents > 0 && cart.totalCents < areaMin;
   const needsContact = orderType !== "dine_in";
   const missing =
     cart.lines.length === 0 ||
     (needsContact && (!name.trim() || !phone.trim())) ||
-    (orderType === "delivery" && (!street.trim() || zip.trim().length < 3));
+    (orderType === "delivery" &&
+      (!street.trim() || zip.trim().length < 3 || (areas.length > 0 && !area) || belowMinimum));
 
   async function submit(): Promise<void> {
     setBusy(true);
@@ -75,7 +87,12 @@ export function CartScreen({
       customerPhone: needsContact ? phone.trim() : undefined,
       address:
         orderType === "delivery"
-          ? { street: street.trim(), zip: zip.trim(), note: note.trim() || undefined }
+          ? {
+              street: street.trim(),
+              zip: zip.trim(),
+              city: area?.locality || undefined,
+              note: note.trim() || undefined,
+            }
           : undefined,
     });
     setBusy(false);
@@ -323,6 +340,22 @@ const styles = StyleSheet.create({
   rowLabel: { color: colors.inkSoft, fontSize: 14 },
   rowValue: { color: colors.ink, fontSize: 14, fontWeight: "600" },
   rowBold: { fontWeight: "800", fontSize: 16, color: colors.ink },
+  zipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  zipChip: {
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    backgroundColor: colors.creamCard,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: "center",
+    minWidth: 86,
+  },
+  zipChipActive: { backgroundColor: colors.red, borderColor: colors.red },
+  zipChipZip: { color: colors.ink, fontWeight: "800", fontSize: 13 },
+  zipChipCity: { color: colors.inkSoft, fontSize: 10, maxWidth: 90 },
+  zipInfo: { color: colors.inkSoft, fontSize: 12, marginTop: 2 },
+  minWarn: { color: colors.danger, fontSize: 12, fontWeight: "600" },
   error: { color: colors.danger, fontSize: 13, textAlign: "center" },
   payNote: { color: colors.inkSoft, fontSize: 12, textAlign: "center", marginTop: 4 },
 });

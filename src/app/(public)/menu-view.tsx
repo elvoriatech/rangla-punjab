@@ -81,6 +81,7 @@ export function MenuView({
   activeCategoryId,
   orderingModes,
   onlinePayment,
+  paypalPayment,
   openNow,
   requestSlots,
   orderingPaused,
@@ -91,6 +92,7 @@ export function MenuView({
   activeCategoryId?: string | null;
   orderingModes?: EffectiveOrdering;
   onlinePayment?: boolean;
+  paypalPayment?: boolean;
   openNow?: OpenState;
   requestSlots?: string[];
   /** P2-4: operator kill switch — menu stays visible, ordering is closed. */
@@ -330,6 +332,7 @@ export function MenuView({
           modes={modes}
           requestSlots={requestSlots ?? []}
           onlinePayment={Boolean(onlinePayment)}
+          paypalPayment={Boolean(paypalPayment)}
         />
       ) : null}
       {/* Card reveal: ~600 bytes of inline JS. A scroll-scrubbed CSS
@@ -597,6 +600,18 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
             aria-label="price"
             className="text-base font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -745,6 +760,18 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
             aria-label="price"
             className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -898,6 +925,18 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
           aria-label="price"
           className="inline-block border border-[var(--menu-accent)]/60 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]"
         >
+          {item.offer ? (
+            <>
+              <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                Angebot
+              </span>
+              <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                <span className="sr-only">regulärer Preis </span>
+                {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+              </s>
+              <span className="sr-only">Angebotspreis </span>
+            </>
+          ) : null}
           {formatPrice(item.priceCents, item.currency, locale)}
         </p>
         {ordering && item.isAvailable ? (
@@ -1174,6 +1213,18 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
             aria-label="price"
             className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (

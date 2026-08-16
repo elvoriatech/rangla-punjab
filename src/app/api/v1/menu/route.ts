@@ -64,6 +64,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           deliveryMinCents: access.modes.deliveryMinCents,
           acceptedPayments: access.modes.acceptedPayments,
           onlinePayment: access.onlinePayment,
+          paypal: access.paypalPayment,
         },
         categories: menu.categories.map((cat) => ({
           id: cat.id,
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             name: item.name,
             description: item.description,
             priceCents: item.priceCents,
+            offer: item.offer ?? null,
             currency: item.currency,
             isAvailable: item.isAvailable,
             allergens: item.allergens,

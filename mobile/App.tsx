@@ -74,7 +74,12 @@ function Shell(): React.ReactElement {
 
   if (track) {
     return (
-      <TrackScreen orderId={track.orderId} token={track.token} onBack={() => setTrack(null)} />
+      <TrackScreen
+        orderId={track.orderId}
+        token={track.token}
+        canPayOnline={Boolean(menu.ordering.onlinePayment || menu.ordering.paypal)}
+        onBack={() => setTrack(null)}
+      />
     );
   }
 

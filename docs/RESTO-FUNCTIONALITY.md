@@ -1,6 +1,6 @@
 # Rangla Punjab — Functionality inventory (web + mobile)
 
-Status as of 2026-08-16, after the branding/lifecycle/mobile build.
+Status as of 2026-08-16, after the branding/lifecycle/mobile/payments build.
 ✅ built & tested · ⛔ human go-live step · ☐ open
 
 ## Guest — web (`/`)
@@ -12,7 +12,16 @@ Status as of 2026-08-16, after the branding/lifecycle/mobile build.
 - ✅ Order placement (server re-priced, rate-limited, kill-switch aware) + receipt PDF
 - ✅ **Order tracking page** `/order-status/{id}?token=` — Bestätigt → Zubereitung → Fertig
   (→ Unterwegs) → Serviert/Geliefert, auto-refresh, zero JS
-- ✅ Online payment rails (Stripe Connect / own-keys) — code complete; ⛔ live keys + Connect KYC
+- ✅ Online payment rails: **cash at restaurant** · **Stripe** (Connect or own keys) ·
+  **PayPal** (restaurant's own account, Orders v2 redirect flow, fake provider in dev,
+  test credentials via PAYPAL_CLIENT_ID/SECRET + PAYPAL_ENV=sandbox) — ⛔ live keys only
+- ✅ Multi-postcode delivery: per-PLZ areas (fee/minimum/free-over), guest SELECTS the
+  postcode and the locality autofills (web select + app chips); 8 Koblenz-area PLZs seeded
+- ✅ Offers ("Angebot"): reduced item price with optional date window (weekly windows
+  supported by the engine), strikethrough + badge on web and app, server-side pricing
+  with guest-favouring grace, base-price snapshot on receipts
+- ✅ Item editing: name, description, price, photo, availability AND offer — inline
+  edit form per item in the menu editor
 - ✅ Legal pages (MDX), sitemap, image resizing, zero-cookie public surface
 
 ## Guest — mobile app (`mobile/`, Expo)
@@ -22,7 +31,7 @@ Status as of 2026-08-16, after the branding/lifecycle/mobile build.
 - ✅ Bestellung verfolgen: live step tracker (10 s poll of `/api/v1/orders/{id}/status`), receipt PDF
 - ✅ Bestellungen: device-local history (receipt tokens in storage — no accounts, by design)
 - ✅ Info: hours, brand hero, web/legal links
-- ☐ Pay-online button in-app (opens hosted checkout in browser sheet) — blocked only by ⛔ live Stripe
+- ✅ Pay-online button in-app (opens the web pay page — card + PayPal) — verified with the fake rail
 - ☐ Push notifications; EAS builds + store submission (client's Apple/Google accounts) ⛔
 - Deliberately absent: login/accounts, loyalty points (needs a customer-identity backend that
   contradicts the shipped no-account design — separate decision if ever wanted)
@@ -42,7 +51,7 @@ Status as of 2026-08-16, after the branding/lifecycle/mobile build.
 - ✅ `POST /api/orders` (+ CORS) — placement; `POST /api/orders/{id}/pay` — hosted checkout
 
 ## Quality gates (this machine)
-- ✅ 448/448 vitest (serial; the suite is parallel-flaky on many-core machines — pre-existing),
+- ✅ 465/465 vitest (serial; the suite is parallel-flaky on many-core machines — pre-existing),
   incl. new `order-status` lifecycle tests and extended WCAG theme guards
 - ✅ `tsc --noEmit` web + mobile · ✅ eslint (mobile excluded — own toolchain)
 - ✅ E2E verified in browser: web order → kitchen advance → live tracker; mobile order #0002 →

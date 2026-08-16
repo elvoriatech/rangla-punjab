@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { canTransition, isOrderStatus } from "./order-status";
+import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
+import { paypalAvailable } from "./paypal";
 import { Prisma } from "@prisma/client";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
@@ -164,14 +166,45 @@ export async function placeOrder(
         isAvailable: true,
         category: { menuVersionId: context.publishedVersionId! },
       },
-      select: { id: true, name: true, priceCents: true, currency: true },
+      select: {
+        id: true,
+        name: true,
+        priceCents: true,
+        offerPriceCents: true,
+        offerStartsAt: true,
+        offerEndsAt: true,
+        offerWeekly: true,
+        currency: true,
+      },
     });
     // Every requested id must resolve to an orderable published item —
     // a partial order surprises the guest at the till, so reject instead.
     if (items.length !== wanted.size) return { ok: false, error: "unknown_items" as const };
 
+    // Offer pricing with the guest-favouring grace: the edge-cached menu can
+    // be up to ~5 min stale, so an offer active at ANY instant in the last
+    // OFFER_GRACE_MINUTES is honoured — the guest never pays more than the
+    // page showed; the worst case is the ordinary base price.
+    const venueTz = (
+      await tx.venue.findFirstOrThrow({
+        where: { id: context.venueId },
+        select: { timezone: true },
+      })
+    ).timezone;
+    const nowInstant = new Date();
+    const graceInstant = new Date(nowInstant.getTime() - OFFER_GRACE_MINUTES * 60_000);
+    const priceOf = (item: (typeof items)[number]): { unit: number; base: number | null } => {
+      const now = effectiveItemPrice(item, venueTz, nowInstant);
+      const grace = effectiveItemPrice(item, venueTz, graceInstant);
+      const unit = Math.min(now.unitPriceCents, grace.unitPriceCents);
+      return { unit, base: unit < item.priceCents ? item.priceCents : null };
+    };
+
     const currency = items[0]!.currency;
-    const itemsCents = items.reduce((sum, item) => sum + item.priceCents * wanted.get(item.id)!, 0);
+    const itemsCents = items.reduce(
+      (sum, item) => sum + priceOf(item).unit * wanted.get(item.id)!,
+      0,
+    );
     // Delivery pricing is derived SERVER-SIDE from the guest's ZIP: the
     // matching area row sets fee + minimum (free-delivery threshold can
     // zero the fee); a ZIP outside the configured areas is rejected.
@@ -214,13 +247,17 @@ export async function placeOrder(
             currency,
             items: {
               create: [
-                ...items.map((item) => ({
-                  tenantId: context.tenantId,
-                  itemId: item.id,
-                  name: item.name,
-                  priceCents: item.priceCents,
-                  quantity: wanted.get(item.id)!,
-                })),
+                ...items.map((item) => {
+                  const priced = priceOf(item);
+                  return {
+                    tenantId: context.tenantId,
+                    itemId: item.id,
+                    name: item.name,
+                    priceCents: priced.unit,
+                    basePriceCents: priced.base,
+                    quantity: wanted.get(item.id)!,
+                  };
+                }),
                 // Delivery fee rides as a snapshot line (itemId null) so
                 // receipt + kitchen totals always add up line-by-line.
                 ...(feeCents > 0
@@ -554,8 +591,10 @@ export interface PublicVenueAccess {
    *  page then 404s instead of rendering a stale menu. */
   menuVisible: boolean;
   modes: import("./ordering-config").EffectiveOrdering;
-  /** Guests can pay online: Scale entitlement ∧ Connect charges enabled. */
+  /** Guests can pay online by card: Connect charges enabled (or own keys). */
   onlinePayment: boolean;
+  /** Guests can pay with PayPal (restaurant's own account; fake in dev). */
+  paypalPayment: boolean;
 }
 
 /** Effective guest-facing access (plan/trial state ∧ owner switches),
@@ -590,6 +629,7 @@ export async function getPublicVenueAccess(
       // P2-3: online payment no longer requires a subscription — only that
       // the restaurant's connected account has charges enabled.
       onlinePayment: tenant.stripeChargesEnabled,
+      paypalPayment: paypalAvailable(),
     };
   });
 }
