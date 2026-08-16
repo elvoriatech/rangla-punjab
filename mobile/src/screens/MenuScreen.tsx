@@ -77,8 +77,9 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     paddingVertical: 10,
   },
-  // Mockup's category rail: the active category is a red tab with a
-  // sharp bottom-left tail; the rest are plain text, no box.
+  // Mockup's category rail: the active category is a red speech-bubble
+  // tab whose bottom-RIGHT corner sweeps to a sharp point; the rest are
+  // plain text, no box.
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor: colors.red,
     borderRadius: 18,
-    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 2,
   },
   chipText: { color: colors.ink, fontSize: 13.5, fontWeight: "600" },
   chipTextActive: { color: colors.onRed, fontWeight: "700" },
