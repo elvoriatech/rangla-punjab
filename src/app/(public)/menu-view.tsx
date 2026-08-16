@@ -1301,8 +1301,9 @@ function SideRail({
       >
         <ul className="space-y-1 border-l border-[var(--menu-line)] pl-3">
           <li>
-            <a
+            <Link
               href={`/${activeDiet ? `?diet=${activeDiet}` : ""}`}
+              prefetch={false}
               className={`${linkBase} ${
                 active === null
                   ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
@@ -1310,12 +1311,13 @@ function SideRail({
               }`}
             >
               All
-            </a>
+            </Link>
           </li>
           {categories.map((c) => (
             <li key={c.id}>
-              <a
+              <Link
                 href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
+                prefetch={false}
                 className={`${linkBase} ${
                   active === c.id
                     ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
@@ -1328,7 +1330,7 @@ function SideRail({
                   </span>
                 ) : null}
                 {c.name}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
