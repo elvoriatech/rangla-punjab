@@ -41,6 +41,15 @@ export interface MenuTheme {
     /** Dietary badge color — distinct from accent so "vegan" never reads
      *  as decoration. */
     positive: string;
+    /**
+     * OPTIONAL split-surface palette for themes whose cards sit on a very
+     * different ground than the page (e.g. cream cards on a deep-red page).
+     * When present, card interiors read these; when absent, cards fall back
+     * to text/textSoft/accent — every pre-existing theme renders unchanged.
+     */
+    surfaceText?: string;
+    surfaceTextSoft?: string;
+    surfaceAccent?: string;
   };
   /** Stroke color for background textures on this theme. */
   textureInk: string;
@@ -225,6 +234,25 @@ export const MENU_THEMES: readonly MenuTheme[] = [
     },
     textureInk: "rgba(17, 24, 39, 0.035)",
   },
+  {
+    id: "rangla-royal",
+    label: "Rangla Royal",
+    layout: "grid",
+    tagline: "Deep Punjabi red, cream cards, antique gold — the house look.",
+    vars: {
+      bg: "#8f1a1a",
+      surface: "#fdf6e7",
+      line: "#d9b96b",
+      text: "#fdf3dd",
+      textSoft: "#f0d9b6",
+      accent: "#e8c15c",
+      positive: "#1f6b3a",
+      surfaceText: "#35200f",
+      surfaceTextSoft: "#6f5b45",
+      surfaceAccent: "#9d1c1c",
+    },
+    textureInk: "rgba(253, 243, 221, 0.05)",
+  },
 ] as const;
 
 export const DEFAULT_MENU_THEME_ID = "mughal-night";
@@ -299,18 +327,80 @@ export function textureBackgroundImage(
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Backdrops — full-page background artwork                            */
+/* ------------------------------------------------------------------ */
+
+export interface MenuBackdrop {
+  id: string;
+  label: string;
+  tagline: string;
+  /** Public URL under /menu-backdrops, or null for the plain theme color. */
+  image: string | null;
+}
+
+export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
+  { id: "none", label: "None", tagline: "Solid theme color — the default.", image: null },
+  {
+    id: "rangla-royal",
+    label: "Royal Crimson Wave",
+    tagline: "Red-and-gold wave, welcoming chef, palace line-art.",
+    image: "/menu-backdrops/rangla-royal.jpg",
+  },
+  {
+    id: "crimson-feast",
+    label: "Crimson Feast",
+    tagline: "Deep red damask with gold-line dishes and spices.",
+    image: "/menu-backdrops/crimson-feast.jpg",
+  },
+  {
+    id: "ivory-minaret",
+    label: "Ivory Minaret",
+    tagline: "Cream parchment, faint minarets, a red-gold sweep.",
+    image: "/menu-backdrops/ivory-minaret.jpg",
+  },
+  {
+    id: "midnight-plum",
+    label: "Midnight Plum",
+    tagline: "Deep aubergine, golden wheat and a gilded wave.",
+    image: "/menu-backdrops/midnight-plum.jpg",
+  },
+] as const;
+
+export const DEFAULT_MENU_BACKDROP_ID = "none";
+
+export function resolveMenuBackdrop(id: string | undefined | null): MenuBackdrop {
+  return MENU_BACKDROPS.find((b) => b.id === id) ?? MENU_BACKDROPS[0]!;
+}
+
 /**
  * Inline-style object MenuView spreads onto its wrapper. Defined here so
  * the appearance page's mini previews and the real renderer can never
  * drift apart.
+ *
+ * A backdrop (full-page artwork, cover) replaces the tiling texture; cards
+ * keep their solid surface color so content stays readable on any artwork.
+ * `headingColor` (owner-picked) feeds var(--menu-heading, …) fallbacks in
+ * the renderer — absent means each layout's original heading color.
  */
+/** #rrggbb → rgba() with alpha; used for the heading pill over artwork. */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return `rgba(0, 0, 0, ${alpha})`;
+  const n = parseInt(m[1]!, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 export function menuThemeStyle(
   themeId: string | undefined | null,
   textureId: string | undefined | null,
+  backdropId?: string | undefined | null,
+  headingColor?: string | undefined | null,
 ): React.CSSProperties {
   const theme = resolveMenuTheme(themeId);
+  const backdrop = resolveMenuBackdrop(backdropId);
   const textureImage = textureBackgroundImage(textureId, theme);
-  return {
+  const vars = {
     "--menu-bg": theme.vars.bg,
     "--menu-surface": theme.vars.surface,
     "--menu-line": theme.vars.line,
@@ -318,6 +408,32 @@ export function menuThemeStyle(
     "--menu-text-soft": theme.vars.textSoft,
     "--menu-accent": theme.vars.accent,
     "--menu-positive": theme.vars.positive,
+    ...(theme.vars.surfaceText ? { "--menu-surface-text": theme.vars.surfaceText } : {}),
+    ...(theme.vars.surfaceTextSoft
+      ? { "--menu-surface-text-soft": theme.vars.surfaceTextSoft }
+      : {}),
+    ...(theme.vars.surfaceAccent ? { "--menu-surface-accent": theme.vars.surfaceAccent } : {}),
+    // Split-surface themes default their headings to the card ink — the page
+    // ground can be artwork, and the surface pill below guarantees contrast.
+    ...(theme.vars.surfaceText ? { "--menu-heading": theme.vars.surfaceText } : {}),
+    ...(headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)
+      ? { "--menu-heading": headingColor }
+      : {}),
+    ...(theme.vars.surfaceText && backdrop.image
+      ? { "--menu-heading-bg": hexToRgba(theme.vars.surface, 0.92) }
+      : {}),
+  };
+  if (backdrop.image) {
+    return {
+      ...vars,
+      backgroundImage: `url("${backdrop.image}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center top",
+      backgroundAttachment: "fixed",
+    } as React.CSSProperties;
+  }
+  return {
+    ...vars,
     ...(textureImage ? { backgroundImage: textureImage } : {}),
   } as React.CSSProperties;
 }

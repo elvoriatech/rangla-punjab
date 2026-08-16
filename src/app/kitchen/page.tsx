@@ -4,7 +4,8 @@ import { getOrderingSettings, getVenueForUser } from "@/lib/venue-service";
 import { BRAND } from "@/lib/brand";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
-import { markDoneAction } from "../dashboard/(console)/orders/actions";
+import { advanceOrderAction } from "../dashboard/(console)/orders/actions";
+import { advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
 import { AutoRefresh } from "../dashboard/(console)/orders/auto-refresh";
 import { FullscreenButton } from "./fullscreen-button";
 import { NewOrderChime } from "./new-order-chime";
@@ -67,7 +68,7 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
   }
 
   const orders = await listRecentOrders(userId);
-  const open = orders.filter((o) => o.status === "placed");
+  const open = orders.filter((o) => isOpenStatus(o.status));
 
   // Served today (venue timezone) — the kitchen's finished pile. Older
   // completed orders belong to the dashboard's history, not this board.
@@ -173,13 +174,23 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                       </li>
                     ))}
                   </ul>
-                  <form action={markDoneAction} className="mt-5">
+                  <form action={advanceOrderAction} className="mt-5">
                     <input type="hidden" name="orderId" value={order.id} />
+                    <input
+                      type="hidden"
+                      name="to"
+                      value={nextStatus(order.status, order.orderType) ?? "done"}
+                    />
                     <button
                       type="submit"
                       className="w-full rounded-md bg-white/90 py-3 text-sm font-bold uppercase tracking-[0.18em] text-[#14100c] transition-colors hover:bg-white"
                     >
-                      Done
+                      {advanceLabel(nextStatus(order.status, order.orderType) ?? "done")}
+                      {order.status !== "placed" ? (
+                        <span className="ml-2 font-normal normal-case text-[#14100c]/60">
+                          (now: {order.status.replaceAll("_", " ")})
+                        </span>
+                      ) : null}
                     </button>
                   </form>
                 </li>

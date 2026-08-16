@@ -60,6 +60,8 @@ export interface PublicMenu {
       bannerKey?: string | null;
       theme?: string;
       texture?: string;
+      backdrop?: string;
+      headingColor?: string;
       categoryIcons?: string;
       navLayout?: string;
       halalFilter?: string;
@@ -232,6 +234,8 @@ function normaliseBranding(raw: unknown): PublicMenu["venue"]["branding"] {
       bannerKey: typeof b.bannerKey === "string" ? b.bannerKey : null,
       theme: typeof b.theme === "string" ? b.theme : undefined,
       texture: typeof b.texture === "string" ? b.texture : undefined,
+      backdrop: typeof b.backdrop === "string" ? b.backdrop : undefined,
+      headingColor: typeof b.headingColor === "string" ? b.headingColor : undefined,
       categoryIcons: typeof b.categoryIcons === "string" ? b.categoryIcons : undefined,
       navLayout: typeof b.navLayout === "string" ? b.navLayout : undefined,
       halalFilter: typeof b.halalFilter === "string" ? b.halalFilter : undefined,

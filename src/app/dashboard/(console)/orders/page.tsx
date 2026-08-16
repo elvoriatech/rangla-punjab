@@ -3,7 +3,8 @@ import { getSessionUserId } from "@/lib/auth";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
-import { markDoneAction } from "./actions";
+import { advanceOrderAction } from "./actions";
+import { advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
 import { NewOrderChime } from "../../../kitchen/new-order-chime";
 import { AutoPrint } from "./auto-print";
@@ -28,8 +29,8 @@ export default async function OrdersPage({
   // listRecentOrders caps at 100 — history beyond that ages out of this
   // screen (it's a working surface, not an archive).
   const orders = await listRecentOrders(userId, 100);
-  const open = orders.filter((o) => o.status === "placed");
-  const done = orders.filter((o) => o.status !== "placed");
+  const open = orders.filter((o) => isOpenStatus(o.status));
+  const done = orders.filter((o) => !isOpenStatus(o.status));
 
   const { page: pageParam, size: sizeParam } = await searchParams;
   const SIZES = [10, 25, 50] as const;
@@ -128,15 +129,27 @@ export default async function OrdersPage({
                     >
                       🖨 Print
                     </a>
-                    <form action={markDoneAction}>
-                      <input type="hidden" name="orderId" value={order.id} />
-                      <button
-                        type="submit"
-                        className="bg-orange px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
-                      >
-                        Done
-                      </button>
-                    </form>
+                    {order.status !== "placed" ? (
+                      <span className="self-center rounded-full border border-ink/15 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-muted">
+                        {order.status.replaceAll("_", " ")}
+                      </span>
+                    ) : null}
+                    {nextStatus(order.status, order.orderType) ? (
+                      <form action={advanceOrderAction}>
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <input
+                          type="hidden"
+                          name="to"
+                          value={nextStatus(order.status, order.orderType)!}
+                        />
+                        <button
+                          type="submit"
+                          className="bg-orange px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+                        >
+                          {advanceLabel(nextStatus(order.status, order.orderType)!)}
+                        </button>
+                      </form>
+                    ) : null}
                   </div>
                 </div>
               </li>

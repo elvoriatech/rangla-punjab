@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canTransition, isOrderStatus } from "./order-status";
 import { Prisma } from "@prisma/client";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
@@ -416,6 +417,70 @@ export async function markOrderDone(userId: string, orderId: string): Promise<{ 
     });
     return { ok: updated.count > 0 };
   });
+}
+
+/**
+ * Advance an order along the lifecycle. The pure `canTransition` is the
+ * authority; the optimistic `status: current` guard makes two staff
+ * tapping at once resolve to one winner instead of a lost update.
+ */
+export async function advanceOrderStatus(
+  userId: string,
+  orderId: string,
+  to: string,
+): Promise<{ ok: boolean }> {
+  if (!isOrderStatus(to)) return { ok: false };
+  return asUser(userId, async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { status: true, orderType: true },
+    });
+    if (!order || !canTransition(order.status, to, order.orderType)) return { ok: false };
+    const updated = await tx.order.updateMany({
+      where: { id: orderId, status: order.status },
+      data: { status: to },
+    });
+    return { ok: updated.count > 0 };
+  });
+}
+
+export interface OrderTracking {
+  id: string;
+  orderNumber: number;
+  status: string;
+  orderType: string;
+  paymentStatus: string;
+  totalCents: number;
+  currency: string;
+  requestedFor: Date | null;
+  createdAt: Date;
+  tableNumber: string | null;
+  venue: { timezone: string; branding: unknown };
+}
+
+/** Token-authorized guest read — powers the tracking page and the v1 API. */
+export async function getOrderTracking(
+  tenantId: string,
+  orderId: string,
+): Promise<OrderTracking | null> {
+  return asTenant(tenantId, async (tx) =>
+    tx.order.findFirst({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        orderType: true,
+        paymentStatus: true,
+        totalCents: true,
+        currency: true,
+        requestedFor: true,
+        createdAt: true,
+        tableNumber: true,
+        venue: { select: { timezone: true, branding: true } },
+      },
+    }),
+  );
 }
 
 /* ------------------------------------------------------------------ */

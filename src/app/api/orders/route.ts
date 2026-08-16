@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { corsPreflight, withCors } from "@/lib/cors";
 import { z } from "zod";
 import { resolvePreviewContext } from "@/lib/preview-context";
 import { placeOrder, placeOrderSchema } from "@/lib/order-service";
@@ -24,9 +25,11 @@ const bodySchema = z.object({
 export async function POST(request: Request): Promise<NextResponse> {
   const rl = await checkRateLimit(ORDER_IP, clientIp(request));
   if (!rl.ok) {
-    return NextResponse.json(
-      { error: "rate_limited" },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    return withCors(
+      NextResponse.json(
+        { error: "rate_limited" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+      ),
     );
   }
 
@@ -34,22 +37,22 @@ export async function POST(request: Request): Promise<NextResponse> {
   // closed — the menu stays viewable but no new orders are accepted.
   const settings = await getOperatorSettings();
   if (!settings.siteActive) {
-    return NextResponse.json({ error: "ordering_paused" }, { status: 503 });
+    return withCors(NextResponse.json({ error: "ordering_paused" }, { status: 503 }));
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  if (!parsed.success) return withCors(NextResponse.json({ error: "invalid" }, { status: 400 }));
 
   const context = await resolvePreviewContext(parsed.data.slug, null);
   if (!context || context.mode !== "public") {
-    return NextResponse.json({ error: "unknown_venue" }, { status: 404 });
+    return withCors(NextResponse.json({ error: "unknown_venue" }, { status: 404 }));
   }
 
   const { slug: _slug, ...orderInput } = parsed.data;
   const result = await placeOrder(context, orderInput);
   if (!result.ok) {
     const status = result.error === "unknown_items" || result.error === "not_published" ? 409 : 400;
-    return NextResponse.json({ error: result.error }, { status });
+    return withCors(NextResponse.json({ error: result.error }, { status }));
   }
 
   log.info("order.placed", {
@@ -58,5 +61,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     orderNumber: result.value.orderNumber,
     totalCents: result.value.totalCents,
   });
-  return NextResponse.json(result.value, { status: 201 });
+  return withCors(NextResponse.json(result.value, { status: 201 }));
+}
+
+export function OPTIONS(): NextResponse {
+  return corsPreflight();
 }

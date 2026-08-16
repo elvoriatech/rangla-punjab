@@ -52,9 +52,21 @@ describe("menu themes", () => {
       expect
         .soft(contrast(theme.vars.text, theme.vars.bg), `${theme.id} text/bg`)
         .toBeGreaterThanOrEqual(4.5);
+      // Split-surface themes (cream cards on a deep-red page) read
+      // surfaceText inside cards; the plain-text-on-surface pair only
+      // applies when the theme has no dedicated surface palette.
+      const cardText = theme.vars.surfaceText ?? theme.vars.text;
       expect
-        .soft(contrast(theme.vars.text, theme.vars.surface), `${theme.id} text/surface`)
+        .soft(contrast(cardText, theme.vars.surface), `${theme.id} cardText/surface`)
         .toBeGreaterThanOrEqual(4.5);
+      if (theme.vars.surfaceTextSoft) {
+        expect
+          .soft(
+            contrast(theme.vars.surfaceTextSoft, theme.vars.surface),
+            `${theme.id} surfaceTextSoft/surface`,
+          )
+          .toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 
@@ -63,8 +75,9 @@ describe("menu themes", () => {
       expect
         .soft(contrast(theme.vars.accent, theme.vars.bg), `${theme.id} accent/bg`)
         .toBeGreaterThanOrEqual(3);
+      const cardAccent = theme.vars.surfaceAccent ?? theme.vars.accent;
       expect
-        .soft(contrast(theme.vars.accent, theme.vars.surface), `${theme.id} accent/surface`)
+        .soft(contrast(cardAccent, theme.vars.surface), `${theme.id} cardAccent/surface`)
         .toBeGreaterThanOrEqual(3);
     }
   });
