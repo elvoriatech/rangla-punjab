@@ -15,6 +15,8 @@
  * public page's accessibility guarantee.
  */
 
+import { contrastRatio } from "./contrast";
+
 export interface MenuTheme {
   id: string;
   label: string;
@@ -581,6 +583,36 @@ function shadeHex(hex: string, t: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
+/**
+ * Destructive-action color for a given card ground.
+ *
+ * Tailwind's `red-400` (#f87171) was hard-coded for this and measures
+ * 2.59–2.77:1 on every light theme's surface — a guest literally cannot read
+ * why their order failed. Two constants instead, and the pick is whichever
+ * ACTUALLY contrasts better rather than a luminance threshold, so a future
+ * palette can't land on the wrong side of a magic number. Same posture as
+ * `positive`: one semantic color per theme, asserted in
+ * menu-themes-contrast.test.ts.
+ */
+const DANGER_ON_LIGHT = "#a4231b";
+const DANGER_ON_DARK = "#ffc4bb";
+
+export function dangerFor(surfaceHex: string): string {
+  return contrastRatio(DANGER_ON_LIGHT, surfaceHex) >= contrastRatio(DANGER_ON_DARK, surfaceHex)
+    ? DANGER_ON_LIGHT
+    : DANGER_ON_DARK;
+}
+
+/**
+ * Label color for text sitting ON a solid fill of `hex`. `--menu-bg` was
+ * standing in for this and is only ~3.5:1 on fresh-bistro's accent, so the
+ * primary "Place order" CTA fails AA on nearly half the themes. Black or
+ * white — whichever wins — clears 4.5:1 on every accent and positive we ship.
+ */
+export function onColorFor(hex: string): string {
+  return contrastRatio("#ffffff", hex) >= contrastRatio("#000000", hex) ? "#ffffff" : "#000000";
+}
+
 /** Resolve a gradient's {bg}/{soft}/{deep} placeholders against the theme. */
 export function resolveBackdropGradient(backdrop: MenuBackdrop, themeBg: string): string | null {
   if (!backdrop.gradient) return null;
@@ -607,13 +639,26 @@ export function menuThemeStyle(
     "--menu-text-soft": theme.vars.textSoft,
     "--menu-accent": theme.vars.accent,
     "--menu-positive": theme.vars.positive,
-    ...(theme.vars.surfaceText ? { "--menu-surface-text": theme.vars.surfaceText } : {}),
-    ...(theme.vars.surfaceTextSoft
-      ? { "--menu-surface-text-soft": theme.vars.surfaceTextSoft }
-      : {}),
-    ...(theme.vars.surfaceAccent ? { "--menu-surface-accent": theme.vars.surfaceAccent } : {}),
+    // Card interiors ALWAYS get a surface-relative palette — emitted for every
+    // theme, not just the split-surface ones. This is what makes the
+    // `var(--menu-surface-text, var(--menu-text))` fallback used all over the
+    // renderer safe: the backdrop branch below repoints the PAGE ink, and
+    // without these a non-split theme's cards inherited that page ink with no
+    // relation to the card ground — burger-bold and mughal-night rendered
+    // backdrop ink on their own surface at 1.03:1, in every dish card and in
+    // the cart drawer. With no backdrop set these values are byte-identical to
+    // what the fallbacks already resolved to, so 17 of 19 themes render
+    // unchanged. Guarded by menu-themes-contrast.test.ts.
+    "--menu-surface-text": theme.vars.surfaceText ?? theme.vars.text,
+    "--menu-surface-text-soft": theme.vars.surfaceTextSoft ?? theme.vars.textSoft,
+    "--menu-surface-accent": theme.vars.surfaceAccent ?? theme.vars.accent,
+    "--menu-danger": dangerFor(theme.vars.surface),
+    "--menu-on-surface-accent": onColorFor(theme.vars.surfaceAccent ?? theme.vars.accent),
+    "--menu-on-positive": onColorFor(theme.vars.positive),
     // Split-surface themes default their headings to the card ink — the page
     // ground can be artwork, and the surface pill below guarantees contrast.
+    // Keyed on the theme's OWN surfaceText, not the resolved var above:
+    // widening it would change headings on every non-split theme.
     ...(theme.vars.surfaceText ? { "--menu-heading": theme.vars.surfaceText } : {}),
     ...(headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)
       ? { "--menu-heading": headingColor }
@@ -640,6 +685,11 @@ export function menuThemeStyle(
           }
       : {};
   Object.assign(vars, backdropInk);
+  // --menu-on-accent follows the EFFECTIVE accent (post-backdrop), so a solid
+  // fill painted in the page accent still gets a readable label.
+  (vars as Record<string, string>)["--menu-on-accent"] = onColorFor(
+    (vars as Record<string, string>)["--menu-accent"]!,
+  );
   // The owner's explicit heading color still wins over the polarity ink.
   if (headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)) {
     (vars as Record<string, string>)["--menu-heading"] = headingColor;

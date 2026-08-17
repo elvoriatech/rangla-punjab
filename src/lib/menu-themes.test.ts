@@ -94,6 +94,17 @@ describe("menu themes", () => {
       "--menu-text-soft",
       "--menu-accent",
       "--menu-positive",
+      // Card-relative palette + semantic colors. Emitted for EVERY theme, not
+      // just the split-surface ones — mughal-night below is deliberately a
+      // non-split theme, so this asserts the fallback-free guarantee the
+      // renderer's `var(--menu-surface-text, …)` reads depend on.
+      "--menu-surface-text",
+      "--menu-surface-text-soft",
+      "--menu-surface-accent",
+      "--menu-danger",
+      "--menu-on-accent",
+      "--menu-on-surface-accent",
+      "--menu-on-positive",
     ]) {
       expect(style[key], key).toBeTruthy();
     }
