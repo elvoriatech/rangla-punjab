@@ -397,8 +397,13 @@ function ThemeCard({ theme, checked }: { theme: MenuTheme; checked: boolean }): 
               </span>
             </span>
           ) : (
-            /* Photo-left mini row — mirrors the editorial layout. */
-            <span className="mt-2 flex items-center gap-3">
+            /* Photo-left mini row ON the theme's card surface — mirrors
+               the editorial guest layout, where dish rows sit on
+               var(--menu-surface) cards (cream on Rangla Royal). */
+            <span
+              className="mt-2 flex items-center gap-3 overflow-hidden rounded-lg border p-2"
+              style={{ backgroundColor: theme.vars.surface, borderColor: theme.vars.line }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/dish_2.png"
@@ -407,16 +412,22 @@ function ThemeCard({ theme, checked }: { theme: MenuTheme; checked: boolean }): 
               />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-3">
-                  <span className="font-serif text-sm" style={{ color: theme.vars.text }}>
+                  <span
+                    className="font-serif text-sm"
+                    style={{ color: theme.vars.surfaceText ?? theme.vars.text }}
+                  >
                     Saffron risotto
                   </span>
-                  <span className="font-serif text-sm" style={{ color: theme.vars.accent }}>
+                  <span
+                    className="font-serif text-sm"
+                    style={{ color: theme.vars.surfaceAccent ?? theme.vars.accent }}
+                  >
                     18,00 €
                   </span>
                 </span>
                 <span
                   className="mt-0.5 block text-[10px] leading-relaxed"
-                  style={{ color: theme.vars.textSoft }}
+                  style={{ color: theme.vars.surfaceTextSoft ?? theme.vars.textSoft }}
                 >
                   Carnaroli, cardamom butter, gold leaf
                 </span>
