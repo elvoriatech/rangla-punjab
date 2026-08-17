@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { canTransition, isOrderStatus } from "./order-status";
+import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
+import { paypalAvailable } from "./paypal";
 import { Prisma } from "@prisma/client";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
@@ -94,6 +97,7 @@ export type PlaceOrderResult =
 export async function placeOrder(
   context: { tenantId: string; venueId: string; publishedVersionId: string | null },
   raw: unknown,
+  opts?: { customerId?: string | null },
 ): Promise<PlaceOrderResult> {
   const parsed = placeOrderSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "invalid" };
@@ -163,14 +167,45 @@ export async function placeOrder(
         isAvailable: true,
         category: { menuVersionId: context.publishedVersionId! },
       },
-      select: { id: true, name: true, priceCents: true, currency: true },
+      select: {
+        id: true,
+        name: true,
+        priceCents: true,
+        offerPriceCents: true,
+        offerStartsAt: true,
+        offerEndsAt: true,
+        offerWeekly: true,
+        currency: true,
+      },
     });
     // Every requested id must resolve to an orderable published item —
     // a partial order surprises the guest at the till, so reject instead.
     if (items.length !== wanted.size) return { ok: false, error: "unknown_items" as const };
 
+    // Offer pricing with the guest-favouring grace: the edge-cached menu can
+    // be up to ~5 min stale, so an offer active at ANY instant in the last
+    // OFFER_GRACE_MINUTES is honoured — the guest never pays more than the
+    // page showed; the worst case is the ordinary base price.
+    const venueTz = (
+      await tx.venue.findFirstOrThrow({
+        where: { id: context.venueId },
+        select: { timezone: true },
+      })
+    ).timezone;
+    const nowInstant = new Date();
+    const graceInstant = new Date(nowInstant.getTime() - OFFER_GRACE_MINUTES * 60_000);
+    const priceOf = (item: (typeof items)[number]): { unit: number; base: number | null } => {
+      const now = effectiveItemPrice(item, venueTz, nowInstant);
+      const grace = effectiveItemPrice(item, venueTz, graceInstant);
+      const unit = Math.min(now.unitPriceCents, grace.unitPriceCents);
+      return { unit, base: unit < item.priceCents ? item.priceCents : null };
+    };
+
     const currency = items[0]!.currency;
-    const itemsCents = items.reduce((sum, item) => sum + item.priceCents * wanted.get(item.id)!, 0);
+    const itemsCents = items.reduce(
+      (sum, item) => sum + priceOf(item).unit * wanted.get(item.id)!,
+      0,
+    );
     // Delivery pricing is derived SERVER-SIDE from the guest's ZIP: the
     // matching area row sets fee + minimum (free-delivery threshold can
     // zero the fee); a ZIP outside the configured areas is rejected.
@@ -188,6 +223,7 @@ export async function placeOrder(
       if (quote.locality) input.address!.city = quote.locality;
     }
     const totalCents = itemsCents + feeCents;
+    const customerId = opts?.customerId ?? null;
 
     // Per-venue running receipt number. The unique index backstops the
     // read-then-write race; on collision we recompute and try again.
@@ -204,6 +240,7 @@ export async function placeOrder(
             venueId: context.venueId,
             orderNumber,
             orderType,
+            customerId,
             tableNumber: orderType === "dine_in" ? input.tableNumber || null : null,
             customerName: orderType === "dine_in" ? null : input.customerName || null,
             customerPhone: orderType === "dine_in" ? null : input.customerPhone || null,
@@ -213,13 +250,17 @@ export async function placeOrder(
             currency,
             items: {
               create: [
-                ...items.map((item) => ({
-                  tenantId: context.tenantId,
-                  itemId: item.id,
-                  name: item.name,
-                  priceCents: item.priceCents,
-                  quantity: wanted.get(item.id)!,
-                })),
+                ...items.map((item) => {
+                  const priced = priceOf(item);
+                  return {
+                    tenantId: context.tenantId,
+                    itemId: item.id,
+                    name: item.name,
+                    priceCents: priced.unit,
+                    basePriceCents: priced.base,
+                    quantity: wanted.get(item.id)!,
+                  };
+                }),
                 // Delivery fee rides as a snapshot line (itemId null) so
                 // receipt + kitchen totals always add up line-by-line.
                 ...(feeCents > 0
@@ -418,6 +459,75 @@ export async function markOrderDone(userId: string, orderId: string): Promise<{ 
   });
 }
 
+/**
+ * Advance an order along the lifecycle. The pure `canTransition` is the
+ * authority; the optimistic `status: current` guard makes two staff
+ * tapping at once resolve to one winner instead of a lost update.
+ */
+export async function advanceOrderStatus(
+  userId: string,
+  orderId: string,
+  to: string,
+): Promise<{ ok: boolean }> {
+  if (!isOrderStatus(to)) return { ok: false };
+  return asUser(userId, async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { status: true, orderType: true },
+    });
+    if (!order || !canTransition(order.status, to, order.orderType)) return { ok: false };
+    const updated = await tx.order.updateMany({
+      where: { id: orderId, status: order.status },
+      data: { status: to },
+    });
+    return { ok: updated.count > 0 };
+  });
+}
+
+export interface OrderTracking {
+  id: string;
+  orderNumber: number;
+  status: string;
+  orderType: string;
+  paymentStatus: string;
+  totalCents: number;
+  currency: string;
+  requestedFor: Date | null;
+  createdAt: Date;
+  tableNumber: string | null;
+  items: { name: string; quantity: number; priceCents: number; basePriceCents: number | null }[];
+  venue: { timezone: string; branding: unknown };
+}
+
+/** Token-authorized guest read — powers the tracking page and the v1 API. */
+export async function getOrderTracking(
+  tenantId: string,
+  orderId: string,
+): Promise<OrderTracking | null> {
+  return asTenant(tenantId, async (tx) =>
+    tx.order.findFirst({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        orderType: true,
+        paymentStatus: true,
+        totalCents: true,
+        currency: true,
+        requestedFor: true,
+        createdAt: true,
+        tableNumber: true,
+        items: {
+          select: { name: true, quantity: true, priceCents: true, basePriceCents: true },
+          orderBy: { createdAt: "asc" },
+        },
+        venue: { select: { timezone: true, branding: true } },
+      },
+    }),
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Owner analytics                                                     */
 /* ------------------------------------------------------------------ */
@@ -489,8 +599,10 @@ export interface PublicVenueAccess {
    *  page then 404s instead of rendering a stale menu. */
   menuVisible: boolean;
   modes: import("./ordering-config").EffectiveOrdering;
-  /** Guests can pay online: Scale entitlement ∧ Connect charges enabled. */
+  /** Guests can pay online by card: Connect charges enabled (or own keys). */
   onlinePayment: boolean;
+  /** Guests can pay with PayPal (restaurant's own account; fake in dev). */
+  paypalPayment: boolean;
 }
 
 /** Effective guest-facing access (plan/trial state ∧ owner switches),
@@ -525,6 +637,7 @@ export async function getPublicVenueAccess(
       // P2-3: online payment no longer requires a subscription — only that
       // the restaurant's connected account has charges enabled.
       onlinePayment: tenant.stripeChargesEnabled,
+      paypalPayment: paypalAvailable(),
     };
   });
 }

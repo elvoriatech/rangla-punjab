@@ -15,6 +15,8 @@
  * public page's accessibility guarantee.
  */
 
+import { contrastRatio } from "./contrast";
+
 export interface MenuTheme {
   id: string;
   label: string;
@@ -29,7 +31,7 @@ export interface MenuTheme {
    *  - "showcase": chalkboard gallery — large round photos centered above
    *    name, description, and a price badge; no card boxes.
    */
-  layout: "editorial" | "grid" | "list" | "showcase";
+  layout: "editorial" | "grid" | "list" | "showcase" | "hero" | "floating";
   /** CSS custom properties consumed by MenuView. All plain colors. */
   vars: {
     bg: string;
@@ -41,6 +43,15 @@ export interface MenuTheme {
     /** Dietary badge color — distinct from accent so "vegan" never reads
      *  as decoration. */
     positive: string;
+    /**
+     * OPTIONAL split-surface palette for themes whose cards sit on a very
+     * different ground than the page (e.g. cream cards on a deep-red page).
+     * When present, card interiors read these; when absent, cards fall back
+     * to text/textSoft/accent — every pre-existing theme renders unchanged.
+     */
+    surfaceText?: string;
+    surfaceTextSoft?: string;
+    surfaceAccent?: string;
   };
   /** Stroke color for background textures on this theme. */
   textureInk: string;
@@ -121,7 +132,7 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       surface: "#f7f8fa",
       line: "#e8eaee",
       text: "#24324e",
-      textSoft: "#7b8494",
+      textSoft: "#5d6675",
       accent: "#d96a10",
       positive: "#1f6b3a",
     },
@@ -137,7 +148,7 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       surface: "#ffffff",
       line: "#e3e6da",
       text: "#333a26",
-      textSoft: "#7d8471",
+      textSoft: "#5f664f",
       accent: "#c25c12",
       positive: "#3f7030",
     },
@@ -201,7 +212,7 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       surface: "#fff6ec",
       line: "#f3e0cc",
       text: "#2b2320",
-      textSoft: "#8a7d72",
+      textSoft: "#6d6055",
       accent: "#d3410e",
       positive: "#1f6b3a",
     },
@@ -224,6 +235,140 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       positive: "#0e7c46",
     },
     textureInk: "rgba(17, 24, 39, 0.035)",
+  },
+  {
+    id: "modern-minimal",
+    layout: "grid",
+    label: "Modern Minimal",
+    tagline: "Off-white, charcoal ink, one accent — photography leads.",
+    vars: {
+      bg: "#fafaf7",
+      surface: "#ffffff",
+      line: "#e8e6e0",
+      text: "#1d1d1b",
+      textSoft: "#6e6c66",
+      accent: "#d3552a",
+      positive: "#3f7030",
+    },
+    textureInk: "rgba(29, 29, 27, 0.04)",
+  },
+  {
+    id: "noir-gold",
+    layout: "editorial",
+    label: "Noir & Gold",
+    tagline: "Deep black, metallic gold, elegant serif — fine dining.",
+    vars: {
+      bg: "#0f0d0a",
+      surface: "#1b1712",
+      line: "#322a1f",
+      text: "#efe6d4",
+      textSoft: "#b3a68c",
+      accent: "#c9a24b",
+      positive: "#a7d7b4",
+    },
+    textureInk: "rgba(239, 230, 212, 0.05)",
+  },
+  {
+    id: "terracotta-olive",
+    layout: "list",
+    label: "Terracotta & Olive",
+    tagline: "Cream, warm brown, terracotta — cozy and authentic.",
+    vars: {
+      bg: "#f4ecdd",
+      surface: "#fffaf0",
+      line: "#e3d5bd",
+      text: "#3c2a1d",
+      textSoft: "#7c6753",
+      accent: "#b85c38",
+      positive: "#6b7a3f",
+    },
+    textureInk: "rgba(60, 42, 29, 0.05)",
+  },
+  {
+    id: "rangla-royal",
+    label: "Rangla Royal",
+    layout: "editorial",
+    tagline: "Deep Punjabi red, maroon cards, antique gold — the house look.",
+    vars: {
+      bg: "#8f1a1a",
+      surface: "#701212",
+      line: "#b98f3e",
+      text: "#fdf3dd",
+      textSoft: "#f0d9b6",
+      accent: "#e8c15c",
+      positive: "#a7d7b4",
+      surfaceText: "#fdf3dd",
+      surfaceTextSoft: "#eccfa4",
+      surfaceAccent: "#e8c15c",
+    },
+    textureInk: "rgba(253, 243, 221, 0.05)",
+  },
+  {
+    id: "street-bold",
+    layout: "grid",
+    label: "Street Bold",
+    tagline: "Punchy red, taxi yellow, oversized type — street energy.",
+    vars: {
+      bg: "#fdf1dc",
+      surface: "#ffffff",
+      line: "#17151a",
+      text: "#17151a",
+      textSoft: "#5c5560",
+      accent: "#e63946",
+      positive: "#1f6b3a",
+    },
+    textureInk: "rgba(23, 21, 26, 0.05)",
+  },
+  {
+    id: "burger-hub",
+    layout: "hero",
+    label: "Bold Hub",
+    tagline: "Black & taxi-yellow landing — hero, badges, dark photo cards.",
+    vars: {
+      bg: "#0d0b08",
+      surface: "#181410",
+      line: "#33291c",
+      text: "#f5f1e8",
+      textSoft: "#c9bda6",
+      accent: "#f5b301",
+      positive: "#a7d7b4",
+    },
+    textureInk: "rgba(245, 241, 232, 0.04)",
+  },
+  {
+    id: "foodota",
+    layout: "hero",
+    label: "Fresh Market",
+    tagline: "Dark hero over a white body — photo categories, airy grid.",
+    vars: {
+      bg: "#ffffff",
+      surface: "#ffffff",
+      line: "#eceae4",
+      text: "#191919",
+      textSoft: "#5f5c55",
+      accent: "#a97800",
+      positive: "#3f7030",
+    },
+    textureInk: "rgba(25, 25, 25, 0.04)",
+  },
+  {
+    id: "pizza-mizza",
+    layout: "floating",
+    label: "Pizza Nova",
+    tagline: "Floating dish photos, no boxes — script names, pill buttons.",
+    vars: {
+      bg: "#ffffff",
+      surface: "#14122b",
+      line: "#e8e6f0",
+      text: "#1c1b29",
+      textSoft: "#605d6c",
+      accent: "#c9660a",
+      positive: "#3f7030",
+      surfaceText: "#f5f3ff",
+      surfaceTextSoft: "#c9c6dd",
+      surfaceAccent: "#f7a63a",
+    },
+    textureInk: "rgba(28, 27, 41, 0.04)",
   },
 ] as const;
 
@@ -299,18 +444,194 @@ export function textureBackgroundImage(
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Backdrops — full-page background artwork                            */
+/* ------------------------------------------------------------------ */
+
+export interface MenuBackdrop {
+  id: string;
+  label: string;
+  tagline: string;
+  /** Public URL under /menu-backdrops, or null for the plain theme color. */
+  image: string | null;
+  /**
+   * CSS gradient background instead of an artwork image. May reference the
+   * active theme's plain color via {bg} / {soft} / {deep} placeholders —
+   * these are the "plain colors, as a gradient" options.
+   */
+  gradient?: string;
+  /**
+   * Which ink reads on this ground. A backdrop replaces the theme's page
+   * color, so PAGE-LEVEL text must follow the BACKDROP's brightness —
+   * pairing a light theme with a light backdrop (or dark with dark) used
+   * to collapse page text to ~1:1 contrast. Cards keep the theme's own
+   * surface palette untouched.
+   */
+  ink?: "light" | "dark";
+}
+
+export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
+  { id: "none", label: "None", tagline: "Solid theme color — the default.", image: null },
+  {
+    id: "theme-soft",
+    label: "Sunset Coral",
+    tagline: "Warm coral melting into sunset red — a modern glow.",
+    image: null,
+    // Deepened so cream ink clears AA on every stop.
+    gradient: "linear-gradient(160deg, #c44432 0%, #a52a3c 45%, #6e1b2c 100%)",
+    ink: "light",
+  },
+  {
+    id: "theme-glow",
+    label: "Violet Dusk",
+    tagline: "Deep indigo into violet — sleek and contemporary.",
+    image: null,
+    gradient: "linear-gradient(160deg, #5646c9 0%, #6f42a4 55%, #33194a 100%)",
+    ink: "light",
+  },
+  {
+    id: "crimson-silk",
+    label: "Crimson Silk",
+    tagline: "Deep Punjabi red, flowing like silk.",
+    image: null,
+    gradient: "linear-gradient(160deg, #b32e2e 0%, #8f1a1a 45%, #5f0f0f 100%)",
+    ink: "light",
+  },
+  {
+    id: "golden-hour",
+    label: "Golden Hour",
+    tagline: "Warm antique gold, light to amber.",
+    image: null,
+    gradient: "linear-gradient(160deg, #f6e3a8 0%, #ecc96e 48%, #d3a83e 100%)",
+    ink: "dark",
+  },
+  {
+    id: "ivory-mist",
+    label: "Ivory Mist",
+    tagline: "Soft parchment cream, barely-there warmth.",
+    image: null,
+    gradient: "linear-gradient(175deg, #fffdf5 0%, #f6ecd4 55%, #e3d2ac 100%)",
+    ink: "dark",
+  },
+  {
+    id: "aubergine-dusk",
+    label: "Aubergine Dusk",
+    tagline: "Midnight plum fading into the dark.",
+    image: null,
+    gradient: "linear-gradient(165deg, #4a2450 0%, #301536 55%, #190a1e 100%)",
+    ink: "light",
+  },
+  {
+    id: "rangla-royal",
+    label: "Royal Crimson Wave",
+    tagline: "Red-and-gold wave, welcoming chef, palace line-art.",
+    image: "/menu-backdrops/rangla-royal.jpg",
+    ink: "light",
+  },
+  {
+    id: "crimson-feast",
+    label: "Crimson Feast",
+    tagline: "Deep red damask with gold-line dishes and spices.",
+    image: "/menu-backdrops/crimson-feast.jpg",
+    ink: "light",
+  },
+  {
+    id: "ivory-minaret",
+    label: "Ivory Minaret",
+    tagline: "Cream parchment, faint minarets, a red-gold sweep.",
+    image: "/menu-backdrops/ivory-minaret.jpg",
+    ink: "dark",
+  },
+  {
+    id: "midnight-plum",
+    label: "Midnight Plum",
+    tagline: "Deep aubergine, golden wheat and a gilded wave.",
+    image: "/menu-backdrops/midnight-plum.jpg",
+    ink: "light",
+  },
+] as const;
+
+export const DEFAULT_MENU_BACKDROP_ID = "none";
+
+export function resolveMenuBackdrop(id: string | undefined | null): MenuBackdrop {
+  return MENU_BACKDROPS.find((b) => b.id === id) ?? MENU_BACKDROPS[0]!;
+}
+
 /**
  * Inline-style object MenuView spreads onto its wrapper. Defined here so
  * the appearance page's mini previews and the real renderer can never
  * drift apart.
+ *
+ * A backdrop (full-page artwork, cover) replaces the tiling texture; cards
+ * keep their solid surface color so content stays readable on any artwork.
+ * `headingColor` (owner-picked) feeds var(--menu-heading, …) fallbacks in
+ * the renderer — absent means each layout's original heading color.
  */
+/** Mix a #rrggbb color toward white (t>0) or black (t<0); returns #rrggbb. */
+function shadeHex(hex: string, t: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1]!, 16);
+  const mix = (c: number): number => {
+    const target = t >= 0 ? 255 : 0;
+    const v = Math.round(c + (target - c) * Math.abs(t));
+    return Math.max(0, Math.min(255, v));
+  };
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * Destructive-action color for a given card ground.
+ *
+ * Tailwind's `red-400` (#f87171) was hard-coded for this and measures
+ * 2.59–2.77:1 on every light theme's surface — a guest literally cannot read
+ * why their order failed. Two constants instead, and the pick is whichever
+ * ACTUALLY contrasts better rather than a luminance threshold, so a future
+ * palette can't land on the wrong side of a magic number. Same posture as
+ * `positive`: one semantic color per theme, asserted in
+ * menu-themes-contrast.test.ts.
+ */
+const DANGER_ON_LIGHT = "#a4231b";
+const DANGER_ON_DARK = "#ffc4bb";
+
+export function dangerFor(surfaceHex: string): string {
+  return contrastRatio(DANGER_ON_LIGHT, surfaceHex) >= contrastRatio(DANGER_ON_DARK, surfaceHex)
+    ? DANGER_ON_LIGHT
+    : DANGER_ON_DARK;
+}
+
+/**
+ * Label color for text sitting ON a solid fill of `hex`. `--menu-bg` was
+ * standing in for this and is only ~3.5:1 on fresh-bistro's accent, so the
+ * primary "Place order" CTA fails AA on nearly half the themes. Black or
+ * white — whichever wins — clears 4.5:1 on every accent and positive we ship.
+ */
+export function onColorFor(hex: string): string {
+  return contrastRatio("#ffffff", hex) >= contrastRatio("#000000", hex) ? "#ffffff" : "#000000";
+}
+
+/** Resolve a gradient's {bg}/{soft}/{deep} placeholders against the theme. */
+export function resolveBackdropGradient(backdrop: MenuBackdrop, themeBg: string): string | null {
+  if (!backdrop.gradient) return null;
+  return backdrop.gradient
+    .replaceAll("{bg}", themeBg)
+    .replaceAll("{soft}", shadeHex(themeBg, 0.14))
+    .replaceAll("{deep}", shadeHex(themeBg, -0.28));
+}
+
 export function menuThemeStyle(
   themeId: string | undefined | null,
   textureId: string | undefined | null,
+  backdropId?: string | undefined | null,
+  headingColor?: string | undefined | null,
 ): React.CSSProperties {
   const theme = resolveMenuTheme(themeId);
+  const backdrop = resolveMenuBackdrop(backdropId);
   const textureImage = textureBackgroundImage(textureId, theme);
-  return {
+  const vars = {
     "--menu-bg": theme.vars.bg,
     "--menu-surface": theme.vars.surface,
     "--menu-line": theme.vars.line,
@@ -318,6 +639,80 @@ export function menuThemeStyle(
     "--menu-text-soft": theme.vars.textSoft,
     "--menu-accent": theme.vars.accent,
     "--menu-positive": theme.vars.positive,
+    // Card interiors ALWAYS get a surface-relative palette — emitted for every
+    // theme, not just the split-surface ones. This is what makes the
+    // `var(--menu-surface-text, var(--menu-text))` fallback used all over the
+    // renderer safe: the backdrop branch below repoints the PAGE ink, and
+    // without these a non-split theme's cards inherited that page ink with no
+    // relation to the card ground — burger-bold and mughal-night rendered
+    // backdrop ink on their own surface at 1.03:1, in every dish card and in
+    // the cart drawer. With no backdrop set these values are byte-identical to
+    // what the fallbacks already resolved to, so 17 of 19 themes render
+    // unchanged. Guarded by menu-themes-contrast.test.ts.
+    "--menu-surface-text": theme.vars.surfaceText ?? theme.vars.text,
+    "--menu-surface-text-soft": theme.vars.surfaceTextSoft ?? theme.vars.textSoft,
+    "--menu-surface-accent": theme.vars.surfaceAccent ?? theme.vars.accent,
+    "--menu-danger": dangerFor(theme.vars.surface),
+    "--menu-on-surface-accent": onColorFor(theme.vars.surfaceAccent ?? theme.vars.accent),
+    "--menu-on-positive": onColorFor(theme.vars.positive),
+    // Split-surface themes default their headings to the card ink — the page
+    // ground can be artwork, and the surface pill below guarantees contrast.
+    // Keyed on the theme's OWN surfaceText, not the resolved var above:
+    // widening it would change headings on every non-split theme.
+    ...(theme.vars.surfaceText ? { "--menu-heading": theme.vars.surfaceText } : {}),
+    ...(headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)
+      ? { "--menu-heading": headingColor }
+      : {}),
+  };
+  // A backdrop replaces the page ground, so PAGE-LEVEL ink follows the
+  // BACKDROP's declared polarity — otherwise a light theme on a light
+  // backdrop (or dark on dark) renders ~1:1 page text. Cards, rail and
+  // chip bars sit on their own surfaces and keep the theme untouched.
+  const backdropInk =
+    backdrop.image || backdrop.gradient
+      ? backdrop.ink === "dark"
+        ? {
+            "--menu-text": "#2a1a0e",
+            "--menu-text-soft": "#6f5b45",
+            "--menu-accent": "#9d1c1c",
+            "--menu-heading": "#2a1a0e",
+          }
+        : {
+            "--menu-text": "#fdf3dd",
+            "--menu-text-soft": "#ecd9b0",
+            "--menu-accent": "#e8c15c",
+            "--menu-heading": "#fdf3dd",
+          }
+      : {};
+  Object.assign(vars, backdropInk);
+  // --menu-on-accent follows the EFFECTIVE accent (post-backdrop), so a solid
+  // fill painted in the page accent still gets a readable label.
+  (vars as Record<string, string>)["--menu-on-accent"] = onColorFor(
+    (vars as Record<string, string>)["--menu-accent"]!,
+  );
+  // The owner's explicit heading color still wins over the polarity ink.
+  if (headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)) {
+    (vars as Record<string, string>)["--menu-heading"] = headingColor;
+  }
+  if (backdrop.image) {
+    return {
+      ...vars,
+      backgroundImage: `url("${backdrop.image}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center top",
+      backgroundAttachment: "fixed",
+    } as React.CSSProperties;
+  }
+  const gradient = resolveBackdropGradient(backdrop, theme.vars.bg);
+  if (gradient) {
+    return {
+      ...vars,
+      backgroundImage: gradient,
+      backgroundAttachment: "fixed",
+    } as React.CSSProperties;
+  }
+  return {
+    ...vars,
     ...(textureImage ? { backgroundImage: textureImage } : {}),
   } as React.CSSProperties;
 }

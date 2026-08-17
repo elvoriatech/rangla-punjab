@@ -57,7 +57,7 @@ export default async function LoginPage({
         <div className="relative">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/guesto-icon.svg" alt="" className="h-11 w-11 rounded-xl" />
+            <img src="/brand/icon-192.png" alt="" className="h-11 w-11 rounded-xl" />
             <span className="text-sm uppercase tracking-[0.34em] text-gold">{BRAND.name}</span>
           </div>
           <h2 className="mt-14 max-w-md font-serif text-[2.6rem] font-medium leading-[1.15]">
@@ -97,7 +97,7 @@ export default async function LoginPage({
           {/* Compact brand header for screens without the left pane. */}
           <div className="mb-10 flex items-center gap-3 lg:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/guesto-icon.svg" alt="" className="h-10 w-10 rounded-lg" />
+            <img src="/brand/icon-192.png" alt="" className="h-10 w-10 rounded-lg" />
             <span className="text-xs uppercase tracking-[0.34em] text-gold-dark">{BRAND.name}</span>
           </div>
 

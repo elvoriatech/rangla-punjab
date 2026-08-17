@@ -256,7 +256,9 @@ describe("MenuView", () => {
     chalk.venue.branding.theme = "trattoria-chalk";
     const html = renderToStaticMarkup(<MenuView menu={chalk} />);
     expect(html).toMatch(/rounded-full border-2/);
-    expect(html).toMatch(/border-\[var\(--menu-accent\)\]\/60 px-4 py-1/);
+    // The price badge is an accent WASH now, not an accent outline — same
+    // fill-not-border language as every other control on the guest surface.
+    expect(html).toMatch(/bg-\[var\(--menu-surface-accent,var\(--menu-accent\)\)\]\/14 px-4 py-1/);
     expect(html).not.toMatch(/>01</);
   });
 

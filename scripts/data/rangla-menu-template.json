@@ -1,0 +1,2776 @@
+{
+  "key": "indian-pakistani",
+  "name": "Indisch / Pakistanisch",
+  "cuisine": "Indian / Pakistani",
+  "emoji": "🍛",
+  "locale": "de",
+  "active": true,
+  "sortIndex": 10,
+  "content": {
+    "categories": [
+      {
+        "name": "Warme Vorspeisen",
+        "items": [
+          {
+            "name": "Pakoras",
+            "image": {
+              "key": "templates/indian/pakora-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64471
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 690,
+            "description": "gemischtes Gemüse, in Kichererbsenmehl gewendet und frittiert"
+          },
+          {
+            "name": "Mix Pakora-Groß (für 2-3 Personen)",
+            "image": {
+              "key": "templates/indian/pakora-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 60377
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1590,
+            "description": "mit Hähnchenfleisch, Paneer, Gemüse und Sauce"
+          },
+          {
+            "name": "Paneer Pakora",
+            "image": {
+              "key": "templates/indian/pakora-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 57991
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 990,
+            "description": "hausgemachter Rahmkäse, in Kichererbsenmehl gewendet und frittiert"
+          },
+          {
+            "name": "Chicken Pakora",
+            "image": {
+              "key": "templates/indian/dish-chicken-pakora.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 81342
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 790,
+            "description": "Hähnchenfiletstücke, in Kichererbsenmehl gewendet und frittiert"
+          },
+          {
+            "name": "Jhinga Pakora",
+            "image": {
+              "key": "templates/indian/samosa-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 55995
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans", "milk"],
+            "priceCents": 1890,
+            "description": "Garnelen, in Kichererbsenmehl gewendet und frittiert"
+          },
+          {
+            "name": "Samosa",
+            "image": {
+              "key": "templates/indian/pakora-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64471
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["eggs", "gluten", "milk"],
+            "priceCents": 690,
+            "description": "2 gefüllte, frittierte Kartoffel-Erbsen-Teigtaschen"
+          },
+          {
+            "name": "Gemischte Tikkas",
+            "image": {
+              "key": "templates/indian/tikka-platter-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 75042
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "sulphites"],
+            "priceCents": 990,
+            "description": "Hariyali Tikka, Chicken Tikka, Garlic Chicken Tikka, dazu verschiedene Chutneys"
+          },
+          {
+            "name": "Pommes Frites",
+            "image": {
+              "key": "templates/indian/fries-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 32056
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 500
+          },
+          {
+            "name": "Extra Reis",
+            "image": {
+              "key": "templates/indian/kulfi-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 59693
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 400
+          },
+          {
+            "name": "Chutneys",
+            "image": {
+              "key": "templates/indian/chutney-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 93548
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 350,
+            "description": "Verschiedene Sauce"
+          },
+          {
+            "name": "Pani Puri",
+            "image": {
+              "key": "templates/indian/chaat-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 58945
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 790
+          },
+          {
+            "name": "Chaat Papri",
+            "image": {
+              "key": "templates/indian/chaat-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56909
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 790,
+            "description": "mit Kichererbsen, Paprika, frische Tomaten, Granatapfel, verschiedene Saucen"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/pakora-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 64471
+        }
+      },
+      {
+        "name": "Suppen",
+        "items": [
+          {
+            "name": "Dal Suppe",
+            "image": {
+              "key": "templates/indian/soup-lentil-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64050
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 750,
+            "description": "Linsensuppe"
+          },
+          {
+            "name": "Sabzi Suppe",
+            "image": {
+              "key": "templates/indian/soup-lentil-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 76422
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 850,
+            "description": "Gemüsesuppe"
+          },
+          {
+            "name": "Hühnersuppe",
+            "image": {
+              "key": "templates/indian/soup-lentil-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 78090
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 990,
+            "description": "Huhn"
+          },
+          {
+            "name": "Tomatensuppe",
+            "image": {
+              "key": "templates/indian/dal-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64344
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["eggs", "gluten", "milk", "celery"],
+            "priceCents": 890,
+            "description": "Tomaten"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/soup-lentil-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 64050
+        }
+      },
+      {
+        "name": "Salate",
+        "items": [
+          {
+            "name": "Gemischter Salat",
+            "image": {
+              "key": "templates/indian/salad-green-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99082
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 990,
+            "description": "Blattsalat mit Gurken, Tomaten, Mais und Granatapfelkernen"
+          },
+          {
+            "name": "Chicken Salat",
+            "image": {
+              "key": "templates/indian/salad-green-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 79032
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1490,
+            "description": "gemischter Salat mit gebratenem Hähnchenfilet, Tandoori und Paprika"
+          },
+          {
+            "name": "Paneer Salat",
+            "image": {
+              "key": "templates/indian/salad-green-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 47250
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1490,
+            "description": "gemischter Salat mit gebratenem Rahmkäse"
+          },
+          {
+            "name": "Jhinga Salat",
+            "image": {
+              "key": "templates/indian/salad-green-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99082
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans"],
+            "priceCents": 1790,
+            "description": "gemischter Salat mit gebratenen Garnelen"
+          },
+          {
+            "name": "Raita",
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 400,
+            "description": "Joghurt mit Gurke, Zwiebeln und Karotten"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/salad-green-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 99082
+        }
+      },
+      {
+        "name": "Vegane Spezialitäten",
+        "items": [
+          {
+            "name": "Palak Tofu",
+            "image": {
+              "key": "templates/indian/curry-tofu-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 57982
+            },
+            "spice": 0,
+            "dietary": ["vegan"],
+            "allergens": ["milk", "soybeans"],
+            "priceCents": 1590,
+            "description": "mit Spinat und Kokosmilch"
+          },
+          {
+            "name": "Shahi Tofu (leicht süß)",
+            "image": {
+              "key": "templates/indian/curry-tofu-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 87980
+            },
+            "spice": 0,
+            "dietary": ["vegan"],
+            "allergens": ["milk", "nuts", "soybeans"],
+            "priceCents": 1590,
+            "description": "mit Cashewnüssen und Kokosmilch"
+          },
+          {
+            "name": "Mango Tofu",
+            "image": {
+              "key": "templates/indian/curry-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 72031
+            },
+            "spice": 0,
+            "dietary": ["vegan"],
+            "allergens": ["soybeans"],
+            "priceCents": 1590,
+            "description": "mit Mango, Cashewnüssen, Kokosmilch und indischen Gewürzen"
+          },
+          {
+            "name": "Karahi Tofu",
+            "image": {
+              "key": "templates/indian/karahi-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 200182
+            },
+            "spice": 0,
+            "dietary": ["vegan"],
+            "allergens": ["soybeans"],
+            "priceCents": 1590,
+            "description": "mit Currysauce, Paprika, Tomaten und Zwiebeln"
+          },
+          {
+            "name": "Tikka Masala Tofu",
+            "image": {
+              "key": "templates/indian/curry-veg-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99597
+            },
+            "spice": 0,
+            "dietary": ["vegan"],
+            "allergens": ["soybeans"],
+            "priceCents": 1590,
+            "description": "mit Zwiebeln, Tomaten, roter Currysauce, Koriander und frischem Ingwer"
+          },
+          {
+            "name": "Chili Tofu",
+            "image": {
+              "key": "templates/indian/curry-paneer-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 114822
+            },
+            "spice": 1,
+            "dietary": ["vegan"],
+            "allergens": ["soybeans"],
+            "priceCents": 1590,
+            "description": "in Kichererbsenmehl panierter Bio-Tofu mit Paprika, süß-saurer Tomatensauce und Sojasauce"
+          },
+          {
+            "name": "Tofu Madrasi",
+            "image": {
+              "key": "templates/indian/curry-tofu-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 57982
+            },
+            "spice": 0,
+            "dietary": ["vegan"],
+            "allergens": ["sulphites", "soybeans"],
+            "priceCents": 1590,
+            "description": "mit Kokosmilch, nach südindischer Art"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/curry-veg-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 72031
+        }
+      },
+      {
+        "name": "Vegetarische Spezialitäten",
+        "items": [
+          {
+            "name": "Sabzi Makhani",
+            "image": {
+              "key": "templates/indian/curry-paneer-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 114822
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1590,
+            "description": "Gemüse mit Butter, Cashewnüssen und Tomatensauce"
+          },
+          {
+            "name": "Sabzi Curry",
+            "image": {
+              "key": "templates/indian/curry-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 72031
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["nuts"],
+            "priceCents": 1590,
+            "description": "Curry aus frischem Gemüse der Saison, Cashewnüssen und Zwiebeln"
+          },
+          {
+            "name": "Matter Paneer",
+            "image": {
+              "key": "templates/indian/curry-veg-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99597
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1590,
+            "description": "hausgemachter, frischer Rahmkäse mit grünen Erbsen"
+          },
+          {
+            "name": "Palak Paneer",
+            "image": {
+              "key": "templates/indian/dish-palak-paneer.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 76937
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1590,
+            "description": "hausgemachter, frischer Rahmkäse mit Spinat"
+          },
+          {
+            "name": "Alu Saag",
+            "image": {
+              "key": "templates/indian/chana-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 71573
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": [],
+            "priceCents": 1590,
+            "description": "gebratene Kartoffeln mit Spinat, Zwiebeln und Ingwer"
+          },
+          {
+            "name": "Alu Chana Masala",
+            "image": {
+              "key": "templates/indian/curry-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 72031
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": [],
+            "priceCents": 1590,
+            "description": "Kartoffeln und Kichererbsen mit typisch indischen Gewürzen"
+          },
+          {
+            "name": "Karahi Paneer",
+            "image": {
+              "key": "templates/indian/karahi-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 200182
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1750,
+            "description": "hausgemachter Rahmkäse mit Currysauce, Paprika, Tomaten und Zwiebeln"
+          },
+          {
+            "name": "Shahi Paneer (leicht, süß)",
+            "image": {
+              "key": "templates/indian/chana-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 71573
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1750,
+            "description": "hausgemachter Rahmkäse mit Cashewnüssen und Sahnesauce"
+          },
+          {
+            "name": "Malai Kofta",
+            "image": {
+              "key": "templates/indian/seekh-kebab-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 105499
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1750,
+            "description": "Röllchen aus Kartoffeln, Rahmkäse und Cashewnüssen, in Sahnesauce"
+          },
+          {
+            "name": "Paneer Kashmiri (leicht-süß)",
+            "image": {
+              "key": "templates/indian/curry-paneer-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 114822
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1750,
+            "description": "hausgemachter Rahmkäse mit Cashewnüssen und Tomaten, in leicht süßer Sauce"
+          },
+          {
+            "name": "Dal Tarka",
+            "image": {
+              "key": "templates/indian/dal-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64344
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1490,
+            "description": "Linsengericht mit Currysauce, nach indischer Art"
+          },
+          {
+            "name": "Sabzi Jhalfrezi (süß-scharf)",
+            "image": {
+              "key": "templates/indian/curry-veg-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99597
+            },
+            "spice": 2,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1590,
+            "description": "saisonales, frisches Gemüse mit scharf gewürzter Sauce, Ingwer, Knoblauch und Paprika"
+          },
+          {
+            "name": "Paneer Butter Masala (süß)",
+            "image": {
+              "key": "templates/indian/curry-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 72031
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1790,
+            "description": "hausgemachter Käse mit Butter, Tomaten und indischen Gewürzen"
+          },
+          {
+            "name": "Bengen Ka Bharta",
+            "image": {
+              "key": "templates/indian/dal-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64344
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1890,
+            "description": "gegrillte Auberginen mit Currysauce"
+          },
+          {
+            "name": "Bhindi Masala",
+            "image": {
+              "key": "templates/indian/chana-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 71573
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1690,
+            "description": "gebratene Okraschoten mit Ingwer, Tomaten, Zwiebeln und indischen Gewürzen"
+          },
+          {
+            "name": "Dal Palak",
+            "image": {
+              "key": "templates/indian/soup-lentil-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64050
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": [],
+            "priceCents": 1550,
+            "description": "Linsen mit Spinat, Zwiebeln und indischen Gewürzen"
+          },
+          {
+            "name": "Alu Bengen",
+            "image": {
+              "key": "templates/indian/curry-paneer-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 114822
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1590,
+            "description": "gegrillte Auberginen und Kartoffeln, in Currysauce"
+          },
+          {
+            "name": "Dal Makhni",
+            "image": {
+              "key": "templates/indian/soup-lentil-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 76422
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1790,
+            "description": "schwarze Linsen mit Sahne, Butter, Tomaten und Knoblauch"
+          },
+          {
+            "name": "Kola Puri",
+            "image": {
+              "key": "templates/indian/curry-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 72031
+            },
+            "spice": 0,
+            "dietary": ["vegetarian"],
+            "allergens": ["milk"],
+            "priceCents": 1550,
+            "description": "Paneer (ausgemachter frischer Rahmkäse) mit Gemüse"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/curry-paneer-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 114822
+        }
+      },
+      {
+        "name": "Fisch- und Meeresfrucht Spezialitäten",
+        "items": [
+          {
+            "name": "Fisch Curry",
+            "image": {
+              "key": "templates/indian/curry-fish-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 92669
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["fish", "nuts"],
+            "priceCents": 2290,
+            "description": "Seelachslion mit Cashewnüssen, Zwiebeln und Currysauce"
+          },
+          {
+            "name": "Fisch Masala",
+            "image": {
+              "key": "templates/indian/curry-fish-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 88026
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["fish", "milk", "nuts"],
+            "priceCents": 2290,
+            "description": "Seelachslion in einer Zubereitung aus Zwiebeln, frischem Ingwer, Knoblauch, Tomaten und Cashewnüssen"
+          },
+          {
+            "name": "Fisch Madrasi",
+            "image": {
+              "key": "templates/indian/curry-fish-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 84195
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["fish"],
+            "priceCents": 2290,
+            "description": "Seelachslion nach südindischer Art mit Kokosmilch und Tomatensauce"
+          },
+          {
+            "name": "Jhinga Masala",
+            "image": {
+              "key": "templates/indian/curry-prawn-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 60648
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans"],
+            "priceCents": 2290,
+            "description": "gebratene Garnelen mit feinen, indischen Gewürzen, Ingwer, Knoblauch und Kräutern"
+          },
+          {
+            "name": "Jhinga Curry",
+            "image": {
+              "key": "templates/indian/curry-prawn-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 53349
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans"],
+            "priceCents": 2290,
+            "description": "Garnelen in Currysauce"
+          },
+          {
+            "name": "Jhinga Kashmiri (leicht süß)",
+            "image": {
+              "key": "templates/indian/curry-fish-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 92669
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans", "nuts"],
+            "priceCents": 2290,
+            "description": "Garnelen mit Cashewnüssen, frischem Apfel, Granatapfelkernen und Tomatensauce"
+          },
+          {
+            "name": "Jhinga Dal",
+            "image": {
+              "key": "templates/indian/dal-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64344
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans"],
+            "priceCents": 2290,
+            "description": "Garnelen mit Linsen und indischen Gewürzen"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/curry-fish-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 92669
+        }
+      },
+      {
+        "name": "Reis Spezialitäten",
+        "items": [
+          {
+            "name": "Sabzi Biryani (würzig)",
+            "image": {
+              "key": "templates/indian/biryani-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 112450
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1750,
+            "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, Basmatireis, Nüssen und feinen, indischen Gewürzen"
+          },
+          {
+            "name": "Chicken Biryani (würzig)",
+            "image": {
+              "key": "templates/indian/biryani-chicken-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99871
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1850,
+            "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, Hähnchenfilet und Basmatireis"
+          },
+          {
+            "name": "Lamm Biryani (würzig)",
+            "image": {
+              "key": "templates/indian/biryani-lamb-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 140100
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1950,
+            "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, Lammfleisch und Basmatireis, garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln"
+          },
+          {
+            "name": "Jhinga Biryani (würzig)",
+            "image": {
+              "key": "templates/indian/biryani-prawn-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61524
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans", "milk", "nuts"],
+            "priceCents": 2250,
+            "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, gebratenen Krabben und Basmatireis"
+          },
+          {
+            "name": "Matter Paneer Pulao (leicht süß)",
+            "image": {
+              "key": "templates/indian/rice-plain-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 72628
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1790,
+            "description": "mit gebratenem Käse, Erbsen, frischem Apfel, Granatapfel und Datteln"
+          },
+          {
+            "name": "Festlicher Chicken Pulao (leicht süß)",
+            "image": {
+              "key": "templates/indian/rice-plain-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 42745
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1790,
+            "description": "mit Hähnchenfilet, Basmatireis, Datteln, Rosinen, Mandeln, Cashewnüssen, frischem Apfel und Granatapfelkernen"
+          },
+          {
+            "name": "Festlicher Lamm Pulao (leicht süß)",
+            "image": {
+              "key": "templates/indian/biryani-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 112450
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1790,
+            "description": "mit Lammfleisch, Basmatireis, Datteln, Rosinen, Mandeln, Cashewnüssen, frischem Apfel und Granatapfelkernen"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/rice-plain-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 72628
+        }
+      },
+      {
+        "name": "Lamm Spezialitäten",
+        "items": [
+          {
+            "name": "Lamm Curry",
+            "image": {
+              "key": "templates/indian/curry-lamb-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 73450
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm in Currysauce mit frischem Ingwer, Knoblauch und Zwiebeln"
+          },
+          {
+            "name": "Lamm Saag",
+            "image": {
+              "key": "templates/indian/curry-lamb-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 90431
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm in Spinat mit frischem Ingwer und Knoblauch"
+          },
+          {
+            "name": "Lamm Makhani Wala",
+            "image": {
+              "key": "templates/indian/curry-lamb-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 68590
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm in würziger Mischung aus Zwiebeln, Knoblauch, Tomatencurry und Salt-Sweet-Sauce"
+          },
+          {
+            "name": "Lamm Sabzi Curry",
+            "image": {
+              "key": "templates/indian/karahi-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 200182
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm mit saisonalen Gemüse"
+          },
+          {
+            "name": "Lamm Vindaloo",
+            "image": {
+              "key": "templates/indian/vindaloo-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 73619
+            },
+            "spice": 2,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm-Spezialität nach südindischer Art mit Kartoffeln in exotischer Sauce"
+          },
+          {
+            "name": "Lamm Madrasi",
+            "image": {
+              "key": "templates/indian/vindaloo-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 94418
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm nach südindischer Art mit Kokos"
+          },
+          {
+            "name": "Lamm Korma",
+            "image": {
+              "key": "templates/indian/korma-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 62644
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1990,
+            "description": "Lamm in einer milden Sauce aus Gewürzen, Sahne, Mandeln, Cashewnüssen, frischem Apfel und Granatapfel"
+          },
+          {
+            "name": "Lamm Dal",
+            "image": {
+              "key": "templates/indian/dal-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64344
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm mit Linsen in indischer Gewürz-Kombination"
+          },
+          {
+            "name": "Kashmiri Kofta",
+            "image": {
+              "key": "templates/indian/seekh-kebab-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 105499
+            },
+            "spice": 1,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm-Hackfleischbällchen mit Kashmiri Chili, Garam Masala, Anis, frischem Apfel und Granatapfel"
+          },
+          {
+            "name": "Lamm Karahi",
+            "image": {
+              "key": "templates/indian/karahi-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 200182
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1990,
+            "description": "Lamm mit Paprika, Tomaten, Zwiebeln und würziger Sauce"
+          },
+          {
+            "name": "Lamm Kashmiri",
+            "image": {
+              "key": "templates/indian/vindaloo-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 94418
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1990,
+            "description": "Lamm in einer leicht süßen Sauce mit Trockenfrüchten und frischen Früchten"
+          },
+          {
+            "name": "Peshawari Seek Masala",
+            "image": {
+              "key": "templates/indian/curry-tofu-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 87980
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "amm-Hackfleisch nach pakistanischer Art mit Tomaten und feiner Sauce"
+          },
+          {
+            "name": "Lamm Bindi Masala",
+            "image": {
+              "key": "templates/indian/curry-lamb-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 73450
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1990,
+            "description": "Lamm mit indischen Okraschoten, Tomaten, Zwiebelsauce, Gewürzen, frischem Ingwer und Koriander"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/curry-lamb-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 73450
+        }
+      },
+      {
+        "name": "Hähnchen Spezialitäten",
+        "items": [
+          {
+            "name": "Chicken Curry",
+            "image": {
+              "key": "templates/indian/curry-chicken-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 107533
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1750,
+            "description": "mit Hähnchenfilet und Currysauce, nach nordindischer Art"
+          },
+          {
+            "name": "Chicken Sabzi",
+            "image": {
+              "key": "templates/indian/curry-chicken-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 54150
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1750,
+            "description": "mit Hähnchenfilet, saisonalem, frischem Gemüse und Currysauce"
+          },
+          {
+            "name": "Chicken Saag",
+            "image": {
+              "key": "templates/indian/curry-chicken-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 74177
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1750,
+            "description": "mit Hähnchenfilet, Spinat, frischem Ingwer und Knoblauch"
+          },
+          {
+            "name": "Chicken Vindaloo",
+            "image": {
+              "key": "templates/indian/dish-chicken-vindaloo.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 67052
+            },
+            "spice": 2,
+            "dietary": [],
+            "allergens": ["milk", "sulphites", "mustard"],
+            "priceCents": 1750,
+            "description": "süd-indische Hähnchen-Spezialität mit Kartoffeln"
+          },
+          {
+            "name": "Chicken Korma",
+            "image": {
+              "key": "templates/indian/dish-chicken-korma.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 95108
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts", "soybeans"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfleisch und einer milden Sauce aus Gewürzen, Cashewnüssen und Sahne"
+          },
+          {
+            "name": "Chicken Mango (süß)",
+            "image": {
+              "key": "templates/indian/curry-chicken-4.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 74124
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["nuts"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfilet und Cashewnuss-Sauce mit Mango"
+          },
+          {
+            "name": "Chicken Kashmiri (süß)",
+            "image": {
+              "key": "templates/indian/korma-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 89627
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1890,
+            "description": "mit gebratenem Hähnchenfleisch und einer Sauce aus Zwiebeln, Tomaten, Sahne, frischem Apfel und Granatapfel"
+          },
+          {
+            "name": "Chicken Karahi",
+            "image": {
+              "key": "templates/indian/dish-chicken-karahi.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 126871
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfleischstücken, Currysauce, Paprika, Tomaten und Zwiebeln"
+          },
+          {
+            "name": "Chicken Madrasi",
+            "image": {
+              "key": "templates/indian/vindaloo-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 73619
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["sulphites"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfilet und Kokosmilch, nach süd-indischer Art"
+          },
+          {
+            "name": "Chicken Jhalfrezi",
+            "image": {
+              "key": "templates/indian/vindaloo-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 94418
+            },
+            "spice": 2,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1890,
+            "description": "mit scharf gewürztem Hähnchenfilet, frischem Ingwer, Knoblauch, Paprika und Tomaten"
+          },
+          {
+            "name": "Chicken Dopiaza",
+            "image": {
+              "key": "templates/indian/curry-tofu-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 87980
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["eggs", "gluten", "milk", "celery"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfilet, Currysauce und gebratenen Zwiebeln"
+          },
+          {
+            "name": "Butter Chicken",
+            "image": {
+              "key": "templates/indian/karahi-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 200182
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1890,
+            "description": "mit gegrilltem Hähnchenfleisch, Tomatensauce, Butter, Sahne, Mandeln und Cashewnüssen"
+          },
+          {
+            "name": "Chicken Tikka Masala",
+            "image": {
+              "key": "templates/indian/dish-chicken-tikka-masala.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 104848
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1890,
+            "description": "mit gegrilltem Hähnchenfleisch, Zwiebeln, Tomaten, roter Currysauce, Koriander, frischem Ingwer und indischem Masala"
+          },
+          {
+            "name": "Chili Chicken",
+            "image": {
+              "key": "templates/indian/curry-chicken-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 54150
+            },
+            "spice": 1,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1890,
+            "description": "gebratenes Hähnchenfilet paniert in Kichererbsenmehl, mit Paprika, Sojasauce und süß-saurer Tomatensauce"
+          },
+          {
+            "name": "Nawabi Chicken",
+            "image": {
+              "key": "templates/indian/curry-chicken-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 74177
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfleisch, Kokos-Mandelsauce und Paneer"
+          },
+          {
+            "name": "Chicken Chana Masala",
+            "image": {
+              "key": "templates/indian/chana-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 71573
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1890,
+            "description": "mit gebratenem Hähnchenfleisch und einer Sauce aus Zwiebeln, Tomaten, Sahne"
+          },
+          {
+            "name": "Chicken Hyderabadi",
+            "image": {
+              "key": "templates/indian/curry-chicken-4.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 74124
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfleisch, Cashewnuss-Sauce und Minzsauce"
+          },
+          {
+            "name": "Gulabi Chicken (leicht süß)",
+            "image": {
+              "key": "templates/indian/gulab-jamun-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61143
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenbrust, Kardamom, Rosenblüten, Cashewnüssen, Pistazien und Mandeln"
+          },
+          {
+            "name": "Sookha Chicken",
+            "image": {
+              "key": "templates/indian/korma-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 62644
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1890,
+            "description": "mit Hähnchenbrust, Kokosnuss, Minze, würziger Sauce, Koriander und Kashmir-Masala"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/curry-chicken-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 107533
+        }
+      },
+      {
+        "name": "Indische Fladenbrot-Spezialitäten",
+        "items": [
+          {
+            "name": "Tandoori Roti",
+            "image": {
+              "key": "templates/indian/roti-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99786
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten"],
+            "priceCents": 350,
+            "description": "Indisches Fladenbrot aus Vollkornmehl"
+          },
+          {
+            "name": "Naan",
+            "image": {
+              "key": "templates/indian/naan-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56512
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten"],
+            "priceCents": 350,
+            "description": "Indisches Fladenbrot aus Weißmehl"
+          },
+          {
+            "name": "Garlic Naan",
+            "image": {
+              "key": "templates/indian/naan-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 60155
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 450,
+            "description": "Indisches Fladenbrot mit Knoblauch"
+          },
+          {
+            "name": "Butter Naan",
+            "image": {
+              "key": "templates/indian/roti-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99786
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 450,
+            "description": "Indisches Fladenbrot mit Butter"
+          },
+          {
+            "name": "Hariyali Naan",
+            "image": {
+              "key": "templates/indian/roti-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 88614
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten"],
+            "priceCents": 490,
+            "description": "indisches Fladenbrot mit Koriander, Spinat und Gewürzen, dazu Raita"
+          },
+          {
+            "name": "Aloo Paratha",
+            "image": {
+              "key": "templates/indian/paratha-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 152268
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten"],
+            "priceCents": 790,
+            "description": "Indisches Fladenbrot gefüllt mit würzigen Kartoffeln, dazu Raita"
+          },
+          {
+            "name": "Paneer Naan",
+            "image": {
+              "key": "templates/indian/paratha-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 94608
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 890,
+            "description": "indisches Fladenbrot gefüllt mit hausgemachtem Käse, dazu Raita"
+          },
+          {
+            "name": "Papadam",
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450,
+            "description": "Kichererbsen-Brot"
+          },
+          {
+            "name": "Mix Naan",
+            "image": {
+              "key": "templates/indian/naan-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56512
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 1490,
+            "description": "mit Tandoori Roti, Garlic Naan, Saada Naan und Butter Naan, dazu Raita"
+          },
+          {
+            "name": "Cheese Naan",
+            "image": {
+              "key": "templates/indian/naan-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 60155
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 890,
+            "description": "Fladenbrot aus Weizenmehl mit Gouda"
+          },
+          {
+            "name": "Peshwari Naan",
+            "image": {
+              "key": "templates/indian/roti-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 99786
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 890,
+            "description": "aus Weizenmehl, gefüllt mit Mandeln, Rosinen, Kokosnuss und Honig"
+          },
+          {
+            "name": "Keema Naan mit Lammfleisch",
+            "image": {
+              "key": "templates/indian/roti-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 88614
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1090,
+            "description": "aus Weizenmehl"
+          },
+          {
+            "name": "Keema Naan mit Hähnchenfleisch",
+            "image": {
+              "key": "templates/indian/paratha-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 152268
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 990,
+            "description": "aus Weizenmehl"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/naan-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 56512
+        }
+      },
+      {
+        "name": "Tandoori Spezialitäten",
+        "items": [
+          {
+            "name": "Peshwari Seekh Kabab",
+            "image": {
+              "key": "templates/indian/seekh-kebab-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 105499
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1890,
+            "description": "mit Lammhackfleisch, am Spieß gegrillt und nord-pakistanisch gewürzt, dazu Chutneys"
+          },
+          {
+            "name": "Hariyali Tikka",
+            "image": {
+              "key": "templates/indian/tikka-platter-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 75042
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1890,
+            "description": "in Minz-Joghurt mariniertes Hähnchen, am Spieß gegrillt, dazu Chutneys"
+          },
+          {
+            "name": "Chicken Tikka",
+            "image": {
+              "key": "templates/indian/tandoori-chicken-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 79414
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1890,
+            "description": "mit Hähnchenfilet und Tandoori Masala, am Spieß gegrillt, dazu Chutneys"
+          },
+          {
+            "name": "Lahori King Prawn",
+            "image": {
+              "key": "templates/indian/curry-prawn-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 60648
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["crustaceans", "milk"],
+            "priceCents": 2290,
+            "description": "gegrillte Garnelen nach Punjabi-Art, mit feinen Gewürzen und Joghurt mariniert, dazu Chutneys"
+          },
+          {
+            "name": "Garlic Chicken Tikka",
+            "image": {
+              "key": "templates/indian/tandoori-chicken-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 97859
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["nuts"],
+            "priceCents": 1890,
+            "description": "im Tandoor gegrillte Hähnchenbrust mit Knoblauch-Cashew-Marinade, dazu Chutneys"
+          },
+          {
+            "name": "Lamm Boti Tikka (süß)",
+            "image": {
+              "key": "templates/indian/tandoori-chicken-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 127816
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["nuts"],
+            "priceCents": 1990,
+            "description": "mit Lammfleisch aus der Keule und indischen Gewürzen, am Spieß gegrillt"
+          },
+          {
+            "name": "Tandoori Chicken",
+            "image": {
+              "key": "templates/indian/dish-tandoori-chicken.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 151666
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk", "nuts"],
+            "priceCents": 1890,
+            "description": "mit gegrillten Hähnchenschenkeln, Tandoor Masala und Joghurt-Cashewnuss-Marinade"
+          },
+          {
+            "name": "Paneer Tikka (süß)",
+            "image": {
+              "key": "templates/indian/seekh-kebab-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 105499
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 1990,
+            "description": "gegrillter, hausgemachter Käse mit Gemüse-Spießen und Sauce"
+          },
+          {
+            "name": "Afghani Tandoori Chicken (würzig scharf)",
+            "image": {
+              "key": "templates/indian/tandoori-chicken-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 97859
+            },
+            "spice": 1,
+            "dietary": [],
+            "allergens": ["nuts"],
+            "priceCents": 1890,
+            "description": "mit gegrillten Hähnchenschenkeln, weißem Pfeffer und Joghurt-Quark-Cashewnuss-Marinade, dazu Chutneys"
+          },
+          {
+            "name": "Mix Grill-Teller",
+            "image": {
+              "key": "templates/indian/tandoori-chicken-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 127816
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "fish", "milk"],
+            "priceCents": 2490,
+            "description": "mit Hariyali Tikka, Garlic Chicken Tikka, Peshawari Seekh und Chicken Tikka, dazu Chutneys"
+          },
+          {
+            "name": "Jambo Grill-Teller",
+            "image": {
+              "key": "templates/indian/tikka-platter-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 75042
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "fish", "milk"],
+            "priceCents": 4790,
+            "description": "mit Hariyali Tikka, Garlic Chicken Tikka, Tandoori Chicken, Peshawari Seekh und Chicken Tikka, dazu Chutneys"
+          },
+          {
+            "name": "Fisch Tikka",
+            "image": {
+              "key": "templates/indian/seekh-kebab-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 90655
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "fish", "milk"],
+            "priceCents": 1990,
+            "description": "Seelachslion am Spieß gegrillt, dazu Chutney"
+          },
+          {
+            "name": "Fisch Garlic",
+            "image": {
+              "key": "templates/indian/curry-fish-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 92669
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["fish", "nuts"],
+            "priceCents": 1990,
+            "description": "Seelachsloin gegrillt mit Knoblauch-Cashew-Marinade, dazu Chutneys"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/tandoori-chicken-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 79414
+        }
+      },
+      {
+        "name": "Kinderteller",
+        "items": [
+          {
+            "name": "Chicken Korma",
+            "image": {
+              "key": "templates/indian/dish-chicken-korma.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 95108
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 1190,
+            "description": "Hähnchen und Basmatireis"
+          },
+          {
+            "name": "Sabzi Curry",
+            "image": {
+              "key": "templates/indian/curry-veg-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 72031
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 990,
+            "description": "Gemüse, Käse und Basmatireis"
+          }
+        ]
+      },
+      {
+        "name": "Desserts",
+        "items": [
+          {
+            "name": "Indisches Halwa",
+            "image": {
+              "key": "templates/indian/halwa-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 90573
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 590,
+            "description": "Grieß mit gemischten Trockenfrüchten"
+          },
+          {
+            "name": "Indisches Vermicelles",
+            "image": {
+              "key": "templates/indian/kulfi-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 59693
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 590,
+            "description": "mit Milch, Kardamom und Rosinen"
+          },
+          {
+            "name": "Indisches Kulfi",
+            "image": {
+              "key": "templates/indian/kulfi-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 46096
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 750,
+            "description": "Eis mit Pistazien, Kardamom dazu Sahne"
+          },
+          {
+            "name": "Gulab Jamun",
+            "image": {
+              "key": "templates/indian/gulab-jamun-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61143
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 590
+          },
+          {
+            "name": "Kheer",
+            "image": {
+              "key": "templates/indian/kheer-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 65610
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten", "milk"],
+            "priceCents": 590,
+            "description": "mit Reis, Milch, Zucker, Früchten und Rosenblüten"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/kheer-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 65610
+        }
+      },
+      {
+        "name": "Kalte Getränke",
+        "items": [
+          {
+            "name": "Sprite 0,33l",
+            "image": {
+              "key": "templates/indian/soft-drink-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64187
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 350
+          },
+          {
+            "name": "Sprite 0,5l",
+            "image": {
+              "key": "templates/indian/soft-drink-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61011
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Mezzo-Mix 0,33l",
+            "image": {
+              "key": "templates/indian/soft-drink-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 43854
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 350
+          },
+          {
+            "name": "Mezzo-Mix 0,5l",
+            "image": {
+              "key": "templates/indian/juice-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 65588
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Coca-Cola 0,33l",
+            "image": {
+              "key": "templates/indian/juice-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56095
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 350
+          },
+          {
+            "name": "Coca-Cola 0,5l",
+            "image": {
+              "key": "templates/indian/juice-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 76001
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Coca-Cola Zero 0,33l",
+            "image": {
+              "key": "templates/indian/mocktail-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 39338
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 350
+          },
+          {
+            "name": "Coca-Cola Zero 0,5l",
+            "image": {
+              "key": "templates/indian/mocktail-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 32805
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Fanta 0,33l",
+            "image": {
+              "key": "templates/indian/mocktail-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 63194
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 350
+          },
+          {
+            "name": "Fanta 0,5l",
+            "image": {
+              "key": "templates/indian/soft-drink-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64187
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Mineralwasser still 0,75l",
+            "image": {
+              "key": "templates/indian/water-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 48337
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 490
+          },
+          {
+            "name": "Mineralwasser Classic 0,75l",
+            "image": {
+              "key": "templates/indian/lassi-plain-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 50383
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 490
+          },
+          {
+            "name": "Mangosaft 0,3l",
+            "image": {
+              "key": "templates/indian/juice-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 65588
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Orangensaft 0,3l",
+            "image": {
+              "key": "templates/indian/juice-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56095
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Apfel-Saft  0,3l",
+            "image": {
+              "key": "templates/indian/juice-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 76001
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Johannisbeersaft 0,3l",
+            "image": {
+              "key": "templates/indian/soft-drink-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64187
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Ananassaft 0,3l",
+            "image": {
+              "key": "templates/indian/soft-drink-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61011
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Maracujasaft 0,3l",
+            "image": {
+              "key": "templates/indian/soft-drink-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 43854
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Traubensaft 0,3l",
+            "image": {
+              "key": "templates/indian/mocktail-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 39338
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Mangoschorle 0,5l",
+            "image": {
+              "key": "templates/indian/mocktail-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 32805
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Orangenschorle 0,5l",
+            "image": {
+              "key": "templates/indian/mocktail-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 63194
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Apfel-Schorle 0,5l",
+            "image": {
+              "key": "templates/indian/juice-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 65588
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Johannisbeerschorle 0,5l",
+            "image": {
+              "key": "templates/indian/juice-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56095
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Ananasschorle 0,5l",
+            "image": {
+              "key": "templates/indian/juice-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 76001
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Maracujaschorle 0,5l",
+            "image": {
+              "key": "templates/indian/soft-drink-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64187
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Traubenschorle 0,5l",
+            "image": {
+              "key": "templates/indian/soft-drink-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61011
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Eistee Pfirsich 0,4l",
+            "image": {
+              "key": "templates/indian/tea-chai-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 57572
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          }
+        ],
+        "image": {
+          "key": "templates/indian/soft-drink-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 64187
+        }
+      },
+      {
+        "name": "Lassi",
+        "items": [
+          {
+            "name": "Rosen Lassi 0,3l",
+            "image": {
+              "key": "templates/indian/lassi-plain-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 50383
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390,
+            "description": "mit Kokosraspeln"
+          },
+          {
+            "name": "Rosen Lassi 0,5l",
+            "image": {
+              "key": "templates/indian/lassi-plain-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 19796
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 500,
+            "description": "mit Kokosraspeln"
+          },
+          {
+            "name": "Mango Lassi 0,3l",
+            "image": {
+              "key": "templates/indian/lassi-mango-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64640
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Mango Lassi 0,5l",
+            "image": {
+              "key": "templates/indian/lassi-mango-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64640
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 500
+          },
+          {
+            "name": "Kokos Lassi 0,3l",
+            "image": {
+              "key": "templates/indian/lassi-plain-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 35594
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Kokos Lassi 0,5l",
+            "image": {
+              "key": "templates/indian/lassi-plain-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 50383
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 500
+          },
+          {
+            "name": "Granatapfel Lassi 0,3l",
+            "image": {
+              "key": "templates/indian/lassi-plain-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 19796
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Granatapfel Lassi 0,5l",
+            "image": {
+              "key": "templates/indian/lassi-plain-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 35594
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 500
+          },
+          {
+            "name": "Erdbeer Lassi 0,3l",
+            "image": {
+              "key": "templates/indian/lassi-mango-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64640
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Erdbeer Lassi 0,5l",
+            "image": {
+              "key": "templates/indian/lassi-plain-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 50383
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 500
+          },
+          {
+            "name": "Salziges Lassi 0,3l",
+            "image": {
+              "key": "templates/indian/lassi-plain-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 19796
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 390
+          },
+          {
+            "name": "Salziges Lassi 0,5l",
+            "image": {
+              "key": "templates/indian/lassi-plain-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 35594
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["milk"],
+            "priceCents": 500
+          }
+        ],
+        "image": {
+          "key": "templates/indian/lassi-plain-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 50383
+        }
+      },
+      {
+        "name": "Limonade",
+        "items": [
+          {
+            "name": "Anari Scharbat",
+            "image": {
+              "key": "templates/indian/soft-drink-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64187
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limonade aus Granatapfel, Limette, mit Zitone und Minzblätter"
+          },
+          {
+            "name": "Mango-Orangen-Limo",
+            "image": {
+              "key": "templates/indian/mango-dessert-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64811
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limonade aus Mango, Zitronen und Orangen"
+          },
+          {
+            "name": "Ingwer-Minze-Limo",
+            "image": {
+              "key": "templates/indian/soft-drink-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61011
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limonade aus frischem Ingwer, Minze, Zitrone"
+          },
+          {
+            "name": "Limetten-Limo",
+            "image": {
+              "key": "templates/indian/soft-drink-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 43854
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limonade aus frischen Limetten Chrushed Eis, brauner Zucker"
+          },
+          {
+            "name": "Grapefruit-Limo",
+            "image": {
+              "key": "templates/indian/juice-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 65588
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limonade aus Grapefruit, Zitronen mit Minzblätte"
+          },
+          {
+            "name": "Mint Margarita-Limo",
+            "image": {
+              "key": "templates/indian/juice-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56095
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limonade mit Minze, Zitrone, Ingwer, Minzsirup, Chrushed Eis, Salz"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/soft-drink-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 64187
+        }
+      },
+      {
+        "name": "Kaffee und Tee",
+        "items": [
+          {
+            "name": "Kaffee",
+            "image": {
+              "key": "templates/indian/coffee-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56557
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 220
+          },
+          {
+            "name": "Espresso",
+            "image": {
+              "key": "templates/indian/coffee-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 36732
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 220
+          },
+          {
+            "name": "Indischer Chai",
+            "image": {
+              "key": "templates/indian/tea-chai-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 57572
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450,
+            "description": "im Kännchen, mit Zimt"
+          },
+          {
+            "name": "Kashmiri Chai",
+            "image": {
+              "key": "templates/indian/tea-chai-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 68862
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450,
+            "description": "im Kännchen, mit Grünem Tee, Milch, Rosenblättern, Kardamom und Pistazien"
+          },
+          {
+            "name": "Grüner Kashmir Tee",
+            "image": {
+              "key": "templates/indian/tea-chai-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 81272
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450
+          },
+          {
+            "name": "Joshanda - Ayurvedischer Tee",
+            "image": {
+              "key": "templates/indian/coffee-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 56557
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450,
+            "description": "„Empfehlung bei Erkältung“"
+          },
+          {
+            "name": "Ingwer-Minze Tee",
+            "image": {
+              "key": "templates/indian/coffee-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 36732
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 450,
+            "description": "Frischer Ingwer und Minze"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/tea-chai-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 57572
+        }
+      },
+      {
+        "name": "Alkoholfreie Cocktails",
+        "items": [
+          {
+            "name": "Sunrise Mocktail",
+            "image": {
+              "key": "templates/indian/mocktail-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 39338
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limo, Orangensaft"
+          },
+          {
+            "name": "Red Bull Lagoon",
+            "image": {
+              "key": "templates/indian/soft-drink-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64187
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Red Bull, Limo, Blue Curacao, Minze"
+          },
+          {
+            "name": "Mango Island",
+            "image": {
+              "key": "templates/indian/mango-dessert-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 64811
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Blue Curacao, Mangosaft, Tonic Water, Sprudelwasser"
+          },
+          {
+            "name": "Virgin Bellini",
+            "image": {
+              "key": "templates/indian/soft-drink-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61011
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Grenadine, Johannisbeeren, Tonic Water"
+          },
+          {
+            "name": "Mango Mojito",
+            "image": {
+              "key": "templates/indian/mocktail-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 32805
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limonade aus Grapefruit, Zitronen mit Minzblätter"
+          },
+          {
+            "name": "Mint Margarita",
+            "image": {
+              "key": "templates/indian/soft-drink-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 43854
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 650,
+            "description": "Limetten, Mango, Tonic Water, brauner Zucker"
+          }
+        ],
+        "image": {
+          "key": "templates/indian/soft-drink-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 64187
+        }
+      },
+      {
+        "name": "Bier",
+        "items": [
+          {
+            "name": "Fürstenberg Pils alkoholfrei 0,5l",
+            "image": {
+              "key": "templates/indian/beer-1.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 61499
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten"],
+            "priceCents": 400
+          },
+          {
+            "name": "Radler alkoholfrei 0,5l",
+            "image": {
+              "key": "templates/indian/beer-2.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 76755
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": [],
+            "priceCents": 400,
+            "description": "süßgespritzt"
+          },
+          {
+            "name": "Rothaus Hefeweizen alkoholfrei 0,5l",
+            "image": {
+              "key": "templates/indian/beer-3.jpg",
+              "width": 1000,
+              "height": 667,
+              "bytes": 59487
+            },
+            "spice": 0,
+            "dietary": [],
+            "allergens": ["gluten"],
+            "priceCents": 400
+          }
+        ],
+        "image": {
+          "key": "templates/indian/beer-1.jpg",
+          "width": 1000,
+          "height": 667,
+          "bytes": 61499
+        }
+      }
+    ]
+  }
+}

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Expo app has its own toolchain (RN needs require() for assets);
+    // the web rules don't apply there.
+    "mobile/**",
   ]),
 ]);
 

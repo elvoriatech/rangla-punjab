@@ -17,12 +17,6 @@ async function requireAdmin(): Promise<void> {
   if (!userId || !(await isPlatformAdmin(userId))) redirect("/login");
 }
 
-/** Parse a comma-or-dot decimal into a non-negative number, or 0 on garbage. */
-function toNumber(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "0").replace(",", "."));
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
-
 /**
  * P3-1 — persist the operator fee model + site kill switch.
  * The form talks in human units (percent, euros); we store basis points
@@ -30,9 +24,12 @@ function toNumber(v: FormDataEntryValue | null): number {
  */
 export async function saveOperatorSettingsAction(form: FormData): Promise<void> {
   await requireAdmin();
-  const feeMode: FeeMode = form.get("feeMode") === "upfront" ? "upfront" : "percentage";
-  const feeBp = Math.round(toNumber(form.get("feePercent")) * 100);
-  const feeMinCents = Math.round(toNumber(form.get("feeMinEuros")) * 100);
+  // Single-restaurant white-label: no commission, ever. feeMode stays
+  // pinned to "upfront" (= own-gateway mode, 0 per order) — the form no
+  // longer posts fee fields and this action must never resurrect them.
+  const feeMode: FeeMode = "upfront";
+  const feeBp = 0;
+  const feeMinCents = 0;
   const siteActive = form.get("siteActive") === "on";
   // Email overrides: an empty transport/from means "use the env default",
   // stored as NULL. asEmailTransport() rejects anything off the whitelist.

@@ -168,7 +168,12 @@ export async function createOrderPayment(
         });
         await tx.order.update({
           where: { id: order.id },
-          data: { paymentStatus: "pending", paymentRef: checkout.ref, applicationFeeCents: 0 },
+          data: {
+            paymentStatus: "pending",
+            paymentRef: checkout.ref,
+            paymentProvider: "stripe",
+            applicationFeeCents: 0,
+          },
         });
         log.info("payment.checkout_created", {
           orderId,
@@ -202,7 +207,12 @@ export async function createOrderPayment(
     });
     await tx.order.update({
       where: { id: order.id },
-      data: { paymentStatus: "pending", paymentRef: checkout.ref, applicationFeeCents: feeCents },
+      data: {
+        paymentStatus: "pending",
+        paymentRef: checkout.ref,
+        paymentProvider: "stripe",
+        applicationFeeCents: feeCents,
+      },
     });
     log.info("payment.checkout_created", { orderId, tenantId, feeCents, mode: provider.mode });
     return { ok: true as const, url: checkout.url };

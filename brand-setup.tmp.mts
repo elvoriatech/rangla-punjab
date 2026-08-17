@@ -1,0 +1,16 @@
+import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { prisma } from "./src/lib/db";
+import { writeUpload } from "./src/lib/image-storage";
+import { normalizeImage } from "./src/lib/image-normalize";
+const venue = await prisma.venue.findFirst({ where: { slug: "rangla-punjab" } });
+if (!venue) throw new Error("venue not found");
+const norm = await normalizeImage(readFileSync("./public/brand/rangla-logo.png"));
+if (!norm.ok) throw new Error("normalize failed");
+const storageKey = `${venue.tenantId}/uploads/${randomUUID()}`;
+await writeUpload(storageKey, norm.bytes);
+await prisma.media.create({ data: { tenantId: venue.tenantId, storageKey, width: norm.width, height: norm.height, bytes: norm.bytes.length, altText: "Rangla Punjab logo" } });
+const branding = { ...(venue.branding as object), logoKey: storageKey, theme: "rangla-royal", backdrop: "rangla-royal" };
+await prisma.venue.update({ where: { id: venue.id }, data: { branding } });
+console.log("branded");
+await prisma.$disconnect();

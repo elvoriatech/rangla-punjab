@@ -81,6 +81,7 @@ export function MenuView({
   activeCategoryId,
   orderingModes,
   onlinePayment,
+  paypalPayment,
   openNow,
   requestSlots,
   orderingPaused,
@@ -91,6 +92,7 @@ export function MenuView({
   activeCategoryId?: string | null;
   orderingModes?: EffectiveOrdering;
   onlinePayment?: boolean;
+  paypalPayment?: boolean;
   openNow?: OpenState;
   requestSlots?: string[];
   /** P2-4: operator kill switch — menu stays visible, ordering is closed. */
@@ -106,7 +108,12 @@ export function MenuView({
   // renderer reads colors from these CSS vars, so this style attribute IS
   // the theme switch. The theme also picks the page layout below.
   const theme = resolveMenuTheme(menu.venue.branding.theme);
-  const themeStyle = menuThemeStyle(menu.venue.branding.theme, menu.venue.branding.texture);
+  const themeStyle = menuThemeStyle(
+    menu.venue.branding.theme,
+    menu.venue.branding.texture,
+    menu.venue.branding.backdrop,
+    menu.venue.branding.headingColor,
+  );
   // Self-ordering rides on the published menu only — the preview shows
   // draft item ids the order API would rightly reject. The modes come
   // from plan entitlements ∧ owner switches; no mode → no cart at all.
@@ -131,13 +138,15 @@ export function MenuView({
     ...(menu.venue.branding.halalFilter === "on" ? [HALAL_DIET] : []),
   ];
   const Section =
-    theme.layout === "grid"
+    theme.layout === "grid" || theme.layout === "hero"
       ? GridSection
       : theme.layout === "list"
         ? ListSection
         : theme.layout === "showcase"
           ? ShowcaseSection
-          : EditorialSection;
+          : theme.layout === "floating"
+            ? FloatingSection
+            : EditorialSection;
   // Self-order kiosk: on very large PORTRAIT touchscreens (nothing a
   // phone or laptop ever reports) raise the root font size so the whole
   // rem-based UI — text, buttons, spacing, the rem-based max-widths —
@@ -146,11 +155,19 @@ export function MenuView({
   const kioskFontPx =
     menu.venue.branding.kiosk === "xl" ? 24 : menu.venue.branding.kiosk === "off" ? null : 21;
 
+  const borderless = menu.venue.branding.cardBorders === "off";
   return (
     <div
-      className="menu-theme flex min-h-screen flex-col bg-[var(--menu-bg)] text-[var(--menu-text)]"
+      className={`menu-theme flex min-h-screen flex-col bg-[var(--menu-bg)] text-[var(--menu-text)] ${
+        borderless ? "menu-borderless" : ""
+      }`}
       style={themeStyle}
     >
+      {borderless ? (
+        // Owner switch: no hairline around dish cards — a resting shadow
+        // keeps same-color cards separable from the page ground.
+        <style>{`.menu-borderless .dish-card{border-color:transparent;box-shadow:0 14px 34px -24px rgba(0,0,0,0.38)}`}</style>
+      ) : null}
       {/* Fade-in-up keyframes scoped to this page. `prefers-reduced-
           motion: reduce` disables the animation entirely so a
           vestibular-sensitive guest never sees the movement. */}
@@ -211,8 +228,13 @@ export function MenuView({
           hero={Boolean(menu.venue.branding.bannerKey)}
         />
 
+        {theme.layout === "hero" && !activeCategoryId ? (
+          <HeroSplash venue={menu.venue} categories={menu.categories} activeDiet={activeDiet} />
+        ) : null}
+
         <div
-          className={`mx-auto max-w-7xl px-4 py-8 sm:px-8 sm:py-10 lg:px-12 ${
+          id="menu"
+          className={`mx-auto max-w-7xl scroll-mt-28 px-4 py-8 sm:px-8 sm:py-10 lg:px-12 ${
             sideNav ? "lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10" : ""
           }`}
         >
@@ -249,7 +271,7 @@ export function MenuView({
           </div>
         </div>
       </main>
-      <footer className="border-t border-[var(--menu-line)] bg-[var(--menu-surface)]">
+      <footer className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)]">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-8">
           <div className="flex w-full items-center justify-between gap-4 sm:contents">
             <div className="flex items-center gap-3">
@@ -258,7 +280,7 @@ export function MenuView({
                 src={
                   menu.venue.branding.logoKey
                     ? menuImageUrl(menu.venue.branding.logoKey, menu.venue.id, 96)
-                    : "/guesto-icon.svg"
+                    : "/brand/icon-192.png"
                 }
                 alt=""
                 width={40}
@@ -293,7 +315,13 @@ export function MenuView({
                       role="img"
                       aria-label={label}
                       title={label}
-                      className="flex h-9 min-w-11 items-center justify-center rounded-lg border border-[var(--menu-line)] bg-[var(--menu-surface)] px-2.5 text-[var(--menu-text)]/85"
+                      /* Sits in the footer, i.e. ON the surface — so it takes an
+                         ink wash instead of a border, and SURFACE ink instead of
+                         page ink. It was `bg-surface` on a surface ground (an
+                         invisible fill held together by its hairline) with page
+                         ink over it, which is 1.08:1 on brasserie under a
+                         backdrop. */
+                      className="flex h-9 min-w-11 items-center justify-center rounded-lg bg-[var(--menu-surface-text,var(--menu-text))]/7 px-2.5 text-[var(--menu-surface-text,var(--menu-text))]"
                     >
                       {icon ? (
                         <svg
@@ -325,6 +353,7 @@ export function MenuView({
           modes={modes}
           requestSlots={requestSlots ?? []}
           onlinePayment={Boolean(onlinePayment)}
+          paypalPayment={Boolean(paypalPayment)}
         />
       ) : null}
       {/* Card reveal: ~600 bytes of inline JS. A scroll-scrubbed CSS
@@ -412,14 +441,14 @@ function EditorialSection({
         ) : (
           <span
             aria-hidden="true"
-            className="font-serif text-4xl italic text-[var(--menu-accent)] sm:text-5xl"
+            className="font-serif text-4xl italic text-[var(--menu-heading,var(--menu-accent))] sm:text-5xl"
           >
             {String(catIndex + 1).padStart(2, "0")}
           </span>
         )}
         <h2
           id={`cat-${cat.id}`}
-          className="font-serif text-3xl leading-tight text-[var(--menu-accent)] sm:text-4xl md:text-5xl"
+          className="font-serif text-3xl leading-tight text-[var(--menu-heading,var(--menu-accent))] sm:text-4xl md:text-5xl"
         >
           {cat.name}
         </h2>
@@ -448,6 +477,251 @@ function EditorialSection({
 }
 
 /** Centered heading + photo-top cards in a responsive grid (Fresh Bistro). */
+/**
+ * Landing splash for the "hero" layout — the fast-food reference: dark
+ * band with a two-tone display headline, tagline, CTA, a round hero dish
+ * photo, feature badges, a wave into the body, then unboxed photo
+ * category tiles. Server-rendered, zero JS.
+ */
+function HeroSplash({
+  venue,
+  categories,
+  activeDiet,
+}: {
+  venue: PublicMenu["venue"];
+  categories: PublicMenu["categories"];
+  activeDiet: string | null;
+}): React.ReactElement {
+  const words = venue.name.split(/\s+/);
+  const first = words[0] ?? venue.name;
+  const rest = words.slice(1).join(" ");
+  const heroItem = categories.flatMap((c) => c.items).find((i) => i.photoKey && i.isAvailable);
+  const slugOf = categorySlugs(categories.map((c) => ({ id: c.id, name: c.name })));
+  const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
+  return (
+    <section aria-label="Willkommen" className="bg-[#0f0d0a] text-[#f5f1e8]">
+      <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-6 pt-12 sm:px-8 md:grid-cols-[minmax(0,1fr)_auto] lg:px-12">
+        <div>
+          <p className="font-serif text-xl italic text-[var(--menu-accent)]">Willkommen bei</p>
+          <h2 className="mt-2 text-4xl font-black uppercase leading-[1.05] tracking-tight sm:text-6xl">
+            {first}
+            {rest ? (
+              <>
+                {" "}
+                <span className="text-[var(--menu-accent)]">{rest}</span>
+              </>
+            ) : null}
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-[#f5f1e8]/75">
+            Frisch gekocht, schnell serviert — stöbere durch die Karte und bestelle direkt vom
+            Handy.
+          </p>
+          <div className="mt-6">
+            <a
+              href="#menu"
+              className="inline-block rounded-full bg-[var(--menu-accent)] px-7 py-3 text-sm font-bold uppercase tracking-wider text-[#171207] transition hover:opacity-90"
+            >
+              Jetzt bestellen ↓
+            </a>
+          </div>
+          <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-xs text-[#f5f1e8]/80">
+            {[
+              ["Schnell serviert", "Direkt aus der Küche"],
+              ["Beste Qualität", "Frische Zutaten"],
+              ["Faire Preise", "Jeden Tag"],
+            ].map(([t, sub]) => (
+              <li key={t} className="flex items-center gap-2.5">
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[var(--menu-accent)]" />
+                <span>
+                  <span className="block font-bold uppercase tracking-wide">{t}</span>
+                  <span className="block text-[#f5f1e8]/60">{sub}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {heroItem ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={menuImageUrl(heroItem.photoKey, heroItem.id, 640)}
+            srcSet={menuImageSrcSet(heroItem.photoKey, heroItem.id, 640)}
+            alt=""
+            aria-hidden="true"
+            className="hidden h-64 w-64 rounded-full border-4 border-[var(--menu-accent)]/70 object-cover shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)] md:block lg:h-80 lg:w-80"
+          />
+        ) : null}
+      </div>
+      {/* Wave into the body color, like the reference. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 70"
+        preserveAspectRatio="none"
+        className="block h-10 w-full sm:h-14"
+      >
+        <path
+          d="M0,32 C240,72 480,72 720,44 C960,16 1200,10 1440,38 L1440,70 L0,70 Z"
+          fill="var(--menu-bg)"
+        />
+      </svg>
+      {/* Unboxed photo categories on the body ground. */}
+      {categories.length >= 2 ? (
+        <nav
+          aria-label="Kategorien mit Bild"
+          className="bg-[var(--menu-bg)] pb-2 pt-8 text-[var(--menu-text)]"
+        >
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.3em] text-[var(--menu-accent)]">
+            Unsere Kategorien
+          </p>
+          <ul className="mx-auto mt-6 flex max-w-6xl flex-wrap items-start justify-center gap-x-10 gap-y-8 px-6">
+            {categories.slice(0, 8).map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
+                  prefetch={false}
+                  className="group block w-24 text-center"
+                >
+                  {c.photoKey ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={menuImageUrl(c.photoKey, c.id, 240)}
+                      alt=""
+                      loading="lazy"
+                      className="mx-auto h-20 w-20 rounded-full object-cover shadow-md transition group-hover:scale-105"
+                    />
+                  ) : (
+                    <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--menu-line)] text-3xl">
+                      {categoryIcon(c.name)}
+                    </span>
+                  )}
+                  <span className="mt-2 block text-sm font-semibold leading-tight">{c.name}</span>
+                  <span className="block text-[11px] text-[var(--menu-text-soft)]">
+                    {c.items.length} Gerichte
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * "Floating" layout — the unboxed reference: big round dish photo on the
+ * plain page ground (no card box), serif-italic name, soft description,
+ * price + pill add button. Generous air between items.
+ */
+function FloatingSection({
+  cat,
+  catIndex,
+  locale,
+  slug,
+  ordering,
+  showIcons,
+}: SectionProps): React.ReactElement {
+  return (
+    <section
+      aria-labelledby={`cat-${cat.id}`}
+      className="scroll-mt-40 fade-in-up"
+      style={{ animationDelay: `${catIndex * 60}ms` }}
+    >
+      <div className="mb-12 flex flex-col items-center text-center">
+        {showIcons ? (
+          <span className="mb-4">
+            <CategoryIconMedallion name={cat.name} />
+          </span>
+        ) : null}
+        <h2
+          id={`cat-${cat.id}`}
+          className="font-serif text-3xl font-semibold leading-tight text-[var(--menu-heading,var(--menu-text))] [text-shadow:0_1px_14px_rgba(0,0,0,0.12)] sm:text-4xl"
+        >
+          {cat.name}
+        </h2>
+        <span aria-hidden="true" className="mt-3 h-1 w-16 rounded-full bg-[var(--menu-accent)]" />
+      </div>
+      {cat.items.length === 0 ? (
+        <p className="text-center text-sm text-[var(--menu-text)]/60">No dishes in this section.</p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-x-6 gap-y-14 sm:gap-x-10 md:grid-cols-3">
+          {cat.items.map((item, itemIndex) => (
+            <li
+              key={item.id}
+              className="fade-in-up"
+              style={{ animationDelay: `${catIndex * 60 + itemIndex * 30}ms` }}
+            >
+              <article
+                suppressHydrationWarning
+                aria-labelledby={`item-${item.id}`}
+                className="dish-card group flex h-full flex-col text-[var(--menu-text)]"
+              >
+                <div aria-hidden="true" className="relative mx-auto w-full max-w-56">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={menuImageUrl(item.photoKey, item.id, 480)}
+                    srcSet={menuImageSrcSet(item.photoKey, item.id, 480)}
+                    alt=""
+                    loading="lazy"
+                    className="aspect-square w-full rounded-full object-cover shadow-[0_18px_40px_-18px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:scale-[1.03]"
+                  />
+                  <div className="absolute left-1 top-1 z-10 max-h-[calc(100%-0.5rem)] overflow-hidden">
+                    <PhotoDietBadges dietary={item.dietary} />
+                  </div>
+                </div>
+                <h3
+                  id={`item-${item.id}`}
+                  className={`mt-4 font-serif text-lg italic leading-snug ${
+                    item.isAvailable ? "" : "line-through opacity-60"
+                  }`}
+                >
+                  {item.name}
+                  {!item.isAvailable ? (
+                    <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
+                      unavailable
+                    </span>
+                  ) : null}
+                </h3>
+                {item.description ? (
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--menu-text-soft)]">
+                    {item.description}
+                  </p>
+                ) : null}
+                <BadgeRow
+                  allergens={item.allergens}
+                  traces={item.traces}
+                  spice={item.spice}
+                  dishName={item.name}
+                />
+                <div className="mt-auto flex w-full items-center justify-between gap-2 pt-3">
+                  <p
+                    aria-label="price"
+                    className="text-base font-bold tabular-nums text-[var(--menu-text)]"
+                  >
+                    {item.offer ? (
+                      <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                        {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                      </s>
+                    ) : null}
+                    {formatPrice(item.priceCents, item.currency, locale)}
+                  </p>
+                  {ordering && item.isAvailable ? (
+                    <AddToOrderButton
+                      slug={slug}
+                      itemId={item.id}
+                      name={item.name}
+                      priceCents={item.priceCents}
+                    />
+                  ) : null}
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function GridSection({
   cat,
   catIndex,
@@ -470,7 +744,7 @@ function GridSection({
             alt=""
             aria-hidden="true"
             loading="lazy"
-            className="mb-4 h-16 w-16 rounded-full border border-[var(--menu-line)] object-cover"
+            className="mb-4 h-16 w-16 rounded-full border border-[var(--menu-text)]/12 object-cover"
           />
         ) : showIcons ? (
           <span className="mb-4">
@@ -479,7 +753,7 @@ function GridSection({
         ) : null}
         <h2
           id={`cat-${cat.id}`}
-          className="font-serif text-3xl font-semibold leading-tight sm:text-4xl"
+          className="font-serif text-3xl font-semibold leading-tight text-[var(--menu-heading,var(--menu-text))] [text-shadow:0_1px_14px_rgba(0,0,0,0.12)] sm:text-4xl"
         >
           {cat.name}
         </h2>
@@ -514,7 +788,7 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card group relative flex h-full flex-col overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-18px_rgba(36,50,78,0.35)]"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative flex h-full flex-col overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-18px_rgba(36,50,78,0.35)]"
     >
       <div
         aria-hidden="true"
@@ -543,12 +817,12 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
             className={
               item.isAvailable
                 ? "text-sm font-medium leading-snug"
-                : "text-sm font-medium leading-snug text-[var(--menu-text)]/60 line-through"
+                : "text-sm font-medium leading-snug text-[var(--menu-surface-text,var(--menu-text))]/60 line-through"
             }
           >
             {item.name}
             {!item.isAvailable ? (
-              <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
+              <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
                 unavailable
               </span>
             ) : null}
@@ -563,7 +837,9 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
           </div>
         </div>
         {item.description ? (
-          <p className="text-xs leading-relaxed text-[var(--menu-text-soft)]">{item.description}</p>
+          <p className="text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+            {item.description}
+          </p>
         ) : null}
         <MobileAllergenLine
           allergens={item.allergens}
@@ -573,7 +849,7 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
         />
 
         {item.variants.length > 0 ? (
-          <ul className="w-full space-y-0.5 text-xs text-[var(--menu-text-soft)]">
+          <ul className="w-full space-y-0.5 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {item.variants.map((v) => (
               <li key={v.id} className="flex items-baseline justify-between gap-2">
                 <span>{v.name}</span>
@@ -588,8 +864,20 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
         <div className="mt-auto flex w-full items-center justify-between gap-2 pt-2">
           <p
             aria-label="price"
-            className="text-base font-semibold tabular-nums text-[var(--menu-accent)]"
+            className="text-base font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -638,7 +926,7 @@ function ListSection({
         ) : null}
         <h2
           id={`cat-${cat.id}`}
-          className="text-center font-serif text-2xl uppercase tracking-[0.18em] text-[var(--menu-accent)] sm:text-3xl"
+          className="text-center font-serif text-2xl uppercase tracking-[0.18em] text-[var(--menu-heading,var(--menu-accent))] sm:text-3xl"
         >
           {cat.name}
         </h2>
@@ -670,7 +958,7 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card flex h-full items-stretch overflow-hidden rounded-lg border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:border-[var(--menu-accent)]/50"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] flex h-full items-stretch overflow-hidden rounded-lg border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] transition-all duration-300 hover:shadow-[0_16px_32px_-18px_rgba(0,0,0,0.35)]"
     >
       <div
         aria-hidden="true"
@@ -695,7 +983,7 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
             className={
               item.isAvailable
                 ? "font-serif text-lg leading-snug sm:text-xl"
-                : "font-serif text-lg leading-snug text-[var(--menu-text)]/60 line-through sm:text-xl"
+                : "font-serif text-lg leading-snug text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-xl"
             }
           >
             {item.name}
@@ -710,7 +998,7 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
           </div>
         </div>
         {item.description ? (
-          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-text-soft)]">
+          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {item.description}
           </p>
         ) : null}
@@ -721,11 +1009,11 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
           dishName={item.name}
         />
         {item.variants.length > 0 ? (
-          <ul className="mt-1.5 space-y-0.5 text-sm text-[var(--menu-text-soft)]">
+          <ul className="mt-1.5 space-y-0.5 text-sm text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {item.variants.map((v) => (
               <li key={v.id} className="flex items-baseline justify-between gap-3">
                 <span>{v.name}</span>
-                <span className="tabular-nums text-[var(--menu-accent)]">
+                <span className="tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">
                   {v.priceDeltaCents >= 0 ? "+" : ""}
                   {formatPrice(v.priceDeltaCents, item.currency, locale)}
                 </span>
@@ -736,8 +1024,20 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
         <div className="mt-auto flex items-center justify-between gap-3 pt-2">
           <p
             aria-label="price"
-            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-accent)] sm:text-xl"
+            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -787,7 +1087,7 @@ function ShowcaseSection({
         ) : null}
         <h2
           id={`cat-${cat.id}`}
-          className="font-serif text-3xl italic leading-tight text-[var(--menu-text)] sm:text-4xl md:text-5xl"
+          className="font-serif text-3xl italic leading-tight text-[var(--menu-heading,var(--menu-text))] sm:text-4xl md:text-5xl"
         >
           {cat.name}
         </h2>
@@ -824,11 +1124,11 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card group flex h-full flex-col items-center text-center"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group flex h-full flex-col items-center text-center"
     >
       <div
         aria-hidden="true"
-        className="relative mb-4 aspect-square w-32 overflow-hidden rounded-full border-2 border-[var(--menu-line)] shadow-[0_18px_36px_-18px_rgba(0,0,0,0.6)] transition-transform duration-300 group-hover:scale-[1.03] sm:mb-5 sm:w-44"
+        className="relative mb-4 aspect-square w-32 overflow-hidden rounded-full border-2 border-[var(--menu-text)]/12 shadow-[0_18px_36px_-18px_rgba(0,0,0,0.6)] transition-transform duration-300 group-hover:scale-[1.03] sm:mb-5 sm:w-44"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -848,7 +1148,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
           className={
             item.isAvailable
               ? "font-serif text-xl leading-snug sm:text-2xl"
-              : "font-serif text-xl leading-snug text-[var(--menu-text)]/60 line-through sm:text-2xl"
+              : "font-serif text-xl leading-snug text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-2xl"
           }
         >
           {item.name}
@@ -863,7 +1163,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
         </div>
       </div>
       {item.description ? (
-        <p className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--menu-text-soft)]">
+        <p className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
           {item.description}
         </p>
       ) : null}
@@ -874,7 +1174,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
         dishName={item.name}
       />
       {item.variants.length > 0 ? (
-        <ul className="mt-1 w-full max-w-[220px] space-y-0.5 text-xs text-[var(--menu-text-soft)]">
+        <ul className="mt-1 w-full max-w-[220px] space-y-0.5 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
           {item.variants.map((v) => (
             <li key={v.id} className="flex items-baseline justify-between gap-3">
               <span>{v.name}</span>
@@ -889,8 +1189,20 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
       <div className="mt-auto flex w-full items-center justify-between gap-3 pt-3">
         <p
           aria-label="price"
-          className="inline-block border border-[var(--menu-accent)]/60 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-accent)]"
+          className="inline-block rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-surface-text,var(--menu-text))]"
         >
+          {item.offer ? (
+            <>
+              <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                Angebot
+              </span>
+              <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                <span className="sr-only">regulärer Preis </span>
+                {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+              </s>
+              <span className="sr-only">Angebotspreis </span>
+            </>
+          ) : null}
           {formatPrice(item.priceCents, item.currency, locale)}
         </p>
         {ordering && item.isAvailable ? (
@@ -970,7 +1282,7 @@ function StickyBar({
   hero?: boolean;
 }): React.ReactElement {
   return (
-    <header className="menu-hero sticky top-0 z-20 border-b border-[var(--menu-line)] bg-[var(--menu-bg)]/95 backdrop-blur">
+    <header className="menu-hero sticky top-0 z-20 border-b border-[var(--menu-text)]/10 bg-[var(--menu-bg)]/95 backdrop-blur">
       {hero ? (
         /* Identity + pill live on the hero above; this row keeps only
            the desktop category tabs (side rail replaces them on lg). */
@@ -1003,7 +1315,7 @@ function StickyBar({
         </div>
       )}
       {/* Categories on a second row on tablet/mobile (hidden above on lg) */}
-      <div className="border-t border-[var(--menu-line)] lg:hidden">
+      <div className="border-t border-[var(--menu-text)]/10 lg:hidden">
         <div className="mx-auto max-w-none px-4 py-2.5 sm:px-6 sm:py-3">
           <CategoryTabs
             categories={categories}
@@ -1013,7 +1325,7 @@ function StickyBar({
           />
         </div>
       </div>
-      <div className="border-t border-[var(--menu-line)] bg-[var(--menu-surface)]">
+      <div className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)]">
         <div className="mx-auto max-w-none px-4 py-2.5 sm:px-6 sm:py-3 lg:px-12">
           <DietTabs
             active={activeDiet}
@@ -1039,12 +1351,18 @@ function OpenBadge({ state }: { state?: OpenState }): React.ReactElement | null 
   // Compact on phones (dot + word), full detail from sm up — so the pill
   // never crowds the centred logo on a narrow screen. `whitespace-nowrap`
   // keeps it on one line; it sits in the top-right corner at every width.
+  // Both pills sit on the PAGE ground, so they wash page ink and label in page
+  // ink. The status hue lives in the fill and the dot, never in the 12px words:
+  // `positive` and `danger` are guaranteed against a surface at 3:1, not 4.5:1,
+  // so `text-[var(--menu-positive)]` at this size was short of AA on the themes
+  // where positive is a pale mint. The dots were hard-coded #22c55e / #ef4444,
+  // which ignored the theme entirely.
   if (state.open) {
     return (
-      <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[var(--menu-positive)]/50 bg-[var(--menu-positive)]/10 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-positive)]">
+      <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-positive)]/14 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text)]">
         <span
           aria-hidden="true"
-          className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#22c55e] shadow-[0_0_0_3px_rgba(34,197,94,0.25)]"
+          className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-positive)] ring-4 ring-[var(--menu-positive)]/25"
         />
         Open
         <span className="hidden font-medium opacity-80 sm:inline">· until {state.until}</span>
@@ -1056,10 +1374,10 @@ function OpenBadge({ state }: { state?: OpenState }): React.ReactElement | null 
       ? `Opens ${WEEKDAY_LABELS[state.opensDay].slice(0, 3)} ${state.opensAt}`
       : "";
   return (
-    <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[var(--menu-line)] bg-[var(--menu-surface)] py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text-soft)]">
+    <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-danger)]/12 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text)]">
       <span
         aria-hidden="true"
-        className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#ef4444] shadow-[0_0_0_3px_rgba(239,68,68,0.22)]"
+        className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-danger)] ring-4 ring-[var(--menu-danger)]/25"
       />
       Closed
       {opensLabel ? (
@@ -1075,7 +1393,7 @@ function VenueMark({ venue }: { venue: PublicMenu["venue"] }): React.ReactElemen
   // screens so it never crowds the open/closed pill.
   const logoSrc = venue.branding.logoKey
     ? menuImageUrl(venue.branding.logoKey, venue.id, 96)
-    : "/guesto-icon.svg";
+    : "/brand/icon-192.png";
   return (
     <div className="flex min-w-0 shrink items-center gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1104,7 +1422,7 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:border-[var(--menu-accent)]/60 hover:shadow-[0_0_0_1px_rgba(184,147,95,0.15),0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
     >
       <div className="relative self-stretch">
         <DishPhoto item={item} />
@@ -1118,13 +1436,13 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
             id={`item-${item.id}`}
             className={
               item.isAvailable
-                ? "font-serif text-lg leading-tight text-[var(--menu-text)] sm:text-xl"
-                : "font-serif text-lg leading-tight text-[var(--menu-text)]/60 line-through sm:text-xl"
+                ? "font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))] sm:text-xl"
+                : "font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-xl"
             }
           >
             {item.name}
             {!item.isAvailable ? (
-              <span className="ml-2 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
+              <span className="ml-2 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
                 unavailable
               </span>
             ) : null}
@@ -1139,7 +1457,9 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
           </div>
         </div>
         {item.description ? (
-          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-text)]">{item.description}</p>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text,var(--menu-text))]">
+            {item.description}
+          </p>
         ) : null}
         <MobileAllergenLine
           allergens={item.allergens}
@@ -1148,11 +1468,11 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
           dishName={item.name}
         />
         {item.variants.length > 0 ? (
-          <ul className="mt-2 space-y-0.5 text-xs text-[var(--menu-text)]">
+          <ul className="mt-2 space-y-0.5 text-xs text-[var(--menu-surface-text,var(--menu-text))]">
             {item.variants.map((v) => (
               <li key={v.id} className="flex items-baseline justify-between gap-3">
                 <span>{v.name}</span>
-                <span className="tabular-nums text-[var(--menu-accent)]">
+                <span className="tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">
                   {v.priceDeltaCents >= 0 ? "+" : ""}
                   {formatPrice(v.priceDeltaCents, item.currency, locale)}
                 </span>
@@ -1163,8 +1483,20 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
         <div className="mt-auto flex items-center justify-between gap-3 pt-3">
           <p
             aria-label="price"
-            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-accent)] sm:text-xl"
+            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
+            {item.offer ? (
+              <>
+                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  Angebot
+                </span>
+                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">regulärer Preis </span>
+                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                </s>
+                <span className="sr-only">Angebotspreis </span>
+              </>
+            ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
@@ -1231,35 +1563,39 @@ function SideRail({
 }): React.ReactElement {
   const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
   const slugOf = categorySlugs(categories);
-  const linkBase =
-    "block rounded-md px-3 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors";
+  // Modern rail: a soft translucent surface so the labels are readable
+  // over ANY artwork/gradient; the active category is the app's red
+  // bubble with the sharp bottom-right corner.
+  const linkBase = "block rounded-xl px-3.5 py-2 text-[13px] leading-snug transition-colors";
   return (
     <aside className="hidden lg:block">
       <nav
         aria-label="Categories"
-        className="sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto pr-2 [scrollbar-width:thin]"
+        className="sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto rounded-2xl bg-[var(--menu-surface)]/85 p-2 shadow-[0_2px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm [scrollbar-width:thin]"
       >
-        <ul className="space-y-1 border-l border-[var(--menu-line)] pl-3">
+        <ul className="space-y-0.5">
           <li>
-            <a
+            <Link
               href={`/${activeDiet ? `?diet=${activeDiet}` : ""}`}
+              prefetch={false}
               className={`${linkBase} ${
                 active === null
-                  ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
-                  : "text-[var(--menu-text)]/70 hover:text-[var(--menu-text)]"
+                  ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
+                  : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
               }`}
             >
               All
-            </a>
+            </Link>
           </li>
           {categories.map((c) => (
             <li key={c.id}>
-              <a
+              <Link
                 href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
+                prefetch={false}
                 className={`${linkBase} ${
                   active === c.id
-                    ? "bg-[var(--menu-surface)] font-semibold text-[var(--menu-accent)]"
-                    : "text-[var(--menu-text)]/70 hover:text-[var(--menu-text)]"
+                    ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
+                    : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
                 }`}
               >
                 {showIcons ? (
@@ -1268,7 +1604,7 @@ function SideRail({
                   </span>
                 ) : null}
                 {c.name}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
@@ -1384,15 +1720,18 @@ function TabLink({
   // with an underline for the active state, subtle background for the
   // hover state. Primary = category rail (bigger, more prominent).
   // Secondary = diet rail (smaller, quieter).
-  const base = "inline-flex items-center px-4 py-2 transition-all duration-200 border-b-2";
+  // The app's navigation language: the active tab is a filled bubble
+  // whose bottom-right corner sweeps to a near-point; inactive tabs are
+  // plain text. Diet tabs stay quieter (soft tinted pill).
+  const base = "inline-flex items-center px-4 py-2 transition-all duration-200";
   const cls =
     variant === "primary"
       ? active
-        ? `${base} border-[var(--menu-accent)] text-[var(--menu-accent)]`
-        : `${base} border-transparent text-[var(--menu-text)] hover:border-[var(--menu-accent)]/40 hover:text-[var(--menu-accent)]`
+        ? `${base} rounded-2xl [border-bottom-right-radius:3px] bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] shadow-sm`
+        : `${base} rounded-2xl text-[var(--menu-text)] hover:text-[var(--menu-accent)]`
       : active
-        ? `${base} border-[var(--menu-accent)] text-[var(--menu-accent)] px-3 py-1.5`
-        : `${base} border-transparent text-[var(--menu-text)] hover:border-[var(--menu-accent)]/40 hover:text-[var(--menu-accent)] px-3 py-1.5`;
+        ? `${base} rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/12 font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`
+        : `${base} rounded-full text-[var(--menu-surface-text,var(--menu-text))] hover:text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`;
   // next/link: with JS this is an in-place RSC transition — no full-page
   // reload, the sticky rails never flash, and the browser scrolls to the
   // top so the newly filtered list is immediately visible below them.
@@ -1429,7 +1768,7 @@ function BadgeRow({
       {spice > 0 ? (
         <span
           title={`Spicy — level ${Math.min(spice, 3)} of 3`}
-          className="inline-flex h-6 items-center justify-center rounded-full border border-red-400/40 bg-red-400/10 px-1.5 tracking-tighter"
+          className="inline-flex h-6 items-center justify-center rounded-full bg-[var(--menu-danger)]/12 px-1.5 tracking-tighter"
         >
           <span aria-hidden="true">{"🌶".repeat(Math.min(spice, 3))}</span>
           <span className="sr-only">Spicy, level {Math.min(spice, 3)} of 3</span>
@@ -1488,7 +1827,7 @@ function MobileAllergenLine({
       {spice > 0 ? (
         <span
           title={`Spicy — level ${Math.min(spice, 3)} of 3`}
-          className="inline-flex h-6 items-center rounded-full border border-red-400/40 bg-red-400/10 px-1.5 text-sm leading-none tracking-tighter"
+          className="inline-flex h-6 items-center rounded-full bg-[var(--menu-danger)]/12 px-1.5 text-sm leading-none tracking-tighter"
         >
           <span aria-hidden="true">{"🌶".repeat(Math.min(spice, 3))}</span>
           <span className="sr-only">Spicy, level {Math.min(spice, 3)} of 3</span>
@@ -1539,7 +1878,10 @@ function LocaleSwitcher({
       <details className="group relative">
         <summary
           aria-current="true"
-          className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-[var(--menu-line)] px-3.5 py-1.5 text-xs font-medium text-[var(--menu-text)] transition-colors hover:border-[var(--menu-accent)] [&::-webkit-details-marker]:hidden"
+          /* In the footer, so surface ink — it was page ink on the surface
+             ground. Wash instead of a border, and the hover raises the wash
+             rather than drawing an accent edge. */
+          className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/7 px-3.5 py-1.5 text-xs font-medium text-[var(--menu-surface-text,var(--menu-text))] transition-colors hover:bg-[var(--menu-surface-text,var(--menu-text))]/13 [&::-webkit-details-marker]:hidden"
         >
           <span aria-hidden="true" className="text-base leading-none">
             {active.flag}
@@ -1552,14 +1894,14 @@ function LocaleSwitcher({
             ▲
           </span>
         </summary>
-        <ul className="absolute bottom-full right-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-line)] bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+        <ul className="absolute bottom-full right-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
           {enabled.map((l) => {
             const meta = localeMeta(l);
             return l === current ? (
               <li
                 key={l}
                 aria-current="true"
-                className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[var(--menu-accent)]"
+                className="flex items-center gap-2.5 bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-3.5 py-2 text-xs font-semibold text-[var(--menu-surface-text,var(--menu-text))]"
               >
                 <span aria-hidden="true" className="text-base leading-none">
                   {meta.flag}
@@ -1574,7 +1916,7 @@ function LocaleSwitcher({
                 <a
                   href={`/${l}`}
                   hrefLang={l}
-                  className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[var(--menu-text)] transition-colors hover:bg-[var(--menu-accent)]/10 hover:text-[var(--menu-accent)]"
+                  className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[var(--menu-surface-text,var(--menu-text))] transition-colors hover:bg-[var(--menu-surface-text,var(--menu-text))]/10"
                 >
                   <span aria-hidden="true" className="text-base leading-none">
                     {meta.flag}

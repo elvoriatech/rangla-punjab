@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { asUser } from "./tenant";
 import { getActiveVenueId } from "./active-venue";
-import { MENU_THEMES, MENU_TEXTURES } from "./menu-themes";
+import { MENU_THEMES, MENU_TEXTURES, MENU_BACKDROPS } from "./menu-themes";
 
 /**
  * Venue reads + writes for the owner dashboard. Same shape as the other
@@ -24,8 +24,11 @@ export interface DashboardVenue {
     bannerKey?: string | null;
     theme?: string;
     texture?: string;
+    backdrop?: string;
+    headingColor?: string;
     categoryIcons?: string;
     navLayout?: string;
+    cardBorders?: string;
     halalFilter?: string;
     kiosk?: string;
   };
@@ -43,8 +46,11 @@ function normalizeBranding(raw: unknown): DashboardVenue["branding"] {
       bannerKey: typeof b.bannerKey === "string" ? b.bannerKey : null,
       theme: typeof b.theme === "string" ? b.theme : undefined,
       texture: typeof b.texture === "string" ? b.texture : undefined,
+      backdrop: typeof b.backdrop === "string" ? b.backdrop : undefined,
+      headingColor: typeof b.headingColor === "string" ? b.headingColor : undefined,
       categoryIcons: typeof b.categoryIcons === "string" ? b.categoryIcons : undefined,
       navLayout: typeof b.navLayout === "string" ? b.navLayout : undefined,
+      cardBorders: typeof b.cardBorders === "string" ? b.cardBorders : undefined,
       halalFilter: typeof b.halalFilter === "string" ? b.halalFilter : undefined,
       kiosk: typeof b.kiosk === "string" ? b.kiosk : undefined,
     };
@@ -89,6 +95,13 @@ export async function getVenueForUser(userId: string): Promise<ServiceResult<Das
 export const appearanceSchema = z.object({
   theme: z.enum(MENU_THEMES.map((t) => t.id) as [string, ...string[]]),
   texture: z.enum(MENU_TEXTURES.map((t) => t.id) as [string, ...string[]]),
+  // Full-page background artwork; "none" = plain theme color.
+  backdrop: z.enum(MENU_BACKDROPS.map((b) => b.id) as [string, ...string[]]).default("none"),
+  // Custom category-heading color (hex); absent = each layout's default.
+  headingColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
   // "names" (default): category names only. "icons": an icon rides along —
   // the category's uploaded photo when present, an inferred emoji otherwise.
   categoryIcons: z.enum(["names", "icons"]).default("names"),
@@ -96,6 +109,9 @@ export const appearanceSchema = z.object({
   // top bar (default) or a left side rail. Phones always keep the top
   // bar — a rail has no room there.
   navLayout: z.enum(["top", "side"]).default("top"),
+  // Dish-card outlines: "off" hides the hairline border (cards separate
+  // by shadow instead) — some themes read cleaner without the frame.
+  cardBorders: z.enum(["on", "off"]).default("on"),
   // Self-order kiosk scaling for very large PORTRAIT touchscreens
   // (≥1000px wide AND ≥1200px tall — nothing a guest's phone or laptop
   // ever reports, so the same URL stays untouched everywhere else).
@@ -113,8 +129,11 @@ export async function updateVenueAppearance(
   input: {
     theme: string;
     texture: string;
+    backdrop?: string;
+    headingColor?: string;
     categoryIcons?: string;
     navLayout?: string;
+    cardBorders?: string;
     kiosk?: string;
   },
 ): Promise<ServiceResult> {
@@ -132,8 +151,11 @@ export async function updateVenueAppearance(
       ...normalizeBranding(venue.branding),
       theme: parsed.data.theme,
       texture: parsed.data.texture,
+      backdrop: parsed.data.backdrop,
+      headingColor: parsed.data.headingColor,
       categoryIcons: parsed.data.categoryIcons,
       navLayout: parsed.data.navLayout,
+      cardBorders: parsed.data.cardBorders,
       kiosk: parsed.data.kiosk,
     };
     await tx.venue.update({ where: { id: venue.id }, data: { branding } });

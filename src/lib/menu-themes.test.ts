@@ -39,7 +39,9 @@ describe("menu themes", () => {
 
   it("every theme declares a known layout", () => {
     for (const theme of MENU_THEMES) {
-      expect(["editorial", "grid", "list", "showcase"], theme.id).toContain(theme.layout);
+      expect(["editorial", "grid", "list", "showcase", "hero", "floating"], theme.id).toContain(
+        theme.layout,
+      );
     }
     expect(resolveMenuTheme("fresh-bistro").layout).toBe("grid");
     expect(resolveMenuTheme("royal-sapphire").layout).toBe("list");
@@ -52,9 +54,21 @@ describe("menu themes", () => {
       expect
         .soft(contrast(theme.vars.text, theme.vars.bg), `${theme.id} text/bg`)
         .toBeGreaterThanOrEqual(4.5);
+      // Split-surface themes (cream cards on a deep-red page) read
+      // surfaceText inside cards; the plain-text-on-surface pair only
+      // applies when the theme has no dedicated surface palette.
+      const cardText = theme.vars.surfaceText ?? theme.vars.text;
       expect
-        .soft(contrast(theme.vars.text, theme.vars.surface), `${theme.id} text/surface`)
+        .soft(contrast(cardText, theme.vars.surface), `${theme.id} cardText/surface`)
         .toBeGreaterThanOrEqual(4.5);
+      if (theme.vars.surfaceTextSoft) {
+        expect
+          .soft(
+            contrast(theme.vars.surfaceTextSoft, theme.vars.surface),
+            `${theme.id} surfaceTextSoft/surface`,
+          )
+          .toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 
@@ -63,8 +77,9 @@ describe("menu themes", () => {
       expect
         .soft(contrast(theme.vars.accent, theme.vars.bg), `${theme.id} accent/bg`)
         .toBeGreaterThanOrEqual(3);
+      const cardAccent = theme.vars.surfaceAccent ?? theme.vars.accent;
       expect
-        .soft(contrast(theme.vars.accent, theme.vars.surface), `${theme.id} accent/surface`)
+        .soft(contrast(cardAccent, theme.vars.surface), `${theme.id} cardAccent/surface`)
         .toBeGreaterThanOrEqual(3);
     }
   });
@@ -79,6 +94,17 @@ describe("menu themes", () => {
       "--menu-text-soft",
       "--menu-accent",
       "--menu-positive",
+      // Card-relative palette + semantic colors. Emitted for EVERY theme, not
+      // just the split-surface ones — mughal-night below is deliberately a
+      // non-split theme, so this asserts the fallback-free guarantee the
+      // renderer's `var(--menu-surface-text, …)` reads depend on.
+      "--menu-surface-text",
+      "--menu-surface-text-soft",
+      "--menu-surface-accent",
+      "--menu-danger",
+      "--menu-on-accent",
+      "--menu-on-surface-accent",
+      "--menu-on-positive",
     ]) {
       expect(style[key], key).toBeTruthy();
     }

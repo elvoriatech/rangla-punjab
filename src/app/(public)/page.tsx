@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata, Viewport } from "next";
 import { BRAND } from "@/lib/brand";
 import { resolveMenuTheme } from "@/lib/menu-themes";
@@ -28,6 +29,22 @@ import { MenuView } from "./menu-view";
  * on the public URL, `no-store` on preview URLs.
  */
 
+/**
+ * Per-request menu loader shared by generateViewport, generateMetadata,
+ * and the page body. Next runs all three for every request; uncached,
+ * each opened its own tenant transaction and under load the trio
+ * exhausted Prisma's transaction slots ("Unable to start a transaction
+ * in the given time"). React cache() keyed on primitive args collapses
+ * them to ONE transaction per request.
+ */
+const getMenuForRequest = cache(async (slug: string, preview: string | null) => {
+  const context = await resolvePreviewContext(slug, preview);
+  if (!context) return null;
+  const menu = await loadPublicMenu(context);
+  if (!menu) return null;
+  return { context, menu };
+});
+
 /** Tint the browser chrome (Android Chrome toolbar, iOS Safari accents)
  *  to the venue's menu background — a plain QR scan then melts into the
  *  theme instead of sitting under a default-grey bar. The manifest
@@ -35,18 +52,16 @@ import { MenuView } from "./menu-view";
  *  common not-installed open. */
 export async function generateViewport(): Promise<Viewport> {
   const slug = await getRestaurantSlug();
-  const context = await resolvePreviewContext(slug, null);
-  const menu = context ? await loadPublicMenu(context) : null;
-  if (!menu) return {};
-  return { themeColor: resolveMenuTheme(menu.venue.branding.theme).vars.bg };
+  const loaded = await getMenuForRequest(slug, null);
+  if (!loaded) return {};
+  return { themeColor: resolveMenuTheme(loaded.menu.venue.branding.theme).vars.bg };
 }
 
 export async function generateMetadata(): Promise<Metadata> {
   const slug = await getRestaurantSlug();
-  const context = await resolvePreviewContext(slug, null);
-  if (!context) return {};
-  const menu = await loadPublicMenu(context);
-  if (!menu) return {};
+  const loaded = await getMenuForRequest(slug, null);
+  if (!loaded) return {};
+  const { menu } = loaded;
   const url = `${siteUrl()}/`;
   const title = `${menu.venue.name} — Menu`;
   const description = `Menu for ${menu.venue.name}. See dishes, prices, allergen and dietary information.`;
@@ -91,11 +106,9 @@ export default async function PublicMenuPage({
   const slug = await getRestaurantSlug();
   const { preview, diet, cat } = await searchParams;
 
-  const context = await resolvePreviewContext(slug, preview ?? null);
-  if (!context) notFound();
-
-  const menu = await loadPublicMenu(context);
-  if (!menu) notFound();
+  const loaded = await getMenuForRequest(slug, preview ?? null);
+  if (!loaded) notFound();
+  const { context, menu } = loaded;
   const access = await getPublicVenueAccess(context.tenantId, context.venueId);
   // Lapsed tenants past their grace period: the menu stops resolving.
   if (!access.menuVisible) notFound();
@@ -115,6 +128,7 @@ export default async function PublicMenuPage({
       menu={filtered}
       orderingModes={access.modes}
       onlinePayment={access.onlinePayment}
+      paypalPayment={access.paypalPayment}
       orderingPaused={!siteActive}
       openNow={currentOpenState(menu.venue.hours, menu.venue.timezone)}
       requestSlots={currentTodaySlotTimes(menu.venue.hours, menu.venue.timezone)}

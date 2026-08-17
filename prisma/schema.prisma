@@ -132,6 +132,7 @@ model Tenant {
   orderItems    OrderItem[]
 
   @@map("tenants")
+  customers Customer[]
 }
 
 model MenuTemplate {
@@ -343,6 +344,15 @@ model Item {
   flags         Json       @default("{}")
   photoMediaId  String?    @map("photo_media_id")
 
+  /// A reduced FIXED price ("Angebot"), valid inside the optional date range
+  /// and/or the optional weekly venue-local window. Lives ON the item because
+  /// publish deep-copies the tree with fresh ids. CHECK: 0 < offer < price.
+  offerPriceCents Int?      @map("offer_price_cents")
+  offerStartsAt   DateTime? @map("offer_starts_at") @db.Timestamptz(6)
+  offerEndsAt     DateTime? @map("offer_ends_at") @db.Timestamptz(6)
+  /// {days: int[0..6], start: "HH:MM", end: "HH:MM"}, venue-local.
+  offerWeekly     Json?     @map("offer_weekly")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? @map("deleted_at")
@@ -505,6 +515,8 @@ model Order {
   // none = pay at restaurant; pending/paid/failed = online payment.
   paymentStatus       String  @default("none") @map("payment_status")
   paymentRef          String? @map("payment_ref")
+  paymentProvider     String? @map("payment_provider")
+  customerId          String? @map("customer_id")
   applicationFeeCents Int     @default(0) @map("application_fee_cents")
   status      String  @default("placed")
   // Guest-requested fulfilment time (pickup/delivery). NULL = ASAP.
@@ -522,6 +534,7 @@ model Order {
   @@unique([venueId, orderNumber])
   @@index([tenantId])
   @@map("orders")
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 }
 
 model OrderItem {
@@ -532,6 +545,8 @@ model OrderItem {
   // that may be superseded or cleaned up; the snapshot below is the truth.
   itemId     String? @map("item_id")
   name       String
+  /// Regular price the charged price was reduced from; NULL = no offer.
+  basePriceCents Int?    @map("base_price_cents")
   priceCents Int     @map("price_cents")
   quantity   Int
 
@@ -586,4 +601,43 @@ model OperatorSettings {
   updatedAt DateTime @updatedAt
 
   @@map("operator_settings")
+}
+
+
+/// Guest customer account (Google / Microsoft sign-in). Tenant-scoped,
+/// identity = (provider, provider_sub); tokens are opaque + hashed.
+model Customer {
+  id          String    @id @default(cuid())
+  tenantId    String    @map("tenant_id")
+  provider    String
+  providerSub String    @map("provider_sub")
+  email       String
+  name        String?
+  phone       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? @map("deleted_at")
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tokens CustomerToken[]
+  orders Order[]
+
+  @@unique([tenantId, provider, providerSub])
+  @@index([tenantId, email])
+  @@map("customers")
+}
+
+model CustomerToken {
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  customerId String    @map("customer_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_tokens")
 }

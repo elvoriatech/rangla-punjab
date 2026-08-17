@@ -87,10 +87,10 @@ export function venueIcons(logoKey: string | null | undefined): {
   }
   return {
     icon: [
-      { url: "/guesto-icon.svg", type: "image/svg+xml" },
       { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" },
     ],
-    apple: [{ url: "/guesto-icon-180.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" }],
   };
 }
 
