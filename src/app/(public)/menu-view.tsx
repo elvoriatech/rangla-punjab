@@ -155,11 +155,19 @@ export function MenuView({
   const kioskFontPx =
     menu.venue.branding.kiosk === "xl" ? 24 : menu.venue.branding.kiosk === "off" ? null : 21;
 
+  const borderless = menu.venue.branding.cardBorders === "off";
   return (
     <div
-      className="menu-theme flex min-h-screen flex-col bg-[var(--menu-bg)] text-[var(--menu-text)]"
+      className={`menu-theme flex min-h-screen flex-col bg-[var(--menu-bg)] text-[var(--menu-text)] ${
+        borderless ? "menu-borderless" : ""
+      }`}
       style={themeStyle}
     >
+      {borderless ? (
+        // Owner switch: no hairline around dish cards — a resting shadow
+        // keeps same-color cards separable from the page ground.
+        <style>{`.menu-borderless .dish-card{border-color:transparent;box-shadow:0 14px 34px -24px rgba(0,0,0,0.38)}`}</style>
+      ) : null}
       {/* Fade-in-up keyframes scoped to this page. `prefers-reduced-
           motion: reduce` disables the animation entirely so a
           vestibular-sensitive guest never sees the movement. */}

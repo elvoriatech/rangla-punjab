@@ -72,6 +72,7 @@ export interface PublicMenu {
       headingColor?: string;
       categoryIcons?: string;
       navLayout?: string;
+      cardBorders?: string;
       halalFilter?: string;
       kiosk?: string;
     };
@@ -264,6 +265,7 @@ function normaliseBranding(raw: unknown): PublicMenu["venue"]["branding"] {
       headingColor: typeof b.headingColor === "string" ? b.headingColor : undefined,
       categoryIcons: typeof b.categoryIcons === "string" ? b.categoryIcons : undefined,
       navLayout: typeof b.navLayout === "string" ? b.navLayout : undefined,
+      cardBorders: typeof b.cardBorders === "string" ? b.cardBorders : undefined,
       halalFilter: typeof b.halalFilter === "string" ? b.halalFilter : undefined,
       kiosk: typeof b.kiosk === "string" ? b.kiosk : undefined,
     };

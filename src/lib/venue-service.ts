@@ -28,6 +28,7 @@ export interface DashboardVenue {
     headingColor?: string;
     categoryIcons?: string;
     navLayout?: string;
+    cardBorders?: string;
     halalFilter?: string;
     kiosk?: string;
   };
@@ -49,6 +50,7 @@ function normalizeBranding(raw: unknown): DashboardVenue["branding"] {
       headingColor: typeof b.headingColor === "string" ? b.headingColor : undefined,
       categoryIcons: typeof b.categoryIcons === "string" ? b.categoryIcons : undefined,
       navLayout: typeof b.navLayout === "string" ? b.navLayout : undefined,
+      cardBorders: typeof b.cardBorders === "string" ? b.cardBorders : undefined,
       halalFilter: typeof b.halalFilter === "string" ? b.halalFilter : undefined,
       kiosk: typeof b.kiosk === "string" ? b.kiosk : undefined,
     };
@@ -107,6 +109,9 @@ export const appearanceSchema = z.object({
   // top bar (default) or a left side rail. Phones always keep the top
   // bar — a rail has no room there.
   navLayout: z.enum(["top", "side"]).default("top"),
+  // Dish-card outlines: "off" hides the hairline border (cards separate
+  // by shadow instead) — some themes read cleaner without the frame.
+  cardBorders: z.enum(["on", "off"]).default("on"),
   // Self-order kiosk scaling for very large PORTRAIT touchscreens
   // (≥1000px wide AND ≥1200px tall — nothing a guest's phone or laptop
   // ever reports, so the same URL stays untouched everywhere else).
@@ -128,6 +133,7 @@ export async function updateVenueAppearance(
     headingColor?: string;
     categoryIcons?: string;
     navLayout?: string;
+    cardBorders?: string;
     kiosk?: string;
   },
 ): Promise<ServiceResult> {
@@ -149,6 +155,7 @@ export async function updateVenueAppearance(
       headingColor: parsed.data.headingColor,
       categoryIcons: parsed.data.categoryIcons,
       navLayout: parsed.data.navLayout,
+      cardBorders: parsed.data.cardBorders,
       kiosk: parsed.data.kiosk,
     };
     await tx.venue.update({ where: { id: venue.id }, data: { branding } });

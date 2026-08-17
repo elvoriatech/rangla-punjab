@@ -84,6 +84,36 @@ export default async function AppearancePage({
 
           <fieldset className="mt-10">
             <legend className="text-xs uppercase tracking-[0.28em] text-gold-dark">
+              Card borders
+            </legend>
+            <p className="mt-2 max-w-xl text-sm text-muted">
+              The thin outline around dish cards. Turn it off for a softer look — cards then
+              separate by shadow alone.
+            </p>
+            <div className="mt-4 flex gap-4">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="cardBorders"
+                  value="on"
+                  defaultChecked={(venue.branding.cardBorders ?? "on") === "on"}
+                />
+                With border
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="cardBorders"
+                  value="off"
+                  defaultChecked={venue.branding.cardBorders === "off"}
+                />
+                Borderless
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="mt-10">
+            <legend className="text-xs uppercase tracking-[0.28em] text-gold-dark">
               Background texture
             </legend>
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
