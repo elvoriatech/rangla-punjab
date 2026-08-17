@@ -138,13 +138,15 @@ export function MenuView({
     ...(menu.venue.branding.halalFilter === "on" ? [HALAL_DIET] : []),
   ];
   const Section =
-    theme.layout === "grid"
+    theme.layout === "grid" || theme.layout === "hero"
       ? GridSection
       : theme.layout === "list"
         ? ListSection
         : theme.layout === "showcase"
           ? ShowcaseSection
-          : EditorialSection;
+          : theme.layout === "floating"
+            ? FloatingSection
+            : EditorialSection;
   // Self-order kiosk: on very large PORTRAIT touchscreens (nothing a
   // phone or laptop ever reports) raise the root font size so the whole
   // rem-based UI — text, buttons, spacing, the rem-based max-widths —
@@ -218,8 +220,13 @@ export function MenuView({
           hero={Boolean(menu.venue.branding.bannerKey)}
         />
 
+        {theme.layout === "hero" && !activeCategoryId ? (
+          <HeroSplash venue={menu.venue} categories={menu.categories} activeDiet={activeDiet} />
+        ) : null}
+
         <div
-          className={`mx-auto max-w-7xl px-4 py-8 sm:px-8 sm:py-10 lg:px-12 ${
+          id="menu"
+          className={`mx-auto max-w-7xl scroll-mt-28 px-4 py-8 sm:px-8 sm:py-10 lg:px-12 ${
             sideNav ? "lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10" : ""
           }`}
         >
@@ -456,6 +463,251 @@ function EditorialSection({
 }
 
 /** Centered heading + photo-top cards in a responsive grid (Fresh Bistro). */
+/**
+ * Landing splash for the "hero" layout — the fast-food reference: dark
+ * band with a two-tone display headline, tagline, CTA, a round hero dish
+ * photo, feature badges, a wave into the body, then unboxed photo
+ * category tiles. Server-rendered, zero JS.
+ */
+function HeroSplash({
+  venue,
+  categories,
+  activeDiet,
+}: {
+  venue: PublicMenu["venue"];
+  categories: PublicMenu["categories"];
+  activeDiet: string | null;
+}): React.ReactElement {
+  const words = venue.name.split(/\s+/);
+  const first = words[0] ?? venue.name;
+  const rest = words.slice(1).join(" ");
+  const heroItem = categories.flatMap((c) => c.items).find((i) => i.photoKey && i.isAvailable);
+  const slugOf = categorySlugs(categories.map((c) => ({ id: c.id, name: c.name })));
+  const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
+  return (
+    <section aria-label="Willkommen" className="bg-[#0f0d0a] text-[#f5f1e8]">
+      <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-6 pt-12 sm:px-8 md:grid-cols-[minmax(0,1fr)_auto] lg:px-12">
+        <div>
+          <p className="font-serif text-xl italic text-[var(--menu-accent)]">Willkommen bei</p>
+          <h2 className="mt-2 text-4xl font-black uppercase leading-[1.05] tracking-tight sm:text-6xl">
+            {first}
+            {rest ? (
+              <>
+                {" "}
+                <span className="text-[var(--menu-accent)]">{rest}</span>
+              </>
+            ) : null}
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-[#f5f1e8]/75">
+            Frisch gekocht, schnell serviert — stöbere durch die Karte und bestelle direkt vom
+            Handy.
+          </p>
+          <div className="mt-6">
+            <a
+              href="#menu"
+              className="inline-block rounded-full bg-[var(--menu-accent)] px-7 py-3 text-sm font-bold uppercase tracking-wider text-[#171207] transition hover:opacity-90"
+            >
+              Jetzt bestellen ↓
+            </a>
+          </div>
+          <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-xs text-[#f5f1e8]/80">
+            {[
+              ["Schnell serviert", "Direkt aus der Küche"],
+              ["Beste Qualität", "Frische Zutaten"],
+              ["Faire Preise", "Jeden Tag"],
+            ].map(([t, sub]) => (
+              <li key={t} className="flex items-center gap-2.5">
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[var(--menu-accent)]" />
+                <span>
+                  <span className="block font-bold uppercase tracking-wide">{t}</span>
+                  <span className="block text-[#f5f1e8]/60">{sub}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {heroItem ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={menuImageUrl(heroItem.photoKey, heroItem.id, 640)}
+            srcSet={menuImageSrcSet(heroItem.photoKey, heroItem.id, 640)}
+            alt=""
+            aria-hidden="true"
+            className="hidden h-64 w-64 rounded-full border-4 border-[var(--menu-accent)]/70 object-cover shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)] md:block lg:h-80 lg:w-80"
+          />
+        ) : null}
+      </div>
+      {/* Wave into the body color, like the reference. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 70"
+        preserveAspectRatio="none"
+        className="block h-10 w-full sm:h-14"
+      >
+        <path
+          d="M0,32 C240,72 480,72 720,44 C960,16 1200,10 1440,38 L1440,70 L0,70 Z"
+          fill="var(--menu-bg)"
+        />
+      </svg>
+      {/* Unboxed photo categories on the body ground. */}
+      {categories.length >= 2 ? (
+        <nav
+          aria-label="Kategorien mit Bild"
+          className="bg-[var(--menu-bg)] pb-2 pt-8 text-[var(--menu-text)]"
+        >
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.3em] text-[var(--menu-accent)]">
+            Unsere Kategorien
+          </p>
+          <ul className="mx-auto mt-6 flex max-w-6xl flex-wrap items-start justify-center gap-x-10 gap-y-8 px-6">
+            {categories.slice(0, 8).map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
+                  prefetch={false}
+                  className="group block w-24 text-center"
+                >
+                  {c.photoKey ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={menuImageUrl(c.photoKey, c.id, 240)}
+                      alt=""
+                      loading="lazy"
+                      className="mx-auto h-20 w-20 rounded-full object-cover shadow-md transition group-hover:scale-105"
+                    />
+                  ) : (
+                    <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--menu-line)] text-3xl">
+                      {categoryIcon(c.name)}
+                    </span>
+                  )}
+                  <span className="mt-2 block text-sm font-semibold leading-tight">{c.name}</span>
+                  <span className="block text-[11px] text-[var(--menu-text-soft)]">
+                    {c.items.length} Gerichte
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * "Floating" layout — the unboxed reference: big round dish photo on the
+ * plain page ground (no card box), serif-italic name, soft description,
+ * price + pill add button. Generous air between items.
+ */
+function FloatingSection({
+  cat,
+  catIndex,
+  locale,
+  slug,
+  ordering,
+  showIcons,
+}: SectionProps): React.ReactElement {
+  return (
+    <section
+      aria-labelledby={`cat-${cat.id}`}
+      className="scroll-mt-40 fade-in-up"
+      style={{ animationDelay: `${catIndex * 60}ms` }}
+    >
+      <div className="mb-12 flex flex-col items-center text-center">
+        {showIcons ? (
+          <span className="mb-4">
+            <CategoryIconMedallion name={cat.name} />
+          </span>
+        ) : null}
+        <h2
+          id={`cat-${cat.id}`}
+          className="font-serif text-3xl font-semibold leading-tight text-[var(--menu-heading,var(--menu-text))] [text-shadow:0_1px_14px_rgba(0,0,0,0.12)] sm:text-4xl"
+        >
+          {cat.name}
+        </h2>
+        <span aria-hidden="true" className="mt-3 h-1 w-16 rounded-full bg-[var(--menu-accent)]" />
+      </div>
+      {cat.items.length === 0 ? (
+        <p className="text-center text-sm text-[var(--menu-text)]/60">No dishes in this section.</p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-x-6 gap-y-14 sm:gap-x-10 md:grid-cols-3">
+          {cat.items.map((item, itemIndex) => (
+            <li
+              key={item.id}
+              className="fade-in-up"
+              style={{ animationDelay: `${catIndex * 60 + itemIndex * 30}ms` }}
+            >
+              <article
+                suppressHydrationWarning
+                aria-labelledby={`item-${item.id}`}
+                className="dish-card group flex h-full flex-col text-[var(--menu-text)]"
+              >
+                <div aria-hidden="true" className="relative mx-auto w-full max-w-56">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={menuImageUrl(item.photoKey, item.id, 480)}
+                    srcSet={menuImageSrcSet(item.photoKey, item.id, 480)}
+                    alt=""
+                    loading="lazy"
+                    className="aspect-square w-full rounded-full object-cover shadow-[0_18px_40px_-18px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:scale-[1.03]"
+                  />
+                  <div className="absolute left-1 top-1 z-10 max-h-[calc(100%-0.5rem)] overflow-hidden">
+                    <PhotoDietBadges dietary={item.dietary} />
+                  </div>
+                </div>
+                <h3
+                  id={`item-${item.id}`}
+                  className={`mt-4 font-serif text-lg italic leading-snug ${
+                    item.isAvailable ? "" : "line-through opacity-60"
+                  }`}
+                >
+                  {item.name}
+                  {!item.isAvailable ? (
+                    <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
+                      unavailable
+                    </span>
+                  ) : null}
+                </h3>
+                {item.description ? (
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--menu-text-soft)]">
+                    {item.description}
+                  </p>
+                ) : null}
+                <BadgeRow
+                  allergens={item.allergens}
+                  traces={item.traces}
+                  spice={item.spice}
+                  dishName={item.name}
+                />
+                <div className="mt-auto flex w-full items-center justify-between gap-2 pt-3">
+                  <p
+                    aria-label="price"
+                    className="text-base font-bold tabular-nums text-[var(--menu-text)]"
+                  >
+                    {item.offer ? (
+                      <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                        {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                      </s>
+                    ) : null}
+                    {formatPrice(item.priceCents, item.currency, locale)}
+                  </p>
+                  {ordering && item.isAvailable ? (
+                    <AddToOrderButton
+                      slug={slug}
+                      itemId={item.id}
+                      name={item.name}
+                      priceCents={item.priceCents}
+                    />
+                  ) : null}
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function GridSection({
   cat,
   catIndex,

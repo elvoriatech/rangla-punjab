@@ -39,7 +39,9 @@ describe("menu themes", () => {
 
   it("every theme declares a known layout", () => {
     for (const theme of MENU_THEMES) {
-      expect(["editorial", "grid", "list", "showcase"], theme.id).toContain(theme.layout);
+      expect(["editorial", "grid", "list", "showcase", "hero", "floating"], theme.id).toContain(
+        theme.layout,
+      );
     }
     expect(resolveMenuTheme("fresh-bistro").layout).toBe("grid");
     expect(resolveMenuTheme("royal-sapphire").layout).toBe("list");

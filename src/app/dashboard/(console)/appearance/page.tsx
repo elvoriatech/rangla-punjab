@@ -333,7 +333,7 @@ function ThemeCard({ theme, checked }: { theme: MenuTheme; checked: boolean }): 
           <span className="block font-serif text-lg italic" style={{ color: theme.vars.accent }}>
             La Carta
           </span>
-          {theme.layout === "showcase" ? (
+          {theme.layout === "showcase" || theme.layout === "floating" ? (
             /* Round photo, centered name + price badge — chalkboard look. */
             <span className="mt-2 flex flex-col items-center text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -376,7 +376,7 @@ function ThemeCard({ theme, checked }: { theme: MenuTheme; checked: boolean }): 
                 </span>
               </span>
             </span>
-          ) : theme.layout === "grid" ? (
+          ) : theme.layout === "grid" || theme.layout === "hero" ? (
             /* Photo-top mini card — mirrors the grid layout. */
             <span
               className="mx-auto mt-2 block w-32 overflow-hidden rounded-sm border"

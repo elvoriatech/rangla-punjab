@@ -29,7 +29,7 @@ export interface MenuTheme {
    *  - "showcase": chalkboard gallery — large round photos centered above
    *    name, description, and a price badge; no card boxes.
    */
-  layout: "editorial" | "grid" | "list" | "showcase";
+  layout: "editorial" | "grid" | "list" | "showcase" | "hero" | "floating";
   /** CSS custom properties consumed by MenuView. All plain colors. */
   vars: {
     bg: string;
@@ -316,6 +316,57 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       positive: "#1f6b3a",
     },
     textureInk: "rgba(23, 21, 26, 0.05)",
+  },
+  {
+    id: "burger-hub",
+    layout: "hero",
+    label: "Bold Hub",
+    tagline: "Black & taxi-yellow landing — hero, badges, dark photo cards.",
+    vars: {
+      bg: "#0d0b08",
+      surface: "#181410",
+      line: "#33291c",
+      text: "#f5f1e8",
+      textSoft: "#c9bda6",
+      accent: "#f5b301",
+      positive: "#a7d7b4",
+    },
+    textureInk: "rgba(245, 241, 232, 0.04)",
+  },
+  {
+    id: "foodota",
+    layout: "hero",
+    label: "Fresh Market",
+    tagline: "Dark hero over a white body — photo categories, airy grid.",
+    vars: {
+      bg: "#ffffff",
+      surface: "#ffffff",
+      line: "#eceae4",
+      text: "#191919",
+      textSoft: "#5f5c55",
+      accent: "#a97800",
+      positive: "#3f7030",
+    },
+    textureInk: "rgba(25, 25, 25, 0.04)",
+  },
+  {
+    id: "pizza-mizza",
+    layout: "floating",
+    label: "Pizza Nova",
+    tagline: "Floating dish photos, no boxes — script names, pill buttons.",
+    vars: {
+      bg: "#ffffff",
+      surface: "#14122b",
+      line: "#e8e6f0",
+      text: "#1c1b29",
+      textSoft: "#605d6c",
+      accent: "#c9660a",
+      positive: "#3f7030",
+      surfaceText: "#f5f3ff",
+      surfaceTextSoft: "#c9c6dd",
+      surfaceAccent: "#f7a63a",
+    },
+    textureInk: "rgba(28, 27, 41, 0.04)",
   },
 ] as const;
 
