@@ -130,7 +130,7 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       surface: "#f7f8fa",
       line: "#e8eaee",
       text: "#24324e",
-      textSoft: "#7b8494",
+      textSoft: "#5d6675",
       accent: "#d96a10",
       positive: "#1f6b3a",
     },
@@ -146,7 +146,7 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       surface: "#ffffff",
       line: "#e3e6da",
       text: "#333a26",
-      textSoft: "#7d8471",
+      textSoft: "#5f664f",
       accent: "#c25c12",
       positive: "#3f7030",
     },
@@ -210,7 +210,7 @@ export const MENU_THEMES: readonly MenuTheme[] = [
       surface: "#fff6ec",
       line: "#f3e0cc",
       text: "#2b2320",
-      textSoft: "#8a7d72",
+      textSoft: "#6d6055",
       accent: "#d3410e",
       positive: "#1f6b3a",
     },
@@ -407,6 +407,14 @@ export interface MenuBackdrop {
    * these are the "plain colors, as a gradient" options.
    */
   gradient?: string;
+  /**
+   * Which ink reads on this ground. A backdrop replaces the theme's page
+   * color, so PAGE-LEVEL text must follow the BACKDROP's brightness —
+   * pairing a light theme with a light backdrop (or dark with dark) used
+   * to collapse page text to ~1:1 contrast. Cards keep the theme's own
+   * surface palette untouched.
+   */
+  ink?: "light" | "dark";
 }
 
 export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
@@ -416,14 +424,17 @@ export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
     label: "Sunset Coral",
     tagline: "Warm coral melting into sunset red — a modern glow.",
     image: null,
-    gradient: "linear-gradient(160deg, #ffb347 0%, #ff7e5f 45%, #e34f56 100%)",
+    // Deepened so cream ink clears AA on every stop.
+    gradient: "linear-gradient(160deg, #c44432 0%, #a52a3c 45%, #6e1b2c 100%)",
+    ink: "light",
   },
   {
     id: "theme-glow",
     label: "Violet Dusk",
     tagline: "Deep indigo into violet — sleek and contemporary.",
     image: null,
-    gradient: "linear-gradient(160deg, #6a5ae0 0%, #8b5bbf 55%, #43265e 100%)",
+    gradient: "linear-gradient(160deg, #5646c9 0%, #6f42a4 55%, #33194a 100%)",
+    ink: "light",
   },
   {
     id: "crimson-silk",
@@ -431,13 +442,15 @@ export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
     tagline: "Deep Punjabi red, flowing like silk.",
     image: null,
     gradient: "linear-gradient(160deg, #b32e2e 0%, #8f1a1a 45%, #5f0f0f 100%)",
+    ink: "light",
   },
   {
     id: "golden-hour",
     label: "Golden Hour",
     tagline: "Warm antique gold, light to amber.",
     image: null,
-    gradient: "linear-gradient(160deg, #f6e3a8 0%, #e8c15c 48%, #b98f2e 100%)",
+    gradient: "linear-gradient(160deg, #f6e3a8 0%, #ecc96e 48%, #d3a83e 100%)",
+    ink: "dark",
   },
   {
     id: "ivory-mist",
@@ -445,6 +458,7 @@ export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
     tagline: "Soft parchment cream, barely-there warmth.",
     image: null,
     gradient: "linear-gradient(175deg, #fffdf5 0%, #f6ecd4 55%, #e3d2ac 100%)",
+    ink: "dark",
   },
   {
     id: "aubergine-dusk",
@@ -452,30 +466,35 @@ export const MENU_BACKDROPS: readonly MenuBackdrop[] = [
     tagline: "Midnight plum fading into the dark.",
     image: null,
     gradient: "linear-gradient(165deg, #4a2450 0%, #301536 55%, #190a1e 100%)",
+    ink: "light",
   },
   {
     id: "rangla-royal",
     label: "Royal Crimson Wave",
     tagline: "Red-and-gold wave, welcoming chef, palace line-art.",
     image: "/menu-backdrops/rangla-royal.jpg",
+    ink: "light",
   },
   {
     id: "crimson-feast",
     label: "Crimson Feast",
     tagline: "Deep red damask with gold-line dishes and spices.",
     image: "/menu-backdrops/crimson-feast.jpg",
+    ink: "light",
   },
   {
     id: "ivory-minaret",
     label: "Ivory Minaret",
     tagline: "Cream parchment, faint minarets, a red-gold sweep.",
     image: "/menu-backdrops/ivory-minaret.jpg",
+    ink: "dark",
   },
   {
     id: "midnight-plum",
     label: "Midnight Plum",
     tagline: "Deep aubergine, golden wheat and a gilded wave.",
     image: "/menu-backdrops/midnight-plum.jpg",
+    ink: "light",
   },
 ] as const;
 
@@ -520,14 +539,6 @@ export function resolveBackdropGradient(backdrop: MenuBackdrop, themeBg: string)
     .replaceAll("{deep}", shadeHex(themeBg, -0.28));
 }
 
-/** #rrggbb → rgba() with alpha; used for the heading pill over artwork. */
-function hexToRgba(hex: string, alpha: number): string {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return `rgba(0, 0, 0, ${alpha})`;
-  const n = parseInt(m[1]!, 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-}
-
 export function menuThemeStyle(
   themeId: string | undefined | null,
   textureId: string | undefined | null,
@@ -556,10 +567,32 @@ export function menuThemeStyle(
     ...(headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)
       ? { "--menu-heading": headingColor }
       : {}),
-    ...(theme.vars.surfaceText && (backdrop.image || backdrop.gradient)
-      ? { "--menu-heading-bg": hexToRgba(theme.vars.surface, 0.92) }
-      : {}),
   };
+  // A backdrop replaces the page ground, so PAGE-LEVEL ink follows the
+  // BACKDROP's declared polarity — otherwise a light theme on a light
+  // backdrop (or dark on dark) renders ~1:1 page text. Cards, rail and
+  // chip bars sit on their own surfaces and keep the theme untouched.
+  const backdropInk =
+    backdrop.image || backdrop.gradient
+      ? backdrop.ink === "dark"
+        ? {
+            "--menu-text": "#2a1a0e",
+            "--menu-text-soft": "#6f5b45",
+            "--menu-accent": "#9d1c1c",
+            "--menu-heading": "#2a1a0e",
+          }
+        : {
+            "--menu-text": "#fdf3dd",
+            "--menu-text-soft": "#ecd9b0",
+            "--menu-accent": "#e8c15c",
+            "--menu-heading": "#fdf3dd",
+          }
+      : {};
+  Object.assign(vars, backdropInk);
+  // The owner's explicit heading color still wins over the polarity ink.
+  if (headingColor && /^#[0-9a-fA-F]{6}$/.test(headingColor)) {
+    (vars as Record<string, string>)["--menu-heading"] = headingColor;
+  }
   if (backdrop.image) {
     return {
       ...vars,
