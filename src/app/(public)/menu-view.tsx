@@ -271,7 +271,7 @@ export function MenuView({
           </div>
         </div>
       </main>
-      <footer className="border-t border-[var(--menu-line)] bg-[var(--menu-surface)]">
+      <footer className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)]">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-8">
           <div className="flex w-full items-center justify-between gap-4 sm:contents">
             <div className="flex items-center gap-3">
@@ -315,7 +315,13 @@ export function MenuView({
                       role="img"
                       aria-label={label}
                       title={label}
-                      className="flex h-9 min-w-11 items-center justify-center rounded-lg border border-[var(--menu-line)] bg-[var(--menu-surface)] px-2.5 text-[var(--menu-text)]/85"
+                      /* Sits in the footer, i.e. ON the surface — so it takes an
+                         ink wash instead of a border, and SURFACE ink instead of
+                         page ink. It was `bg-surface` on a surface ground (an
+                         invisible fill held together by its hairline) with page
+                         ink over it, which is 1.08:1 on brasserie under a
+                         backdrop. */
+                      className="flex h-9 min-w-11 items-center justify-center rounded-lg bg-[var(--menu-surface-text,var(--menu-text))]/7 px-2.5 text-[var(--menu-surface-text,var(--menu-text))]"
                     >
                       {icon ? (
                         <svg
@@ -738,7 +744,7 @@ function GridSection({
             alt=""
             aria-hidden="true"
             loading="lazy"
-            className="mb-4 h-16 w-16 rounded-full border border-[var(--menu-line)] object-cover"
+            className="mb-4 h-16 w-16 rounded-full border border-[var(--menu-text)]/12 object-cover"
           />
         ) : showIcons ? (
           <span className="mb-4">
@@ -782,7 +788,7 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative flex h-full flex-col overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-18px_rgba(36,50,78,0.35)]"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative flex h-full flex-col overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-18px_rgba(36,50,78,0.35)]"
     >
       <div
         aria-hidden="true"
@@ -952,7 +958,7 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] flex h-full items-stretch overflow-hidden rounded-lg border border-[var(--menu-line)] bg-[var(--menu-surface)] transition-all duration-300 hover:border-[var(--menu-accent)]/50"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] flex h-full items-stretch overflow-hidden rounded-lg border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] transition-all duration-300 hover:shadow-[0_16px_32px_-18px_rgba(0,0,0,0.35)]"
     >
       <div
         aria-hidden="true"
@@ -1122,7 +1128,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
     >
       <div
         aria-hidden="true"
-        className="relative mb-4 aspect-square w-32 overflow-hidden rounded-full border-2 border-[var(--menu-line)] shadow-[0_18px_36px_-18px_rgba(0,0,0,0.6)] transition-transform duration-300 group-hover:scale-[1.03] sm:mb-5 sm:w-44"
+        className="relative mb-4 aspect-square w-32 overflow-hidden rounded-full border-2 border-[var(--menu-text)]/12 shadow-[0_18px_36px_-18px_rgba(0,0,0,0.6)] transition-transform duration-300 group-hover:scale-[1.03] sm:mb-5 sm:w-44"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -1183,7 +1189,7 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
       <div className="mt-auto flex w-full items-center justify-between gap-3 pt-3">
         <p
           aria-label="price"
-          className="inline-block border border-[var(--menu-accent)]/60 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]"
+          className="inline-block rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-surface-text,var(--menu-text))]"
         >
           {item.offer ? (
             <>
@@ -1276,7 +1282,7 @@ function StickyBar({
   hero?: boolean;
 }): React.ReactElement {
   return (
-    <header className="menu-hero sticky top-0 z-20 border-b border-[var(--menu-line)] bg-[var(--menu-bg)]/95 backdrop-blur">
+    <header className="menu-hero sticky top-0 z-20 border-b border-[var(--menu-text)]/10 bg-[var(--menu-bg)]/95 backdrop-blur">
       {hero ? (
         /* Identity + pill live on the hero above; this row keeps only
            the desktop category tabs (side rail replaces them on lg). */
@@ -1309,7 +1315,7 @@ function StickyBar({
         </div>
       )}
       {/* Categories on a second row on tablet/mobile (hidden above on lg) */}
-      <div className="border-t border-[var(--menu-line)] lg:hidden">
+      <div className="border-t border-[var(--menu-text)]/10 lg:hidden">
         <div className="mx-auto max-w-none px-4 py-2.5 sm:px-6 sm:py-3">
           <CategoryTabs
             categories={categories}
@@ -1319,7 +1325,7 @@ function StickyBar({
           />
         </div>
       </div>
-      <div className="border-t border-[var(--menu-line)] bg-[var(--menu-surface)]">
+      <div className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)]">
         <div className="mx-auto max-w-none px-4 py-2.5 sm:px-6 sm:py-3 lg:px-12">
           <DietTabs
             active={activeDiet}
@@ -1345,12 +1351,18 @@ function OpenBadge({ state }: { state?: OpenState }): React.ReactElement | null 
   // Compact on phones (dot + word), full detail from sm up — so the pill
   // never crowds the centred logo on a narrow screen. `whitespace-nowrap`
   // keeps it on one line; it sits in the top-right corner at every width.
+  // Both pills sit on the PAGE ground, so they wash page ink and label in page
+  // ink. The status hue lives in the fill and the dot, never in the 12px words:
+  // `positive` and `danger` are guaranteed against a surface at 3:1, not 4.5:1,
+  // so `text-[var(--menu-positive)]` at this size was short of AA on the themes
+  // where positive is a pale mint. The dots were hard-coded #22c55e / #ef4444,
+  // which ignored the theme entirely.
   if (state.open) {
     return (
-      <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[var(--menu-positive)]/50 bg-[var(--menu-positive)]/10 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-positive)]">
+      <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-positive)]/14 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text)]">
         <span
           aria-hidden="true"
-          className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#22c55e] shadow-[0_0_0_3px_rgba(34,197,94,0.25)]"
+          className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-positive)] ring-4 ring-[var(--menu-positive)]/25"
         />
         Open
         <span className="hidden font-medium opacity-80 sm:inline">· until {state.until}</span>
@@ -1362,10 +1374,10 @@ function OpenBadge({ state }: { state?: OpenState }): React.ReactElement | null 
       ? `Opens ${WEEKDAY_LABELS[state.opensDay].slice(0, 3)} ${state.opensAt}`
       : "";
   return (
-    <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[var(--menu-line)] bg-[var(--menu-surface)] py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text-soft)]">
+    <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-danger)]/12 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text)]">
       <span
         aria-hidden="true"
-        className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#ef4444] shadow-[0_0_0_3px_rgba(239,68,68,0.22)]"
+        className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-danger)] ring-4 ring-[var(--menu-danger)]/25"
       />
       Closed
       {opensLabel ? (
@@ -1410,7 +1422,7 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={`item-${item.id}`}
-      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-line)] bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:border-[var(--menu-accent)]/60 hover:shadow-[0_0_0_1px_rgba(184,147,95,0.15),0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
     >
       <div className="relative self-stretch">
         <DishPhoto item={item} />
@@ -1756,7 +1768,7 @@ function BadgeRow({
       {spice > 0 ? (
         <span
           title={`Spicy — level ${Math.min(spice, 3)} of 3`}
-          className="inline-flex h-6 items-center justify-center rounded-full border border-red-400/40 bg-red-400/10 px-1.5 tracking-tighter"
+          className="inline-flex h-6 items-center justify-center rounded-full bg-[var(--menu-danger)]/12 px-1.5 tracking-tighter"
         >
           <span aria-hidden="true">{"🌶".repeat(Math.min(spice, 3))}</span>
           <span className="sr-only">Spicy, level {Math.min(spice, 3)} of 3</span>
@@ -1815,7 +1827,7 @@ function MobileAllergenLine({
       {spice > 0 ? (
         <span
           title={`Spicy — level ${Math.min(spice, 3)} of 3`}
-          className="inline-flex h-6 items-center rounded-full border border-red-400/40 bg-red-400/10 px-1.5 text-sm leading-none tracking-tighter"
+          className="inline-flex h-6 items-center rounded-full bg-[var(--menu-danger)]/12 px-1.5 text-sm leading-none tracking-tighter"
         >
           <span aria-hidden="true">{"🌶".repeat(Math.min(spice, 3))}</span>
           <span className="sr-only">Spicy, level {Math.min(spice, 3)} of 3</span>
@@ -1866,7 +1878,10 @@ function LocaleSwitcher({
       <details className="group relative">
         <summary
           aria-current="true"
-          className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-[var(--menu-line)] px-3.5 py-1.5 text-xs font-medium text-[var(--menu-text)] transition-colors hover:border-[var(--menu-accent)] [&::-webkit-details-marker]:hidden"
+          /* In the footer, so surface ink — it was page ink on the surface
+             ground. Wash instead of a border, and the hover raises the wash
+             rather than drawing an accent edge. */
+          className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/7 px-3.5 py-1.5 text-xs font-medium text-[var(--menu-surface-text,var(--menu-text))] transition-colors hover:bg-[var(--menu-surface-text,var(--menu-text))]/13 [&::-webkit-details-marker]:hidden"
         >
           <span aria-hidden="true" className="text-base leading-none">
             {active.flag}
@@ -1879,14 +1894,14 @@ function LocaleSwitcher({
             ▲
           </span>
         </summary>
-        <ul className="absolute bottom-full right-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-line)] bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+        <ul className="absolute bottom-full right-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
           {enabled.map((l) => {
             const meta = localeMeta(l);
             return l === current ? (
               <li
                 key={l}
                 aria-current="true"
-                className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[var(--menu-accent)]"
+                className="flex items-center gap-2.5 bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-3.5 py-2 text-xs font-semibold text-[var(--menu-surface-text,var(--menu-text))]"
               >
                 <span aria-hidden="true" className="text-base leading-none">
                   {meta.flag}
@@ -1901,7 +1916,7 @@ function LocaleSwitcher({
                 <a
                   href={`/${l}`}
                   hrefLang={l}
-                  className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[var(--menu-text)] transition-colors hover:bg-[var(--menu-accent)]/10 hover:text-[var(--menu-accent)]"
+                  className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[var(--menu-surface-text,var(--menu-text))] transition-colors hover:bg-[var(--menu-surface-text,var(--menu-text))]/10"
                 >
                   <span aria-hidden="true" className="text-base leading-none">
                     {meta.flag}

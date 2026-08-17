@@ -53,7 +53,11 @@ export function AllergenDialog({
         onClick={() => setOpen(true)}
         title="Allergen information"
         aria-haspopup="dialog"
-        className="inline-flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-full border border-[var(--menu-accent)]/50 bg-[var(--menu-accent)]/10 px-1.5 text-[15px] leading-none text-[var(--menu-accent)] transition-transform hover:scale-110"
+        /* Wash, not an outline, and the glyph takes surface ink: accent is
+           guaranteed against a surface at 3:1, so a 15px accent ⚠ was short of
+           AA on the themes where accent is a pale gold. This chip sits inside a
+           dish card, hence surface ink. */
+        className="inline-flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-1.5 text-[15px] leading-none text-[var(--menu-surface-text,var(--menu-text))] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-text,var(--menu-text))]"
       >
         <span aria-hidden="true">⚠</span>
         <span className="sr-only">Allergen information</span>

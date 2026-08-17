@@ -61,7 +61,7 @@ export default async function OrderStatusPage({
     >
       {/* meta refresh: live without JavaScript */}
       {!isDone ? <meta httpEquiv="refresh" content="15" /> : null}
-      <div className="w-full max-w-md rounded-2xl border border-[var(--menu-line)] bg-[var(--menu-surface)] p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.5)]">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.5)]">
         <p className="text-center text-xs uppercase tracking-[0.28em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
           Bestellung verfolgen · Order tracking
         </p>
@@ -85,7 +85,9 @@ export default async function OrderStatusPage({
                     className="absolute left-[15px] top-8 h-[calc(100%-2rem)] w-0.5"
                     style={{
                       backgroundColor:
-                        reached && i < current ? "var(--menu-positive)" : "var(--menu-line)",
+                        reached && i < current
+                          ? "var(--menu-positive)"
+                          : "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 22%, transparent)",
                     }}
                   />
                 ) : null}
@@ -104,7 +106,8 @@ export default async function OrderStatusPage({
                           color: "var(--menu-surface, #fff)",
                         }
                       : {
-                          borderColor: "var(--menu-line)",
+                          borderColor:
+                            "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 28%, transparent)",
                           color: "var(--menu-surface-text-soft, var(--menu-text-soft))",
                         }
                   }
@@ -124,8 +127,8 @@ export default async function OrderStatusPage({
           })}
         </ol>
 
-        <div className="mt-8 rounded-xl border border-[var(--menu-line)] px-4 py-3 text-sm">
-          <ul className="mb-2 space-y-1 border-b border-[var(--menu-line)] pb-2">
+        <div className="mt-8 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/6 px-4 py-3 text-sm">
+          <ul className="mb-2 space-y-1 border-b border-[var(--menu-surface-text,var(--menu-text))]/12 pb-2">
             {order.items.map((line, i) => (
               <li key={i} className="flex items-center gap-2">
                 <span className="min-w-6 font-bold text-[var(--menu-surface-accent,var(--menu-accent))]">
