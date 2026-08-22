@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatPrice } from "./public-menu";
+import { vatFromGross } from "./report-service";
 import type { ReceiptOrder } from "./order-service";
 
 /**
@@ -128,6 +129,7 @@ export async function buildReceiptPdf(
     fulfilmentLineCount * LINE +
     (order.paymentStatus === "paid" ? LINE : 0) +
     bodyLines * LINE +
+    2 * LINE + // net + VAT rows above the total
     110; // total + footer block
 
   const page = doc.addPage([WIDTH, height]);
@@ -211,10 +213,16 @@ export async function buildReceiptPdf(
   });
 
   rule();
+  // German gross pricing: the total already includes 19 % VAT — show the
+  // net/VAT split so the receipt doubles as a tax-transparent record.
+  const vatCents = vatFromGross(order.totalCents);
+  const netCents = order.totalCents - vatCents;
+  spread("Net", price(netCents));
+  spread("VAT 19% (incl.)", price(vatCents));
   spread("TOTAL", price(order.totalCents), monoBold, 10);
   rule();
   y -= LINE / 2;
-  center("Prices include VAT.");
+  center("Total includes 19% VAT.");
   center("Payment is settled at the");
   center("restaurant - this is not");
   center("a tax invoice.");

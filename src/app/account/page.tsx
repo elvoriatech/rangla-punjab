@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { CUSTOMER_COOKIE, customerProviders, verifyCustomerToken } from "@/lib/customer-auth";
@@ -66,18 +67,16 @@ export default async function AccountPage({
       <h1 className="mt-2 font-serif text-4xl leading-tight">Mein Konto · My account</h1>
 
       {welcome ? (
-        <p role="status" className="mt-5 border border-gold/40 bg-card px-4 py-3 text-sm">
-          Willkommen! Du bist angemeldet.
-          {app ? " Du kannst dieses Fenster schließen — die App ist jetzt angemeldet." : ""}
-        </p>
+        <FlashMessage
+          kind="success"
+          text={`Willkommen! Du bist angemeldet.${app ? " Du kannst dieses Fenster schließen — die App ist jetzt angemeldet." : ""}`}
+        />
       ) : null}
       {error ? (
-        <p
-          role="alert"
-          className="mt-5 border border-red-800/30 bg-red-50 px-4 py-3 text-sm text-red-900"
-        >
-          Anmeldung fehlgeschlagen — bitte erneut versuchen. / Sign-in failed, please try again.
-        </p>
+        <FlashMessage
+          kind="error"
+          text="Anmeldung fehlgeschlagen — bitte erneut versuchen. / Sign-in failed, please try again."
+        />
       ) : null}
 
       {!customer ? (

@@ -51,7 +51,7 @@ function buildNav(base: string): RailItem[] {
     { href: `${base}/appearance`, label: "Appearance", icon: Palette },
     { href: `${base}/qr`, label: "QR codes", icon: QrCode },
     { href: `${base}/settings`, label: "Settings", icon: Settings },
-    { href: `${base}/billing`, label: "Billing", icon: CreditCard },
+    { href: `${base}/billing`, label: "Payments", icon: CreditCard },
   ];
 }
 

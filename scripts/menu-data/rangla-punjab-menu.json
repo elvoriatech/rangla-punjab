@@ -1,0 +1,1549 @@
+{
+  "categories": [
+    {
+      "name": "Warme Vorspeisen",
+      "items": [
+        {
+          "name": "Pakoras",
+          "description": "gemischtes Gem\u00fcse, in Kichererbsenmehl gewendet und frittiert",
+          "priceCents": 690,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mix Pakora-Gro\u00df (f\u00fcr 2-3 Personen)",
+          "description": "mit H\u00e4hnchenfleisch, Paneer, Gem\u00fcse und Sauce",
+          "priceCents": 1590,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Paneer Pakora",
+          "description": "hausgemachter Rahmk\u00e4se, in Kichererbsenmehl gewendet und frittiert",
+          "priceCents": 990,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Pakora",
+          "description": "H\u00e4hnchenfiletst\u00fccke, in Kichererbsenmehl gewendet und frittiert",
+          "priceCents": 790,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Jhinga Pakora",
+          "description": "Garnelen, in Kichererbsenmehl gewendet und frittiert",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["crustaceans", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Samosa",
+          "description": "2 gef\u00fcllte, frittierte Kartoffel-Erbsen-Teigtaschen",
+          "priceCents": 690,
+          "dietary": [],
+          "allergens": ["eggs", "gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Gemischte Tikkas",
+          "description": "Hariyali Tikka, Chicken Tikka, Garlic Chicken Tikka, dazu verschiedene Chutneys",
+          "priceCents": 990,
+          "dietary": [],
+          "allergens": ["milk", "sulphites"],
+          "spice": 0
+        },
+        {
+          "name": "Pommes Frites",
+          "priceCents": 500,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Extra Reis",
+          "priceCents": 400,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Chutneys",
+          "description": "Verschiedene Sauce",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Pani Puri",
+          "priceCents": 790,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chaat Papri",
+          "description": "mit Kichererbsen, Paprika, frische Tomaten, Granatapfel, verschiedene Saucen",
+          "priceCents": 790,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Suppen",
+      "items": [
+        {
+          "name": "Dal Suppe",
+          "description": "Linsensuppe",
+          "priceCents": 750,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Sabzi Suppe",
+          "description": "Gem\u00fcsesuppe",
+          "priceCents": 850,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "H\u00fchnersuppe",
+          "description": "Huhn",
+          "priceCents": 990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Tomatensuppe",
+          "description": "Tomaten",
+          "priceCents": 890,
+          "dietary": [],
+          "allergens": ["eggs", "gluten", "milk", "celery"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Salate",
+      "items": [
+        {
+          "name": "Gemischter Salat",
+          "description": "Blattsalat mit Gurken, Tomaten, Mais und Granatapfelkernen",
+          "priceCents": 990,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Salat",
+          "description": "gemischter Salat mit gebratenem H\u00e4hnchenfilet, Tandoori und Paprika",
+          "priceCents": 1490,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Paneer Salat",
+          "description": "gemischter Salat mit gebratenem Rahmk\u00e4se",
+          "priceCents": 1490,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Jhinga Salat",
+          "description": "gemischter Salat mit gebratenen Garnelen",
+          "priceCents": 1790,
+          "dietary": [],
+          "allergens": ["crustaceans"],
+          "spice": 0
+        },
+        {
+          "name": "Raita",
+          "description": "Joghurt mit Gurke, Zwiebeln und Karotten",
+          "priceCents": 400,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Vegane Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Palak Tofu",
+          "description": "mit Spinat und Kokosmilch",
+          "priceCents": 1590,
+          "dietary": ["vegan"],
+          "allergens": ["milk", "soybeans"],
+          "spice": 0
+        },
+        {
+          "name": "Shahi Tofu (leicht s\u00fc\u00df)",
+          "description": "mit Cashewn\u00fcssen und Kokosmilch",
+          "priceCents": 1590,
+          "dietary": ["vegan"],
+          "allergens": ["milk", "nuts", "soybeans"],
+          "spice": 0
+        },
+        {
+          "name": "Mango Tofu",
+          "description": "mit Mango, Cashewn\u00fcssen, Kokosmilch und indischen Gew\u00fcrzen",
+          "priceCents": 1590,
+          "dietary": ["vegan"],
+          "allergens": ["soybeans"],
+          "spice": 0
+        },
+        {
+          "name": "Karahi Tofu",
+          "description": "mit Currysauce, Paprika, Tomaten und Zwiebeln",
+          "priceCents": 1590,
+          "dietary": ["vegan"],
+          "allergens": ["soybeans"],
+          "spice": 0
+        },
+        {
+          "name": "Tikka Masala Tofu",
+          "description": "mit Zwiebeln, Tomaten, roter Currysauce, Koriander und frischem Ingwer",
+          "priceCents": 1590,
+          "dietary": ["vegan"],
+          "allergens": ["soybeans"],
+          "spice": 0
+        },
+        {
+          "name": "Chili Tofu",
+          "description": "in Kichererbsenmehl panierter Bio-Tofu mit Paprika, s\u00fc\u00df-saurer Tomatensauce und Sojasauce",
+          "priceCents": 1590,
+          "dietary": ["vegan"],
+          "allergens": ["soybeans"],
+          "spice": 1
+        },
+        {
+          "name": "Tofu Madrasi",
+          "description": "mit Kokosmilch, nach s\u00fcdindischer Art",
+          "priceCents": 1590,
+          "dietary": ["vegan"],
+          "allergens": ["sulphites", "soybeans"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Vegetarische Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Sabzi Makhani",
+          "description": "Gem\u00fcse mit Butter, Cashewn\u00fcssen und Tomatensauce",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Sabzi Curry",
+          "description": "Curry aus frischem Gem\u00fcse der Saison, Cashewn\u00fcssen und Zwiebeln",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": ["nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Matter Paneer",
+          "description": "hausgemachter, frischer Rahmk\u00e4se mit gr\u00fcnen Erbsen",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Palak Paneer",
+          "description": "hausgemachter, frischer Rahmk\u00e4se mit Spinat",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Alu Saag",
+          "description": "gebratene Kartoffeln mit Spinat, Zwiebeln und Ingwer",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Alu Chana Masala",
+          "description": "Kartoffeln und Kichererbsen mit typisch indischen Gew\u00fcrzen",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Karahi Paneer",
+          "description": "hausgemachter Rahmk\u00e4se mit Currysauce, Paprika, Tomaten und Zwiebeln",
+          "priceCents": 1750,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Shahi Paneer (leicht, s\u00fc\u00df)",
+          "description": "hausgemachter Rahmk\u00e4se mit Cashewn\u00fcssen und Sahnesauce",
+          "priceCents": 1750,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Malai Kofta",
+          "description": "R\u00f6llchen aus Kartoffeln, Rahmk\u00e4se und Cashewn\u00fcssen, in Sahnesauce",
+          "priceCents": 1750,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Paneer Kashmiri (leicht-s\u00fc\u00df)",
+          "description": "hausgemachter Rahmk\u00e4se mit Cashewn\u00fcssen und Tomaten, in leicht s\u00fc\u00dfer Sauce",
+          "priceCents": 1750,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Dal Tarka",
+          "description": "Linsengericht mit Currysauce, nach indischer Art",
+          "priceCents": 1490,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Sabzi Jhalfrezi (s\u00fc\u00df-scharf)",
+          "description": "saisonales, frisches Gem\u00fcse mit scharf gew\u00fcrzter Sauce, Ingwer, Knoblauch und Paprika",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 2
+        },
+        {
+          "name": "Paneer Butter Masala (s\u00fc\u00df)",
+          "description": "hausgemachter K\u00e4se mit Butter, Tomaten und indischen Gew\u00fcrzen",
+          "priceCents": 1790,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Bengen Ka Bharta",
+          "description": "gegrillte Auberginen mit Currysauce",
+          "priceCents": 1890,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Bhindi Masala",
+          "description": "gebratene Okraschoten mit Ingwer, Tomaten, Zwiebeln und indischen Gew\u00fcrzen",
+          "priceCents": 1690,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Dal Palak",
+          "description": "Linsen mit Spinat, Zwiebeln und indischen Gew\u00fcrzen",
+          "priceCents": 1550,
+          "dietary": ["vegetarian"],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Alu Bengen",
+          "description": "gegrillte Auberginen und Kartoffeln, in Currysauce",
+          "priceCents": 1590,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Dal Makhni",
+          "description": "schwarze Linsen mit Sahne, Butter, Tomaten und Knoblauch",
+          "priceCents": 1790,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Kola Puri",
+          "description": "Paneer (ausgemachter frischer Rahmk\u00e4se) mit Gem\u00fcse",
+          "priceCents": 1550,
+          "dietary": ["vegetarian"],
+          "allergens": ["milk"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Fisch- und Meeresfrucht Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Fisch Curry",
+          "description": "Seelachslion mit Cashewn\u00fcssen, Zwiebeln und Currysauce",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["fish", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Fisch Masala",
+          "description": "Seelachslion in einer Zubereitung aus Zwiebeln, frischem Ingwer, Knoblauch, Tomaten und Cashewn\u00fcssen",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["fish", "milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Fisch Madrasi",
+          "description": "Seelachslion nach s\u00fcdindischer Art mit Kokosmilch und Tomatensauce",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["fish"],
+          "spice": 0
+        },
+        {
+          "name": "Jhinga Masala",
+          "description": "gebratene Garnelen mit feinen, indischen Gew\u00fcrzen, Ingwer, Knoblauch und Kr\u00e4utern",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["crustaceans"],
+          "spice": 0
+        },
+        {
+          "name": "Jhinga Curry",
+          "description": "Garnelen in Currysauce",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["crustaceans"],
+          "spice": 0
+        },
+        {
+          "name": "Jhinga Kashmiri (leicht s\u00fc\u00df)",
+          "description": "Garnelen mit Cashewn\u00fcssen, frischem Apfel, Granatapfelkernen und Tomatensauce",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["crustaceans", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Jhinga Dal",
+          "description": "Garnelen mit Linsen und indischen Gew\u00fcrzen",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["crustaceans"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Reis Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Sabzi Biryani (w\u00fcrzig)",
+          "description": "garniert mit Cashewn\u00fcssen, Rosinen, ger\u00f6steten Zwiebeln, Basmatireis, N\u00fcssen und feinen, indischen Gew\u00fcrzen",
+          "priceCents": 1750,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Biryani (w\u00fcrzig)",
+          "description": "garniert mit Cashewn\u00fcssen, Rosinen, ger\u00f6steten Zwiebeln, H\u00e4hnchenfilet und Basmatireis",
+          "priceCents": 1850,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Biryani (w\u00fcrzig)",
+          "description": "garniert mit Cashewn\u00fcssen, Rosinen, ger\u00f6steten Zwiebeln, Lammfleisch und Basmatireis, garniert mit Cashewn\u00fcssen, Rosinen, ger\u00f6steten Zwiebeln",
+          "priceCents": 1950,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Jhinga Biryani (w\u00fcrzig)",
+          "description": "garniert mit Cashewn\u00fcssen, Rosinen, ger\u00f6steten Zwiebeln, gebratenen Krabben und Basmatireis",
+          "priceCents": 2250,
+          "dietary": [],
+          "allergens": ["crustaceans", "milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Matter Paneer Pulao (leicht s\u00fc\u00df)",
+          "description": "mit gebratenem K\u00e4se, Erbsen, frischem Apfel, Granatapfel und Datteln",
+          "priceCents": 1790,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Rangla Chicken Pulao (leicht s\u00fc\u00df)",
+          "description": "mit H\u00e4hnchenfilet, Basmatireis, Datteln, Rosinen, Mandeln, Cashewn\u00fcssen, frischem Apfel und Granatapfelkernen",
+          "priceCents": 1790,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Rangla Lamm Pulao (leicht s\u00fc\u00df)",
+          "description": "mit Lammfleisch, Basmatireis, Datteln, Rosinen, Mandeln, Cashewn\u00fcssen, frischem Apfel und Granatapfelkernen",
+          "priceCents": 1790,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Lamm Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Lamm Curry",
+          "description": "Lamm in Currysauce mit frischem Ingwer, Knoblauch und Zwiebeln",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Saag",
+          "description": "Lamm in Spinat mit frischem Ingwer und Knoblauch",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Makhani Wala",
+          "description": "Lamm in w\u00fcrziger Mischung aus Zwiebeln, Knoblauch, Tomatencurry und Salt-Sweet-Sauce",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Sabzi Curry",
+          "description": "Lamm mit saisonalen Gem\u00fcse",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Vindaloo",
+          "description": "Lamm-Spezialit\u00e4t nach s\u00fcdindischer Art mit Kartoffeln in exotischer Sauce",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 2
+        },
+        {
+          "name": "Lamm Madrasi",
+          "description": "Lamm nach s\u00fcdindischer Art mit Kokos",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Korma",
+          "description": "Lamm in einer milden Sauce aus Gew\u00fcrzen, Sahne, Mandeln, Cashewn\u00fcssen, frischem Apfel und Granatapfel",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Dal",
+          "description": "Lamm mit Linsen in indischer Gew\u00fcrz-Kombination",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Kashmiri Kofta",
+          "description": "Lamm-Hackfleischb\u00e4llchen mit Kashmiri Chili, Garam Masala, Anis, frischem Apfel und Granatapfel",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 1
+        },
+        {
+          "name": "Lamm Karahi",
+          "description": "Lamm mit Paprika, Tomaten, Zwiebeln und w\u00fcrziger Sauce",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Kashmiri",
+          "description": "Lamm in einer leicht s\u00fc\u00dfen Sauce mit Trockenfr\u00fcchten und frischen Fr\u00fcchten",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Peshawari Seek Masala",
+          "description": "amm-Hackfleisch nach pakistanischer Art mit Tomaten und feiner Sauce",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Bindi Masala",
+          "description": "Lamm mit indischen Okraschoten, Tomaten, Zwiebelsauce, Gew\u00fcrzen, frischem Ingwer und Koriander",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "H\u00e4hnchen Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Chicken Curry",
+          "description": "mit H\u00e4hnchenfilet und Currysauce, nach nordindischer Art",
+          "priceCents": 1750,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Sabzi",
+          "description": "mit H\u00e4hnchenfilet, saisonalem, frischem Gem\u00fcse und Currysauce",
+          "priceCents": 1750,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Saag",
+          "description": "mit H\u00e4hnchenfilet, Spinat, frischem Ingwer und Knoblauch",
+          "priceCents": 1750,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Vindaloo",
+          "description": "s\u00fcd-indische H\u00e4hnchen-Spezialit\u00e4t mit Kartoffeln",
+          "priceCents": 1750,
+          "dietary": [],
+          "allergens": ["milk", "sulphites", "mustard"],
+          "spice": 2
+        },
+        {
+          "name": "Chicken Korma",
+          "description": "mit H\u00e4hnchenfleisch und einer milden Sauce aus Gew\u00fcrzen, Cashewn\u00fcssen und Sahne",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts", "soybeans"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Mango (s\u00fc\u00df)",
+          "description": "mit H\u00e4hnchenfilet und Cashewnuss-Sauce mit Mango",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Kashmiri (s\u00fc\u00df)",
+          "description": "mit gebratenem H\u00e4hnchenfleisch und einer Sauce aus Zwiebeln, Tomaten, Sahne, frischem Apfel und Granatapfel",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Karahi",
+          "description": "mit H\u00e4hnchenfleischst\u00fccken, Currysauce, Paprika, Tomaten und Zwiebeln",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Madrasi",
+          "description": "mit H\u00e4hnchenfilet und Kokosmilch, nach s\u00fcd-indischer Art",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["sulphites"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Jhalfrezi",
+          "description": "mit scharf gew\u00fcrztem H\u00e4hnchenfilet, frischem Ingwer, Knoblauch, Paprika und Tomaten",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": [],
+          "spice": 2
+        },
+        {
+          "name": "Chicken Dopiaza",
+          "description": "mit H\u00e4hnchenfilet, Currysauce und gebratenen Zwiebeln",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["eggs", "gluten", "milk", "celery"],
+          "spice": 0
+        },
+        {
+          "name": "Butter Chicken",
+          "description": "mit gegrilltem H\u00e4hnchenfleisch, Tomatensauce, Butter, Sahne, Mandeln und Cashewn\u00fcssen",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Tikka Masala",
+          "description": "mit gegrilltem H\u00e4hnchenfleisch, Zwiebeln, Tomaten, roter Currysauce, Koriander, frischem Ingwer und indischem Masala",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chili Chicken",
+          "description": "gebratenes H\u00e4hnchenfilet paniert in Kichererbsenmehl, mit Paprika, Sojasauce und s\u00fc\u00df-saurer Tomatensauce",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 1
+        },
+        {
+          "name": "Nawabi Chicken",
+          "description": "mit H\u00e4hnchenfleisch, Kokos-Mandelsauce und Paneer",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Chana Masala",
+          "description": "mit gebratenem H\u00e4hnchenfleisch und einer Sauce aus Zwiebeln, Tomaten, Sahne",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Hyderabadi",
+          "description": "mit H\u00e4hnchenfleisch, Cashewnuss-Sauce und Minzsauce",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Gulabi Chicken (leicht s\u00fc\u00df)",
+          "description": "mit H\u00e4hnchenbrust, Kardamom, Rosenbl\u00fcten, Cashewn\u00fcssen, Pistazien und Mandeln",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Sookha Chicken",
+          "description": "mit H\u00e4hnchenbrust, Kokosnuss, Minze, w\u00fcrziger Sauce, Koriander und Kashmir-Masala",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Indische Fladenbrot-Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Tandoori Roti",
+          "description": "Indisches Fladenbrot aus Vollkornmehl",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": ["gluten"],
+          "spice": 0
+        },
+        {
+          "name": "Naan",
+          "description": "Indisches Fladenbrot aus Wei\u00dfmehl",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": ["gluten"],
+          "spice": 0
+        },
+        {
+          "name": "Garlic Naan",
+          "description": "Indisches Fladenbrot mit Knoblauch",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Butter Naan",
+          "description": "Indisches Fladenbrot mit Butter",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Hariyali Naan",
+          "description": "indisches Fladenbrot mit Koriander, Spinat und Gew\u00fcrzen, dazu Raita",
+          "priceCents": 490,
+          "dietary": [],
+          "allergens": ["gluten"],
+          "spice": 0
+        },
+        {
+          "name": "Aloo Paratha",
+          "description": "Indisches Fladenbrot gef\u00fcllt mit w\u00fcrzigen Kartoffeln, dazu Raita",
+          "priceCents": 790,
+          "dietary": [],
+          "allergens": ["gluten"],
+          "spice": 0
+        },
+        {
+          "name": "Paneer Naan",
+          "description": "indisches Fladenbrot gef\u00fcllt mit hausgemachtem K\u00e4se, dazu Raita",
+          "priceCents": 890,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Papadam",
+          "description": "Kichererbsen-Brot",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mix Naan",
+          "description": "mit Tandoori Roti, Garlic Naan, Saada Naan und Butter Naan, dazu Raita",
+          "priceCents": 1490,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Cheese Naan",
+          "description": "Fladenbrot aus Weizenmehl mit Gouda",
+          "priceCents": 890,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Peshwari Naan",
+          "description": "aus Weizenmehl, gef\u00fcllt mit Mandeln, Rosinen, Kokosnuss und Honig",
+          "priceCents": 890,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Keema Naan mit Lammfleisch",
+          "description": "aus Weizenmehl",
+          "priceCents": 1090,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Keema Naan mit H\u00e4hnchenfleisch",
+          "description": "aus Weizenmehl",
+          "priceCents": 990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Tandoori Spezialit\u00e4ten",
+      "items": [
+        {
+          "name": "Peshwari Seekh Kabab",
+          "description": "mit Lammhackfleisch, am Spie\u00df gegrillt und nord-pakistanisch gew\u00fcrzt, dazu Chutneys",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Hariyali Tikka",
+          "description": "in Minz-Joghurt mariniertes H\u00e4hnchen, am Spie\u00df gegrillt, dazu Chutneys",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Chicken Tikka",
+          "description": "mit H\u00e4hnchenfilet und Tandoori Masala, am Spie\u00df gegrillt, dazu Chutneys",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Lahori King Prawn",
+          "description": "gegrillte Garnelen nach Punjabi-Art, mit feinen Gew\u00fcrzen und Joghurt mariniert, dazu Chutneys",
+          "priceCents": 2290,
+          "dietary": [],
+          "allergens": ["crustaceans", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Garlic Chicken Tikka",
+          "description": "im Tandoor gegrillte H\u00e4hnchenbrust mit Knoblauch-Cashew-Marinade, dazu Chutneys",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Lamm Boti Tikka (s\u00fc\u00df)",
+          "description": "mit Lammfleisch aus der Keule und indischen Gew\u00fcrzen, am Spie\u00df gegrillt",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": ["nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Tandoori Chicken",
+          "description": "mit gegrillten H\u00e4hnchenschenkeln, Tandoor Masala und Joghurt-Cashewnuss-Marinade",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["milk", "nuts"],
+          "spice": 0
+        },
+        {
+          "name": "Paneer Tikka (s\u00fc\u00df)",
+          "description": "gegrillter, hausgemachter K\u00e4se mit Gem\u00fcse-Spie\u00dfen und Sauce",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Afghani Tandoori Chicken (w\u00fcrzig scharf)",
+          "description": "mit gegrillten H\u00e4hnchenschenkeln, wei\u00dfem Pfeffer und Joghurt-Quark-Cashewnuss-Marinade, dazu Chutneys",
+          "priceCents": 1890,
+          "dietary": [],
+          "allergens": ["nuts"],
+          "spice": 1
+        },
+        {
+          "name": "Mix Grill-Teller",
+          "description": "mit Hariyali Tikka, Garlic Chicken Tikka, Peshawari Seekh und Chicken Tikka, dazu Chutneys",
+          "priceCents": 2490,
+          "dietary": [],
+          "allergens": ["gluten", "fish", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Jambo Grill-Teller",
+          "description": "mit Hariyali Tikka, Garlic Chicken Tikka, Tandoori Chicken, Peshawari Seekh und Chicken Tikka, dazu Chutneys",
+          "priceCents": 4790,
+          "dietary": [],
+          "allergens": ["gluten", "fish", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Fisch Tikka",
+          "description": "Seelachslion am Spie\u00df gegrillt, dazu Chutney",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": ["gluten", "fish", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Fisch Garlic",
+          "description": "Seelachsloin gegrillt mit Knoblauch-Cashew-Marinade, dazu Chutneys",
+          "priceCents": 1990,
+          "dietary": [],
+          "allergens": ["fish", "nuts"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Kinderteller",
+      "items": [
+        {
+          "name": "Chicken Korma",
+          "description": "H\u00e4hnchen und Basmatireis",
+          "priceCents": 1190,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Sabzi Curry",
+          "description": "Gem\u00fcse, K\u00e4se und Basmatireis",
+          "priceCents": 990,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Desserts",
+      "items": [
+        {
+          "name": "Indisches Halwa",
+          "description": "Grie\u00df mit gemischten Trockenfr\u00fcchten",
+          "priceCents": 590,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Indisches Vermicelles",
+          "description": "mit Milch, Kardamom und Rosinen",
+          "priceCents": 590,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Indisches Kulfi",
+          "description": "Eis mit Pistazien, Kardamom dazu Sahne",
+          "priceCents": 750,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        },
+        {
+          "name": "Gulab Jamun",
+          "priceCents": 590,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Kheer",
+          "description": "mit Reis, Milch, Zucker, Fr\u00fcchten und Rosenbl\u00fcten",
+          "priceCents": 590,
+          "dietary": [],
+          "allergens": ["gluten", "milk"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Kalte Getr\u00e4nke",
+      "items": [
+        {
+          "name": "Sprite 0,33l",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Sprite 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mezzo-Mix 0,33l",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mezzo-Mix 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Coca-Cola 0,33l",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Coca-Cola 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Coca-Cola Zero 0,33l",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Coca-Cola Zero 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Fanta 0,33l",
+          "priceCents": 350,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Fanta 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mineralwasser still 0,75l",
+          "priceCents": 490,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mineralwasser Classic 0,75l",
+          "priceCents": 490,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mangosaft 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Orangensaft 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Apfel-Saft  0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Johannisbeersaft 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Ananassaft 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Maracujasaft 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Traubensaft 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mangoschorle 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Orangenschorle 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Apfel-Schorle 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Johannisbeerschorle 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Ananasschorle 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Maracujaschorle 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Traubenschorle 0,5l",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Eistee Pfirsich 0,4l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Lassi",
+      "items": [
+        {
+          "name": "Rosen Lassi 0,3l",
+          "description": "mit Kokosraspeln",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Rosen Lassi 0,5l",
+          "description": "mit Kokosraspeln",
+          "priceCents": 500,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Mango Lassi 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mango Lassi 0,5l",
+          "priceCents": 500,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Kokos Lassi 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Kokos Lassi 0,5l",
+          "priceCents": 500,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        },
+        {
+          "name": "Granatapfel Lassi 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Granatapfel Lassi 0,5l",
+          "priceCents": 500,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Erdbeer Lassi 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Erdbeer Lassi 0,5l",
+          "priceCents": 500,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Salziges Lassi 0,3l",
+          "priceCents": 390,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Salziges Lassi 0,5l",
+          "priceCents": 500,
+          "dietary": [],
+          "allergens": ["milk"],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Limonade",
+      "items": [
+        {
+          "name": "Anari Scharbat",
+          "description": "Limonade aus Granatapfel, Limette, mit Zitone und Minzbl\u00e4tter",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mango-Orangen-Limo",
+          "description": "Limonade aus Mango, Zitronen und Orangen",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Punjab' Limo",
+          "description": "Limonade aus frischem Ingwer, Minze, Zitrone",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Limetten-Limo",
+          "description": "Limonade aus frischen Limetten Chrushed Eis, brauner Zucker",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Grapefruit-Limo",
+          "description": "Limonade aus Grapefruit, Zitronen mit Minzbl\u00e4tte",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mint Margarita-Limo",
+          "description": "Limonade mit Minze, Zitrone, Ingwer, Minzsirup, Chrushed Eis, Salz",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Kaffee und Tee",
+      "items": [
+        {
+          "name": "Kaffee",
+          "priceCents": 220,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Espresso",
+          "priceCents": 220,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Indischer Chai",
+          "description": "im K\u00e4nnchen, mit Zimt",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Kashmiri Chai",
+          "description": "im K\u00e4nnchen, mit Gr\u00fcnem Tee, Milch, Rosenbl\u00e4ttern, Kardamom und Pistazien",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Gr\u00fcner Kashmir Tee",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Joshanda - Ayurvedischer Tee",
+          "description": "\u201eEmpfehlung bei Erk\u00e4ltung\u201c",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Ingwer-Minze Tee",
+          "description": "Frischer Ingwer und Minze",
+          "priceCents": 450,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Alkoholfreie Cocktails",
+      "items": [
+        {
+          "name": "Punjab Sunrise",
+          "description": "Limo, Orangensaft",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Red Bull Lagoon",
+          "description": "Red Bull, Limo, Blue Curacao, Minze",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mango Island",
+          "description": "Blue Curacao, Mangosaft, Tonic Water, Sprudelwasser",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Virgin Bellini",
+          "description": "Grenadine, Johannisbeeren, Tonic Water",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mango Mojito",
+          "description": "Limonade aus Grapefruit, Zitronen mit Minzbl\u00e4tter",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Mint Margarita",
+          "description": "Limetten, Mango, Tonic Water, brauner Zucker",
+          "priceCents": 650,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        }
+      ]
+    },
+    {
+      "name": "Bier",
+      "items": [
+        {
+          "name": "F\u00fcrstenberg Pils alkoholfrei 0,5l",
+          "priceCents": 400,
+          "dietary": [],
+          "allergens": ["gluten"],
+          "spice": 0
+        },
+        {
+          "name": "Radler alkoholfrei 0,5l",
+          "description": "s\u00fc\u00dfgespritzt",
+          "priceCents": 400,
+          "dietary": [],
+          "allergens": [],
+          "spice": 0
+        },
+        {
+          "name": "Rothaus Hefeweizen alkoholfrei 0,5l",
+          "priceCents": 400,
+          "dietary": [],
+          "allergens": ["gluten"],
+          "spice": 0
+        }
+      ]
+    }
+  ]
+}

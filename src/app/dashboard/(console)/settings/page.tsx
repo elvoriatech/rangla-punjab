@@ -1,4 +1,5 @@
 import { BRAND } from "@/lib/brand";
+import { FlashMessage } from "@/components/flash-message";
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import {
@@ -102,16 +103,7 @@ export default async function SettingsPage({
       <h1 className="font-serif text-4xl leading-tight">Restaurant details</h1>
 
       {banner?.text ? (
-        <p
-          role={banner.kind === "error" ? "alert" : "status"}
-          className={
-            banner.kind === "error"
-              ? "mt-6 border border-red-800/30 bg-red-50 px-4 py-3 text-sm text-red-900"
-              : "mt-6 border border-gold/50 bg-card px-4 py-3 text-sm"
-          }
-        >
-          {banner.text}
-        </p>
+        <FlashMessage kind={banner.kind === "error" ? "error" : "success"} text={banner.text} />
       ) : null}
 
       {/* Name */}

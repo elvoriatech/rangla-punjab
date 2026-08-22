@@ -24,6 +24,11 @@ interface CartApi {
   add: (item: ApiItem) => void;
   setQuantity: (itemId: string, quantity: number) => void;
   clear: () => void;
+  /** Re-anchor persisted lines to the menu currently being served. A
+   *  republished menu issues new item ids, which would otherwise strand
+   *  the cart in permanent `unknown_items` rejection. Same-named dishes
+   *  are remapped (id, price, photo); vanished dishes are dropped. */
+  reconcile: (items: ApiItem[]) => void;
 }
 
 const CartContext = createContext<CartApi | null>(null);
@@ -82,6 +87,31 @@ export function CartProvider({ children }: { children: React.ReactNode }): React
               ),
         ),
       clear: () => setLines([]),
+      reconcile: (items) =>
+        setLines((prev) => {
+          const byId = new Map(items.map((i) => [i.id, i]));
+          const byName = new Map(items.map((i) => [i.name.trim().toLowerCase(), i]));
+          let changed = false;
+          const next: CartLine[] = [];
+          for (const line of prev) {
+            if (byId.has(line.itemId)) {
+              next.push(line);
+              continue;
+            }
+            const match = byName.get(line.name.trim().toLowerCase());
+            changed = true;
+            if (match) {
+              next.push({
+                ...line,
+                itemId: match.id,
+                priceCents: match.priceCents,
+                photoUrl: match.photoUrl,
+              });
+            }
+            // No match → the dish left the menu; drop the line.
+          }
+          return changed ? next : prev;
+        }),
     };
   }, [lines]);
 

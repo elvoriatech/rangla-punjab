@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { getSessionUserId } from "@/lib/auth";
 import { adminGetTemplate } from "@/lib/menu-template-service";
@@ -99,18 +100,7 @@ export default async function AdminTemplateEditorPage({
           </span>
         </header>
 
-        {tioNotice ? (
-          <p
-            role="status"
-            className={
-              tioError
-                ? "mt-6 border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-                : "mt-6 border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
-            }
-          >
-            {tioNotice}
-          </p>
-        ) : null}
+        {tioNotice ? <FlashMessage kind={tioError ? "error" : "success"} text={tioNotice} /> : null}
 
         {/* Populate from a spreadsheet — download the format, edit, re-upload. */}
         <section className="mt-6 border border-white/10 bg-white/[0.02] p-5">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FlashMessage } from "@/components/flash-message";
 import { notFound, redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { accessForRow, adminListTenants, adminListTenantsPage } from "@/lib/platform-admin";
@@ -128,25 +129,18 @@ export default async function AdminRestaurantsPage({
       </header>
 
       {saved ? (
-        <p
-          role="status"
-          className="mx-auto mt-6 max-w-6xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
-        >
-          {saved === "provisioned"
-            ? "Restaurant provisioned — the owner has been emailed a set-password invite."
-            : saved === "invited"
-              ? "Invite email sent to the owner."
-              : "Saved."}
-        </p>
+        <FlashMessage
+          kind="success"
+          text={
+            saved === "provisioned"
+              ? "Restaurant provisioned — the owner has been emailed a set-password invite."
+              : saved === "invited"
+                ? "Invite email sent to the owner."
+                : "Saved."
+          }
+        />
       ) : null}
-      {error ? (
-        <p
-          role="alert"
-          className="mx-auto mt-6 max-w-6xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-        >
-          That didn&apos;t work — try again.
-        </p>
-      ) : null}
+      {error ? <FlashMessage kind="error" text="That didn't work — try again." /> : null}
 
       <nav aria-label="Tenant filter" className="mx-auto mt-8 flex max-w-6xl gap-2 text-xs">
         {(Object.keys(FILTERS) as (keyof typeof FILTERS)[]).map((key) => {

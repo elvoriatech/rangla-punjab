@@ -66,6 +66,13 @@ function Shell(): React.ReactElement {
   }, [lang]);
   useEffect(load, [load]);
 
+  // A republished menu invalidates persisted cart item ids — re-anchor
+  // the cart to whatever the server is serving right now.
+  const reconcile = cart.reconcile;
+  useEffect(() => {
+    if (menu) reconcile(menu.categories.flatMap((c) => c.items));
+  }, [menu, reconcile]);
+
   const onAdd = useCallback((item: ApiItem) => cart.add(item), [cart]);
   const onPlaced = useCallback((order: PlacedOrder) => {
     setOrdersRefresh((n) => n + 1);

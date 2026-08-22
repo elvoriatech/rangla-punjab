@@ -16,6 +16,15 @@ import { AutoPrint } from "./auto-print";
  * this page in the kitchen.
  */
 
+/** How the guest pays: "Paid · Card"/"Paid · PayPal" once settled online,
+ *  "Cash" (settled at the restaurant) otherwise. */
+function paymentBadge(order: { paymentStatus: string; paymentProvider: string | null }): string {
+  if (order.paymentStatus !== "paid") return "Cash";
+  if (order.paymentProvider === "paypal") return "Paid · PayPal";
+  if (order.paymentProvider === "stripe") return "Paid · Card";
+  return "Paid";
+}
+
 export default async function OrdersPage({
   searchParams,
 }: {
@@ -78,15 +87,22 @@ export default async function OrdersPage({
         ) : (
           <ul className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             {open.map((order) => (
-              <li key={order.id} className="border-2 border-orange/60 bg-card px-5 py-4">
+              <li
+                key={order.id}
+                className="flex flex-col border-2 border-orange/60 bg-card px-5 py-4"
+              >
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-serif text-2xl">
                     #{String(order.orderNumber).padStart(4, "0")}
-                    {order.paymentStatus === "paid" ? (
-                      <span className="ml-2 rounded bg-[#3f7030]/15 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-[#3f7030]">
-                        Paid
-                      </span>
-                    ) : null}
+                    <span
+                      className={
+                        order.paymentStatus === "paid"
+                          ? "ml-2 rounded bg-[#3f7030]/15 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-[#3f7030]"
+                          : "ml-2 rounded bg-ink/10 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-muted"
+                      }
+                    >
+                      {paymentBadge(order)}
+                    </span>
                     {fulfilmentLines(order)[0] ? (
                       <span className="ml-3 text-lg text-orange-dark">
                         {fulfilmentLines(order)[0]}
@@ -100,7 +116,7 @@ export default async function OrdersPage({
                     }).format(order.createdAt)}
                   </p>
                 </div>
-                <ul className="mt-3 space-y-1 text-sm">
+                <ul className="mt-3 flex-1 space-y-1 text-sm">
                   {order.items.map((item, i) => (
                     <li key={i} className="flex items-baseline gap-2">
                       <span className="font-bold tabular-nums">{item.quantity}×</span>
@@ -108,49 +124,50 @@ export default async function OrdersPage({
                     </li>
                   ))}
                 </ul>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-bold tabular-nums">
+                {/* Action row: pinned to the card's bottom edge (mt-auto on a
+                    flex-col card) and locked to ONE line — buttons must sit in
+                    the same place on every card regardless of item count. */}
+                <div className="mt-auto flex items-center gap-2 pt-4">
+                  <p className="mr-auto whitespace-nowrap text-sm font-bold tabular-nums">
                     {formatPrice(order.totalCents, order.currency, "de")}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={`/print/order/${order.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="border border-ink/20 px-3.5 py-2 text-xs uppercase tracking-[0.14em] text-muted hover:border-ink/50 hover:text-ink"
-                    >
-                      View
-                    </a>
-                    <a
-                      href={`/print/order/${order.id}?auto=1`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="border border-ink/20 px-3.5 py-2 text-xs uppercase tracking-[0.14em] text-muted hover:border-ink/50 hover:text-ink"
-                    >
-                      🖨 Print
-                    </a>
-                    {order.status !== "placed" ? (
-                      <span className="self-center rounded-full border border-ink/15 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-muted">
-                        {order.status.replaceAll("_", " ")}
-                      </span>
-                    ) : null}
-                    {nextStatus(order.status, order.orderType) ? (
-                      <form action={advanceOrderAction}>
-                        <input type="hidden" name="orderId" value={order.id} />
-                        <input
-                          type="hidden"
-                          name="to"
-                          value={nextStatus(order.status, order.orderType)!}
-                        />
-                        <button
-                          type="submit"
-                          className="bg-orange px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
-                        >
-                          {advanceLabel(nextStatus(order.status, order.orderType)!)}
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
+                  {order.status !== "placed" ? (
+                    <span className="whitespace-nowrap rounded-full border border-ink/15 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-muted">
+                      {order.status.replaceAll("_", " ")}
+                    </span>
+                  ) : null}
+                  <a
+                    href={`/print/order/${order.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="whitespace-nowrap border border-ink/20 px-3 py-2 text-xs uppercase tracking-[0.14em] text-muted hover:border-ink/50 hover:text-ink"
+                  >
+                    View
+                  </a>
+                  <a
+                    href={`/print/order/${order.id}?auto=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="whitespace-nowrap border border-ink/20 px-3 py-2 text-xs uppercase tracking-[0.14em] text-muted hover:border-ink/50 hover:text-ink"
+                  >
+                    🖨 Print
+                  </a>
+                  {nextStatus(order.status, order.orderType) ? (
+                    <form action={advanceOrderAction} className="shrink-0">
+                      <input type="hidden" name="orderId" value={order.id} />
+                      <input
+                        type="hidden"
+                        name="to"
+                        value={nextStatus(order.status, order.orderType)!}
+                      />
+                      <button
+                        type="submit"
+                        className="whitespace-nowrap bg-orange px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+                      >
+                        {advanceLabel(nextStatus(order.status, order.orderType)!)}
+                      </button>
+                    </form>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -170,11 +187,15 @@ export default async function OrdersPage({
                 <span className="tabular-nums">#{String(order.orderNumber).padStart(4, "0")}</span>
                 <span className="truncate">
                   {fulfilmentLines(order)[0] ?? ""}
-                  {order.paymentStatus === "paid" ? (
-                    <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-[#3f7030]">
-                      Paid
-                    </span>
-                  ) : null}
+                  <span
+                    className={
+                      order.paymentStatus === "paid"
+                        ? "ml-2 text-[10px] font-bold uppercase tracking-wider text-[#3f7030]"
+                        : "ml-2 text-[10px] font-bold uppercase tracking-wider text-muted"
+                    }
+                  >
+                    {paymentBadge(order)}
+                  </span>
                 </span>
                 <span className="col-start-2 whitespace-nowrap tabular-nums sm:col-start-3 sm:text-right">
                   {(() => {

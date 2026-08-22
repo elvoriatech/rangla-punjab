@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { FlashMessage } from "@/components/flash-message";
 import { getSessionUserId } from "@/lib/auth";
 import { adminListTemplates } from "@/lib/menu-template-service";
 import { setTemplateActiveAction } from "../actions";
@@ -35,22 +36,20 @@ export default async function AdminTemplatesPage({
       </header>
 
       {saved ? (
-        <p
-          role="status"
-          className="mx-auto mt-6 max-w-4xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
-        >
-          Updated. Owners see the change on their next menu-editor visit.
-        </p>
+        <FlashMessage
+          kind="success"
+          text="Updated. Owners see the change on their next menu-editor visit."
+        />
       ) : null}
       {error ? (
-        <p
-          role="alert"
-          className="mx-auto mt-6 max-w-4xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-        >
-          {error === "duplicate_key"
-            ? "That key is already taken — pick another."
-            : "Check the fields (key: lowercase letters, numbers, dashes) and try again."}
-        </p>
+        <FlashMessage
+          kind="error"
+          text={
+            error === "duplicate_key"
+              ? "That key is already taken — pick another."
+              : "Check the fields (key: lowercase letters, numbers, dashes) and try again."
+          }
+        />
       ) : null}
 
       <form

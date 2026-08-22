@@ -21,8 +21,8 @@ const MARGIN = 2;
 
 export interface RenderQrOptions {
   /** Data-URL (e.g. `data:image/png;base64,…`) or absolute HTTPS URL of a
-   *  logo to composite over the QR's centre. SVG only for now — the PNG
-   *  path ignores this because we don't have a compositor yet. */
+   *  logo to composite over the QR's centre. Used by both the SVG path
+   *  (`<image>` injection) and the PNG path (sharp compositing). */
   logoDataUrl?: string;
   /** Optional foreground colour (defaults to black). Set to match the
    *  venue's primary colour for branded prints. Contrast against `light`
@@ -33,7 +33,7 @@ export interface RenderQrOptions {
 }
 
 export async function renderQrPng(url: string, options: RenderQrOptions = {}): Promise<Buffer> {
-  return QRCode.toBuffer(url, {
+  const qr = await QRCode.toBuffer(url, {
     type: "png",
     errorCorrectionLevel: HIGH,
     scale: SCALE,
@@ -43,6 +43,43 @@ export async function renderQrPng(url: string, options: RenderQrOptions = {}): P
       light: options.light ?? "#ffffff",
     },
   });
+  if (!options.logoDataUrl) return qr;
+  return compositeLogoPng(qr, options.logoDataUrl, options.light ?? "#ffffff");
+}
+
+/**
+ * Centre-composite a logo onto a rendered QR PNG. Mirrors injectLogo's
+ * geometry: logo at 20 % of the code's width over a 24 % padding square
+ * (within `H`-level error correction's 30 % redundancy). Only data-URLs
+ * are accepted here — remote fetches don't belong in the render path.
+ */
+async function compositeLogoPng(qr: Buffer, logoDataUrl: string, pad: string): Promise<Buffer> {
+  const match = logoDataUrl.match(/^data:image\/[a-z+.-]+;base64,(.+)$/i);
+  if (!match) return qr;
+  const { default: sharp } = await import("sharp");
+  const base = sharp(qr);
+  const { width } = await base.metadata();
+  if (!width) return qr;
+
+  const logoSize = Math.round(width * 0.2);
+  const padSize = Math.round(width * 0.24);
+  const logo = await sharp(Buffer.from(match[1]!, "base64"))
+    .resize(logoSize, logoSize, { fit: "inside" })
+    .png()
+    .toBuffer();
+  const padSquare = await sharp({
+    create: { width: padSize, height: padSize, channels: 4, background: pad },
+  })
+    .png()
+    .toBuffer();
+
+  return base
+    .composite([
+      { input: padSquare, gravity: "centre" },
+      { input: logo, gravity: "centre" },
+    ])
+    .png()
+    .toBuffer();
 }
 
 export async function renderQrSvg(url: string, options: RenderQrOptions = {}): Promise<string> {
