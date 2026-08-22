@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { FlashMessage } from "@/components/flash-message";
 import { getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import {
@@ -58,17 +59,16 @@ export default async function AppearancePage({
       </p>
 
       {saved ? (
-        <p role="status" className="mt-6 border border-gold/50 bg-card px-4 py-3 text-sm">
-          Appearance saved. Guests see the new look on their next scan.
-        </p>
+        <FlashMessage
+          kind="success"
+          text="Appearance saved. Guests see the new look on their next scan."
+        />
       ) : null}
       {error ? (
-        <p
-          role="alert"
-          className="mt-6 border border-red-800/30 bg-red-50 px-4 py-3 text-sm text-red-900"
-        >
-          That didn&apos;t save — please pick a theme and texture from the options below.
-        </p>
+        <FlashMessage
+          kind="error"
+          text="That didn't save — please pick a theme and texture from the options below."
+        />
       ) : null}
 
       <div className="mt-10 grid grid-cols-1 gap-10 xl:grid-cols-[1fr_minmax(0,340px)]">

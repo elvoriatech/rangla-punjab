@@ -1,4 +1,5 @@
 import { BRAND } from "@/lib/brand";
+import { FlashMessage } from "@/components/flash-message";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUserId } from "@/lib/auth";
@@ -157,34 +158,23 @@ export default async function AdminRestaurantDetailPage({
         </header>
 
         {saved ? (
-          <p
-            role="status"
-            className="mt-6 border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
-          >
-            {saved === "invited" ? "Invite email sent to the owner." : "Saved."}
-          </p>
+          <FlashMessage
+            kind="success"
+            text={saved === "invited" ? "Invite email sent to the owner." : "Saved."}
+          />
         ) : null}
         {error ? (
-          <p
-            role="alert"
-            className="mt-6 border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-          >
-            {error === "no_such_user"
-              ? "No account exists with that email — the new owner must sign up first."
-              : "That didn't work — try again."}
-          </p>
+          <FlashMessage
+            kind="error"
+            text={
+              error === "no_such_user"
+                ? "No account exists with that email — the new owner must sign up first."
+                : "That didn't work — try again."
+            }
+          />
         ) : null}
         {menuNotice ? (
-          <p
-            role="status"
-            className={
-              menuError
-                ? "mt-6 border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-                : "mt-6 border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
-            }
-          >
-            {menuNotice}
-          </p>
+          <FlashMessage kind={menuError ? "error" : "success"} text={menuNotice} />
         ) : null}
 
         <section aria-label="Overview" className="mt-8 border border-white/10 bg-white/[0.02]">

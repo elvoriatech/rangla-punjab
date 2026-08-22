@@ -1,4 +1,5 @@
 import { BRAND } from "@/lib/brand";
+import { FlashMessage } from "@/components/flash-message";
 import { notFound, redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { accessForRow, adminListTenants } from "@/lib/platform-admin";
@@ -46,21 +47,16 @@ export default async function AdminAnnouncementsPage({
       </header>
 
       {sent ? (
-        <p
-          role="status"
-          className="mx-auto mt-6 max-w-3xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
-        >
-          Sent to {sent} owner{sent === "1" ? "" : "s"}
-          {skipped && skipped !== "0" ? ` · ${skipped} failed` : ""}.
-        </p>
+        <FlashMessage
+          kind="success"
+          text={`Sent to ${sent} owner${sent === "1" ? "" : "s"}${skipped && skipped !== "0" ? ` · ${skipped} failed` : ""}.`}
+        />
       ) : null}
       {error ? (
-        <p
-          role="alert"
-          className="mx-auto mt-6 max-w-3xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
-        >
-          Subject and message are required (subject ≤ 150 chars, message ≤ 5000).
-        </p>
+        <FlashMessage
+          kind="error"
+          text="Subject and message are required (subject ≤ 150 chars, message ≤ 5000)."
+        />
       ) : null}
 
       <form

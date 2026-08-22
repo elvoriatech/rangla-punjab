@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MessagePopup } from "@/components/message-popup";
 
 /** Dev/fake-provider pay button — settles the checkout like Stripe's
  *  hosted page + webhook would in production. */
@@ -41,9 +42,7 @@ export function PayButton({
         {state === "paying" ? "Processing…" : `Pay ${amountLabel}`}
       </button>
       {state === "error" ? (
-        <p role="alert" className="mt-3 text-sm text-red-800">
-          Payment didn&apos;t go through — try again.
-        </p>
+        <MessagePopup kind="error" text="Payment didn't go through — try again." />
       ) : null}
       <p className="mt-3 text-center text-[11px] uppercase tracking-[0.2em] text-muted">
         Test payment page — Stripe hosts this step in production

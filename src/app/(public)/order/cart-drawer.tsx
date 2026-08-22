@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { MessagePopup } from "@/components/message-popup";
 import {
   EMPTY_CART,
   cartCount,
@@ -837,22 +838,7 @@ export function CartDrawer({
                 </div>
               ) : null}
 
-              {error ? (
-                /* Was `text-red-400`: 2.59–2.77:1 on every light theme's
-                   surface, i.e. a guest could not read why their order failed.
-                   The words are ink on a danger wash; only the rail carries the
-                   hue, because danger text on a danger wash is ~3.87:1. */
-                <p
-                  role="alert"
-                  className="mt-3 flex items-start gap-2.5 rounded-md bg-[var(--menu-danger)]/12 px-3 py-2.5 text-sm text-[var(--menu-surface-text,var(--menu-text))]"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 h-4 w-[3px] shrink-0 rounded-full bg-[var(--menu-danger)]"
-                  />
-                  {error}
-                </p>
-              ) : null}
+              {error ? <MessagePopup kind="error" text={error} /> : null}
 
               <button
                 type="button"

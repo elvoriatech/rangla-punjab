@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FlashMessage } from "@/components/flash-message";
 import { notFound, redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
@@ -48,12 +49,10 @@ export default async function ProvisionRestaurantPage({
       </p>
 
       {error ? (
-        <p
-          role="alert"
-          className="mt-6 border-l-4 border-red-500/70 bg-red-500/10 px-4 py-3 text-sm text-red-200"
-        >
-          {ERRORS[error] ?? "Something went wrong — nothing was created."}
-        </p>
+        <FlashMessage
+          kind="error"
+          text={ERRORS[error] ?? "Something went wrong — nothing was created."}
+        />
       ) : null}
 
       <form action={provisionRestaurantAction} className="mt-8 space-y-5">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MessagePopup } from "@/components/message-popup";
 
 /** Starts the PayPal approve flow — the guest bounces to PayPal (or the
  *  fake's instant return leg in dev) and lands back here settled. */
@@ -43,9 +44,7 @@ export function PayPalButton({
         {state === "starting" ? "Opening PayPal…" : "Mit PayPal zahlen"}
       </button>
       {state === "error" ? (
-        <p role="alert" className="mt-3 text-sm text-red-800">
-          PayPal didn&apos;t start — try again.
-        </p>
+        <MessagePopup kind="error" text="PayPal didn't start — try again." />
       ) : null}
     </div>
   );

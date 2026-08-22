@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { getSessionUserId } from "@/lib/auth";
 import { listCategories } from "@/lib/categories-service";
@@ -87,9 +88,10 @@ export default async function CategoryDetailPage({
         </Link>
       </div>
       {saved ? (
-        <p role="status" className="mt-4 border border-brand-gold/40 bg-white px-4 py-2 text-sm">
-          Item saved. Publish the menu to make it live for guests.
-        </p>
+        <FlashMessage
+          kind="success"
+          text="Item saved. Publish the menu to make it live for guests."
+        />
       ) : null}
 
       <form

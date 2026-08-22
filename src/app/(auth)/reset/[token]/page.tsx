@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { resetPasswordAction } from "../actions";
@@ -46,14 +47,7 @@ export default async function ResetTokenPage({
           characters.
         </p>
 
-        {errorMessage ? (
-          <p
-            role="alert"
-            className="mt-6 border-l-4 border-red-800/60 bg-red-50 px-4 py-3 text-sm text-red-900"
-          >
-            {errorMessage}
-          </p>
-        ) : null}
+        {errorMessage ? <FlashMessage kind="error" text={errorMessage} /> : null}
 
         <form action={resetPasswordAction} className="mt-8 flex flex-col gap-5">
           <input type="hidden" name="token" value={token} />

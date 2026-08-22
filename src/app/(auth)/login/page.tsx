@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BRAND } from "@/lib/brand";
@@ -107,23 +108,9 @@ export default async function LoginPage({
             Manage your menu, publish changes, and watch orders come in.
           </p>
 
-          {noticeMessage ? (
-            <p
-              role="status"
-              className="mt-6 border-l-4 border-emerald-700/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-            >
-              {noticeMessage}
-            </p>
-          ) : null}
+          {noticeMessage ? <FlashMessage kind="success" text={noticeMessage} /> : null}
 
-          {errorMessage ? (
-            <p
-              role="alert"
-              className="mt-6 border-l-4 border-red-800/60 bg-red-50 px-4 py-3 text-sm text-red-900"
-            >
-              {errorMessage}
-            </p>
-          ) : null}
+          {errorMessage ? <FlashMessage kind="error" text={errorMessage} /> : null}
 
           <form action={loginAction} className="mt-8 flex flex-col gap-5">
             <label className="flex flex-col gap-1.5 text-sm">

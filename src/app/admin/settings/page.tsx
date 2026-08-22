@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { FlashMessage } from "@/components/flash-message";
 import { getSessionUserId } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { getOperatorSettings, EMAIL_TRANSPORTS, APP_THEMES } from "@/lib/operator-settings";
@@ -37,14 +38,7 @@ export default async function AdminSettingsPage({
         </p>
       </header>
 
-      {saved ? (
-        <p
-          role="status"
-          className="mx-auto mt-6 max-w-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300"
-        >
-          Saved.
-        </p>
-      ) : null}
+      {saved ? <FlashMessage kind="success" text="Saved." /> : null}
 
       <form action={saveOperatorSettingsAction} className="mx-auto mt-8 max-w-2xl space-y-8">
         <fieldset className="border border-white/10 bg-white/[0.02] p-5">
