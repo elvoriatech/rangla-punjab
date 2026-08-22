@@ -80,6 +80,7 @@ export function CartScreen({
       (!street.trim() || zip.trim().length < 3 || (areas.length > 0 && !area) || belowMinimum));
 
   async function submit(): Promise<void> {
+    if (busy) return; // double-tap guard: one in-flight order at a time
     setBusy(true);
     setError(null);
     const result = await placeOrder(
@@ -111,6 +112,11 @@ export function CartScreen({
         unknown_items: t.menuChanged,
       };
       setError(messages[result.error] ?? t.orderFailed);
+      // Stale ids from a republished menu: re-anchor the cart so the
+      // next attempt sends ids the server actually knows.
+      if (result.error === "unknown_items") {
+        cart.reconcile(menu.categories.flatMap((c) => c.items));
+      }
       return;
     }
     await rememberOrder({
