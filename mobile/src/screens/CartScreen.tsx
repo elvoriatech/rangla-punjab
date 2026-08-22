@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -50,6 +51,8 @@ export function CartScreen({
       : (allowed[0]?.key ?? "dine_in"),
   );
   const [tableNumber, setTableNumber] = useState("");
+  const [requestedTime, setRequestedTime] = useState(""); // "" = ASAP
+  const [timeOpen, setTimeOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [street, setStreet] = useState("");
@@ -88,6 +91,7 @@ export function CartScreen({
         slug: menu.venue.slug,
         items: cart.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
         orderType,
+        requestedTime: orderType !== "dine_in" && requestedTime ? requestedTime : undefined,
         tableNumber: orderType === "dine_in" && tableNumber.trim() ? tableNumber.trim() : undefined,
         customerName: needsContact ? name.trim() : undefined,
         customerPhone: needsContact ? phone.trim() : undefined,
@@ -192,6 +196,64 @@ export function CartScreen({
                 />
               ) : (
                 <>
+                  {(menu.ordering.requestSlots ?? []).length > 0 ? (
+                    <View style={{ gap: 4 }}>
+                      <Text style={styles.fieldLabel}>
+                        {orderType === "delivery" ? t.timeDelivery : t.timePickup}
+                      </Text>
+                      <Pressable style={styles.dropdown} onPress={() => setTimeOpen(true)}>
+                        <Text style={styles.dropdownValue}>
+                          {requestedTime === "" ? t.asap : requestedTime}
+                        </Text>
+                        <Text style={styles.dropdownChevron}>▾</Text>
+                      </Pressable>
+                      <Modal
+                        visible={timeOpen}
+                        transparent
+                        animationType="fade"
+                        onRequestClose={() => setTimeOpen(false)}
+                      >
+                        <Pressable style={styles.modalBackdrop} onPress={() => setTimeOpen(false)}>
+                          <View style={styles.modalSheet}>
+                            <Text style={styles.modalTitle}>
+                              {orderType === "delivery" ? t.timeDelivery : t.timePickup}
+                            </Text>
+                            <ScrollView style={{ maxHeight: 380 }}>
+                              {["", ...(menu.ordering.requestSlots ?? [])].map((slot) => {
+                                const selected = requestedTime === slot;
+                                return (
+                                  <Pressable
+                                    key={slot || "asap"}
+                                    onPress={() => {
+                                      setRequestedTime(slot);
+                                      setTimeOpen(false);
+                                    }}
+                                    style={[
+                                      styles.modalOption,
+                                      selected && styles.modalOptionActive,
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.modalOptionText,
+                                        selected && {
+                                          color: colors.red,
+                                          fontFamily: fonts.bodyHeavy,
+                                        },
+                                      ]}
+                                    >
+                                      {slot === "" ? t.asap : slot}
+                                    </Text>
+                                    {selected ? <Text style={{ color: colors.red }}>✓</Text> : null}
+                                  </Pressable>
+                                );
+                              })}
+                            </ScrollView>
+                          </View>
+                        </Pressable>
+                      </Modal>
+                    </View>
+                  ) : null}
                   <Field
                     label={t.name}
                     value={name}
@@ -215,13 +277,42 @@ export function CartScreen({
                     onChange={setStreet}
                     placeholder="Bahnhofstraße 15"
                   />
-                  <Field
-                    label="PLZ"
-                    value={zip}
-                    onChange={setZip}
-                    placeholder="56068"
-                    keyboardType="number-pad"
-                  />
+                  {areas.length > 0 ? (
+                    /* Fixed delivery-area list: the guest PICKS a saved ZIP —
+                       free typing would only earn an outside_delivery_area
+                       rejection from the server. */
+                    <View style={{ gap: 4 }}>
+                      <Text style={styles.fieldLabel}>PLZ</Text>
+                      <View style={styles.zipWrap}>
+                        {areas.map((a) => {
+                          const selected = zip === a.zip;
+                          return (
+                            <Pressable
+                              key={a.zip}
+                              onPress={() => setZip(a.zip)}
+                              style={[styles.zipChip, selected && styles.zipChipActive]}
+                            >
+                              <Text
+                                style={[styles.zipChipZip, selected && { color: colors.onRed }]}
+                                numberOfLines={1}
+                              >
+                                {a.zip}
+                                {a.locality ? ` · ${a.locality}` : ""}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : (
+                    <Field
+                      label="PLZ"
+                      value={zip}
+                      onChange={setZip}
+                      placeholder="56068"
+                      keyboardType="number-pad"
+                    />
+                  )}
                   <Field
                     label={t.noteOptional}
                     value={note}
@@ -334,6 +425,50 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
   },
   typeChipActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
+  dropdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  dropdownValue: { color: colors.ink, fontFamily: fonts.body, fontSize: 15 },
+  dropdownChevron: { color: colors.inkSoft, fontSize: 14 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(20, 10, 5, 0.45)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalSheet: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  modalTitle: {
+    color: colors.inkSoft,
+    fontFamily: fonts.bodySemi,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: radius.md,
+  },
+  modalOptionActive: { backgroundColor: "#fdeee6" },
+  modalOptionText: { color: colors.ink, fontFamily: fonts.body, fontSize: 15 },
   typeChipText: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bodyBold },
   fieldLabel: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bodySemi },
   input: {
@@ -365,14 +500,12 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.creamCard,
     borderRadius: radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignItems: "center",
-    minWidth: 86,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    justifyContent: "center",
   },
   zipChipActive: { backgroundColor: colors.red, borderColor: colors.red },
   zipChipZip: { color: colors.ink, fontFamily: fonts.bodyHeavy, fontSize: 13 },
-  zipChipCity: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, maxWidth: 90 },
   zipInfo: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 2 },
   minWarn: { color: colors.danger, fontSize: 12, fontFamily: fonts.bodySemi },
   error: { color: colors.danger, fontFamily: fonts.body, fontSize: 13, textAlign: "center" },

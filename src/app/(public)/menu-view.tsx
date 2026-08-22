@@ -289,19 +289,21 @@ export function MenuView({
                   menu.venue.branding.logoKey ? "h-10 w-10 rounded-full object-cover" : "h-10 w-10"
                 }
               />
-              <span className="font-serif text-xl italic text-[var(--menu-accent)]">
+              <span className="font-serif text-xl italic text-[var(--menu-surface-text,var(--menu-text))]">
                 {menu.venue.name}
               </span>
             </div>
             <LocaleSwitcher current={locale} enabled={menu.venue.enabledLocales} />
           </div>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-baseline sm:justify-between">
-            <span className="text-center text-[10px] uppercase tracking-[0.32em] text-[var(--menu-text-soft)] sm:text-left">
+            {/* Footer = ON the surface: page-ink (--menu-text-soft) was
+                1.8:1 against dark-red surfaces — surface ink instead. */}
+            <span className="text-center text-[10px] uppercase tracking-[0.32em] text-[var(--menu-surface-text,var(--menu-text))]/75 sm:text-left">
               Powered by {BRAND.name} · Digital Menus
             </span>
             {modes.acceptedPayments.length > 0 ? (
               <span className="flex max-w-md flex-wrap items-center justify-center gap-x-1.5 gap-y-1.5 sm:justify-end">
-                <span className="mr-1 w-full text-center text-[10px] uppercase tracking-[0.2em] text-[var(--menu-text-soft)] sm:w-auto sm:text-right">
+                <span className="mr-1 w-full text-center text-[10px] uppercase tracking-[0.2em] text-[var(--menu-surface-text,var(--menu-text))]/75 sm:w-auto sm:text-right">
                   Accepted payments
                 </span>
                 {modes.acceptedPayments.map((id) => {

@@ -42,9 +42,18 @@ export function AccountScreen({
   }, [auth]);
   useEffect(loadOrders, [loadOrders, auth.token]);
 
-  const hours = (menu.venue.hours ?? {}) as Record<
+  // Server shape: { configured, days: { mon: { closed, slots: [{open, close}] } } }
+  // — a day can have several windows (lunch + dinner), shown comma-joined.
+  const hoursDays = ((
+    menu.venue.hours as {
+      days?: Record<
+        string,
+        { closed?: boolean; slots?: { open?: string; close?: string }[] } | undefined
+      >;
+    } | null
+  )?.days ?? {}) as Record<
     string,
-    { open?: string; close?: string; closed?: boolean } | undefined
+    { closed?: boolean; slots?: { open?: string; close?: string }[] } | undefined
   >;
   const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
   const dt = (iso: string): string => {
@@ -151,9 +160,12 @@ export function AccountScreen({
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t.hours}</Text>
           {dayKeys.map((key, i) => {
-            const h = hours[key];
+            const h = hoursDays[key];
+            const windows = (h?.slots ?? []).filter((s) => s.open && s.close);
             const text =
-              !h || h.closed || !h.open || !h.close ? t.closed : `${h.open} – ${h.close}`;
+              !h || h.closed || windows.length === 0
+                ? t.closed
+                : windows.map((s) => `${s.open} – ${s.close}`).join(", ");
             return (
               <View key={key} style={styles.hoursRow}>
                 <Text style={styles.hoursDay}>{t.days[i]}</Text>

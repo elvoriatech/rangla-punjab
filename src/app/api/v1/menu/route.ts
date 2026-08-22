@@ -6,6 +6,7 @@ import { getPublicVenueAccess } from "@/lib/order-service";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { menuImageUrl } from "@/lib/menu-images";
 import { siteUrl } from "@/lib/site-url";
+import { currentTodaySlotTimes } from "@/lib/opening-hours";
 
 /**
  * GET /api/v1/menu[?locale=de]
@@ -65,6 +66,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           acceptedPayments: access.modes.acceptedPayments,
           onlinePayment: access.onlinePayment,
           paypal: access.paypalPayment,
+          // Later-today "HH:MM" pickup/delivery slots inside opening hours
+          // (same generator as the web drawer). Empty = ASAP only.
+          requestSlots: currentTodaySlotTimes(menu.venue.hours, menu.venue.timezone),
         },
         categories: menu.categories.map((cat) => ({
           id: cat.id,

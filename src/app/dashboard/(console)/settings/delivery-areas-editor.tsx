@@ -24,6 +24,9 @@ interface Row {
   fee: string;
   min: string;
   freeOver: string;
+  /** Locality came from the ZIP lookup (not typed) — safe to replace
+   *  when the owner changes the ZIP. */
+  autoLocality?: boolean;
 }
 
 const euros = (cents: number): string => (cents / 100).toFixed(2);
@@ -53,14 +56,16 @@ export function DeliveryAreasEditor({ initial }: { initial: AreaInput[] }): Reac
   };
   const removeRow = (id: number): void => setRows((rs) => rs.filter((r) => r.id !== id));
 
-  async function lookup(id: number, zip: string, currentLocality: string): Promise<void> {
+  async function lookup(id: number, zip: string, row: Row): Promise<void> {
     const z = zip.trim();
-    if (!/^\d{4,5}$/.test(z) || currentLocality.trim()) return;
+    // Only fill an empty locality or replace one WE filled earlier —
+    // never overwrite a name the owner typed.
+    if (!/^\d{4,5}$/.test(z) || (row.locality.trim() && !row.autoLocality)) return;
     setLooking(id);
     try {
       const res = await fetch(`/api/zip-lookup?zip=${encodeURIComponent(z)}`);
       const json = (await res.json().catch(() => ({}))) as { locality?: string | null };
-      if (json.locality) patch(id, { locality: json.locality });
+      if (json.locality) patch(id, { locality: json.locality, autoLocality: true });
     } catch {
       // Leave the locality for manual entry.
     } finally {
@@ -89,18 +94,25 @@ export function DeliveryAreasEditor({ initial }: { initial: AreaInput[] }): Reac
                 type="text"
                 name={`areaZip_${i}`}
                 value={r.zip}
-                onChange={(e) => patch(r.id, { zip: e.target.value })}
-                onBlur={(e) => lookup(r.id, e.target.value, r.locality)}
+                onChange={(e) => {
+                  const zip = e.target.value.replace(/\D/g, "").slice(0, 5);
+                  patch(r.id, { zip });
+                  // Look up as soon as a complete PLZ is typed — no need
+                  // to leave the field first.
+                  if (zip.length === 5) void lookup(r.id, zip, r);
+                }}
+                onBlur={(e) => void lookup(r.id, e.target.value, r)}
                 placeholder="78467"
-                maxLength={10}
+                maxLength={5}
                 inputMode="numeric"
+                autoComplete="postal-code"
                 className={field}
               />
               <input
                 type="text"
                 name={`areaLocality_${i}`}
-                value={r.locality}
-                onChange={(e) => patch(r.id, { locality: e.target.value })}
+                value={looking === r.id && !r.locality ? "" : r.locality}
+                onChange={(e) => patch(r.id, { locality: e.target.value, autoLocality: false })}
                 placeholder={looking === r.id ? "Looking up…" : "Konstanz"}
                 maxLength={80}
                 className={field}
