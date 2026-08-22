@@ -438,16 +438,11 @@ export default async function SettingsPage({
               <label
                 key={key}
                 className={
-                  entitled ? "flex items-start gap-2" : "flex items-start gap-2 opacity-45"
+                  entitled
+                    ? "flex cursor-pointer items-center justify-between gap-4"
+                    : "flex items-center justify-between gap-4 opacity-45"
                 }
               >
-                <input
-                  type="checkbox"
-                  name={key}
-                  defaultChecked={entitled && enabled}
-                  disabled={!entitled}
-                  className="mt-0.5 accent-orange"
-                />
                 <span>
                   {label}
                   {!entitled ? (
@@ -456,6 +451,25 @@ export default async function SettingsPage({
                     </span>
                   ) : null}
                   <span className="block text-xs text-muted">{hint}</span>
+                </span>
+                {/* Toggle switch: the real (sr-only) checkbox keeps the form
+                    field name, so the save action parses it unchanged. */}
+                <span className="relative inline-flex shrink-0">
+                  <input
+                    type="checkbox"
+                    name={key}
+                    defaultChecked={entitled && enabled}
+                    disabled={!entitled}
+                    className="peer sr-only"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="h-6 w-11 rounded-full bg-ink/25 transition-colors peer-checked:bg-orange peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-orange peer-disabled:opacity-50 motion-reduce:transition-none"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 motion-reduce:transition-none"
+                  />
                 </span>
               </label>
             ))}
