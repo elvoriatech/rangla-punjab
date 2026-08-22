@@ -372,6 +372,8 @@ export interface KitchenOrder extends OrderFulfilment {
   tableNumber: string | null;
   status: string;
   paymentStatus: string;
+  /** "stripe" | "paypal" when paid online; null = settled at the restaurant. */
+  paymentProvider: string | null;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -403,6 +405,7 @@ export async function listRecentOrders(userId: string, limit = 50): Promise<Kitc
         deliveryAddress: true,
         status: true,
         paymentStatus: true,
+        paymentProvider: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -435,6 +438,7 @@ export async function getKitchenOrder(
         deliveryAddress: true,
         status: true,
         paymentStatus: true,
+        paymentProvider: true,
         totalCents: true,
         currency: true,
         createdAt: true,

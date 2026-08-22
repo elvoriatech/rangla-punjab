@@ -134,16 +134,26 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                 <li
                   key={order.id}
                   data-order-id={order.id}
-                  className={`rounded-lg border-2 ${urgency} bg-white/[0.06] p-5`}
+                  className={`flex flex-col rounded-lg border-2 ${urgency} bg-white/[0.06] p-5`}
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="font-serif text-3xl tabular-nums">
                       #{String(order.orderNumber).padStart(4, "0")}
-                      {order.paymentStatus === "paid" ? (
-                        <span className="ml-2 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-300">
-                          Paid
-                        </span>
-                      ) : null}
+                      <span
+                        className={
+                          order.paymentStatus === "paid"
+                            ? "ml-2 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-300"
+                            : "ml-2 rounded bg-white/10 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-white/60"
+                        }
+                      >
+                        {order.paymentStatus === "paid"
+                          ? order.paymentProvider === "paypal"
+                            ? "Paid · PayPal"
+                            : order.paymentProvider === "stripe"
+                              ? "Paid · Card"
+                              : "Paid"
+                          : "Cash"}
+                      </span>
                     </p>
                     <p className="text-sm tabular-nums text-white/50">
                       {time.format(order.createdAt)} ·{" "}
@@ -164,7 +174,7 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                       {line}
                     </p>
                   ))}
-                  <ul className="mt-4 space-y-2">
+                  <ul className="mt-4 flex-1 space-y-2">
                     {order.items.map((item, i) => (
                       <li key={i} className="flex items-baseline gap-3 text-lg leading-snug">
                         <span className="font-bold tabular-nums text-amber-100">
@@ -174,7 +184,9 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                       </li>
                     ))}
                   </ul>
-                  <form action={advanceOrderAction} className="mt-5">
+                  {/* mt-auto pins the advance button to the card's bottom edge
+                      so it sits at the same height on every card in the row. */}
+                  <form action={advanceOrderAction} className="mt-auto pt-5">
                     <input type="hidden" name="orderId" value={order.id} />
                     <input
                       type="hidden"
