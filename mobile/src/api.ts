@@ -56,6 +56,9 @@ export interface ApiOrdering {
   acceptedPayments: string[];
   onlinePayment: boolean;
   paypal?: boolean;
+  /** Later-today "HH:MM" pickup/delivery slots inside opening hours,
+   *  server-built. Absent/empty = ASAP only (older servers don't send it). */
+  requestSlots?: string[];
 }
 export interface ApiMenu {
   ok: true;
@@ -101,6 +104,8 @@ export interface PlaceOrderInput {
   slug: string;
   items: { itemId: string; quantity: number }[];
   orderType: OrderType;
+  /** Venue-local "HH:MM" for today (pickup/delivery). Absent = ASAP. */
+  requestedTime?: string;
   tableNumber?: string;
   customerName?: string;
   customerPhone?: string;

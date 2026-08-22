@@ -280,5 +280,7 @@ export function currentOpenState(hours: OpeningHours, timezone: string): OpenSta
 
 /** todaySlotTimes at "now" — module-level so render code stays pure. */
 export function currentTodaySlotTimes(hours: OpeningHours, timezone: string): string[] {
-  return todaySlotTimes(hours, timezone, new Date());
+  // 15-minute grid: precise enough for pickup/delivery promises without
+  // ballooning the dropdown (the old half-hour steps were too coarse).
+  return todaySlotTimes(hours, timezone, new Date(), 15);
 }
