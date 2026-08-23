@@ -34,6 +34,14 @@ interface AuthApi {
   providers: { id: string; label: string }[];
   refreshProviders: () => Promise<void>;
   login: (providerId: string) => Promise<boolean>;
+  /** Email/password sign-in or sign-up against the app's own account
+   *  endpoints. Returns null on success, or an error key for the UI. */
+  loginWithEmail: (
+    mode: "login" | "register",
+    email: string,
+    password: string,
+    name?: string,
+  ) => Promise<"invalid" | "exists" | "failed" | null>;
   cancelLogin: () => void;
   logout: () => Promise<void>;
   fetchMyOrders: () => Promise<AccountOrder[]>;
@@ -130,6 +138,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     [cancelled],
   );
 
+  const loginWithEmail = useCallback(
+    async (
+      mode: "login" | "register",
+      email: string,
+      password: string,
+      name?: string,
+    ): Promise<"invalid" | "exists" | "failed" | null> => {
+      try {
+        const res = await fetch(
+          `${BASE_URL}/api/auth/customer/${mode === "register" ? "register" : "login"}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              mode === "register"
+                ? { email, password, name: name || undefined }
+                : { email, password },
+            ),
+          },
+        );
+        const body = (await res.json().catch(() => ({}))) as {
+          token?: string;
+          customer?: CustomerProfile;
+          error?: string;
+        };
+        if (!res.ok || !body.token) {
+          if (body.error === "exists") return "exists";
+          if (
+            res.status === 401 ||
+            body.error === "invalid" ||
+            body.error === "invalid_credentials"
+          )
+            return "invalid";
+          return "failed";
+        }
+        setToken(body.token);
+        if (body.customer) setCustomer(body.customer);
+        await AsyncStorage.setItem(KEY, body.token);
+        return null;
+      } catch {
+        return "failed";
+      }
+    },
+    [],
+  );
+
   const cancelLogin = useCallback(() => {
     setCancelled((n) => n + 1);
     setBusyProvider(null);
@@ -164,6 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       providers,
       refreshProviders,
       login,
+      loginWithEmail,
       cancelLogin,
       logout,
       fetchMyOrders,
@@ -175,6 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       providers,
       refreshProviders,
       login,
+      loginWithEmail,
       cancelLogin,
       logout,
       fetchMyOrders,
