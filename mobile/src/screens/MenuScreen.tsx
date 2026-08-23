@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow } from "../components";
@@ -35,6 +35,7 @@ export function MenuScreen({
             <Chip
               key={cat.id}
               label={cat.name}
+              photoUrl={cat.photoUrl}
               active={cat.id === activeId}
               onPress={() => setActiveId(cat.id)}
             />
@@ -57,15 +58,20 @@ export function MenuScreen({
 
 function Chip({
   label,
+  photoUrl,
   active,
   onPress,
 }: {
   label: string;
+  photoUrl?: string | null;
   active: boolean;
   onPress: () => void;
 }): React.ReactElement {
   return (
     <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+      {/* Owner-uploaded category photo, when there is one — tiny round
+          thumb so the rail stays a text rail, just richer. */}
+      {photoUrl ? <Image source={{ uri: photoUrl }} style={styles.chipPhoto} /> : null}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
       {active ? (
         // The mockup bubble's tail: hangs off the bottom-right, its top
@@ -89,10 +95,14 @@ const styles = StyleSheet.create({
   // tab whose bottom-RIGHT corner sweeps to a sharp point; the rest are
   // plain text, no box.
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 8,
     justifyContent: "center",
   },
+  chipPhoto: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.line },
   chipActive: {
     backgroundColor: colors.red,
     borderRadius: 18,

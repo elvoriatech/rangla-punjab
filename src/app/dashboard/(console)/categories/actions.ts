@@ -8,6 +8,7 @@ import {
   createSchema,
   deleteCategory,
   reorderCategories,
+  setCategoryPhoto,
 } from "@/lib/categories-service";
 import { publishDraft } from "@/lib/menu-versions-service";
 import { saveUploadedImage } from "@/lib/media-service";
@@ -49,6 +50,27 @@ export async function addCategoryAction(form: FormData): Promise<void> {
   if (!parsed.success) return;
   await createCategory(userId, parsed.data);
   revalidatePath(path, "page");
+}
+
+/** Upload (or replace) an existing category's photo. `remove=1` clears it. */
+export async function setCategoryPhotoAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const id = String(form.get("id") ?? "");
+  if (!id) redirect(`${path}?error=photo`);
+
+  if (form.get("remove") === "1") {
+    await setCategoryPhoto(userId, id, null);
+    revalidatePath(path);
+    redirect(`${path}?saved=photo`);
+  }
+
+  const photo = form.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) redirect(`${path}?error=photo`);
+  const saved = await saveUploadedImage(userId, photo, `category-${id}`);
+  if (!saved.ok) redirect(`${path}?error=photo`);
+  const result = await setCategoryPhoto(userId, id, saved.mediaId);
+  revalidatePath(path);
+  redirect(result.ok ? `${path}?saved=photo` : `${path}?error=photo`);
 }
 
 export async function deleteCategoryAction(form: FormData): Promise<void> {

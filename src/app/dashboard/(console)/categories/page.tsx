@@ -6,8 +6,8 @@ import { listActiveTemplates } from "@/lib/menu-template-service";
 import { ensureDraft, getMenuStatus } from "@/lib/menu-versions-service";
 import { asUser } from "@/lib/tenant";
 import { signPreviewToken } from "@/lib/preview-token";
-import { uploadedImageUrl } from "@/lib/menu-images";
 import { ApplyTemplateButton } from "./apply-template-button";
+import { CategoryPhotoButton } from "./category-photo-button";
 import { addCategoryAction, deleteCategoryAction, moveCategoryAction } from "./actions";
 
 /**
@@ -170,21 +170,7 @@ export default async function CategoriesPage(): Promise<React.ReactElement> {
               categories.map((c, i) => (
                 <li key={c.id} className="flex items-center gap-2 px-4 py-3">
                   <span className="w-8 font-serif text-sm text-brand-gold">{i + 1}</span>
-                  {c.photoKey ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={uploadedImageUrl(c.photoKey, 96)}
-                      alt=""
-                      className="h-9 w-9 shrink-0 rounded-full border border-brand-green/20 object-cover"
-                    />
-                  ) : (
-                    <span
-                      aria-hidden="true"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-brand-green/20 text-[9px] uppercase text-brand-green/40"
-                    >
-                      no photo
-                    </span>
-                  )}
+                  <CategoryPhotoButton id={c.id} photoKey={c.photoKey} name={c.name} />
                   <Link
                     href={`${base}/categories/${c.id}`}
                     className="flex-1 text-sm hover:underline"
