@@ -132,6 +132,31 @@ export async function renameCategory(
   });
 }
 
+/** Set (or clear, with null) an existing category's photo — creation-time
+ *  uploads exist, but owners add photos later too. Draft-only, like every
+ *  other category edit. */
+export async function setCategoryPhoto(
+  userId: string,
+  id: string,
+  photoMediaId: string | null,
+): Promise<ServiceResult<Category>> {
+  return asUser(userId, async (tx) => {
+    const draft = await findDraft(tx);
+    if (!draft) return { ok: false, error: "no_draft" };
+    const existing = await tx.category.findFirst({
+      where: { id, menuVersionId: draft.id },
+      select: { id: true },
+    });
+    if (!existing) return { ok: false, error: "not_found" };
+    const updated = await tx.category.update({
+      where: { id },
+      data: { photoMediaId },
+      select: categorySelect,
+    });
+    return { ok: true, value: toCategory(updated) };
+  });
+}
+
 export async function deleteCategory(userId: string, id: string): Promise<ServiceResult> {
   return asUser(userId, async (tx) => {
     const draft = await findDraft(tx);
