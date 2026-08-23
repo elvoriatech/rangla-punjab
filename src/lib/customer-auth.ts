@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { env } from "./env";
 import { asTenant } from "./tenant";
+import { hashPassword, verifyPassword } from "./password";
 import { siteUrl } from "./site-url";
 import { createLogger } from "./logger";
 
@@ -51,21 +52,8 @@ export function customerProviders(): CustomerProviderConfig[] {
       scope: "openid email profile",
     });
   }
-  if (env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET) {
-    providers.push({
-      id: "microsoft",
-      label: "Microsoft / Hotmail",
-      // `consumers` = personal Microsoft accounts (hotmail.com, outlook.com,
-      // live.com). Switch to `common` if work/school accounts should also
-      // sign in.
-      authorizeUrl: "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize",
-      tokenUrl: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
-      userinfoUrl: "https://graph.microsoft.com/oidc/userinfo",
-      clientId: env.MICROSOFT_CLIENT_ID,
-      clientSecret: env.MICROSOFT_CLIENT_SECRET,
-      scope: "openid email profile",
-    });
-  }
+  // Deliberately no further OAuth vendors: the sign-in surface is Google
+  // or the email/password account below (registerCustomerWithPassword).
   if (env.NODE_ENV !== "production") {
     providers.push({
       id: "dev",
@@ -248,6 +236,113 @@ export async function signInCustomer(
     });
     log.info("customer_auth.signed_in", { customerId: customer.id, provider });
     return { customerId: customer.id, email: customer.email, name: customer.name, token };
+  });
+}
+
+/** Email/password accounts ride the same customer row as OAuth ones:
+ *  provider "password", providerSub = the normalized email. */
+const PASSWORD_PROVIDER = "password";
+
+export type PasswordAuthResult =
+  { ok: true; value: SignedInCustomer } | { ok: false; error: "exists" | "invalid_credentials" };
+
+async function mintCustomerToken(
+  tx: Parameters<Parameters<typeof asTenant>[1]>[0],
+  tenantId: string,
+  customer: { id: string; email: string; name: string | null },
+): Promise<SignedInCustomer> {
+  const token = randomBytes(32).toString("base64url");
+  await tx.customerToken.create({
+    data: {
+      tenantId,
+      customerId: customer.id,
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + CUSTOMER_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000),
+    },
+  });
+  return { customerId: customer.id, email: customer.email, name: customer.name, token };
+}
+
+/** Email sign-up. Fails with "exists" when the email already has a
+ *  password account — the caller should point at sign-in instead. */
+export async function registerCustomerWithPassword(
+  tenantId: string,
+  emailRaw: string,
+  password: string,
+  name?: string | null,
+): Promise<PasswordAuthResult> {
+  const email = emailRaw.trim().toLowerCase();
+  const passwordHash = await hashPassword(password);
+  return asTenant(tenantId, async (tx) => {
+    const existing = await tx.customer.findUnique({
+      where: {
+        tenantId_provider_providerSub: {
+          tenantId,
+          provider: PASSWORD_PROVIDER,
+          providerSub: email,
+        },
+      },
+      select: { id: true, deletedAt: true, passwordHash: true },
+    });
+    if (existing && !existing.deletedAt && existing.passwordHash) {
+      return { ok: false as const, error: "exists" as const };
+    }
+    const customer = await tx.customer.upsert({
+      where: {
+        tenantId_provider_providerSub: {
+          tenantId,
+          provider: PASSWORD_PROVIDER,
+          providerSub: email,
+        },
+      },
+      create: {
+        tenantId,
+        provider: PASSWORD_PROVIDER,
+        providerSub: email,
+        email,
+        name: name?.trim() || null,
+        passwordHash,
+      },
+      update: { email, name: name?.trim() || null, passwordHash, deletedAt: null },
+      select: { id: true, email: true, name: true },
+    });
+    const signedIn = await mintCustomerToken(tx, tenantId, customer);
+    log.info("customer_auth.registered", { customerId: customer.id });
+    return { ok: true as const, value: signedIn };
+  });
+}
+
+/** Email sign-in. One error for every failure mode — never reveal
+ *  whether an email exists. */
+export async function signInCustomerWithPassword(
+  tenantId: string,
+  emailRaw: string,
+  password: string,
+): Promise<PasswordAuthResult> {
+  const email = emailRaw.trim().toLowerCase();
+  return asTenant(tenantId, async (tx) => {
+    const customer = await tx.customer.findUnique({
+      where: {
+        tenantId_provider_providerSub: {
+          tenantId,
+          provider: PASSWORD_PROVIDER,
+          providerSub: email,
+        },
+      },
+      select: { id: true, email: true, name: true, passwordHash: true, deletedAt: true },
+    });
+    if (!customer || customer.deletedAt || !customer.passwordHash) {
+      return { ok: false as const, error: "invalid_credentials" as const };
+    }
+    const valid = await verifyPassword(customer.passwordHash, password);
+    if (!valid) return { ok: false as const, error: "invalid_credentials" as const };
+    const signedIn = await mintCustomerToken(tx, tenantId, {
+      id: customer.id,
+      email: customer.email,
+      name: customer.name,
+    });
+    log.info("customer_auth.signed_in", { customerId: customer.id, provider: PASSWORD_PROVIDER });
+    return { ok: true as const, value: signedIn };
   });
 }
 

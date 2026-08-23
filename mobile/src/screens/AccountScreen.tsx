@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import type { ApiMenu } from "../api";
@@ -32,6 +33,10 @@ export function AccountScreen({
   const { t, lang, setLang } = useI18n();
   const auth = useAuth();
   const [orders, setOrders] = useState<AccountOrder[]>([]);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     void auth.refreshProviders();
@@ -65,6 +70,28 @@ export function AccountScreen({
   };
   const providerLabel = (id: string): string =>
     id === "google" ? t.signInGoogle : id === "microsoft" ? t.signInMicrosoft : t.signInDev;
+
+  async function submitEmailAuth(mode: "login" | "register"): Promise<void> {
+    if (authBusy) return;
+    const email = authEmail.trim();
+    if (!email.includes("@") || authPassword.length < (mode === "register" ? 8 : 1)) {
+      setAuthError(t.authInvalid);
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError(null);
+    const err = await auth.loginWithEmail(mode, email, authPassword);
+    setAuthBusy(false);
+    if (err) {
+      setAuthError(
+        err === "exists" ? t.authExists : err === "invalid" ? t.authInvalid : t.authFailed,
+      );
+      return;
+    }
+    setAuthEmail("");
+    setAuthPassword("");
+    loadOrders();
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -149,6 +176,44 @@ export function AccountScreen({
                   <Text style={styles.loginBtnText}>{providerLabel(p.id)}</Text>
                 </Pressable>
               ))}
+
+              <Text style={[styles.mutedText, { textAlign: "center" }]}>{t.orWithEmail}</Text>
+              <TextInput
+                value={authEmail}
+                onChangeText={setAuthEmail}
+                placeholder={t.email}
+                placeholderTextColor={colors.inkSoft}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                style={styles.authInput}
+              />
+              <TextInput
+                value={authPassword}
+                onChangeText={setAuthPassword}
+                placeholder={t.passwordMin}
+                placeholderTextColor={colors.inkSoft}
+                secureTextEntry
+                autoCapitalize="none"
+                style={styles.authInput}
+              />
+              {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable
+                  onPress={() => void submitEmailAuth("login")}
+                  disabled={authBusy}
+                  style={[styles.loginBtn, { flex: 1 }, authBusy && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.loginBtnText}>{t.signInBtn}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void submitEmailAuth("register")}
+                  disabled={authBusy}
+                  style={[styles.loginBtnOutline, { flex: 1 }, authBusy && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.loginBtnOutlineText}>{t.signUpBtn}</Text>
+                </Pressable>
+              </View>
               <Text style={[styles.mutedText, { fontFamily: fonts.body, fontSize: 11 }]}>
                 {t.signInOptional}
               </Text>
@@ -253,6 +318,35 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   loginBtnText: { color: colors.red, fontFamily: fonts.bodyHeavy, fontSize: 13 },
+  loginBtnOutline: {
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.pill,
+    paddingVertical: 11,
+    alignItems: "center",
+    marginBottom: 8,
+    backgroundColor: colors.creamCard,
+  },
+  loginBtnOutlineText: { color: colors.ink, fontFamily: fonts.bodyHeavy, fontSize: 13 },
+  authInput: {
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: colors.ink,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  authError: {
+    color: colors.danger,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 6,
+  },
   orderRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -53,6 +53,7 @@ export function CartScreen({
   const [tableNumber, setTableNumber] = useState("");
   const [requestedTime, setRequestedTime] = useState(""); // "" = ASAP
   const [timeOpen, setTimeOpen] = useState(false);
+  const [zipOpen, setZipOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [street, setStreet] = useState("");
@@ -278,31 +279,76 @@ export function CartScreen({
                     placeholder="Bahnhofstraße 15"
                   />
                   {areas.length > 0 ? (
-                    /* Fixed delivery-area list: the guest PICKS a saved ZIP —
-                       free typing would only earn an outside_delivery_area
-                       rejection from the server. */
-                    <View style={{ gap: 4 }}>
-                      <Text style={styles.fieldLabel}>PLZ</Text>
-                      <View style={styles.zipWrap}>
-                        {areas.map((a) => {
-                          const selected = zip === a.zip;
-                          return (
-                            <Pressable
-                              key={a.zip}
-                              onPress={() => setZip(a.zip)}
-                              style={[styles.zipChip, selected && styles.zipChipActive]}
-                            >
-                              <Text
-                                style={[styles.zipChipZip, selected && { color: colors.onRed }]}
-                                numberOfLines={1}
-                              >
-                                {a.zip}
-                                {a.locality ? ` · ${a.locality}` : ""}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
+                    /* Fixed delivery-area list: the guest PICKS a saved ZIP
+                       from a dropdown — free typing would only earn an
+                       outside_delivery_area rejection from the server. The
+                       locality field beside it fills itself from the pick. */
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <View style={{ gap: 4, width: 132 }}>
+                        <Text style={styles.fieldLabel}>PLZ</Text>
+                        <Pressable style={styles.dropdown} onPress={() => setZipOpen(true)}>
+                          <Text style={styles.dropdownValue}>{zip || "—"}</Text>
+                          <Text style={styles.dropdownChevron}>▾</Text>
+                        </Pressable>
                       </View>
+                      <View style={{ gap: 4, flex: 1 }}>
+                        <Text style={styles.fieldLabel}>{t.locality}</Text>
+                        <View style={[styles.dropdown, { justifyContent: "flex-start" }]}>
+                          <Text
+                            style={[
+                              styles.dropdownValue,
+                              !area?.locality && { color: colors.inkSoft },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {area?.locality || "—"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Modal
+                        visible={zipOpen}
+                        transparent
+                        animationType="fade"
+                        onRequestClose={() => setZipOpen(false)}
+                      >
+                        <Pressable style={styles.modalBackdrop} onPress={() => setZipOpen(false)}>
+                          <View style={styles.modalSheet}>
+                            <Text style={styles.modalTitle}>PLZ</Text>
+                            <ScrollView style={{ maxHeight: 380 }}>
+                              {areas.map((a) => {
+                                const selected = zip === a.zip;
+                                return (
+                                  <Pressable
+                                    key={a.zip}
+                                    onPress={() => {
+                                      setZip(a.zip);
+                                      setZipOpen(false);
+                                    }}
+                                    style={[
+                                      styles.modalOption,
+                                      selected && styles.modalOptionActive,
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.modalOptionText,
+                                        selected && {
+                                          color: colors.red,
+                                          fontFamily: fonts.bodyHeavy,
+                                        },
+                                      ]}
+                                    >
+                                      {a.zip}
+                                      {a.locality ? ` · ${a.locality}` : ""}
+                                    </Text>
+                                    {selected ? <Text style={{ color: colors.red }}>✓</Text> : null}
+                                  </Pressable>
+                                );
+                              })}
+                            </ScrollView>
+                          </View>
+                        </Pressable>
+                      </Modal>
                     </View>
                   ) : (
                     <Field
@@ -494,18 +540,6 @@ const styles = StyleSheet.create({
   rowLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14 },
   rowValue: { color: colors.ink, fontSize: 14, fontFamily: fonts.bodySemi },
   rowBold: { fontFamily: fonts.bodyHeavy, fontSize: 16, color: colors.ink },
-  zipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  zipChip: {
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.creamCard,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    justifyContent: "center",
-  },
-  zipChipActive: { backgroundColor: colors.red, borderColor: colors.red },
-  zipChipZip: { color: colors.ink, fontFamily: fonts.bodyHeavy, fontSize: 13 },
   zipInfo: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 2 },
   minWarn: { color: colors.danger, fontSize: 12, fontFamily: fonts.bodySemi },
   error: { color: colors.danger, fontFamily: fonts.body, fontSize: 13, textAlign: "center" },

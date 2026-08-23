@@ -614,6 +614,9 @@ model Customer {
   email       String
   name        String?
   phone       String?
+  /// Argon2id hash — only for provider "password" accounts (email sign-up);
+  /// OAuth customers keep null.
+  passwordHash String? @map("password_hash")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime? @map("deleted_at")

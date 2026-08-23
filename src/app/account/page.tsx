@@ -8,7 +8,7 @@ import { getRestaurantSlug } from "@/lib/restaurant";
 import { signReceiptToken } from "@/lib/receipt-token";
 import { asTenant } from "@/lib/tenant";
 import { formatPrice } from "@/lib/public-menu";
-import { logoutCustomerAction } from "./actions";
+import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } from "./actions";
 
 /**
  * Mein Konto — the guest account page. Signed out: the provider buttons
@@ -75,7 +75,13 @@ export default async function AccountPage({
       {error ? (
         <FlashMessage
           kind="error"
-          text="Anmeldung fehlgeschlagen — bitte erneut versuchen. / Sign-in failed, please try again."
+          text={
+            error === "exists"
+              ? "Diese E-Mail hat bereits ein Konto — bitte anmelden. / This email already has an account — sign in instead."
+              : error === "register"
+                ? "Registrierung fehlgeschlagen — bitte Angaben prüfen. / Sign-up failed — check your details."
+                : "Anmeldung fehlgeschlagen — bitte erneut versuchen. / Sign-in failed, please try again."
+          }
         />
       ) : null}
 
@@ -92,10 +98,66 @@ export default async function AccountPage({
               className="block w-full border border-ink/20 bg-card px-5 py-3.5 text-center text-sm font-semibold hover:border-ink/50"
             >
               {p.id === "google" ? "Mit Google anmelden" : null}
-              {p.id === "microsoft" ? "Mit Microsoft / Hotmail anmelden" : null}
               {p.id === "dev" ? "Dev-Login (nur lokal)" : null}
             </a>
           ))}
+
+          <p className="pt-2 text-center text-xs uppercase tracking-[0.2em] text-muted">
+            oder mit E-Mail / or with email
+          </p>
+          <form className="space-y-3 border border-ink/15 bg-card px-5 py-4">
+            <label className="block text-sm">
+              <span className="text-xs uppercase tracking-[0.14em] text-muted">E-Mail</span>
+              <input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs uppercase tracking-[0.14em] text-muted">
+                Passwort (min. 8 Zeichen)
+              </span>
+              <input
+                type="password"
+                name="password"
+                required
+                minLength={8}
+                autoComplete="current-password"
+                className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs uppercase tracking-[0.14em] text-muted">
+                Name (nur bei Registrierung / sign-up only)
+              </span>
+              <input
+                type="text"
+                name="name"
+                maxLength={80}
+                autoComplete="name"
+                className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+            </label>
+            <div className="flex gap-3 pt-1">
+              <button
+                type="submit"
+                formAction={loginCustomerAction}
+                className="flex-1 bg-ink px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-card hover:opacity-90"
+              >
+                Anmelden / Sign in
+              </button>
+              <button
+                type="submit"
+                formAction={registerCustomerAction}
+                className="flex-1 border border-ink/30 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] hover:border-ink"
+              >
+                Registrieren / Sign up
+              </button>
+            </div>
+          </form>
           <p className="text-xs text-muted">
             Kein Konto nötig zum Bestellen — die Anmeldung ist optional. / Ordering works without an
             account; signing in is optional.
