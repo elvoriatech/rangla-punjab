@@ -1,15 +1,19 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
-import { fulfilmentLines } from "@/lib/ordering-config";
 import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
+import { renderQrSvg } from "@/lib/qr";
 import { PrintControls } from "./print-controls";
 
 /**
  * Printable kitchen ticket — deliberately outside the dashboard shell so
  * nothing but the 80 mm ticket lands on paper. `?auto=1` opens the print
  * dialog immediately (Print buttons + the auto-print iframes use it).
+ *
+ * Delivery tickets carry a QR of a Google-Maps directions link: the
+ * driver scans it with any phone camera and navigation opens — no app,
+ * no login, no typing the address.
  */
 
 export const metadata = { title: "Order ticket" };
@@ -37,6 +41,41 @@ export default async function OrderTicketPage({
     timeStyle: "short",
     timeZone: "Europe/Berlin",
   });
+  const clock = new Intl.DateTimeFormat("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Berlin",
+  });
+
+  const a = order.deliveryAddress;
+  const addressLine =
+    order.orderType === "delivery" && a?.street
+      ? [a.street, [a.zip, a.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")
+      : null;
+  // Universal Maps directions link: opens turn-by-turn navigation from any
+  // phone camera — no app account needed.
+  const navQr = addressLine
+    ? await renderQrSvg(
+        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}&travelmode=driving`,
+      )
+    : null;
+
+  const typeBanner =
+    order.orderType === "delivery"
+      ? "LIEFERUNG / DELIVERY"
+      : order.orderType === "takeaway"
+        ? "ABHOLUNG / PICKUP"
+        : `IM RESTAURANT${order.tableNumber ? ` — TISCH ${order.tableNumber}` : ""}`;
+
+  const infoRows: { icon: string; text: string; bold?: boolean }[] = [
+    ...(order.requestedFor
+      ? [{ icon: "⏰", text: `Geplant für ${clock.format(order.requestedFor)} Uhr`, bold: true }]
+      : []),
+    ...(order.customerName ? [{ icon: "👤", text: order.customerName }] : []),
+    ...(order.customerPhone ? [{ icon: "📞", text: order.customerPhone }] : []),
+    ...(addressLine ? [{ icon: "📍", text: addressLine }] : []),
+    ...(order.orderType === "delivery" && a?.note ? [{ icon: "📝", text: a.note }] : []),
+  ];
 
   return (
     <div className="min-h-screen bg-white py-8 text-black print:py-0">
@@ -53,11 +92,41 @@ export default async function OrderTicketPage({
         {order.paymentStatus === "paid" ? (
           <p className="mt-0.5 font-bold">** PAID ONLINE **</p>
         ) : null}
-        {fulfilmentLines(order).map((line) => (
-          <p key={line} className="mt-0.5 font-bold">
-            {line}
-          </p>
-        ))}
+
+        <p className="mt-2 border-y-2 border-black py-1 text-center text-sm font-bold tracking-wider">
+          {typeBanner}
+        </p>
+
+        {infoRows.length > 0 ? (
+          <div className="mt-2 space-y-1">
+            {infoRows.map((row) => (
+              <p
+                key={`${row.icon}${row.text}`}
+                className={row.bold ? "flex gap-2 font-bold" : "flex gap-2"}
+              >
+                <span aria-hidden="true" className="w-5 shrink-0 text-center">
+                  {row.icon}
+                </span>
+                <span className="min-w-0 break-words">{row.text}</span>
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        {navQr ? (
+          <div className="mt-3 flex flex-col items-center gap-1">
+            <div
+              className="h-[140px] w-[140px] [&_svg]:h-full [&_svg]:w-full"
+              // Server-rendered by our own qr lib from the venue's stored
+              // address — no user-controlled markup.
+              dangerouslySetInnerHTML={{ __html: navQr }}
+            />
+            <p className="text-center text-[11px] font-bold uppercase tracking-wider">
+              🧭 Scan für Navigation
+            </p>
+          </div>
+        ) : null}
+
         <p className="my-2 overflow-hidden whitespace-nowrap">
           --------------------------------------
         </p>
