@@ -16,6 +16,37 @@ import { AutoPrint } from "./auto-print";
  * this page in the kitchen.
  */
 
+/** Compact advance-button label for the order card's one-line action row —
+ *  "Out for delivery" would wrap; the kitchen screen keeps the full words. */
+function advanceCompact(to: string): string {
+  switch (to) {
+    case "preparing":
+      return "🍳 Prepare";
+    case "ready":
+      return "🔔 Ready";
+    case "out_for_delivery":
+      return "🛵 Out";
+    case "done":
+      return "✓ Done";
+    default:
+      return to;
+  }
+}
+
+/** Compact current-status pill for the same row. */
+function statusCompact(status: string): string {
+  switch (status) {
+    case "preparing":
+      return "🍳 prep";
+    case "ready":
+      return "🔔 ready";
+    case "out_for_delivery":
+      return "🛵 out";
+    default:
+      return status.replaceAll("_", " ");
+  }
+}
+
 /** How the guest pays: "Paid · Card"/"Paid · PayPal" once settled online,
  *  "Cash" (settled at the restaurant) otherwise. */
 function paymentBadge(order: { paymentStatus: string; paymentProvider: string | null }): string {
@@ -132,8 +163,11 @@ export default async function OrdersPage({
                     {formatPrice(order.totalCents, order.currency, "de")}
                   </p>
                   {order.status !== "placed" ? (
-                    <span className="whitespace-nowrap rounded-full border border-ink/15 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-muted">
-                      {order.status.replaceAll("_", " ")}
+                    <span
+                      title={order.status.replaceAll("_", " ")}
+                      className="whitespace-nowrap rounded-full border border-ink/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-muted"
+                    >
+                      {statusCompact(order.status)}
                     </span>
                   ) : null}
                   <a
@@ -162,9 +196,10 @@ export default async function OrdersPage({
                       />
                       <button
                         type="submit"
-                        className="whitespace-nowrap bg-orange px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+                        title={advanceLabel(nextStatus(order.status, order.orderType)!)}
+                        className="whitespace-nowrap bg-orange px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-card hover:bg-orange-dark"
                       >
-                        {advanceLabel(nextStatus(order.status, order.orderType)!)}
+                        {advanceCompact(nextStatus(order.status, order.orderType)!)}
                       </button>
                     </form>
                   ) : null}
