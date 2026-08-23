@@ -67,14 +67,15 @@ export default async function OrderTicketPage({
         ? "ABHOLUNG / PICKUP"
         : `IM RESTAURANT${order.tableNumber ? ` — TISCH ${order.tableNumber}` : ""}`;
 
+  // ASCII labels, not emoji: thermal printers print them reliably.
   const infoRows: { icon: string; text: string; bold?: boolean }[] = [
     ...(order.requestedFor
-      ? [{ icon: "⏰", text: `Geplant für ${clock.format(order.requestedFor)} Uhr`, bold: true }]
+      ? [{ icon: "ZEIT", text: `Geplant für ${clock.format(order.requestedFor)} Uhr`, bold: true }]
       : []),
-    ...(order.customerName ? [{ icon: "👤", text: order.customerName }] : []),
-    ...(order.customerPhone ? [{ icon: "📞", text: order.customerPhone }] : []),
-    ...(addressLine ? [{ icon: "📍", text: addressLine }] : []),
-    ...(order.orderType === "delivery" && a?.note ? [{ icon: "📝", text: a.note }] : []),
+    ...(order.customerName ? [{ icon: "NAME", text: order.customerName }] : []),
+    ...(order.customerPhone ? [{ icon: "TEL", text: order.customerPhone }] : []),
+    ...(addressLine ? [{ icon: "ADR", text: addressLine }] : []),
+    ...(order.orderType === "delivery" && a?.note ? [{ icon: "INFO", text: a.note }] : []),
   ];
 
   return (
@@ -104,9 +105,7 @@ export default async function OrderTicketPage({
                 key={`${row.icon}${row.text}`}
                 className={row.bold ? "flex gap-2 font-bold" : "flex gap-2"}
               >
-                <span aria-hidden="true" className="w-5 shrink-0 text-center">
-                  {row.icon}
-                </span>
+                <span className="w-11 shrink-0 font-bold">{row.icon}:</span>
                 <span className="min-w-0 break-words">{row.text}</span>
               </p>
             ))}
@@ -122,7 +121,7 @@ export default async function OrderTicketPage({
               dangerouslySetInnerHTML={{ __html: navQr }}
             />
             <p className="text-center text-[11px] font-bold uppercase tracking-wider">
-              🧭 Scan für Navigation
+              &gt;&gt; Scan für Navigation &lt;&lt;
             </p>
           </div>
         ) : null}
