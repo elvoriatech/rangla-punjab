@@ -38,10 +38,10 @@ export default async function CategoryDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ edit?: string; saved?: string }>;
+  searchParams: Promise<{ edit?: string; saved?: string; photo?: string }>;
 }): Promise<React.ReactElement> {
   const { id } = await params;
-  const { edit, saved } = await searchParams;
+  const { edit, saved, photo: photoRejected } = await searchParams;
   const base = `/dashboard`;
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
@@ -87,7 +87,16 @@ export default async function CategoryDetailPage({
           ← All categories
         </Link>
       </div>
-      {saved ? (
+      {photoRejected ? (
+        <FlashMessage
+          kind="error"
+          text={
+            photoRejected === "too_large"
+              ? "Item saved, but the photo was over 10 MB and was not stored — compress it and upload again."
+              : "Item saved, but the photo was not stored — use JPEG, PNG, or WebP (iPhone HEIC photos are not supported; export as JPEG first)."
+          }
+        />
+      ) : saved ? (
         <FlashMessage
           kind="success"
           text="Item saved. Publish the menu to make it live for guests."
@@ -336,7 +345,7 @@ export default async function CategoryDetailPage({
                         <input
                           name="photo"
                           type="file"
-                          accept="image/*"
+                          accept="image/jpeg,image/png,image/webp"
                           className="mt-1 block text-xs"
                         />
                       </label>
