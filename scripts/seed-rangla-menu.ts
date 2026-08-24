@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { templateContentSchema } from "../src/lib/menu-template-service";
+import { templateContentSchema, type TemplateImage } from "../src/lib/menu-template-service";
+import { copyUpload } from "../src/lib/image-storage";
 
 /**
  * Publish the full Rangla Punjab menu from the checked-in JSON export
@@ -79,57 +81,92 @@ async function main(): Promise<void> {
       }
     }
 
-    await prisma.$transaction(async (tx) => {
-      const version = await tx.menuVersion.create({
-        data: {
-          tenantId: venue.tenantId,
-          menuId: menu.id,
-          status: "published",
-          publishedAt: new Date(),
-        },
-      });
+    await prisma.$transaction(
+      async (tx) => {
+        /* Photos ride the JSON as template images; each one is copied under
+         the tenant's own prefix with its own Media row, exactly as
+         applyTemplate does — tenants never share storage keys. Best
+         effort: a failed copy drops the photo, never the dish. */
+        const cloneImage = async (
+          image: TemplateImage | undefined,
+          altText: string,
+        ): Promise<string | null> => {
+          if (!image) return null;
+          try {
+            const storageKey = `${venue.tenantId}/uploads/${randomUUID()}`;
+            await copyUpload(image.key, storageKey);
+            const media = await tx.media.create({
+              data: {
+                tenantId: venue.tenantId,
+                storageKey,
+                width: image.width,
+                height: image.height,
+                bytes: image.bytes,
+                altText: altText.slice(0, 300) || null,
+              },
+              select: { id: true },
+            });
+            return media.id;
+          } catch {
+            return null;
+          }
+        };
 
-      let categoryOrder = 100;
-      for (const cat of parsed.data.categories) {
-        const category = await tx.category.create({
+        const version = await tx.menuVersion.create({
           data: {
             tenantId: venue.tenantId,
-            menuVersionId: version.id,
-            name: cat.name,
-            orderIndex: categoryOrder,
+            menuId: menu.id,
+            status: "published",
+            publishedAt: new Date(),
           },
-          select: { id: true },
         });
-        categoryOrder += 100;
-        let itemOrder = 100;
-        for (const item of cat.items) {
-          await tx.item.create({
+
+        let categoryOrder = 100;
+        for (const cat of parsed.data.categories) {
+          const category = await tx.category.create({
             data: {
               tenantId: venue.tenantId,
-              categoryId: category.id,
-              name: item.name,
-              description: item.description ?? null,
-              priceCents: item.priceCents,
-              currency: venue.currency,
-              orderIndex: itemOrder,
-              spice: item.spice,
-              dietary: item.dietary,
-              allergens: item.allergens,
+              menuVersionId: version.id,
+              name: cat.name,
+              orderIndex: categoryOrder,
+              photoMediaId: await cloneImage(cat.image, cat.name),
             },
+            select: { id: true },
           });
-          itemOrder += 100;
+          categoryOrder += 100;
+          let itemOrder = 100;
+          for (const item of cat.items) {
+            await tx.item.create({
+              data: {
+                tenantId: venue.tenantId,
+                categoryId: category.id,
+                name: item.name,
+                description: item.description ?? null,
+                priceCents: item.priceCents,
+                currency: venue.currency,
+                orderIndex: itemOrder,
+                spice: item.spice,
+                dietary: item.dietary,
+                allergens: item.allergens,
+                photoMediaId: await cloneImage(item.image, item.name),
+              },
+            });
+            itemOrder += 100;
+          }
         }
-      }
 
-      await tx.menu.update({
-        where: { id: menu.id },
-        data: { publishedVersion: version.id },
-      });
+        await tx.menu.update({
+          where: { id: menu.id },
+          data: { publishedVersion: version.id },
+        });
 
-      process.stdout.write(
-        `✓ seed-rangla-menu: published ${wantedCategories} categories / ${wantedItems} items to /${RESTAURANT_SLUG} (version=${version.id})\n`,
-      );
-    });
+        process.stdout.write(
+          `✓ seed-rangla-menu: published ${wantedCategories} categories / ${wantedItems} items to /${RESTAURANT_SLUG} (version=${version.id})\n`,
+        );
+        // 200+ photo copies don't fit Prisma's 5 s interactive default.
+      },
+      { timeout: 300_000, maxWait: 30_000 },
+    );
   } finally {
     await prisma.$disconnect();
   }
