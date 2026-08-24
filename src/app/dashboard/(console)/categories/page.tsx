@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FlashMessage } from "@/components/flash-message";
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { listCategories } from "@/lib/categories-service";
@@ -17,10 +18,15 @@ import { addCategoryAction, deleteCategoryAction, moveCategoryAction } from "./a
  * and-drop is a UX polish, not a data-model concern (drag-and-drop UI is a
  * follow-up task; the reorder API is the same one it will call).
  */
-export default async function CategoriesPage(): Promise<React.ReactElement> {
+export default async function CategoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string; error?: string }>;
+}): Promise<React.ReactElement> {
   const base = `/dashboard`;
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
+  const { saved, error } = await searchParams;
 
   // A restaurant provisioned straight to a published version has no draft
   // yet; fork one from the live menu so the editor has something to open.
@@ -53,6 +59,19 @@ export default async function CategoriesPage(): Promise<React.ReactElement> {
       <p className="mt-2 text-sm text-brand-green/70">
         The order you set here is the order your guests will see.
       </p>
+
+      {saved === "photo" ? (
+        <FlashMessage
+          kind="success"
+          text="Category photo saved. Publish the menu to show it to guests."
+        />
+      ) : null}
+      {error === "photo" ? (
+        <FlashMessage
+          kind="error"
+          text="That photo was not stored — use JPEG, PNG, or WebP up to 10 MB (iPhone HEIC photos are not supported)."
+        />
+      ) : null}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
         <div className="min-w-0">

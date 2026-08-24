@@ -29,12 +29,15 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
   if (!name || Number.isNaN(priceEuros) || priceEuros < 0) return;
 
   // Optional dish photo. A rejected upload (wrong type / too big) still
-  // creates the item — the public menu falls back to a styled default.
+  // creates the item — but the rejection is SURFACED via ?photo=<reason>
+  // so the owner knows the image didn't make it.
   let photoMediaId: string | undefined;
+  let photoError: string | null = null;
   const photo = form.get("photo");
   if (photo instanceof File && photo.size > 0) {
     const saved = await saveUploadedImage(userId, photo, name);
     if (saved.ok) photoMediaId = saved.mediaId;
+    else photoError = saved.error;
   }
 
   await createItem(userId, {
@@ -53,6 +56,7 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
     variants: [],
   });
   revalidatePath("/dashboard/categories/[id]", "page");
+  if (photoError) redirect(`/dashboard/categories/${categoryId}?saved=1&photo=${photoError}`);
 }
 
 /**
@@ -83,10 +87,12 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
   const offerEndsAt = validOffer ? parseLocal(String(form.get("offerEndsAt") ?? "")) : null;
 
   let photoMediaId: string | undefined;
+  let photoError: string | null = null;
   const photo = form.get("photo");
   if (photo instanceof File && photo.size > 0) {
     const saved = await saveUploadedImage(userId, photo, name);
     if (saved.ok) photoMediaId = saved.mediaId;
+    else photoError = saved.error;
   }
 
   await updateItem(userId, id, {
@@ -100,7 +106,9 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
     offerEndsAt,
   });
   revalidatePath("/dashboard/categories/[id]", "page");
-  redirect(`/dashboard/categories/${categoryId}?saved=1`);
+  redirect(
+    `/dashboard/categories/${categoryId}?saved=1${photoError ? `&photo=${photoError}` : ""}`,
+  );
 }
 
 export async function deleteItemAction(categoryId: string, form: FormData): Promise<void> {
