@@ -56,6 +56,11 @@ export const LOGIN_IP: RateLimitConfig = { scope: "login:ip", limit: 5, windowSe
 export const LOGIN_EMAIL: RateLimitConfig = { scope: "login:email", limit: 10, windowSec: 3600 };
 export const RESET_IP: RateLimitConfig = { scope: "reset:ip", limit: 3, windowSec: 3600 };
 export const SIGNUP_IP: RateLimitConfig = { scope: "signup:ip", limit: 5, windowSec: 3600 };
+export const RESERVATION_IP: RateLimitConfig = {
+  scope: "reservation:ip",
+  limit: 5,
+  windowSec: 3600,
+};
 // Guest orders are anonymous — per-IP is the only handle we have. 10/min
 // absorbs a large table ordering in rounds while blunting scripted spam.
 export const ORDER_IP: RateLimitConfig = { scope: "order:ip", limit: 10, windowSec: 60 };

@@ -475,6 +475,37 @@ export default async function SettingsPage({
             ))}
           </div>
 
+          {/* Table reservations: a pure owner switch (no plan gate) — a
+              restaurant that doesn't take bookings hides the whole
+              surface, button and API both. */}
+          <div className="mt-4 border-t border-ink/10 pt-4">
+            <label className="flex cursor-pointer items-center justify-between gap-4 text-sm">
+              <span>
+                Table reservations
+                <span className="block text-xs text-muted">
+                  Shows a “Reserve a table” button on your menu. Guests pick a date and time inside
+                  your opening hours; you confirm from Reservations.
+                </span>
+              </span>
+              <span className="relative inline-flex shrink-0">
+                <input
+                  type="checkbox"
+                  name="reservations"
+                  defaultChecked={ordering.config.reservations}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className="h-6 w-11 rounded-full bg-ink/25 transition-colors peer-checked:bg-orange peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-orange motion-reduce:transition-none"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 motion-reduce:transition-none"
+                />
+              </span>
+            </label>
+          </div>
+
           {ordering.access.entitlements.delivery ? (
             <div className="mt-4 border-t border-ink/10 pt-4">
               <p className="text-sm font-medium">Delivery areas</p>

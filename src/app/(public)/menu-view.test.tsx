@@ -7,6 +7,7 @@ const ALL_MODES = {
   dineIn: true,
   takeaway: true,
   delivery: true,
+  reservations: true,
   deliveryAreas: [],
   acceptedPayments: [],
   deliveryZips: [],

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
+import { ReserveDialog } from "./reserve-dialog";
 import { formatPrice, siteUrl, type PublicMenu } from "@/lib/public-menu";
 import { buildRestaurantJsonLd, jsonLdString } from "@/lib/structured-data";
 import { DIETARY_VALUES, HALAL_DIET, categorySlugs } from "@/lib/dietary-filter";
@@ -7,7 +8,7 @@ import { menuThemeStyle, resolveMenuTheme } from "@/lib/menu-themes";
 import { categoryIcon } from "@/lib/category-icons";
 import { menuImageSrcSet, menuImageUrl } from "@/lib/menu-images";
 import type { EffectiveOrdering } from "@/lib/ordering-config";
-import type { OpenState } from "@/lib/opening-hours";
+import type { OpeningHours, OpenState } from "@/lib/opening-hours";
 import { PAYMENT_METHODS } from "@/lib/ordering-config";
 import {
   siAmericanexpress,
@@ -85,6 +86,7 @@ export function MenuView({
   openNow,
   requestSlots,
   orderingPaused,
+  reserve,
 }: {
   menu: PublicMenu;
   allCategories?: { id: string; name: string }[];
@@ -97,6 +99,9 @@ export function MenuView({
   requestSlots?: string[];
   /** P2-4: operator kill switch — menu stays visible, ordering is closed. */
   orderingPaused?: boolean;
+  /** Table reservations: absent when the owner switched them off, so the
+   *  button and its client bundle never reach the guest page. */
+  reserve?: { slug: string; hours: OpeningHours; timezone: string };
 }): React.ReactElement {
   const brand = menu.venue.branding.primaryColor ?? "#b8935f";
   const locale = menu.locale || menu.venue.defaultLocale || "en";
@@ -213,7 +218,7 @@ export function MenuView({
              restaurant's identity (logo + name) and the open/closed
              pill overlaid — the sticky bar below then carries only the
              menu controls. */
-          <HeroBanner venue={menu.venue} openNow={openNow} />
+          <HeroBanner venue={menu.venue} openNow={openNow} reserve={reserve} />
         ) : null}
 
         <StickyBar
@@ -224,6 +229,7 @@ export function MenuView({
           showIcons={showIcons}
           offeredDiets={offeredDiets}
           openNow={openNow}
+          reserve={reserve}
           sideNav={sideNav}
           hero={Boolean(menu.venue.branding.bannerKey)}
         />
@@ -1230,9 +1236,11 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
 function HeroBanner({
   venue,
   openNow,
+  reserve,
 }: {
   venue: PublicMenu["venue"];
   openNow?: OpenState;
+  reserve?: { slug: string; hours: OpeningHours; timezone: string };
 }): React.ReactElement {
   return (
     <div className="relative h-40 w-full sm:h-48 lg:h-60">
@@ -1247,8 +1255,9 @@ function HeroBanner({
         aria-hidden="true"
         className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
       />
-      <div className="absolute right-4 top-4 sm:right-6">
+      <div className="absolute right-4 top-4 flex flex-col items-end gap-2 sm:right-6">
         <OpenBadge state={openNow} />
+        {reserve ? <ReserveDialog {...reserve} /> : null}
       </div>
       <div className="absolute bottom-4 left-4 flex items-center gap-3 sm:bottom-5 sm:left-6 lg:left-12">
         <VenueMark venue={venue} />
@@ -1268,6 +1277,7 @@ function StickyBar({
   showIcons,
   offeredDiets,
   openNow,
+  reserve,
   sideNav = false,
   hero = false,
 }: {
@@ -1278,6 +1288,7 @@ function StickyBar({
   showIcons: boolean;
   offeredDiets: string[];
   openNow?: OpenState;
+  reserve?: { slug: string; hours: OpeningHours; timezone: string };
   sideNav?: boolean;
   /** Banner hero above carries logo + open pill — this bar then holds
    *  only the menu controls (categories + diets), grouped together. */
@@ -1312,8 +1323,11 @@ function StickyBar({
               showIcons={showIcons}
             />
           </div>
-          {/* Open/closed pill: right corner at every width. */}
-          <OpenBadge state={openNow} />
+          {/* Open/closed pill + reserve button: right corner at every width. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <OpenBadge state={openNow} />
+            {reserve ? <ReserveDialog {...reserve} /> : null}
+          </div>
         </div>
       )}
       {/* Categories on a second row on tablet/mobile (hidden above on lg) */}

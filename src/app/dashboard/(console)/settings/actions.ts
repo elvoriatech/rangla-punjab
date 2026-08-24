@@ -116,6 +116,7 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     dineIn: form.get("dineIn") === "on",
     takeaway: form.get("takeaway") === "on",
     delivery: form.get("delivery") === "on",
+    reservations: form.get("reservations") === "on",
     deliveryAreas,
     // Legacy flat fields cleared once areas exist; kept as fallback
     // (any ZIP) while the owner hasn't defined areas yet.

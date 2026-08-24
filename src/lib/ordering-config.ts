@@ -62,6 +62,9 @@ export const orderingConfigSchema = z.object({
   dineIn: z.boolean().default(true),
   takeaway: z.boolean().default(true),
   delivery: z.boolean().default(true),
+  // Table reservations from the public menu — restaurants that don't take
+  // them switch the whole surface off (button hidden, API rejects).
+  reservations: z.boolean().default(true),
   // Per-ZIP delivery areas (one row per ZIP). When present they are
   // authoritative: the guest must pick one, fee/minimum come from the
   // row. When empty, the flat fields below apply to any address.
@@ -116,6 +119,8 @@ export interface EffectiveOrdering {
   dineIn: boolean;
   takeaway: boolean;
   delivery: boolean;
+  /** Table reservations — pure owner switch, not plan-gated. */
+  reservations: boolean;
   deliveryAreas: DeliveryArea[];
   deliveryFeeCents: number;
   deliveryMinCents: number;
@@ -131,6 +136,7 @@ export function effectiveOrdering(
     dineIn: entitlements.dineIn && config.dineIn,
     takeaway: entitlements.takeaway && config.takeaway,
     delivery: entitlements.delivery && config.delivery,
+    reservations: config.reservations,
     deliveryAreas: config.deliveryAreas,
     deliveryFeeCents: config.deliveryFeeCents,
     deliveryMinCents: config.deliveryMinCents,
