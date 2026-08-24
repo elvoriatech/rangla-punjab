@@ -74,9 +74,21 @@ export default async function AdminRestaurantDetailPage({
 
   // Menu size + storage, read under the tenant's own RLS context.
   const detail = await asTenant(t.id, async (tx) => {
+    // Size is the LIVE menu, not every draft ever saved: counting all
+    // versions reported a restaurant with 19 published categories as
+    // having 82, which is what an operator reads as "what they have".
+    const publishedVersionId = (
+      await tx.menu.findFirst({
+        where: { deletedAt: null, isDefault: true },
+        select: { publishedVersion: true },
+      })
+    )?.publishedVersion;
+    const liveScope = publishedVersionId ?? "__none__";
     const [items, categories, media, scanDays, orderDays] = await Promise.all([
-      tx.item.count({ where: { deletedAt: null } }),
-      tx.category.count(),
+      tx.item.count({
+        where: { deletedAt: null, category: { menuVersionId: liveScope } },
+      }),
+      tx.category.count({ where: { menuVersionId: liveScope } }),
       tx.media.aggregate({ _sum: { bytes: true }, _count: true }),
       tx.$queryRaw<{ day: Date; n: bigint }[]>`
         SELECT date_trunc('day', at AT TIME ZONE 'Europe/Berlin') AS day, count(*) AS n
@@ -115,7 +127,7 @@ export default async function AdminRestaurantDetailPage({
     ["Email verified", t.ownerVerified ? "yes" : "not yet"],
     ["Registered", date(t.createdAt)],
     ["Menu published", t.hasPublished ? "yes" : "not yet"],
-    ["Menu size", `${detail.categories} categories · ${detail.items} dishes`],
+    ["Menu size (live)", `${detail.categories} categories · ${detail.items} dishes`],
     ["Uploads", `${detail.mediaCount} files · ${mb(detail.mediaBytes)}`],
     ["QR scans · 30d", String(t.scans30d)],
     ["Orders · today / 30d", `${t.ordersToday} / ${t.orders30d}`],
