@@ -284,3 +284,116 @@ export function currentTodaySlotTimes(hours: OpeningHours, timezone: string): st
   // ballooning the dropdown (the old half-hour steps were too coarse).
   return todaySlotTimes(hours, timezone, new Date(), 15);
 }
+
+/* ------------------------------------------------------------------ */
+/* Reservation helpers — arbitrary-date variants of the "today" slot   */
+/* machinery above, shared by the public dialog and the server check.  */
+/* ------------------------------------------------------------------ */
+
+/** Venue-local calendar date ("YYYY-MM-DD") of an instant. */
+export function venueDateISO(timezone: string, at: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(at);
+}
+
+/** Weekday key of a calendar date — timezone-independent for pure dates. */
+function weekdayOfDate(dateISO: string): Weekday {
+  const d = new Date(`${dateISO}T00:00:00Z`);
+  return WEEKDAYS[(d.getUTCDay() + 6) % 7]!;
+}
+
+/**
+ * "HH:MM" grid inside a given DATE's open windows. Today drops times
+ * closer than `bufferMins`; the last offered time sits `lastSeatMins`
+ * before closing — a table at closing time helps nobody.
+ */
+export function slotTimesForDate(
+  hours: OpeningHours,
+  timezone: string,
+  dateISO: string,
+  now: Date,
+  stepMins = 30,
+  bufferMins = 60,
+  lastSeatMins = 60,
+): string[] {
+  if (!hours.configured || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return [];
+  const dayCfg = dayFor(hours, weekdayOfDate(dateISO));
+  if (dayCfg.closed) return [];
+  const isToday = venueDateISO(timezone, now) === dateISO;
+  const earliest = isToday ? localNow(timezone, now).mins + bufferMins : 0;
+  const grid = new Set<number>();
+  for (const slot of dayCfg.slots) {
+    const o = minutes(slot.open);
+    const c = minutes(slot.close) <= o ? minutes(slot.close) + 24 * 60 : minutes(slot.close);
+    const first = Math.ceil(Math.max(o, earliest) / stepMins) * stepMins;
+    for (let t = first; t <= c - lastSeatMins; t += stepMins) grid.add(t);
+  }
+  return [...grid]
+    .sort((a, b) => a - b)
+    .map((t) => {
+      const tt = t % (24 * 60);
+      return `${String(Math.floor(tt / 60)).padStart(2, "0")}:${String(tt % 60).padStart(2, "0")}`;
+    });
+}
+
+/** The next `daysAhead` venue-local dates that still have a reservable
+ *  slot — closed days and a fully passed today drop out. */
+export function reservableDates(
+  hours: OpeningHours,
+  timezone: string,
+  now: Date,
+  daysAhead = 14,
+): { date: string; weekday: Weekday }[] {
+  const out: { date: string; weekday: Weekday }[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < daysAhead; i += 1) {
+    const date = venueDateISO(timezone, new Date(now.getTime() + i * 86_400_000));
+    if (seen.has(date)) continue;
+    seen.add(date);
+    if (slotTimesForDate(hours, timezone, date, now).length > 0) {
+      out.push({ date, weekday: weekdayOfDate(date) });
+    }
+  }
+  return out;
+}
+
+/** Minutes the timezone is ahead of UTC at `instant`. */
+function tzOffsetMinutes(timezone: string, instant: Date): number {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(instant);
+  const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value ?? "0");
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour") % 24,
+    get("minute"),
+    get("second"),
+  );
+  return Math.round((asUtc - instant.getTime()) / 60_000);
+}
+
+/** Venue-local "YYYY-MM-DD" + "HH:MM" → UTC instant (two-pass for DST). */
+export function localDateTimeToInstant(
+  timezone: string,
+  dateISO: string,
+  time: string,
+): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO) || !/^\d{2}:\d{2}$/.test(time)) return null;
+  const naive = new Date(`${dateISO}T${time}:00Z`);
+  if (Number.isNaN(naive.getTime())) return null;
+  const pass1 = new Date(naive.getTime() - tzOffsetMinutes(timezone, naive) * 60_000);
+  return new Date(naive.getTime() - tzOffsetMinutes(timezone, pass1) * 60_000);
+}

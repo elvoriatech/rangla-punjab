@@ -245,10 +245,11 @@ model Venue {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  menus     Menu[]
-  redirects SlugRedirect[]
-  orders    Order[]
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menus        Menu[]
+  redirects    SlugRedirect[]
+  orders       Order[]
+  reservations Reservation[]
 
   @@index([tenantId])
   @@map("venues")
@@ -643,4 +644,38 @@ model CustomerToken {
 
   @@index([customerId])
   @@map("customer_tokens")
+}
+
+enum ReservationStatus {
+  requested
+  confirmed
+  declined
+  cancelled
+}
+
+/// Table reservation requested from the public menu. The restaurant
+/// confirms by phone — status starts at `requested`.
+model Reservation {
+  id       String            @id @default(cuid())
+  tenantId String            @map("tenant_id")
+  venueId  String            @map("venue_id")
+  name     String
+  phone    String
+  guests   Int
+  /// The reserved instant (UTC); date/time keep the venue-local wall clock
+  /// the guest picked, immune to DST arithmetic on display.
+  at       DateTime
+  date     String
+  time     String
+  note     String?
+  status   ReservationStatus @default(requested)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, at])
+  @@map("reservations")
 }

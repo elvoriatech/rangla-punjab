@@ -132,6 +132,15 @@ export default async function PublicMenuPage({
       orderingPaused={!siteActive}
       openNow={currentOpenState(menu.venue.hours, menu.venue.timezone)}
       requestSlots={currentTodaySlotTimes(menu.venue.hours, menu.venue.timezone)}
+      reserve={
+        access.modes.reservations
+          ? {
+              slug: menu.venue.slug,
+              hours: menu.venue.hours,
+              timezone: menu.venue.timezone,
+            }
+          : undefined
+      }
       allCategories={menu.categories.map((c) => ({ id: c.id, name: c.name }))}
       activeDiets={diets}
       activeCategoryId={activeCategoryId}

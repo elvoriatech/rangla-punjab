@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  localDateTimeToInstant,
+  reservableDates,
+  slotTimesForDate,
+  venueDateISO,
   todaySlotTimes,
   todayLocalTimeToDate,
   compileWeekly,
@@ -153,5 +157,69 @@ describe("todaySlotTimes / todayLocalTimeToDate", () => {
     expect(at?.toISOString()).toBe("2026-07-17T16:30:00.000Z"); // 18:30 CEST
     expect(todayLocalTimeToDate(tz, "11:00", noon)).toBeNull(); // an hour ago
     expect(todayLocalTimeToDate(tz, "9:00", noon)).toBeNull(); // bad format
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Reservation helpers                                                  */
+/* ------------------------------------------------------------------ */
+
+describe("slotTimesForDate", () => {
+  // 2026-07-13 is a Monday; 2026-07-19 a Sunday (closed in `monSat`).
+  const monday = "2026-07-13";
+  const sunday = "2026-07-19";
+  // 09:00 Berlin — before opening, so the whole day is still offerable.
+  const morning = berlin("2026-07-13T07:00:00Z");
+
+  it("offers slots inside each opening window, stopping before closing", () => {
+    const slots = slotTimesForDate(monSat, TZ, monday, morning);
+    expect(slots[0]).toBe("11:00");
+    // Lunch closes 14:30 and the last seating is an hour earlier.
+    expect(slots).toContain("13:30");
+    expect(slots).not.toContain("14:00");
+    expect(slots).toContain("17:30");
+    expect(slots.at(-1)).toBe("21:00");
+  });
+
+  it("offers nothing on a closed day", () => {
+    expect(slotTimesForDate(monSat, TZ, sunday, morning)).toEqual([]);
+  });
+
+  it("drops times too close to now on today, keeps the full grid on later days", () => {
+    // 12:00 Berlin on the Monday: the 60-minute buffer kills lunch.
+    const noon = berlin("2026-07-13T10:00:00Z");
+    expect(slotTimesForDate(monSat, TZ, monday, noon)).not.toContain("12:30");
+    expect(slotTimesForDate(monSat, TZ, monday, noon)).toContain("17:30");
+    // Tomorrow is untouched by today's clock.
+    expect(slotTimesForDate(monSat, TZ, "2026-07-14", noon)).toContain("11:00");
+  });
+});
+
+describe("reservableDates", () => {
+  it("lists open days only and skips the closed Sunday", () => {
+    const dates = reservableDates(monSat, TZ, berlin("2026-07-13T07:00:00Z"), 7);
+    expect(dates.map((d) => d.date)).not.toContain("2026-07-19");
+    expect(dates[0]?.date).toBe("2026-07-13");
+    expect(dates.every((d) => d.weekday !== "sun")).toBe(true);
+  });
+});
+
+describe("localDateTimeToInstant", () => {
+  it("resolves a venue-local wall clock to the right UTC instant (CEST)", () => {
+    const at = localDateTimeToInstant(TZ, "2026-07-13", "19:00");
+    // Berlin is UTC+2 in July.
+    expect(at?.toISOString()).toBe("2026-07-13T17:00:00.000Z");
+    expect(venueDateISO(TZ, at!)).toBe("2026-07-13");
+  });
+
+  it("resolves winter time (CET, UTC+1) an hour differently", () => {
+    expect(localDateTimeToInstant(TZ, "2026-01-13", "19:00")?.toISOString()).toBe(
+      "2026-01-13T18:00:00.000Z",
+    );
+  });
+
+  it("rejects malformed input", () => {
+    expect(localDateTimeToInstant(TZ, "13.07.2026", "19:00")).toBeNull();
+    expect(localDateTimeToInstant(TZ, "2026-07-13", "7pm")).toBeNull();
   });
 });

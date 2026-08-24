@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpenText,
   ChefHat,
+  CalendarCheck,
   CreditCard,
   ExternalLink,
   LayoutDashboard,
@@ -46,6 +47,7 @@ function buildNav(base: string): RailItem[] {
   return [
     { href: base, label: "Overview", icon: LayoutDashboard, exact: true },
     { href: `${base}/orders`, label: "Orders", icon: ReceiptText },
+    { href: `${base}/reservations`, label: "Reservations", icon: CalendarCheck },
     { href: "/kitchen", label: "Kitchen", icon: ChefHat, newTab: true },
     { href: `${base}/categories`, label: "Menu", icon: BookOpenText },
     { href: `${base}/appearance`, label: "Appearance", icon: Palette },
