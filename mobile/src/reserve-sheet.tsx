@@ -117,12 +117,13 @@ export function ReserveSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
-      <View style={styles.backdrop}>
+      {/* Tap-away closes; the panel swallows its own touches. */}
+      <Pressable style={styles.backdrop} onPress={close} accessibilityLabel={t.close}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.sheetWrap}
         >
-          <View style={styles.sheet}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.header}>
               <Text style={styles.title}>{t.reserveTitle}</Text>
               <Pressable onPress={close} hitSlop={10}>
@@ -203,9 +204,9 @@ export function ReserveSheet({
                 <Text style={styles.footnote}>{t.resFootnote}</Text>
               </ScrollView>
             )}
-          </View>
+          </Pressable>
         </KeyboardAvoidingView>
-      </View>
+      </Pressable>
 
       {/* Option list — same pattern as the cart's time/PLZ pickers. */}
       <Modal visible={picker !== null} transparent animationType="fade">

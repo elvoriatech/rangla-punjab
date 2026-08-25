@@ -55,8 +55,10 @@ export function DishSheet({
 
   return (
     <Modal visible={item !== null} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+      {/* Tapping the dimmed area closes the sheet; the panel itself
+          swallows touches so a tap inside never dismisses it. */}
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t.close}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
           {item ? (
             <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
               <Image source={{ uri: item.photoUrl }} style={styles.hero} resizeMode="cover" />
@@ -131,8 +133,8 @@ export function DishSheet({
               </View>
             </ScrollView>
           ) : null}
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
