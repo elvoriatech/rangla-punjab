@@ -84,23 +84,29 @@ export function PrimaryButton({
 export function DishRow({
   item,
   onAdd,
+  onOpen,
 }: {
   item: ApiItem;
   onAdd: (item: ApiItem) => void;
+  /** Tapping the card opens the details sheet — the row is deliberately
+   *  clipped to keep every card the same height. */
+  onOpen?: (item: ApiItem) => void;
 }): React.ReactElement {
   const { t } = useI18n();
   return (
-    <View style={styles.dishRow}>
+    <Pressable style={styles.dishRow} onPress={() => onOpen?.(item)} accessibilityLabel={item.name}>
       <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} resizeMode="cover" />
-      <View style={{ flex: 1, gap: 2, paddingVertical: 10 }}>
-        <Text style={styles.dishName} numberOfLines={2}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.dishName} numberOfLines={1}>
           {item.name}
         </Text>
-        {item.description ? (
-          <Text style={styles.dishDesc} numberOfLines={2}>
-            {item.description}
-          </Text>
-        ) : null}
+        <View style={styles.dishDescBox}>
+          {item.description ? (
+            <Text style={styles.dishDesc} numberOfLines={2}>
+              {item.description}
+            </Text>
+          ) : null}
+        </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
           {item.offer ? (
             <>
@@ -127,7 +133,7 @@ export function DishRow({
           )}
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -186,8 +192,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryBtnText: { color: colors.ink, fontFamily: fonts.bodyBold, letterSpacing: 0.5 },
-  // Photo bleeds to the card's top/bottom/left edge (mockup card layout);
-  // the card's own radius clips it, text keeps its inset on the right.
+  // The photo is INSET, not bled to the card edges: a full-height image
+  // fought the card's own rounding and grew with the description, so a
+  // long dish looked like a poster. Fixed square thumb, padded all round.
   dishRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -196,10 +203,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
-    paddingRight: 10,
+    padding: 10,
+    // Fixed height + clipped text = a uniform grid. A one-line dish and a
+    // three-line one are the same card; the sheet carries the rest.
+    height: 106,
     overflow: "hidden",
   },
-  dishPhoto: { width: 96, alignSelf: "stretch", minHeight: 88, backgroundColor: colors.line },
+  /** Reserved for two description lines, so a dish WITHOUT a description
+   *  doesn't pull its price row up and break the alignment. */
+  dishDescBox: { height: 36, justifyContent: "flex-start" },
+  dishPhoto: {
+    width: 84,
+    height: 84,
+    borderRadius: radius.md,
+    backgroundColor: colors.line,
+  },
   dishName: { color: colors.ink, fontSize: 15.5, lineHeight: 20, fontFamily: fonts.bodyBold },
   dishDesc: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18 },
   dishPrice: { color: colors.red, fontSize: 14, fontFamily: fonts.bodyBold },
@@ -223,16 +241,19 @@ const styles = StyleSheet.create({
   },
   // Mockup's add control: a soft-cornered SQUARE pinned to the card's
   // bottom-right, sitting on the price row.
+  // Smaller tile, bigger glyph: the button reads as a compact control
+  // while the "+" stays the thing the thumb aims at. hitSlop on the
+  // Pressable keeps the tap target comfortable despite the smaller box.
   addBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     backgroundColor: colors.red,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: "auto",
   },
-  addBtnText: { color: colors.onRed, fontSize: 17, fontFamily: fonts.bodyLight, lineHeight: 19 },
+  addBtnText: { color: colors.onRed, fontSize: 22, fontFamily: fonts.bodySemi, lineHeight: 25 },
   soldOut: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, fontStyle: "italic" },
   stepper: { flexDirection: "row", alignItems: "center", gap: 10 },
   stepBtn: {

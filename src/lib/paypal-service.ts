@@ -1,7 +1,8 @@
 import { asTenant } from "./tenant";
 import { verifyReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
-import { getPayPalProvider } from "./paypal";
+import { payPalProviderFor } from "./paypal";
+import { getPayPalKeysForTenant } from "./tenant-payment-keys";
 import { markOrderPaid } from "./connect-service";
 import { createLogger } from "./logger";
 
@@ -28,7 +29,8 @@ export async function createPayPalOrderPayment(
   if (!verified || verified.orderId !== orderId || verified.tenantId !== tenantId) {
     return { ok: false, error: "invalid_token" };
   }
-  const provider = getPayPalProvider();
+  // The restaurant's own PayPal app wins over the deployment-wide keys.
+  const provider = payPalProviderFor(await getPayPalKeysForTenant(tenantId));
   return asTenant(tenantId, async (tx) => {
     const order = await tx.order.findFirst({
       where: { id: orderId },
@@ -87,7 +89,9 @@ export async function finalizePayPalReturn(
   if (!order || order.paymentProvider !== "paypal" || !order.paymentRef) return { paid: false };
   if (order.paymentStatus === "paid") return { paid: true };
 
-  const capture = await getPayPalProvider().captureOrder(order.paymentRef);
+  const capture = await payPalProviderFor(await getPayPalKeysForTenant(tenantId)).captureOrder(
+    order.paymentRef,
+  );
   if (!capture.paid) {
     log.warn("payment.paypal_capture_incomplete", { orderId, tenantId });
     return { paid: false };

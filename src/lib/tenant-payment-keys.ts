@@ -1,4 +1,4 @@
-import { asUser } from "./tenant";
+import { asTenant, asUser } from "./tenant";
 import { encryptSecret, decryptSecret, maskSecret } from "./secrets";
 
 /**
@@ -83,5 +83,111 @@ export async function updateOwnKeys(
       data.stripeOwnWebhookMask = maskSecret(webhook);
     }
     await tx.tenant.updateMany({ data });
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* PayPal — same posture: encrypted at rest, masked when shown         */
+/* ------------------------------------------------------------------ */
+
+export interface PayPalKeysStatus {
+  clientIdMask: string | null;
+  secretMask: string | null;
+  env: "sandbox" | "live";
+  enabled: boolean;
+  hasCredentials: boolean;
+}
+
+export async function getPayPalKeysStatus(userId: string): Promise<PayPalKeysStatus> {
+  return asUser(userId, async (tx) => {
+    const t = await tx.tenant.findFirst({
+      select: {
+        paypalClientIdMask: true,
+        paypalSecretMask: true,
+        paypalClientIdEnc: true,
+        paypalSecretEnc: true,
+        paypalEnv: true,
+        paypalOwnEnabled: true,
+      },
+    });
+    return {
+      clientIdMask: t?.paypalClientIdMask ?? null,
+      secretMask: t?.paypalSecretMask ?? null,
+      env: t?.paypalEnv === "live" ? "live" : "sandbox",
+      enabled: t?.paypalOwnEnabled ?? false,
+      hasCredentials: Boolean(t?.paypalClientIdEnc && t?.paypalSecretEnc),
+    };
+  });
+}
+
+export interface PayPalKeys {
+  clientId: string | null;
+  secret: string | null;
+  env: "sandbox" | "live";
+  enabled: boolean;
+}
+
+/** Decrypted PayPal credentials for server-side charging. Never expose. */
+export async function getPayPalKeys(userId: string): Promise<PayPalKeys> {
+  return asUser(userId, async (tx) => {
+    const t = await tx.tenant.findFirst({
+      select: {
+        paypalClientIdEnc: true,
+        paypalSecretEnc: true,
+        paypalEnv: true,
+        paypalOwnEnabled: true,
+      },
+    });
+    return {
+      clientId: decryptSecret(t?.paypalClientIdEnc),
+      secret: decryptSecret(t?.paypalSecretEnc),
+      env: t?.paypalEnv === "live" ? "live" : "sandbox",
+      enabled: t?.paypalOwnEnabled ?? false,
+    };
+  });
+}
+
+/** Save PayPal credentials / toggle. Blank fields keep the stored value. */
+export async function updatePayPalKeys(
+  userId: string,
+  patch: { clientId?: string; secret?: string; env: "sandbox" | "live"; enabled: boolean },
+): Promise<void> {
+  await asUser(userId, async (tx) => {
+    const data: Record<string, string | boolean> = {
+      paypalOwnEnabled: patch.enabled,
+      paypalEnv: patch.env,
+    };
+    const clientId = patch.clientId?.trim();
+    if (clientId) {
+      data.paypalClientIdEnc = encryptSecret(clientId);
+      data.paypalClientIdMask = maskSecret(clientId);
+    }
+    const secret = patch.secret?.trim();
+    if (secret) {
+      data.paypalSecretEnc = encryptSecret(secret);
+      data.paypalSecretMask = maskSecret(secret);
+    }
+    await tx.tenant.updateMany({ data });
+  });
+}
+
+/** Tenant-scoped variant for the guest payment path, which has a tenantId
+ *  (from the receipt token) but no signed-in user. */
+export async function getPayPalKeysForTenant(tenantId: string): Promise<PayPalKeys> {
+  return asTenant(tenantId, async (tx) => {
+    const t = await tx.tenant.findFirst({
+      select: {
+        paypalClientIdEnc: true,
+        paypalSecretEnc: true,
+        paypalEnv: true,
+        paypalOwnEnabled: true,
+      },
+    });
+    return {
+      clientId: decryptSecret(t?.paypalClientIdEnc),
+      secret: decryptSecret(t?.paypalSecretEnc),
+      env: t?.paypalEnv === "live" ? "live" : "sandbox",
+      enabled: t?.paypalOwnEnabled ?? false,
+    };
   });
 }

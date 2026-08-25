@@ -178,8 +178,29 @@ export function getPayPalProvider(): PayPalProvider {
   return cached;
 }
 
+/**
+ * Provider for ONE restaurant: its own dashboard-entered credentials win,
+ * the deployment-wide PAYPAL_* env vars are the fallback. Not cached —
+ * credentials are per tenant and can change from the dashboard at any time.
+ */
+export function payPalProviderFor(credentials: {
+  clientId: string | null;
+  secret: string | null;
+  env: "sandbox" | "live";
+  enabled: boolean;
+}): PayPalProvider {
+  if (credentials.enabled && credentials.clientId && credentials.secret) {
+    return new RealPayPalProvider(credentials.clientId, credentials.secret, credentials.env);
+  }
+  return getPayPalProvider();
+}
+
 /** Guests may be offered PayPal: real credentials, or the fake outside prod. */
-export function paypalAvailable(): boolean {
+/** Is PayPal offerable at all? True when the deployment has env keys, or
+ *  in non-production where the in-memory fake stands in. A restaurant that
+ *  saved only its OWN keys passes via `tenantHasOwnKeys`. */
+export function paypalAvailable(tenantHasOwnKeys = false): boolean {
+  if (tenantHasOwnKeys) return true;
   const provider = getPayPalProvider();
   return provider.mode !== "fake" || env.NODE_ENV !== "production";
 }

@@ -13,6 +13,7 @@ import { BrandHeader, DishRow, SectionTitle } from "../components";
 import { colors, fonts, radius } from "../theme";
 import { useI18n } from "../i18n";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
+import { DishSheet } from "../dish-sheet";
 
 /**
  * Start — the mockup's home: red brand header, artwork hero carousel,
@@ -92,6 +93,7 @@ export function HomeScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   const [reserveOpen, setReserveOpen] = useState(false);
+  const [openDish, setOpenDish] = useState<ApiItem | null>(null);
   const popular = menu.categories
     .flatMap((c) => c.items)
     .filter((i) => i.isAvailable)
@@ -161,11 +163,12 @@ export function HomeScreen({
         </SectionTitle>
         <View style={{ gap: 10 }}>
           {popular.map((item) => (
-            <DishRow key={item.id} item={item} onAdd={onAdd} />
+            <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
           ))}
         </View>
       </ScrollView>
       <ReserveSheet menu={menu} visible={reserveOpen} onClose={() => setReserveOpen(false)} />
+      <DishSheet item={openDish} onClose={() => setOpenDish(null)} onAdd={onAdd} />
     </View>
   );
 }
