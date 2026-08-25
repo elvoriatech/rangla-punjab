@@ -59,6 +59,11 @@ export interface ApiOrdering {
   /** Later-today "HH:MM" pickup/delivery slots inside opening hours,
    *  server-built. Absent/empty = ASAP only (older servers don't send it). */
   requestSlots?: string[];
+  /** Table reservations offered? Absent on older servers ⇒ hide the UI. */
+  reservations?: boolean;
+  /** Bookable date → times, enumerated by the server from opening hours,
+   *  so the app can only offer what /api/reservations accepts. */
+  reservationSlots?: { date: string; times: string[] }[];
 }
 export interface ApiMenu {
   ok: true;
@@ -182,4 +187,35 @@ export function payPageUrl(orderId: string, token: string, appReturnUrl?: string
 
 export function receiptUrl(orderId: string, token: string): string {
   return `${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/receipt?token=${encodeURIComponent(token)}&locale=de`;
+}
+
+export interface ReservationInput {
+  slug: string;
+  name: string;
+  phone: string;
+  guests: number;
+  date: string;
+  time: string;
+  note?: string;
+}
+
+/** Request a table. The restaurant confirms by phone — this only files
+ *  the request, so there is nothing to pay and no account needed. */
+export async function createReservation(
+  input: ReservationInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/reservations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? `http_${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "network" };
+  }
 }

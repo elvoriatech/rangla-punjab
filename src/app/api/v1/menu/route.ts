@@ -6,7 +6,7 @@ import { getPublicVenueAccess } from "@/lib/order-service";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { menuImageUrl } from "@/lib/menu-images";
 import { siteUrl } from "@/lib/site-url";
-import { currentTodaySlotTimes } from "@/lib/opening-hours";
+import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 
 /**
  * GET /api/v1/menu[?locale=de]
@@ -69,6 +69,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // Later-today "HH:MM" pickup/delivery slots inside opening hours
           // (same generator as the web drawer). Empty = ASAP only.
           requestSlots: currentTodaySlotTimes(menu.venue.hours, menu.venue.timezone),
+          // Table reservations. The SERVER enumerates the bookable
+          // date→times grid so the app offers exactly what the reservation
+          // endpoint accepts — no opening-hours maths duplicated in RN.
+          reservations: access.modes.reservations,
+          reservationSlots: access.modes.reservations
+            ? reservableDates(menu.venue.hours, menu.venue.timezone, new Date()).map((d) => ({
+                date: d.date,
+                times: slotTimesForDate(menu.venue.hours, menu.venue.timezone, d.date, new Date()),
+              }))
+            : [],
         },
         categories: menu.categories.map((cat) => ({
           id: cat.id,
