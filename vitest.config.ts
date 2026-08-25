@@ -7,6 +7,9 @@ export default defineConfig({
     // Load .env so tests get DATABASE_URL (Prisma 7 doesn't auto-load it),
     // then strip real Stripe keys so suites always ride the fake provider.
     setupFiles: ["./vitest.setup.ts"],
+    // Drop the `t-<hex>` tenants the suite mints, so a dev database
+    // doesn't accumulate fixtures the admin console then has to show.
+    globalSetup: ["./vitest.teardown.ts"],
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
     // Integration tests hit real Postgres / Redis / MailHog under parallel
     // load — vitest's default 5 s per test is too tight when the sinks are
