@@ -83,27 +83,33 @@ export default async function ReservationsPage({
                     {r.guests} {r.guests === 1 ? "guest" : "guests"}
                   </p>
                 </div>
-                <div className="mt-2 space-y-0.5 text-sm">
-                  <p>
-                    <span className="w-16 inline-block text-xs uppercase tracking-wider text-muted">
-                      Name
+                {/* Icon column instead of NAME/PHONE/NOTE labels — the
+                    glyph carries the meaning, and the sr-only word keeps
+                    it readable for screen readers. */}
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="flex items-baseline gap-2.5">
+                    <span aria-hidden="true" className="w-5 shrink-0 text-center">
+                      👤
                     </span>
+                    <span className="sr-only">Name</span>
                     {r.name}
                   </p>
-                  <p>
-                    <span className="w-16 inline-block text-xs uppercase tracking-wider text-muted">
-                      Phone
+                  <p className="flex items-baseline gap-2.5">
+                    <span aria-hidden="true" className="w-5 shrink-0 text-center">
+                      📞
                     </span>
+                    <span className="sr-only">Phone</span>
                     <a href={`tel:${r.phone}`} className="underline underline-offset-2">
                       {r.phone}
                     </a>
                   </p>
                   {r.note ? (
-                    <p>
-                      <span className="w-16 inline-block text-xs uppercase tracking-wider text-muted">
-                        Note
+                    <p className="flex items-baseline gap-2.5">
+                      <span aria-hidden="true" className="w-5 shrink-0 text-center">
+                        📝
                       </span>
-                      {r.note}
+                      <span className="sr-only">Note</span>
+                      <span className="min-w-0 break-words">{r.note}</span>
                     </p>
                   ) : null}
                 </div>
@@ -131,7 +137,7 @@ export default async function ReservationsPage({
                       type="submit"
                       className="whitespace-nowrap border border-ink/20 px-3.5 py-2 text-[11px] uppercase tracking-[0.12em] text-muted hover:border-ink/50 hover:text-ink"
                     >
-                      {r.status === "confirmed" ? "Cancel" : "Decline"}
+                      {r.status === "confirmed" ? "✕ Cancel" : "✕ Decline"}
                     </button>
                   </form>
                 </div>

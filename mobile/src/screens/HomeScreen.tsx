@@ -12,6 +12,7 @@ import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
 import { colors, fonts, radius } from "../theme";
 import { useI18n } from "../i18n";
+import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
 
 /**
  * Start — the mockup's home: red brand header, artwork hero carousel,
@@ -90,6 +91,7 @@ export function HomeScreen({
   onStartOrder: (type: "takeaway" | "delivery") => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  const [reserveOpen, setReserveOpen] = useState(false);
   const popular = menu.categories
     .flatMap((c) => c.items)
     .filter((i) => i.isAvailable)
@@ -116,6 +118,19 @@ export function HomeScreen({
             </Pressable>
           ) : null}
         </View>
+
+        {/* Table booking sits with the other ways to eat here — hidden
+            entirely when the restaurant switched reservations off. */}
+        {menu.ordering.reservations ? (
+          <Pressable style={styles.reserveCard} onPress={() => setReserveOpen(true)}>
+            <TableForGuestsIcon size={30} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modeTitle}>{t.reserveBtn}</Text>
+              <Text style={styles.modeSub}>{t.reserveSub}</Text>
+            </View>
+            <Text style={styles.reserveChevron}>›</Text>
+          </Pressable>
+        ) : null}
 
         <SectionTitle action={t.showAll} onAction={onBrowseAll}>
           {t.categories}
@@ -150,6 +165,7 @@ export function HomeScreen({
           ))}
         </View>
       </ScrollView>
+      <ReserveSheet menu={menu} visible={reserveOpen} onClose={() => setReserveOpen(false)} />
     </View>
   );
 }
@@ -201,6 +217,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 2,
   },
+  reserveCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 10,
+  },
+  reserveChevron: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 20 },
   modeEmoji: { fontFamily: fonts.body, fontSize: 26 },
   modeTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },
   modeSub: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
