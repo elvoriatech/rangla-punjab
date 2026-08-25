@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import Svg, { Path } from "react-native-svg";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow } from "../components";
+import { DishSheet } from "../dish-sheet";
 import { colors, fonts } from "../theme";
 import { useI18n } from "../i18n";
 
@@ -18,6 +19,7 @@ export function MenuScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   const [activeId, setActiveId] = useState<string | null>(initialCategoryId);
+  const [openDish, setOpenDish] = useState<ApiItem | null>(null);
   const active = menu.categories.find((c) => c.id === activeId) ?? null;
   const shown = active ? [active] : menu.categories;
 
@@ -47,11 +49,12 @@ export function MenuScreen({
           <View key={cat.id} style={{ gap: 10 }}>
             {activeId === null ? <Text style={styles.catHeading}>{cat.name}</Text> : null}
             {cat.items.map((item) => (
-              <DishRow key={item.id} item={item} onAdd={onAdd} />
+              <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
             ))}
           </View>
         ))}
       </ScrollView>
+      <DishSheet item={openDish} onClose={() => setOpenDish(null)} onAdd={onAdd} />
     </View>
   );
 }

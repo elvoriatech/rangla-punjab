@@ -71,6 +71,21 @@ export async function saveOwnKeysAction(form: FormData): Promise<void> {
   redirect(`${base}/billing?ownkeys=saved`);
 }
 
+/** Save the restaurant's own PayPal REST app credentials + toggle. Blank
+ *  fields keep whatever is stored, so the form never has to echo secrets. */
+export async function savePayPalKeysAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const { updatePayPalKeys } = await import("@/lib/tenant-payment-keys");
+  await updatePayPalKeys(userId, {
+    clientId: String(form.get("paypalClientId") ?? ""),
+    secret: String(form.get("paypalSecret") ?? ""),
+    env: form.get("paypalEnv") === "live" ? "live" : "sandbox",
+    enabled: form.get("paypalEnabled") === "on",
+  });
+  const base = (await venueAdminBase(userId)) ?? "/dashboard";
+  redirect(`${base}/billing?paypal=saved`);
+}
+
 /** "Check connection" — re-verify the Connect account's status with Stripe
  *  (charges-enabled / KYC) so the owner can confirm their setup is live
  *  without waiting for a webhook. */

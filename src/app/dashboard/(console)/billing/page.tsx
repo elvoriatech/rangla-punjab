@@ -2,10 +2,16 @@ import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { getConnectStatus, refreshConnectStatus } from "@/lib/connect-service";
 import { getStripeProvider } from "@/lib/stripe";
+import { siteUrl } from "@/lib/site-url";
 import { getOperatorSettings } from "@/lib/operator-settings";
-import { getOwnKeysStatus } from "@/lib/tenant-payment-keys";
+import { getOwnKeysStatus, getPayPalKeysStatus } from "@/lib/tenant-payment-keys";
 import { SubmitButton } from "@/components/submit-button";
-import { checkPaymentsAction, saveOwnKeysAction, setupPaymentsAction } from "./actions";
+import {
+  checkPaymentsAction,
+  saveOwnKeysAction,
+  savePayPalKeysAction,
+  setupPaymentsAction,
+} from "./actions";
 
 /**
  * `/dashboard/billing` — online-payment payouts (Stripe Connect or
@@ -26,17 +32,19 @@ export default async function BillingPage({
     connect?: string;
     error?: string;
     ownkeys?: string;
+    paypal?: string;
   }>;
 }): Promise<React.ReactElement> {
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
-  const { connect, error, ownkeys } = await searchParams;
+  const { connect, error, ownkeys, paypal } = await searchParams;
   // Payout method follows the operator's fee mode: upfront/flat plan ⇒ the
   // restaurant charges with their OWN keys (keeps 100%); percentage/commission
   // ⇒ Stripe Connect (operator auto-takes the fee).
   const { feeMode } = await getOperatorSettings();
   const ownKeysMode = feeMode === "upfront";
   const ownKeys = ownKeysMode ? await getOwnKeysStatus(userId) : null;
+  const payPal = await getPayPalKeysStatus(userId);
   // Bounce-back from onboarding: refresh the charges-enabled mirror
   // before rendering (real Stripe also pushes account.updated webhooks).
   if (connect === "done") await refreshConnectStatus(userId);
@@ -222,6 +230,114 @@ export default async function BillingPage({
             </div>
           </>
         ) : null}
+      </section>
+
+      {/* PayPal — the same own-credentials posture as Stripe above, so a
+          restaurant can run either rail (or both) without a deploy. */}
+      <section
+        aria-label="PayPal payments"
+        className="mt-10 border border-brand-green/20 bg-white p-6"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-serif text-2xl">PayPal</h2>
+          <span
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              payPal.enabled && payPal.hasCredentials
+                ? "text-[#3f7030]"
+                : payPal.hasCredentials
+                  ? "text-amber-700"
+                  : "text-brand-green/40"
+            }`}
+          >
+            {payPal.enabled && payPal.hasCredentials
+              ? `● On · ${payPal.env}`
+              : payPal.hasCredentials
+                ? "◐ Keys saved · off"
+                : "○ Not set up"}
+          </span>
+        </div>
+
+        {paypal === "saved" ? (
+          <p
+            role="status"
+            className="mt-3 border-l-4 border-[#3f7030] bg-[#f0f6ec] px-4 py-2 text-sm text-[#2f5a24]"
+          >
+            PayPal settings saved.
+          </p>
+        ) : null}
+
+        <p className="mt-3 text-sm text-brand-green/70">
+          Guests pay with their PayPal balance or card, straight into{" "}
+          <span className="font-medium">your</span> PayPal business account. Create a REST app at{" "}
+          <span className="font-medium">developer.paypal.com → Apps &amp; Credentials</span> and
+          paste its Client ID and Secret. Start in <span className="font-medium">Sandbox</span> to
+          test, then switch to Live. Credentials are stored encrypted and shown only masked.
+        </p>
+
+        <form action={savePayPalKeysAction} className="mt-4 space-y-4">
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Client ID
+            <span className="ml-2 normal-case tracking-normal text-brand-green/50">
+              {payPal.clientIdMask ? `— current: ${payPal.clientIdMask}` : "— not set"}
+            </span>
+            <input
+              type="password"
+              name="paypalClientId"
+              autoComplete="off"
+              placeholder="Leave blank to keep current"
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            />
+          </label>
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Secret
+            <span className="ml-2 normal-case tracking-normal text-brand-green/50">
+              {payPal.secretMask ? `— current: ${payPal.secretMask}` : "— not set"}
+            </span>
+            <input
+              type="password"
+              name="paypalSecret"
+              autoComplete="off"
+              placeholder="Leave blank to keep current"
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            />
+          </label>
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Environment
+            <select
+              name="paypalEnv"
+              defaultValue={payPal.env}
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            >
+              <option value="sandbox">Sandbox (testing — no real money)</option>
+              <option value="live">Live (real payments)</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-brand-green">
+            <input
+              type="checkbox"
+              name="paypalEnabled"
+              defaultChecked={payPal.enabled}
+              className="h-4 w-4"
+            />
+            Enable — offer PayPal to guests at checkout
+          </label>
+          <p className="text-xs text-brand-green/60">
+            Webhook URL for your PayPal app (optional — capture is confirmed inline):{" "}
+            <code className="text-brand-green">{`${siteUrl()}/api/paypal/return`}</code>
+          </p>
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="bg-brand-green px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark disabled:opacity-70"
+          >
+            Save PayPal settings
+          </SubmitButton>
+        </form>
       </section>
     </main>
   );

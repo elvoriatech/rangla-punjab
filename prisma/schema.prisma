@@ -114,6 +114,16 @@ model Tenant {
   stripeOwnWebhookEnc  String?  @map("stripe_own_webhook_enc")
   stripeOwnWebhookMask String?  @map("stripe_own_webhook_mask")
   stripeOwnEnabled     Boolean  @default(false) @map("stripe_own_enabled")
+  /// PayPal, same posture as the Stripe own-keys above: the restaurant's
+  /// own REST app credentials, encrypted at rest, masked when shown. Unset
+  /// falls back to the deployment-wide PAYPAL_* env vars.
+  paypalClientIdEnc    String?  @map("paypal_client_id_enc")
+  paypalClientIdMask   String?  @map("paypal_client_id_mask")
+  paypalSecretEnc      String?  @map("paypal_secret_enc")
+  paypalSecretMask     String?  @map("paypal_secret_mask")
+  /// "sandbox" | "live" — which PayPal endpoint the credentials belong to.
+  paypalEnv            String   @default("sandbox") @map("paypal_env")
+  paypalOwnEnabled     Boolean  @default(false) @map("paypal_own_enabled")
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
   deletedAt              DateTime?
