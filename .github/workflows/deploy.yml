@@ -23,12 +23,12 @@ name: Deploy to VPS
 #                 anywhere else (e.g. /var/www/rangla-punjab) or the job
 #                 fails on the very first `cd`.
 #
-# SHARED HOST WARNING: caddy publishes host ports 80 and 443. If another
-# app on this box already serves them (nginx/apache/pm2 for a different
-# site), `docker compose up` either fails with "port is already
-# allocated" or — worse — wins the race and takes that site down. On a
-# shared box, front the app with the EXISTING proxy instead: drop the
-# caddy service and publish the app on a loopback port.
+# This VPS is dedicated to Rangla (Guesto lives on its own host), so
+# caddy owns host ports 80 and 443 outright. If that ever changes and
+# another site shares the box, caddy's port bindings will collide with
+# whatever already serves them — at which point front this app with the
+# existing proxy instead: drop the caddy service and publish the app on
+# a loopback port.
 #
 # On the VPS, once:
 #   - Docker + compose plugin, and Node 22 + pnpm (deploy.sh runs
@@ -122,11 +122,11 @@ jobs:
 
             echo "→ waiting for the app to answer"
             # Probe INSIDE the container, not on the host. The app service
-            # publishes no ports (only caddy does), and this VPS also runs
-            # other apps — a host-level curl to :3000 would happily get a
-            # 200 from somebody else's process and report a successful
-            # deploy of code that never started. wget is in the image and
-            # is what the Dockerfile HEALTHCHECK already uses.
+            # publishes no ports at all (only caddy does), so a host-level
+            # curl to :3000 cannot reach it: the check would fail on a
+            # perfectly good deploy, and on any box where something else
+            # happened to hold :3000 it would pass on a dead one. wget is
+            # in the image and is what the Dockerfile HEALTHCHECK uses.
             COMPOSE="docker compose -f deploy/docker-compose.prod.yml --env-file prod.env"
             for i in $(seq 1 30); do
               if $COMPOSE exec -T app wget -q --spider http://127.0.0.1:3000/ 2>/dev/null; then
