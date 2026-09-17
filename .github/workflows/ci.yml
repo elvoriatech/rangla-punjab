@@ -66,6 +66,16 @@ jobs:
       APP_DATABASE_URL: postgresql://elvoria_app:elvoria_app_dev@localhost:5432/elvoria?schema=public
       # env.ts is strict but not yet imported by app code — still supply the
       # full contract so future imports don't break the pipeline.
+      # The single-restaurant public page at `/` resolves its venue through
+      # getRestaurantSlug (src/lib/restaurant.ts). With this unset it falls
+      # back to `venue.findFirst`, and CI's app role is the least-privilege
+      # RLS-enforced one — so the unscoped read returns nothing and `/`
+      # renders Next's error page ("no venue provisioned"), which the axe
+      # gate then reports as missing <title>/lang. Production does not hit
+      # this because the app connects as the table owner. Pin the slug the
+      # `Seed demo venue` step creates; the env var is the documented
+      # deterministic path and skips the query altogether.
+      RESTAURANT_SLUG: demo
       REDIS_URL: redis://localhost:6379
       # Deterministic CI value — real secret comes from the secret store.
       SESSION_SECRET: ci-only-not-a-real-secret-32-bytes-minimum-abcdefgh
