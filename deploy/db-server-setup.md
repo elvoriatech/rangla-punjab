@@ -47,23 +47,54 @@ sudo ufw enable
 Port 5432 must NOT be reachable from the internet — verify from your laptop:
 `nc -vz <db-public-ip> 5432` should time out.
 
-## 4. Create the database and the owner role
+## 4. Create the database and the roles
 
-Single restaurant, RLS disabled — one owner role the app connects as directly.
+Single restaurant, RLS disabled — one owner role the app connects as
+directly. Name the database and owner whatever you like; they are only
+defaults in the tooling, and `prod.env` is the single place they are
+set (`DB_NAME`, `DB_OWNER_USER`). Substitute your own names below.
+
+**`elvoria_app` is not optional, even though nothing connects as it.**
+Thirteen historical migrations end with a bare
+`GRANT … TO elvoria_app;` — that role was the least-privilege connector
+back when production ran with RLS on. Postgres refuses a `GRANT` to a
+role that does not exist, so on a fresh database
+`prisma migrate deploy` aborts on the first of them with
+`role "elvoria_app" does not exist`, and the whole release fails. It is
+created `NOLOGIN` here: the grants resolve, and the role cannot be used
+to connect at all.
+
+(Fixing this by editing those migrations is the wrong move — they are
+already applied elsewhere, and rewriting an applied migration breaks
+Prisma's checksum validation. One `NOLOGIN` role is the cheap,
+reversible answer.)
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE DATABASE resto_database;
-CREATE ROLE resto_user LOGIN PASSWORD '<DB_OWNER_PASSWORD from prod.env>';
-ALTER DATABASE resto_database OWNER TO resto_user;
-\c resto_database
+CREATE DATABASE rangla_database;
+CREATE ROLE rangla_user LOGIN PASSWORD '<DB_OWNER_PASSWORD from prod.env>';
+ALTER DATABASE rangla_database OWNER TO rangla_user;
+
+-- Referenced by historical migrations; never connects. NOLOGIN on purpose.
+CREATE ROLE elvoria_app NOLOGIN;
+
+\c rangla_database
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 CREATE EXTENSION IF NOT EXISTS citext;
 SQL
 ```
 
-The migrations (run from the app server) create every table and extension —
-grant nothing else by hand beyond the owner role above.
+Verify both roles exist before you migrate — this is the check that
+saves you a failed release:
+
+```bash
+sudo -u postgres psql -Atc \
+  "select rolname, rolcanlogin from pg_roles where rolname in ('rangla_user','elvoria_app')"
+# expect: rangla_user|t   and   elvoria_app|f
+```
+
+The migrations (run from the app server) create every table and
+extension — grant nothing else by hand beyond the roles above.
 
 ## 5. Nightly backups (off-machine)
 
