@@ -19,7 +19,17 @@
 #
 #   docker compose -f deploy/docker-compose.prod.yml --env-file prod.env up -d
 
-name: elvoria-prod
+# Project name = Docker Compose's identity for the whole stack:
+# containers, network and volumes are all namespaced by it. It was
+# `elvoria-prod`, which is the SAME name the live Guesto stack uses —
+# so running this file on a host where Guesto is deployed would not
+# create a second stack, it would reconcile Guesto's: recreating its
+# app/caddy/redis with Rangla's config (taking Guesto down) and
+# treating its worker/pgbouncer/imgproxy as orphans.
+#
+# Renaming also keeps the volumes apart. `elvoria-prod_uploads` holds
+# Guesto's customer images; Rangla must never mount it.
+name: rangla-prod
 
 services:
   caddy:
