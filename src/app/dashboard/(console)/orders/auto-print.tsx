@@ -2,9 +2,9 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-const PREF_KEY = "guesto-auto-print";
-const MAX_KEY = "guesto-auto-print-max";
-const PREF_EVENT = "guesto-auto-print-pref";
+const PREF_KEY = "rangla-auto-print";
+const MAX_KEY = "rangla-auto-print-max";
+const PREF_EVENT = "rangla-auto-print-pref";
 
 function subscribe(callback: () => void): () => void {
   window.addEventListener(PREF_EVENT, callback);

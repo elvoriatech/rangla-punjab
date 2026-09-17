@@ -1,11 +1,38 @@
-# TLS origin behind Cloudflare (orange-cloud proxied, SSL mode "Full (strict)").
-# Caddy obtains/renews Let's Encrypt certificates automatically.
+# TLS edge for the app VPS. Caddy obtains and renews Let's Encrypt
+# certificates automatically and redirects :80 -> :443 on its own.
+#
+# There is NO CDN in front of this: Cloudflare was dropped (single
+# restaurant, one small VPS), so this is the only edge and the app is the
+# only origin. Two consequences worth knowing:
+#
+#  1. Security headers (HSTS, CSP, X-Frame-Options, Referrer-Policy,
+#     Permissions-Policy) come from the APP, in next.config.ts, so they
+#     apply identically in local dev and in prod and cannot drift from
+#     the code. Do not duplicate them here.
+#  2. Rate limiting is also the app's job (src/lib/rate-limit.ts, Redis
+#     backed, with an in-process fallback if Redis blips). Caddy has no
+#     built-in rate limiter — it needs an xcaddy build with the
+#     caddy-ratelimit module — so do not assume an edge limit exists.
 #
 # APP_DOMAIN comes from the compose environment (prod.env). Images are
-# served by the app itself (the /img route resizes from disk), so there
-# is no separate image host to proxy.
+# served by the app itself (the /img route resizes from disk and caches
+# the variants), so there is no separate image host to proxy.
 
 {$APP_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy app:3000
+
+	# Bulk menu-photo uploads post multipart bodies; this matches the
+	# 50 MB server-action limit in next.config.ts. Without a cap, the
+	# only limit on an upload is the disk.
+	request_body {
+		max_size 50MB
+	}
+
+	reverse_proxy app:3000 {
+		# Health-gate the upstream so a restarting app returns 502 fast
+		# instead of hanging the guest's request.
+		health_uri /
+		health_interval 15s
+		health_timeout 5s
+	}
 }

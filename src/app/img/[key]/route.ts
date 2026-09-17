@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { readUpload } from "@/lib/image-storage";
 import { imgRequestSchema, resizeImage } from "@/lib/image-resize";
+import { getOrCreateVariant } from "@/lib/image-cache";
 
 /**
  * `/img/[key]?w=<width>&fmt=<format>` — resized public URL for a stored
- * image. Reads the original from local disk (`public/uploads/{key}`) and
- * re-encodes it to the requested width+format with sharp, streaming the
- * result with a long-TTL Cache-Control so any HTTP cache absorbs repeat
- * hits without re-encoding.
+ * image. Serves the variant from the on-disk cache, rendering it with
+ * sharp on the first request only, and streams it with a long-TTL
+ * Cache-Control so any HTTP cache absorbs repeat hits too.
+ *
+ * `w` must be one of `ALLOWED_WIDTHS` (the sizes the app actually
+ * renders); anything else is a 400 rather than an unbounded encode.
  *
  * The key is URL-encoded on the way in — `{tenantId}/uploads/{uuid}`
  * contains `/`, which Next unwraps into this single dynamic segment.
@@ -36,15 +39,24 @@ export async function GET(
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
 
-  const original = await readUpload(decodedKey);
-  if (!original) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
+  const { w, fmt } = parsed.data;
 
   let out: Buffer;
   try {
-    out = await resizeImage(original, parsed.data.w, parsed.data.fmt);
-  } catch {
+    // Cache hit short-circuits before we touch the original at all — the
+    // stored master is 0.2–0.8 MB and a hit has no reason to read it.
+    out = await getOrCreateVariant(decodedKey, w, fmt, async () => {
+      const original = await readUpload(decodedKey);
+      if (!original) throw new MissingOriginal();
+      return resizeImage(original, w, fmt);
+    });
+  } catch (err) {
+    // A typed sentinel rather than a captured flag: under de-duplication
+    // this rejection is shared with every concurrent waiter, so the
+    // reason has to travel with the error itself.
+    if (err instanceof MissingOriginal) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
     // Corrupt/undecodable source — never 500 a menu image.
     return NextResponse.json({ error: "unprocessable" }, { status: 422 });
   }
@@ -52,9 +64,12 @@ export async function GET(
   return new Response(new Uint8Array(out), {
     status: 200,
     headers: {
-      "Content-Type": `image/${parsed.data.fmt}`,
+      "Content-Type": `image/${fmt}`,
       "Cache-Control": "public, max-age=31536000, immutable",
       Vary: "Accept",
     },
   });
 }
+
+/** The stored original is gone (or never existed) → 404, not 422. */
+class MissingOriginal extends Error {}

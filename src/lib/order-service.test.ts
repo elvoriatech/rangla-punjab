@@ -140,6 +140,31 @@ describe("order-service (guest self-ordering)", () => {
     expect(second.value.orderNumber).toBe(2);
   });
 
+  it("gives every simultaneous order its own number instead of 500ing", async () => {
+    const fx = await fixtureVenue();
+
+    // A table checking out together, or a lunch rush. Each placement
+    // reads MAX(order_number) then inserts, so without serialisation the
+    // losers of the race hit the (venue_id, order_number) unique index —
+    // and because that INSERT aborts the surrounding transaction, the
+    // old P2002 retry could only come back 25P02 and 500. Measured
+    // against the dev server before the fix: 6 of 8 failed.
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        placeOrder(fx, { items: [{ itemId: fx.itemIds.naan, quantity: 1 }] }),
+      ),
+    );
+
+    for (const [i, r] of results.entries()) {
+      expect(r.ok, `order ${i} should have been placed`).toBe(true);
+    }
+    const numbers = results.flatMap((r) => (r.ok ? [r.value.orderNumber] : []));
+    // Unique AND contiguous 1..8: the receipt number a guest reads off
+    // the screen has to be a real, single sequence.
+    expect(new Set(numbers).size).toBe(8);
+    expect([...numbers].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
   it("merges duplicate lines for the same item", async () => {
     const fx = await fixtureVenue();
     const r = await placeOrder(fx, {

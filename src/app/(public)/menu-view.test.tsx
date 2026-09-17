@@ -192,6 +192,41 @@ describe("MenuView", () => {
     expect(html).toMatch(/<img[^>]*src="\/dish_[1-5]_sq-320\.webp"/);
   });
 
+  describe("mobile image weight", () => {
+    it("does not download the desktop-only hero splash on a phone", () => {
+      // burger-hub uses the "hero" layout; the splash photo needs a dish
+      // with an uploaded image to appear at all.
+      const hero = structuredClone(fixture);
+      hero.venue.branding.theme = "burger-hub";
+      hero.categories[0]!.items[0]!.photoKey = "tenant-1/uploads/hero-dish";
+      const html = renderToStaticMarkup(<MenuView menu={hero} />);
+
+      // The real photo is reachable only through a desktop-gated source…
+      expect(html).toMatch(/<source[^>]*media="\(min-width: 768px\)"/);
+      expect(html).toMatch(
+        /<source[^>]*srcSet="[^"]*tenant-1%2Fuploads%2Fhero-dish[^"]*"|<source[^>]*srcset="[^"]*tenant-1%2Fuploads%2Fhero-dish[^"]*"/i,
+      );
+      // …and the img a phone actually loads is the inline pixel, so no
+      // hero bytes cross the wire below 768px.
+      expect(html).toContain(
+        'src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"',
+      );
+    });
+
+    it("offers phone-sized renders of the full-bleed banner", () => {
+      const banner = structuredClone(fixture);
+      banner.venue.branding.bannerKey = "tenant-1/uploads/banner";
+      const html = renderToStaticMarkup(<MenuView menu={banner} />);
+
+      // Width descriptors + sizes, so a 390px phone takes the 640px
+      // render rather than the 1920px desktop one.
+      expect(html).toMatch(/sizes="100vw"/);
+      for (const w of [640, 960, 1280, 1920]) {
+        expect(html, `banner width ${w}`).toContain(`?w=${w} ${w}w`);
+      }
+    });
+  });
+
   it("fresh-bistro theme switches to the centered grid layout", () => {
     const bistro = structuredClone(fixture);
     bistro.venue.branding.theme = "fresh-bistro";

@@ -27,7 +27,58 @@ export async function register(): Promise<void> {
       logger.info("otel.started", { endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT });
       process.on("SIGTERM", () => void otel.shutdown());
     }
+    startPartitionMaintenance();
   }
+}
+
+/** Once a day; `aheadMonths` (3) is the real safety margin. */
+const PARTITION_MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * `audit_events` and `scan_stats` are monthly range-partitioned, so a
+ * month with no partition makes every INSERT fail with "no partition of
+ * relation found for row". The partition-maintain BullMQ queue that was
+ * meant to roll them forward was never registered by anything — the
+ * cron simply never ran, and the pre-created partitions stopped at
+ * 2026-09. Audit writes are wrapped in a try/catch that only warns, so
+ * this would have surfaced as operator actions silently going
+ * unrecorded rather than as an outage.
+ *
+ * This deploy is one small VPS with one app container, so an in-process
+ * timer is the whole scheduler it needs — no queue, no worker, no host
+ * cron to forget. Boot covers the redeploy case; the daily tick covers
+ * a container that stays up for months.
+ *
+ * Failure is never fatal: maintenance is DDL against the app's own
+ * schema, and if it cannot run we would rather serve traffic and warn.
+ */
+function startPartitionMaintenance(): void {
+  if (process.env.PARTITION_MAINTENANCE_ON_BOOT === "0") {
+    logger.info("partitions.maintenance_disabled");
+    return;
+  }
+  // `next build` imports this module to collect metadata; it must not
+  // open a DB connection or run DDL at build time.
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
+  const run = async (): Promise<void> => {
+    try {
+      const { runPartitionMaintenance } = await import("./src/lib/partition-manager");
+      const result = await runPartitionMaintenance();
+      logger.info("partitions.maintained", {
+        created: result.created.length,
+        archived: result.archived.length,
+      });
+    } catch (err) {
+      logger.warn("partitions.maintenance_failed", {
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    }
+  };
+
+  void run();
+  // unref so a pending tick never holds the process open on shutdown.
+  setInterval(() => void run(), PARTITION_MAINTENANCE_INTERVAL_MS).unref();
 }
 
 export const onRequestError: Instrumentation.onRequestError = (err, request, context) => {

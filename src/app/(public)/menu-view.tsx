@@ -6,7 +6,7 @@ import { buildRestaurantJsonLd, jsonLdString } from "@/lib/structured-data";
 import { DIETARY_VALUES, HALAL_DIET, categorySlugs } from "@/lib/dietary-filter";
 import { menuThemeStyle, resolveMenuTheme } from "@/lib/menu-themes";
 import { categoryIcon } from "@/lib/category-icons";
-import { menuImageSrcSet, menuImageUrl } from "@/lib/menu-images";
+import { menuImageSrcSet, menuImageUrl, TRANSPARENT_PIXEL } from "@/lib/menu-images";
 import type { EffectiveOrdering } from "@/lib/ordering-config";
 import type { OpeningHours, OpenState } from "@/lib/opening-hours";
 import { PAYMENT_METHODS } from "@/lib/ordering-config";
@@ -19,7 +19,7 @@ import {
   siVisa,
 } from "simple-icons";
 import { WEEKDAY_LABELS } from "@/lib/opening-hours";
-import { uploadedImageUrl } from "@/lib/menu-images";
+import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
 import { AddToOrderButton } from "./order/add-button";
 import { CartDrawer } from "./order/cart-lazy";
 import { AllergenDialog } from "./allergen-dialog";
@@ -549,14 +549,23 @@ function HeroSplash({
           </ul>
         </div>
         {heroItem ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={menuImageUrl(heroItem.photoKey, heroItem.id, 640)}
-            srcSet={menuImageSrcSet(heroItem.photoKey, heroItem.id, 640)}
-            alt=""
-            aria-hidden="true"
-            className="hidden h-64 w-64 rounded-full border-4 border-[var(--menu-accent)]/70 object-cover shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)] md:block lg:h-80 lg:w-80"
-          />
+          // This splash photo is decorative and only ever shown from md
+          // up (`hidden … md:block`). Browsers still download
+          // display:none images, so the desktop-only source lives on a
+          // media-gated <source> and the <img> falls back to an inline
+          // transparent pixel — a phone guest now fetches nothing here.
+          <picture className="hidden md:block">
+            <source
+              media="(min-width: 768px)"
+              srcSet={menuImageSrcSet(heroItem.photoKey, heroItem.id, 640)}
+            />
+            <img
+              src={TRANSPARENT_PIXEL}
+              alt=""
+              aria-hidden="true"
+              className="h-64 w-64 rounded-full border-4 border-[var(--menu-accent)]/70 object-cover shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)] lg:h-80 lg:w-80"
+            />
+          </picture>
         ) : null}
       </div>
       {/* Wave into the body color, like the reference. */}
@@ -1247,6 +1256,10 @@ function HeroBanner({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={uploadedImageUrl(venue.branding.bannerKey!, 1920)}
+        // Full-bleed at every breakpoint, so width descriptors — a phone
+        // takes the 640px render instead of the 1920px desktop one.
+        srcSet={bannerSrcSet(venue.branding.bannerKey!)}
+        sizes="100vw"
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />

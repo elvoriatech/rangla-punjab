@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { customerProviders } from "@/lib/customer-auth";
 import { redis } from "@/lib/redis";
+import { checkRateLimit, DEVICE_IP } from "@/lib/rate-limit";
+import { clientIp } from "@/lib/client-ip";
 import { siteUrl } from "@/lib/site-url";
 
 /**
@@ -10,8 +12,22 @@ import { siteUrl } from "@/lib/site-url";
  * flow, no deep links needed): mints a short-lived device code, returns
  * the provider login URLs to open in the system browser. The callback
  * parks the customer token under the code; the app polls the sibling GET.
+ *
+ * Rate limited per IP: the endpoint is unauthenticated and every call
+ * writes a Redis key, so an open loop here is free storage churn. The
+ * ceiling is far above what a guest retrying sign-in can reach.
  */
-export async function POST(): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse> {
+  const rl = await checkRateLimit(DEVICE_IP, clientIp(request));
+  if (!rl.ok) {
+    return withCors(
+      NextResponse.json(
+        { ok: false, error: "rate_limited" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+      ),
+    );
+  }
+
   const code =
     randomBytes(9)
       .toString("base64url")
