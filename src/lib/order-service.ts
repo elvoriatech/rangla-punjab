@@ -2,7 +2,6 @@ import { z } from "zod";
 import { canTransition, isOrderStatus } from "./order-status";
 import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
 import { paypalAvailable } from "./paypal";
-import { Prisma } from "@prisma/client";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
 import { resolveTenantAccess } from "./plan-state";
@@ -225,78 +224,83 @@ export async function placeOrder(
     const totalCents = itemsCents + feeCents;
     const customerId = opts?.customerId ?? null;
 
-    // Per-venue running receipt number. The unique index backstops the
-    // read-then-write race; on collision we recompute and try again.
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const max = await tx.order.aggregate({
-        where: { venueId: context.venueId },
-        _max: { orderNumber: true },
-      });
-      const orderNumber = (max._max.orderNumber ?? 0) + 1;
-      try {
-        const order = await tx.order.create({
-          data: {
-            tenantId: context.tenantId,
-            venueId: context.venueId,
-            orderNumber,
-            orderType,
-            customerId,
-            tableNumber: orderType === "dine_in" ? input.tableNumber || null : null,
-            customerName: orderType === "dine_in" ? null : input.customerName || null,
-            customerPhone: orderType === "dine_in" ? null : input.customerPhone || null,
-            deliveryAddress: orderType === "delivery" && input.address ? input.address : undefined,
-            requestedFor,
-            totalCents,
-            currency,
-            items: {
-              create: [
-                ...items.map((item) => {
-                  const priced = priceOf(item);
-                  return {
+    // Per-venue running receipt number. Serialised with a
+    // transaction-scoped advisory lock: two guests checking out at the
+    // same second both read the same MAX(order_number) and the second
+    // INSERT hit the (venue_id, order_number) unique index.
+    //
+    // This used to be a 3-attempt retry on P2002, which cannot work
+    // inside a transaction — Postgres aborts the whole transaction on
+    // the failed INSERT, so the retry's next statement came back 25P02
+    // ("current transaction is aborted") and fell straight through to a
+    // 500. Measured before this fix: 6 of 8 simultaneous orders failed.
+    //
+    // The lock is keyed on the venue, so branches never block each
+    // other, and Postgres releases it at COMMIT or ROLLBACK — there is
+    // no unlock to leak. Contention is one restaurant's checkout rate,
+    // where serialising costs nothing.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${context.venueId})::bigint)`;
+
+    const max = await tx.order.aggregate({
+      where: { venueId: context.venueId },
+      _max: { orderNumber: true },
+    });
+    const orderNumber = (max._max.orderNumber ?? 0) + 1;
+    const order = await tx.order.create({
+      data: {
+        tenantId: context.tenantId,
+        venueId: context.venueId,
+        orderNumber,
+        orderType,
+        customerId,
+        tableNumber: orderType === "dine_in" ? input.tableNumber || null : null,
+        customerName: orderType === "dine_in" ? null : input.customerName || null,
+        customerPhone: orderType === "dine_in" ? null : input.customerPhone || null,
+        deliveryAddress: orderType === "delivery" && input.address ? input.address : undefined,
+        requestedFor,
+        totalCents,
+        currency,
+        items: {
+          create: [
+            ...items.map((item) => {
+              const priced = priceOf(item);
+              return {
+                tenantId: context.tenantId,
+                itemId: item.id,
+                name: item.name,
+                priceCents: priced.unit,
+                basePriceCents: priced.base,
+                quantity: wanted.get(item.id)!,
+              };
+            }),
+            // Delivery fee rides as a snapshot line (itemId null) so
+            // receipt + kitchen totals always add up line-by-line.
+            ...(feeCents > 0
+              ? [
+                  {
                     tenantId: context.tenantId,
-                    itemId: item.id,
-                    name: item.name,
-                    priceCents: priced.unit,
-                    basePriceCents: priced.base,
-                    quantity: wanted.get(item.id)!,
-                  };
-                }),
-                // Delivery fee rides as a snapshot line (itemId null) so
-                // receipt + kitchen totals always add up line-by-line.
-                ...(feeCents > 0
-                  ? [
-                      {
-                        tenantId: context.tenantId,
-                        itemId: null,
-                        name: "Delivery fee",
-                        priceCents: feeCents,
-                        quantity: 1,
-                      },
-                    ]
-                  : []),
-              ],
-            },
-          },
-          select: { id: true },
-        });
-        return {
-          ok: true as const,
-          value: {
-            orderId: order.id,
-            orderNumber,
-            totalCents,
-            currency,
-            receiptToken: signReceiptToken(order.id, context.tenantId),
-          },
-        };
-      } catch (err) {
-        const isUniqueRace =
-          err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
-        if (!isUniqueRace || attempt === 2) throw err;
-      }
-    }
-    // Unreachable — the loop either returns or throws.
-    return { ok: false, error: "invalid" as const };
+                    itemId: null,
+                    name: "Delivery fee",
+                    priceCents: feeCents,
+                    quantity: 1,
+                  },
+                ]
+              : []),
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    return {
+      ok: true as const,
+      value: {
+        orderId: order.id,
+        orderNumber,
+        totalCents,
+        currency,
+        receiptToken: signReceiptToken(order.id, context.tenantId),
+      },
+    };
   });
 }
 
