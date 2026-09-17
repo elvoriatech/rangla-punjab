@@ -71,18 +71,18 @@ reversible answer.)
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE DATABASE rangla_database;
+CREATE DATABASE resto_database;
 -- Use a HEX password (`openssl rand -hex 24`). This value is
 -- interpolated into a connection URL, and base64's `/` and `+` — or a
 -- `#`/`@` — break URL parsing, which Prisma reports as the misleading
 -- "P1013 ... invalid port number in database URL".
-CREATE ROLE rangla_user LOGIN PASSWORD '<DB_OWNER_PASSWORD from prod.env>';
-ALTER DATABASE rangla_database OWNER TO rangla_user;
+CREATE ROLE resto_user LOGIN PASSWORD '<DB_OWNER_PASSWORD from prod.env>';
+ALTER DATABASE resto_database OWNER TO resto_user;
 
 -- Referenced by historical migrations; never connects. NOLOGIN on purpose.
 CREATE ROLE elvoria_app NOLOGIN;
 
-\c rangla_database
+\c resto_database
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 CREATE EXTENSION IF NOT EXISTS citext;
 SQL
@@ -93,8 +93,8 @@ saves you a failed release:
 
 ```bash
 sudo -u postgres psql -Atc \
-  "select rolname, rolcanlogin from pg_roles where rolname in ('rangla_user','elvoria_app')"
-# expect: rangla_user|t   and   elvoria_app|f
+  "select rolname, rolcanlogin from pg_roles where rolname in ('resto_user','elvoria_app')"
+# expect: resto_user|t   and   elvoria_app|f
 ```
 
 The migrations (run from the app server) create every table and
