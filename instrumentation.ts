@@ -74,6 +74,19 @@ function startPartitionMaintenance(): void {
         error: err instanceof Error ? err.message : "unknown",
       });
     }
+    // Same tick prunes the webhook de-duplication table. Those rows only
+    // need to outlive the provider's retry window (Stripe: 7 days); the
+    // guard they back moved from Redis (which expired keys itself) to
+    // Postgres, which does not, so something has to delete them.
+    try {
+      const { pruneWebhookEvents } = await import("./src/lib/webhook-events");
+      const deleted = await pruneWebhookEvents();
+      if (deleted > 0) logger.info("webhook_events.pruned", { deleted });
+    } catch (err) {
+      logger.warn("webhook_events.prune_failed", {
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    }
   };
 
   void run();

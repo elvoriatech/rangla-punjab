@@ -165,6 +165,145 @@ describe("order-service (guest self-ordering)", () => {
     expect([...numbers].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
+  describe("idempotency (retry after a lost response)", () => {
+    it("returns the SAME order for a repeated key instead of a second one", async () => {
+      const fx = await fixtureVenue();
+      const key = `req-${randomUUID()}`;
+      const body = { items: [{ itemId: fx.itemIds.naan, quantity: 2 }], clientRequestId: key };
+
+      const first = await placeOrder(fx, body);
+      const second = await placeOrder(fx, body);
+      expect(first.ok && second.ok).toBe(true);
+      if (!first.ok || !second.ok) return;
+
+      expect(second.value.orderId).toBe(first.value.orderId);
+      expect(second.value.orderNumber).toBe(first.value.orderNumber);
+      expect(second.value.replayed).toBe(true);
+      expect(first.value.replayed).toBeUndefined();
+
+      // The point of the whole exercise: one order, so the kitchen
+      // cooks the food once.
+      const count = await asTenant(fx.tenantId, (tx) =>
+        tx.order.count({ where: { venueId: fx.venueId } }),
+      );
+      expect(count).toBe(1);
+    });
+
+    it("replays the stored totals, not a recomputed basket", async () => {
+      const fx = await fixtureVenue();
+      const key = `req-${randomUUID()}`;
+      const first = await placeOrder(fx, {
+        items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+        clientRequestId: key,
+      });
+      if (!first.ok) throw new Error("expected ok");
+
+      // Same key, different basket — a client bug or a stale retry. The
+      // guest is owed the order that exists, not a silent re-price.
+      const replay = await placeOrder(fx, {
+        items: [{ itemId: fx.itemIds.pakora, quantity: 9 }],
+        clientRequestId: key,
+      });
+      if (!replay.ok) throw new Error("expected ok");
+      expect(replay.value.totalCents).toBe(first.value.totalCents);
+      expect(replay.value.orderId).toBe(first.value.orderId);
+    });
+
+    it("treats a fresh key as a genuinely new order", async () => {
+      const fx = await fixtureVenue();
+      const a = await placeOrder(fx, {
+        items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+        clientRequestId: `req-${randomUUID()}`,
+      });
+      const b = await placeOrder(fx, {
+        items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+        clientRequestId: `req-${randomUUID()}`,
+      });
+      expect(a.ok && b.ok).toBe(true);
+      if (!a.ok || !b.ok) return;
+      expect(b.value.orderId).not.toBe(a.value.orderId);
+      expect(b.value.orderNumber).toBe(a.value.orderNumber + 1);
+    });
+
+    it("collapses a double-submit that races itself", async () => {
+      const fx = await fixtureVenue();
+      const key = `req-${randomUUID()}`;
+      const body = { items: [{ itemId: fx.itemIds.naan, quantity: 1 }], clientRequestId: key };
+
+      // The impatient double-tap: both requests in flight at once.
+      const [a, b] = await Promise.all([placeOrder(fx, body), placeOrder(fx, body)]);
+      expect(a.ok && b.ok).toBe(true);
+      if (!a.ok || !b.ok) return;
+      expect(a.value.orderId).toBe(b.value.orderId);
+
+      const count = await asTenant(fx.tenantId, (tx) =>
+        tx.order.count({ where: { venueId: fx.venueId } }),
+      );
+      expect(count).toBe(1);
+    });
+
+    it("keeps keys scoped per venue", async () => {
+      const one = await fixtureVenue();
+      const two = await fixtureVenue();
+      const key = `req-${randomUUID()}`;
+
+      const a = await placeOrder(one, {
+        items: [{ itemId: one.itemIds.naan, quantity: 1 }],
+        clientRequestId: key,
+      });
+      // Same key at a different branch must NOT be mistaken for a replay.
+      const b = await placeOrder(two, {
+        items: [{ itemId: two.itemIds.naan, quantity: 1 }],
+        clientRequestId: key,
+      });
+      expect(a.ok && b.ok).toBe(true);
+      if (!a.ok || !b.ok) return;
+      expect(b.value.orderId).not.toBe(a.value.orderId);
+      expect(b.value.replayed).toBeUndefined();
+    });
+  });
+
+  it("holds up at 50 simultaneous orders", async () => {
+    const fx = await fixtureVenue();
+    // Deliberately at the service layer: going through HTTP would hit the
+    // 10/min per-IP limiter and test the limiter instead of the write
+    // path. This is the "lunch rush" shape — every order distinct, all
+    // contending for the same venue's receipt-number sequence.
+    const results = await Promise.all(
+      Array.from({ length: 50 }, (_, i) =>
+        placeOrder(fx, {
+          items: [{ itemId: fx.itemIds.naan, quantity: (i % 3) + 1 }],
+          clientRequestId: `rush-${randomUUID()}`,
+        }),
+      ),
+    );
+
+    const failures = results.filter((r) => !r.ok);
+    expect(failures, `all 50 should be placed, got ${failures.length} failures`).toHaveLength(0);
+
+    const numbers = results.flatMap((r) => (r.ok ? [r.value.orderNumber] : []));
+    expect(new Set(numbers).size).toBe(50);
+    expect([...numbers].sort((a, b) => a - b)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+  }, 60_000);
+
+  it("serves web and mobile submits arriving together", async () => {
+    const fx = await fixtureVenue();
+    // Both clients POST the same /api/orders and share this code path;
+    // the only difference is who minted the key. Interleave them.
+    const results = await Promise.all(
+      Array.from({ length: 12 }, (_, i) =>
+        placeOrder(fx, {
+          items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+          // Web keys look like `r-…`, mobile like `m-…`.
+          clientRequestId: `${i % 2 === 0 ? "r" : "m"}-${randomUUID()}`,
+        }),
+      ),
+    );
+    expect(results.every((r) => r.ok)).toBe(true);
+    const numbers = results.flatMap((r) => (r.ok ? [r.value.orderNumber] : []));
+    expect(new Set(numbers).size).toBe(12);
+  }, 60_000);
+
   it("merges duplicate lines for the same item", async () => {
     const fx = await fixtureVenue();
     const r = await placeOrder(fx, {

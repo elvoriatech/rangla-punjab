@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MessagePopup } from "@/components/message-popup";
 import {
   EMPTY_CART,
@@ -9,6 +9,7 @@ import {
   clearCart,
   formatCents,
   getCartSnapshot,
+  newRequestId,
   setQuantity,
   subscribeToCart,
 } from "./cart-store";
@@ -287,6 +288,8 @@ export function CartDrawer({
   const [placing, setPlacing] = useState(false);
   const [payStarting, setPayStarting] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  // Survives re-renders so a retry reuses the same idempotency key.
+  const attemptRef = useRef<{ key: string; signature: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const count = cartCount(lines);
@@ -323,28 +326,44 @@ export function CartDrawer({
     setPlacing(true);
     setError(null);
     try {
+      const payload = {
+        slug,
+        orderType,
+        requestedTime: orderType !== "dine_in" && requestedTime ? requestedTime : undefined,
+        tableNumber: orderType === "dine_in" ? tableNumber.trim() || undefined : undefined,
+        customerName: orderType === "dine_in" ? undefined : customerName.trim(),
+        customerPhone: orderType === "dine_in" ? undefined : customerPhone.trim(),
+        address:
+          orderType === "delivery"
+            ? {
+                street: street.trim(),
+                zip: zip.trim(),
+                // City comes from the venue's area row for this ZIP —
+                // the server patches it authoritatively.
+                note: note.trim() || undefined,
+              }
+            : undefined,
+        items: lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+      };
+
+      // Idempotency key for this submit. A lost response looks exactly
+      // like a failure here (the `catch` below), so the guest's natural
+      // reaction — tap again — would otherwise place a SECOND real order
+      // and the kitchen would cook it twice. Reusing the key makes the
+      // retry return the first order.
+      //
+      // Keyed to the payload: change anything about the basket and a
+      // fresh key is minted, so an edited order is never answered with
+      // the previous one. Cleared on success.
+      const signature = JSON.stringify(payload);
+      if (!attemptRef.current || attemptRef.current.signature !== signature) {
+        attemptRef.current = { key: newRequestId(), signature };
+      }
+
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug,
-          orderType,
-          requestedTime: orderType !== "dine_in" && requestedTime ? requestedTime : undefined,
-          tableNumber: orderType === "dine_in" ? tableNumber.trim() || undefined : undefined,
-          customerName: orderType === "dine_in" ? undefined : customerName.trim(),
-          customerPhone: orderType === "dine_in" ? undefined : customerPhone.trim(),
-          address:
-            orderType === "delivery"
-              ? {
-                  street: street.trim(),
-                  zip: zip.trim(),
-                  // City comes from the venue's area row for this ZIP —
-                  // the server patches it authoritatively.
-                  note: note.trim() || undefined,
-                }
-              : undefined,
-          items: lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
-        }),
+        body: JSON.stringify({ ...payload, clientRequestId: attemptRef.current.key }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -366,6 +385,8 @@ export function CartDrawer({
         return;
       }
       const value = (await res.json()) as PlacedOrder;
+      // Landed — retire the key so the guest's next basket is a new order.
+      attemptRef.current = null;
       setPlaced(value);
       clearCart(slug);
       setOpen(true);

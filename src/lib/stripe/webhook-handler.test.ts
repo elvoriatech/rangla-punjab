@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../db";
-import { redis } from "../redis";
 import { asTenant, asUser } from "../tenant";
 import { signupUser } from "../auth-service";
 import { FakeStripeProvider } from "./fake-provider";
@@ -71,7 +70,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
         },
       },
     };
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     expect(outcome).toEqual({ status: 200, kind: "processed" });
 
     const row = await asUser(userId, (tx) => tx.subscription.findFirstOrThrow());
@@ -111,7 +110,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
       },
     };
 
-    const first = await handleStripeEvent(event, { provider, redis });
+    const first = await handleStripeEvent(event, { provider });
     expect(first.kind).toBe("processed");
 
     // Mutate the subscription in-place so we can prove no further write happened.
@@ -125,7 +124,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
       planPriceId: "price_test_growth",
     });
 
-    const second = await handleStripeEvent(event, { provider, redis });
+    const second = await handleStripeEvent(event, { provider });
     expect(second.kind).toBe("replayed");
 
     const row = await asUser(userId, (tx) => tx.subscription.findFirstOrThrow());
@@ -165,7 +164,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
         },
       },
     };
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     expect(outcome).toEqual({ status: 200, kind: "processed" });
 
     const row = await asUser(userId, (tx) => tx.subscription.findFirstOrThrow());
@@ -204,7 +203,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
         },
       },
     };
-    await handleStripeEvent(event, { provider, redis });
+    await handleStripeEvent(event, { provider });
 
     const row = await asUser(userId, (tx) => tx.subscription.findFirstOrThrow());
     expect(row.status).toBe("active");
@@ -217,7 +216,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
       type: "invoice.upcoming",
       data: { object: {} },
     };
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     expect(outcome).toEqual({ status: 200, kind: "ignored" });
   });
 
@@ -227,7 +226,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
       type: "checkout.session.completed",
       data: { object: { customer: "cus_x", subscription: "sub_x" } },
     };
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     expect(outcome.kind).toBe("processed");
     // No subscription row landed anywhere.
     const count = await prisma.subscription.count();
@@ -269,7 +268,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
       type: "checkout.session.completed",
       data: { object: { metadata: { orderId, tenantId } } },
     };
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     expect(outcome).toEqual({ status: 200, kind: "processed" });
 
     const order = await asTenant(tenantId, (tx) =>
@@ -293,7 +292,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
       type: "account.updated",
       data: { object: { id: accountId, charges_enabled: true, metadata: { tenantId } } },
     };
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     expect(outcome).toEqual({ status: 200, kind: "processed" });
 
     const tenant = await asTenant(tenantId, (tx) =>

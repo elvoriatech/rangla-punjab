@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 /**
  * The app's whole server contract — the /api/v1 reads plus the existing
  * order placement route. Money is integer cents, image URLs absolute,
@@ -123,10 +124,56 @@ export interface PlacedOrder {
   receiptToken: string;
 }
 
+/** Where the in-flight submit's idempotency key is parked. */
+const ATTEMPT_KEY = "rangla-order-attempt";
+
+/**
+ * Unique enough for one venue's order stream. Hermes has no
+ * `crypto.randomUUID`, so this is time + randomness rather than a UUID.
+ */
+function newRequestId(): string {
+  return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
+ * The idempotency key for this basket, reused across retries.
+ *
+ * Persisted rather than held in memory because mobile is exactly where
+ * the bad case happens: the request goes out, the connection drops, the
+ * app is backgrounded or killed, and the customer reopens it and taps
+ * Pay again. A key that only lived in memory would be gone by then and
+ * the kitchen would get a second order.
+ *
+ * Bound to a signature of the payload, so editing the basket mints a
+ * fresh key instead of being handed back the previous order.
+ */
+async function requestIdFor(signature: string): Promise<string> {
+  try {
+    const raw = await AsyncStorage.getItem(ATTEMPT_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw) as { key?: unknown; signature?: unknown };
+      if (typeof saved.key === "string" && saved.signature === signature) return saved.key;
+    }
+  } catch {
+    // Unreadable store — fall through and mint a fresh key. Worst case
+    // we lose de-duplication for this attempt, which is the old behaviour.
+  }
+  const key = newRequestId();
+  try {
+    await AsyncStorage.setItem(ATTEMPT_KEY, JSON.stringify({ key, signature }));
+  } catch {
+    /* best effort */
+  }
+  return key;
+}
+
 export async function placeOrder(
   input: PlaceOrderInput,
   customerToken?: string | null,
 ): Promise<{ ok: true; order: PlacedOrder } | { ok: false; error: string }> {
+  const signature = JSON.stringify(input);
+  const clientRequestId = await requestIdFor(signature);
+
   const res = await fetch(`${BASE_URL}/api/orders`, {
     method: "POST",
     headers: {
@@ -134,12 +181,16 @@ export async function placeOrder(
       // Signed-in customers get the order linked to their account.
       ...(customerToken ? { "X-Customer-Token": customerToken } : {}),
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, clientRequestId }),
   });
   const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!res.ok || !body || typeof body.orderId !== "string") {
+    // Keep the key: the next tap must be recognised as the same submit.
     return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
   }
+  // Landed (201) or replayed (200) — either way this basket is done, so
+  // retire the key before the customer starts a new order.
+  await AsyncStorage.removeItem(ATTEMPT_KEY).catch(() => {});
   return { ok: true, order: body as unknown as PlacedOrder };
 }
 

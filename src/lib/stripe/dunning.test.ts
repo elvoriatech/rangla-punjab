@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../db";
-import { redis } from "../redis";
 import { env } from "../env";
 import { asTenant, asUser } from "../tenant";
 import { signupUser } from "../auth-service";
@@ -90,7 +89,7 @@ describe("dunning + trial-end webhook events", () => {
     createdTenantIds.push(tenantId);
     createdUserIds.push(userId);
 
-    await handleStripeEvent(invoiceEvent(type, { tenantId, subId }), { provider, redis });
+    await handleStripeEvent(invoiceEvent(type, { tenantId, subId }), { provider });
 
     const row = await asUser(userId, (tx) => tx.subscription.findFirstOrThrow());
     expect(row.status).toBe(to);
@@ -117,7 +116,7 @@ describe("dunning + trial-end webhook events", () => {
         },
       },
     };
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     expect(outcome.kind).toBe("processed");
 
     // Poll MailHog for the mail addressed to *this* signup's user (which

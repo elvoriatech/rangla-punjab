@@ -134,3 +134,18 @@ export function getCartSnapshot(slug: string): CartLine[] {
 export function formatCents(cents: number, currency: string, locale: string): string {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(cents / 100);
 }
+
+/**
+ * Idempotency key for one order submit.
+ *
+ * `crypto.randomUUID` needs a secure context: it is there on HTTPS and
+ * on localhost, but not when the dev server is reached over plain HTTP
+ * on a LAN address (phone-testing a QR code). The fallback keeps enough
+ * entropy for a per-submit key — it only has to be unique among this
+ * venue's orders, not unguessable.
+ */
+export function newRequestId(): string {
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  return `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}

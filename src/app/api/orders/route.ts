@@ -67,13 +67,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     return withCors(NextResponse.json({ error: result.error }, { status }));
   }
 
-  log.info("order.placed", {
+  // A replay is a retry of a submit that already succeeded (the guest's
+  // first response was lost). 200 rather than 201 so the distinction is
+  // visible in logs and to the client, but the body is identical — the
+  // client must be able to carry on exactly as if it had just placed it.
+  log.info(result.value.replayed ? "order.replayed" : "order.placed", {
     venueId: context.venueId,
     orderId: result.value.orderId,
     orderNumber: result.value.orderNumber,
     totalCents: result.value.totalCents,
   });
-  return withCors(NextResponse.json(result.value, { status: 201 }));
+  return withCors(NextResponse.json(result.value, { status: result.value.replayed ? 200 : 201 }));
 }
 
 export function OPTIONS(): NextResponse {

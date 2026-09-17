@@ -534,6 +534,15 @@ model Order {
   requestedFor DateTime? @map("requested_for")
   totalCents  Int     @map("total_cents")
   currency    String
+  /// Client-supplied idempotency key. A submit that is retried after a
+  /// lost response carries the SAME key, so the second attempt returns
+  /// the order the first one created instead of cooking the food twice.
+  /// Deliberately stored HERE rather than in Redis: order creation must
+  /// not depend on Redis being up, and writing the key in the same
+  /// transaction as the order makes the pair atomic for free.
+  /// NULL for orders placed without a key (older clients, internal
+  /// seeds) — Postgres treats NULLs as distinct, so they never collide.
+  clientRequestId String? @map("client_request_id")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -543,9 +552,29 @@ model Order {
   items  OrderItem[]
 
   @@unique([venueId, orderNumber])
+  @@unique([venueId, clientRequestId])
   @@index([tenantId])
   @@map("orders")
   customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+}
+
+/// Provider webhook events we have already processed.
+///
+/// Replaces a Redis SET: the payment-settlement path should not need
+/// Redis to be up, and an INSERT ... ON CONFLICT DO NOTHING is a
+/// stronger guard than SET NX anyway because it shares the database
+/// transaction with the work it protects.
+///
+/// Not tenant-scoped on purpose — the guard has to be global, and an
+/// event id is opaque. Pruned by the daily maintenance tick.
+model WebhookEvent {
+  /// The provider's own event id (e.g. Stripe `evt_...`).
+  id          String   @id
+  provider    String   @default("stripe")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@index([processedAt])
+  @@map("webhook_events")
 }
 
 model OrderItem {

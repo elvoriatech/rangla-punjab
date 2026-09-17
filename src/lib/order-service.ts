@@ -34,6 +34,20 @@ export const placeOrderSchema = z
       .min(1)
       .max(50),
     orderType: z.enum(["dine_in", "takeaway", "delivery"]).default("dine_in"),
+    /**
+     * Idempotency key for THIS submit attempt, minted by the client and
+     * reused on every retry of the same basket.
+     *
+     * A lost response is indistinguishable from a failure at the client:
+     * the order may already be committed. Without a key the guest's
+     * second tap creates a second real order and the kitchen cooks the
+     * food twice. With one, the retry returns the first order.
+     *
+     * Optional so existing callers and seeds keep working; the client
+     * must mint a FRESH key whenever the basket changes, or it would be
+     * handed back the previous order.
+     */
+    clientRequestId: z.string().min(8).max(200).optional(),
     // Venue-local "HH:MM" for today (pickup/delivery). Absent = ASAP.
     requestedTime: z
       .string()
@@ -77,6 +91,13 @@ export interface PlacedOrder {
   totalCents: number;
   currency: string;
   receiptToken: string;
+  /**
+   * True when this response replayed an order an earlier attempt with
+   * the same `clientRequestId` had already created. Callers can treat it
+   * exactly like a fresh success — it exists so the API can report 200
+   * instead of 201, and so tests can assert no duplicate was written.
+   */
+  replayed?: boolean;
 }
 
 export type PlaceOrderResult =
@@ -241,6 +262,34 @@ export async function placeOrder(
     // where serialising costs nothing.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${context.venueId})::bigint)`;
 
+    // Replay check. Safe to do as a plain read because the advisory
+    // lock above already serialises this venue: a concurrent retry with
+    // the same key is waiting on the lock, not racing us. The unique
+    // index on (venue_id, client_request_id) is the backstop if a future
+    // caller ever skips the lock.
+    const clientRequestId = input.clientRequestId ?? null;
+    if (clientRequestId) {
+      const existing = await tx.order.findFirst({
+        where: { venueId: context.venueId, clientRequestId },
+        select: { id: true, orderNumber: true, totalCents: true, currency: true },
+      });
+      if (existing) {
+        // The STORED totals win, not the ones just recomputed — the
+        // guest is owed exactly the order that was created.
+        return {
+          ok: true as const,
+          value: {
+            orderId: existing.id,
+            orderNumber: existing.orderNumber,
+            totalCents: existing.totalCents,
+            currency: existing.currency,
+            receiptToken: signReceiptToken(existing.id, context.tenantId),
+            replayed: true as const,
+          },
+        };
+      }
+    }
+
     const max = await tx.order.aggregate({
       where: { venueId: context.venueId },
       _max: { orderNumber: true },
@@ -251,6 +300,7 @@ export async function placeOrder(
         tenantId: context.tenantId,
         venueId: context.venueId,
         orderNumber,
+        clientRequestId,
         orderType,
         customerId,
         tableNumber: orderType === "dine_in" ? input.tableNumber || null : null,

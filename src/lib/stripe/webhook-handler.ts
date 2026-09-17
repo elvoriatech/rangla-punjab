@@ -1,6 +1,6 @@
 import { BRAND } from "../brand";
 import { siteUrl } from "../site-url";
-import type Redis from "ioredis";
+import { prisma } from "../db";
 import { asTenant } from "../tenant";
 import { logger } from "../logger";
 import type { PlanCode } from "../plans";
@@ -15,22 +15,25 @@ import { markOrderPaid } from "../connect-service";
  * `asTenant(tenantId, …)` — the tenant is read from the Stripe object's
  * `metadata.tenantId`, which we set at checkout creation (P1-19e).
  *
- * Idempotency: every event id we've ever processed is in a Redis SET with
- * a 7-day TTL (Stripe's max retry window). We `SET NX` before any
- * downstream work, so if two Stripe retries land at once, only one wins.
- * Downstream writes are `upsert` shaped anyway, so a double-processing
- * would still converge on the same row state.
+ * Idempotency: every event id we process is inserted into the
+ * `webhook_events` table with `ON CONFLICT DO NOTHING`. The insert
+ * either claims the event (1 row) or tells us another delivery already
+ * did (0 rows), atomically, so two simultaneous Stripe retries cannot
+ * both proceed. Downstream writes are `upsert` shaped anyway, so a
+ * double-processing would still converge on the same row state.
+ *
+ * This used to be a Redis SET with a 7-day TTL. It moved to Postgres so
+ * that settling a payment does not depend on Redis being reachable: with
+ * the old guard, a Redis outage made every webhook fail, and the order
+ * stayed `pending` until Stripe's retries happened to find Redis back.
+ * Rows are pruned by the daily maintenance tick.
  */
-
-const IDEMP_KEY = "stripe:events:seen";
-const IDEMP_TTL_SEC = 60 * 60 * 24 * 7;
 
 export type WebhookOutcome =
   { status: 200; kind: "processed" | "replayed" | "ignored" } | { status: 400; kind: "invalid" };
 
 interface Deps {
   provider: StripeProvider;
-  redis: Redis;
 }
 
 interface HasMetadata {
@@ -59,12 +62,16 @@ interface InvoiceShape extends HasMetadata {
 }
 
 export async function handleStripeEvent(event: StripeEvent, deps: Deps): Promise<WebhookOutcome> {
-  const key = `${IDEMP_KEY}:${event.id}`;
-  // `SET NX EX` — succeeds only if the event is new. Duplicates return
-  // `null`, in which case we short-circuit with 200 (Stripe stops
-  // retrying on any 2xx).
-  const claim = await deps.redis.set(key, "1", "EX", IDEMP_TTL_SEC, "NX");
-  if (claim === null) {
+  // Claim the event. `skipDuplicates` compiles to ON CONFLICT DO
+  // NOTHING, so the count tells us whether we won: 1 = ours to process,
+  // 0 = an earlier (or concurrent) delivery already has it. A replay
+  // short-circuits with 200, which is how Stripe learns to stop
+  // retrying.
+  const claimed = await prisma.webhookEvent.createMany({
+    data: [{ id: event.id, provider: "stripe" }],
+    skipDuplicates: true,
+  });
+  if (claimed.count === 0) {
     logger.info("stripe.webhook.replay", { eventId: event.id, type: event.type });
     return { status: 200, kind: "replayed" };
   }

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { redis } from "@/lib/redis";
 import { getStripeProvider } from "@/lib/stripe";
 import { handleStripeEvent } from "@/lib/stripe/webhook-handler";
 import { captureException } from "@/lib/observability";
@@ -29,7 +28,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const outcome = await handleStripeEvent(event, { provider, redis });
+    const outcome = await handleStripeEvent(event, { provider });
     return NextResponse.json({ received: true, kind: outcome.kind }, { status: outcome.status });
   } catch (err) {
     captureException(err, { eventId: event.id, eventType: event.type });
