@@ -107,6 +107,25 @@ jobs:
         # See `scripts/check-migrations.ts`.
         run: pnpm check:migrations
 
+      - name: Provision the app role (migrations GRANT to it)
+        # Thirteen historical migrations end with a bare
+        # `GRANT … TO elvoria_app`, and Postgres refuses a GRANT to a role
+        # that does not exist — so the role must exist BEFORE
+        # `migrate deploy`, not after it. The dev-roles.sql step below still
+        # runs post-migrate for the table-level grants, which need the tables
+        # to exist; both are idempotent, so the overlap is harmless.
+        env:
+          PGPASSWORD: elvoria_dev
+        run: |
+          psql -v ON_ERROR_STOP=1 -h localhost -U elvoria -d elvoria <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'elvoria_app') THEN
+              CREATE ROLE elvoria_app LOGIN PASSWORD 'elvoria_app_dev';
+            END IF;
+          END $$;
+          SQL
+
       - name: Apply migrations
         run: pnpm exec prisma migrate deploy
 
