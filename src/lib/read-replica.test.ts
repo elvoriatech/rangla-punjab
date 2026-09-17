@@ -36,6 +36,13 @@ function adminUrl(): string {
  * port, query string. Uses URL parsing rather than a regex so extra `?`
  * or embedded `/` in the password can't break it.
  */
+/** The database a Postgres URL points at. The primary's name differs per
+ *  environment (local dev vs the CI service container), so asserting a
+ *  literal here fails everywhere except one machine. */
+function databaseName(url: string): string {
+  return decodeURIComponent(new URL(url).pathname.replace(/^\//, ""));
+}
+
 function swapDatabase(url: string, database: string): string {
   const u = new URL(url);
   u.pathname = `/${database}`;
@@ -102,7 +109,7 @@ describe("read-replica seam (P2-12)", () => {
 
     const primaryRows =
       await prisma.$queryRawUnsafe<{ current_database: string }[]>(`SELECT current_database()`);
-    expect(primaryRows[0]?.current_database).toBe("rangla-punjab-resturant");
+    expect(primaryRows[0]?.current_database).toBe(databaseName(adminUrl()));
   });
 
   it("RLS still blocks cross-tenant reads through asTenantRead", async () => {

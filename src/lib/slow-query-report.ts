@@ -49,10 +49,20 @@ export interface SlowQueryReport {
  *  a fresh CI postgres that did not preload the shared library, so
  *  callers can skip the report or the test suite can skip its asserts. */
 export async function isPgStatStatementsAvailable(db: DbLike): Promise<boolean> {
-  const rows = await db.$queryRawUnsafe<{ ok: boolean }[]>(
-    `SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') AS ok`,
-  );
-  return Boolean(rows[0]?.ok);
+  // A row in `pg_extension` only proves CREATE EXTENSION ran — the shared
+  // library ALSO has to be in `shared_preload_libraries`, which a GitHub
+  // Actions service container cannot set. In that half-configured state the
+  // old `pg_extension` probe answered true and every subsequent read raised
+  // 55000, so the caller never got the graceful no-op this function
+  // promises. Touch the view itself instead: it is the only check that
+  // distinguishes "installed" from "actually usable", and it covers the
+  // extension-absent case too (the relation simply does not exist).
+  try {
+    await db.$queryRawUnsafe(`SELECT 1 FROM pg_stat_statements LIMIT 1`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Read the top-N slow statements by `total_exec_time`. Excludes the
