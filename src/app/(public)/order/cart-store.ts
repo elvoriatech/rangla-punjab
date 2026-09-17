@@ -17,12 +17,12 @@ export interface CartLine {
   quantity: number;
 }
 
-const EVENT = "guesto-cart-updated";
+const EVENT = "rangla-cart-updated";
 const MAX_LINES = 50;
 const MAX_QTY = 50;
 
 function storageKey(slug: string): string {
-  return `guesto-order:${slug}`;
+  return `rangla-order:${slug}`;
 }
 
 export function readCart(slug: string): CartLine[] {
