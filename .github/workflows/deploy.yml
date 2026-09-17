@@ -18,7 +18,17 @@ name: Deploy to VPS
 #   VPS_SSH_KEY   private half of a key whose public half is in that
 #                 user's ~/.ssh/authorized_keys. Generate a DEDICATED
 #                 key for CI — do not reuse your laptop's.
-#   VPS_APP_DIR   optional, defaults to /opt/rangla-punjab
+#   VPS_APP_DIR   where the repo is cloned. Defaults to
+#                 /opt/rangla-punjab, so SET IT if the checkout lives
+#                 anywhere else (e.g. /var/www/rangla-punjab) or the job
+#                 fails on the very first `cd`.
+#
+# SHARED HOST WARNING: caddy publishes host ports 80 and 443. If another
+# app on this box already serves them (nginx/apache/pm2 for a different
+# site), `docker compose up` either fails with "port is already
+# allocated" or — worse — wins the race and takes that site down. On a
+# shared box, front the app with the EXISTING proxy instead: drop the
+# caddy service and publish the app on a loopback port.
 #
 # On the VPS, once:
 #   - Docker + compose plugin, and Node 22 + pnpm (deploy.sh runs
@@ -111,15 +121,22 @@ jobs:
             docker compose -f deploy/docker-compose.prod.yml --env-file prod.env ps
 
             echo "→ waiting for the app to answer"
+            # Probe INSIDE the container, not on the host. The app service
+            # publishes no ports (only caddy does), and this VPS also runs
+            # other apps — a host-level curl to :3000 would happily get a
+            # 200 from somebody else's process and report a successful
+            # deploy of code that never started. wget is in the image and
+            # is what the Dockerfile HEALTHCHECK already uses.
+            COMPOSE="docker compose -f deploy/docker-compose.prod.yml --env-file prod.env"
             for i in $(seq 1 30); do
-              if curl -fsS -o /dev/null http://127.0.0.1:3000/; then
+              if $COMPOSE exec -T app wget -q --spider http://127.0.0.1:3000/ 2>/dev/null; then
                 echo "app is up"
                 exit 0
               fi
               sleep 2
             done
-            echo "app did not answer on :3000 after 60s — check logs:"
-            docker compose -f deploy/docker-compose.prod.yml --env-file prod.env logs --tail=60 app
+            echo "app did not answer inside the container after 60s — logs:"
+            $COMPOSE logs --tail=60 app
             exit 1
         env:
           DEPLOY_SHA: ${{ steps.target.outputs.sha }}
