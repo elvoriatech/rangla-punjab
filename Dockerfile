@@ -78,6 +78,18 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# sharp's prebuilt binding dlopen()s libvips from a SIBLING package, and a
+# bare .so is invisible to Next's static tracing: the standalone bundle
+# ships sharp-linuxmusl-x64's .node WITHOUT the libvips-cpp.so it links
+# against, so every /img request dies with ERR_DLOPEN_FAILED (a plain 500,
+# before the route's own 404/422 handling can run). Copy both real package
+# directories from `deps` at their exact .pnpm paths — pnpm's relative
+# symlink between them then resolves, and the binding loads.
+# Versions are pinned deliberately: a lockfile bump fails this COPY loudly
+# rather than silently shipping a broken /img route again.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.pnpm/@img+sharp-libvips-linuxmusl-x64@1.3.2 /app/node_modules/.pnpm/@img+sharp-libvips-linuxmusl-x64@1.3.2
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.pnpm/@img+sharp-linuxmusl-x64@0.35.3 /app/node_modules/.pnpm/@img+sharp-linuxmusl-x64@0.35.3
+
 # Resized-variant cache (src/lib/image-cache.ts). Created here with the
 # right owner: /app is root-owned, so the app could not mkdir it at
 # runtime, and a compose volume mounted over it inherits this ownership.
