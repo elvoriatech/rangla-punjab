@@ -1,0 +1,141 @@
+name: Deploy to VPS
+
+# Ships main to the app VPS. Deliberately NOT triggered by `push`:
+# it waits for the CI workflow to go green and then deploys the exact
+# commit CI validated, so a red build can never reach the restaurant —
+# and a deploy can never race a newer push and ship something untested.
+#
+# Replaces the old deploy-to-ionos.yaml, which could not have worked:
+# it ran `npm ci` (this repo is pnpm-only, there is no package-lock.json),
+# built with pm2 in /var/www/guesto, and ignored the Docker + Caddy deploy
+# kit that production actually uses.
+#
+# ── One-time setup ──────────────────────────────────────────────────
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   VPS_HOST      217.154.159.255
+#   VPS_USER      the deploy user (NOT root if you can avoid it; it must
+#                 be in the `docker` group)
+#   VPS_SSH_KEY   private half of a key whose public half is in that
+#                 user's ~/.ssh/authorized_keys. Generate a DEDICATED
+#                 key for CI — do not reuse your laptop's.
+#   VPS_APP_DIR   optional, defaults to /opt/rangla-punjab
+#
+# On the VPS, once:
+#   - Docker + compose plugin, and Node 22 + pnpm (deploy.sh runs
+#     `pnpm exec tsx` on the host for migrations and seeding)
+#   - the repo cloned at VPS_APP_DIR, with a read-only deploy key so
+#     `git fetch` works unattended
+#   - prod.env filled in at the repo root, chmod 600. It is gitignored
+#     and never travels through CI — secrets stay on the box.
+# ────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Manual re-deploy (rollback, or after changing prod.env on the box).
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA or branch to deploy"
+        required: false
+        default: "main"
+
+concurrency:
+  # One deploy at a time. NOT cancel-in-progress: interrupting a deploy
+  # half way through a migration is worse than queueing behind it.
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only deploy a CI run that actually passed. Without this guard,
+    # `workflow_run` fires on failures too.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    # Add required reviewers to this environment in the repo settings if
+    # you want a human to approve each production deploy — worth doing
+    # once real guests are scanning the QR codes during service.
+    environment: production
+
+    steps:
+      - name: Resolve the commit to deploy
+        id: target
+        # Deploy the SHA that CI validated, not whatever main happens to
+        # be by the time this job starts.
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "sha=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          # A build plus migrations on a small box is not fast.
+          command_timeout: 20m
+          script_stop: true
+          envs: DEPLOY_SHA
+          script: |
+            set -euo pipefail
+
+            APP_DIR="${{ secrets.VPS_APP_DIR || '/opt/rangla-punjab' }}"
+            cd "$APP_DIR"
+
+            echo "→ fetching ${DEPLOY_SHA}"
+            git fetch --all --prune
+            # Hard reset rather than pull: the box is a deployment
+            # target, never a place anyone edits code, so a merge
+            # conflict here should be impossible — and if the tree did
+            # drift, we want the deployed commit to win, not a merge.
+            git reset --hard "${DEPLOY_SHA}"
+
+            echo "→ installing host deps (deploy.sh runs prisma + tsx on the host)"
+            pnpm install --frozen-lockfile
+
+            echo "→ release: build → migrate → seed → up"
+            # seed is idempotent; it no-ops once the venue exists, so it
+            # is safe on every release.
+            ./deploy/deploy.sh release
+
+            echo "→ container status"
+            docker compose -f deploy/docker-compose.prod.yml --env-file prod.env ps
+
+            echo "→ waiting for the app to answer"
+            for i in $(seq 1 30); do
+              if curl -fsS -o /dev/null http://127.0.0.1:3000/; then
+                echo "app is up"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "app did not answer on :3000 after 60s — check logs:"
+            docker compose -f deploy/docker-compose.prod.yml --env-file prod.env logs --tail=60 app
+            exit 1
+        env:
+          DEPLOY_SHA: ${{ steps.target.outputs.sha }}
+
+      - name: Verify the public site over HTTPS
+        # Belt and braces: the container answering on localhost does not
+        # prove Caddy has a certificate and is proxying correctly.
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://rangla-punjab-restaurant.de/ || true)
+            if [ "$code" = "200" ]; then
+              echo "public site OK (HTTP $code)"
+              exit 0
+            fi
+            echo "attempt $i: HTTP $code"
+            sleep 6
+          done
+          echo "public site did not return 200 — DNS, firewall (80/443) or TLS issue"
+          exit 1

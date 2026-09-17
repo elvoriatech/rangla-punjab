@@ -18,6 +18,13 @@
 # served by the app itself (the /img route resizes from disk and caches
 # the variants), so there is no separate image host to proxy.
 
+# www -> apex, permanently. DNS has a www A record, and without a site
+# block for it Caddy would neither answer nor hold a certificate for
+# www, so anyone typing it would get a TLS error rather than the menu.
+www.{$APP_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
 {$APP_DOMAIN} {
 	encode zstd gzip
 
