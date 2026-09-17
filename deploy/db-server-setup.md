@@ -72,6 +72,10 @@ reversible answer.)
 ```bash
 sudo -u postgres psql <<'SQL'
 CREATE DATABASE rangla_database;
+-- Use a HEX password (`openssl rand -hex 24`). This value is
+-- interpolated into a connection URL, and base64's `/` and `+` — or a
+-- `#`/`@` — break URL parsing, which Prisma reports as the misleading
+-- "P1013 ... invalid port number in database URL".
 CREATE ROLE rangla_user LOGIN PASSWORD '<DB_OWNER_PASSWORD from prod.env>';
 ALTER DATABASE rangla_database OWNER TO rangla_user;
 
