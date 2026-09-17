@@ -35,7 +35,31 @@ COPY . .
 # never opens a connection, so a placeholder URL satisfies the loader.
 RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public" \
     pnpm exec prisma generate
-RUN pnpm build
+
+# Next INLINES every NEXT_PUBLIC_* value into the client bundles at
+# compile time, so these cannot come from prod.env at runtime the way
+# APP_URL does. Without them the two client components that read the
+# brand (the /admin sidebar and the /dashboard rail) render the "Resto"
+# fallback while every server-rendered page shows the real name.
+# deploy.sh passes these through from prod.env.
+ARG NEXT_PUBLIC_APP_BRAND_NAME="Rangla Punjab"
+ARG NEXT_PUBLIC_APP_BRAND_TAGLINE=""
+ENV NEXT_PUBLIC_APP_BRAND_NAME=$NEXT_PUBLIC_APP_BRAND_NAME \
+    NEXT_PUBLIC_APP_BRAND_TAGLINE=$NEXT_PUBLIC_APP_BRAND_TAGLINE
+
+# Placeholders so `next build` can evaluate the env schema while it
+# collects page data. `.dockerignore` excludes .env (correctly — secrets
+# must not enter an image layer), so without these the build dies on
+# "APP_DATABASE_URL is not set" and the production image cannot be built
+# at all. Nothing here reaches the running container: these are build
+# stage only, the runner gets real values from prod.env, and only
+# NEXT_PUBLIC_* values are ever inlined into output — SESSION_SECRET is
+# read server-side at runtime, so this dummy is never baked in.
+RUN APP_DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public" \
+    DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public" \
+    REDIS_URL="redis://127.0.0.1:6379" \
+    SESSION_SECRET="build-placeholder-not-a-secret-000000000000" \
+    pnpm build
 
 # ---------- Runner ----------
 FROM node:22-alpine AS runner

@@ -21,7 +21,13 @@ set -a; source "$ENV_FILE"; set +a
 
 case "${1:-}" in
   build)
-    docker build -t "${APP_IMAGE:-resto-app:latest}" .
+    # The brand vars are build-time (Next inlines NEXT_PUBLIC_* into the
+    # client bundles), so they have to be passed here rather than in the
+    # container environment — change the brand and you must rebuild.
+    docker build \
+      --build-arg NEXT_PUBLIC_APP_BRAND_NAME="${NEXT_PUBLIC_APP_BRAND_NAME:-Rangla Punjab}" \
+      --build-arg NEXT_PUBLIC_APP_BRAND_TAGLINE="${NEXT_PUBLIC_APP_BRAND_TAGLINE:-}" \
+      -t "${APP_IMAGE:-resto-app:latest}" .
     ;;
   migrate)
     # Gate first: refuses destructive migration shapes.

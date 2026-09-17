@@ -7,6 +7,21 @@ import { listPublicVenues, siteUrl } from "@/lib/public-menu";
  * excluded by the SECURITY DEFINER filter in `list_public_venues()` —
  * never leak a work-in-progress restaurant name via the sitemap.
  */
+/**
+ * Next treats `sitemap.ts` as a Route Handler that is CACHED by default,
+ * which means it is executed during `next build` — and this one queries
+ * the database for published venues. That is fine locally, where the dev
+ * database happens to be reachable, but inside `docker build` there is
+ * no database and the build died on a TCP connect. (`.dockerignore`
+ * correctly keeps .env out of the image, so there were no credentials
+ * either.) The production image was therefore unbuildable.
+ *
+ * Opting out of the cache is also the behaviour we want: the sitemap
+ * should list what is published right now, not whatever was published
+ * when the image was built.
+ */
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   const venues = await listPublicVenues();
