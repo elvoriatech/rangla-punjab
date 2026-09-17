@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile, copyFile, unlink, rm } from "node:fs/promises";
 import path from "node:path";
+import { deleteVariants } from "./image-cache";
 
 /**
  * Local-disk image storage. White-label, single-restaurant deploy: there
@@ -50,16 +51,20 @@ export async function copyUpload(srcKey: string, destKey: string): Promise<void>
   await copyFile(resolveSafe(srcKey), dest);
 }
 
-/** Delete one object; a missing file is not an error. */
+/** Delete one object and every resized variant of it. */
 export async function deleteUpload(key: string): Promise<void> {
   try {
     await unlink(resolveSafe(key));
   } catch {
     /* already gone */
   }
+  // Variants are derived data; a cached copy must never outlive the
+  // original it came from (nor keep occupying disk after a purge).
+  await deleteVariants(key);
 }
 
 /** Recursively delete everything under a key prefix (tenant purge). */
 export async function deletePrefix(prefix: string): Promise<void> {
   await rm(resolveSafe(prefix), { recursive: true, force: true });
+  await deleteVariants(prefix);
 }

@@ -35,7 +35,8 @@ https://<APP_URL domain>/r/<restaurant-slug>        e.g. https://guesto.app/r/ta
 | Next.js app | `pnpm dev` | Docker image (`Dockerfile`, Next standalone output, node:22-alpine) |
 | PostgreSQL 16 | `elvoria-postgres` | **Remote managed Postgres** — app connects directly, no pooler |
 | Redis | `elvoria-redis` | Managed Redis (rate limits, webhook idempotency, queues) |
-| Menu photos | local disk (`public/uploads`) | Local disk on a **mounted `uploads` volume** — resized on the fly by the `/img` route (sharp). No object store, no imgproxy. Back the volume up. |
+| Menu photos | local disk (`public/uploads`) | Local disk on a **mounted `uploads` volume** — resized by the `/img` route (sharp). No object store, no imgproxy. Back the volume up. |
+| Resized variants | `.image-cache/` | **`image_cache` volume** — read-through cache of every `/img` render, so each width+format is encoded once. Derived data: **do not back up**, safe to delete (costs one re-encode). |
 | Email | MailHog | **Resend** (`EMAIL_TRANSPORT=resend`) |
 | Stripe | test keys + `stripe listen` | live keys + two Dashboard webhook endpoints |
 | CDN (optional) | — | Cloudflare in front of the app; purge-on-write supported |

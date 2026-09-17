@@ -94,6 +94,32 @@ export function venueIcons(logoKey: string | null | undefined): {
   };
 }
 
+/**
+ * A 43-byte transparent GIF, inline so it costs zero requests.
+ *
+ * Used as the `<img>` fallback inside a `<picture>` whose only `<source>`
+ * is desktop-gated: a phone matches no source, falls back to this, and
+ * downloads nothing. Chrome fetches `display:none` images, so
+ * `hidden md:block` alone still put a full-size decorative photo on the
+ * critical path of every phone guest — and a QR menu is almost entirely
+ * phone guests.
+ */
+export const TRANSPARENT_PIXEL =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+/**
+ * Widths offered for the full-bleed hero banner. It spans 100vw at every
+ * breakpoint, so unlike the fixed-size dish cards (which use a 1x/2x DPR
+ * pair) it wants real width descriptors: a 390px phone took the single
+ * 1920px render before this, ~5x the pixels it can display.
+ */
+export const BANNER_WIDTHS = [640, 960, 1280, 1920] as const;
+
+/** `w`-descriptor srcset for the full-bleed banner. */
+export function bannerSrcSet(storageKey: string): string {
+  return BANNER_WIDTHS.map((w) => `${uploadedImageUrl(storageKey, w)} ${w}w`).join(", ");
+}
+
 /** Uploaded photo if present, otherwise the stable default. */
 export function menuImageUrl(
   storageKey: string | null | undefined,

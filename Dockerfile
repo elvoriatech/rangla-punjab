@@ -54,6 +54,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# Resized-variant cache (src/lib/image-cache.ts). Created here with the
+# right owner: /app is root-owned, so the app could not mkdir it at
+# runtime, and a compose volume mounted over it inherits this ownership.
+RUN mkdir -p /app/.image-cache && chown nextjs:nodejs /app/.image-cache
+
 USER nextjs
 EXPOSE 3000
 

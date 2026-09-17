@@ -83,9 +83,12 @@ services:
       MAILHOG_API_URL: http://mailhog:8025
     # Uploaded images live on disk under public/uploads — persist them
     # across container rebuilds so dev uploads survive `compose up --build`.
+    # image_cache mirrors prod: resized variants, regenerable.
     volumes:
       - uploads:/app/public/uploads
+      - image_cache:/app/.image-cache
 
 volumes:
   pgdata:
   uploads:
+  image_cache:

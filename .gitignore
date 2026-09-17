@@ -70,3 +70,7 @@ public/uploads/*
 !public/uploads/templates/
 public/uploads/templates/*
 !public/uploads/templates/indian/
+
+# Resized image variants (derived from public/uploads; regenerable).
+# Deliberately NOT under public/uploads so it stays out of backups.
+/.image-cache/

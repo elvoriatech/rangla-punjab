@@ -11,8 +11,9 @@
 #   redis     (internal) rate limits, webhook idempotency
 #
 # Images: stored on the app's own disk under public/uploads (mounted as
-# the `uploads` volume, below) and resized on the fly by the /img route —
-# no object store, no imgproxy. Back up that volume.
+# the `uploads` volume, below) and resized by the /img route — no object
+# store, no imgproxy. Back up that volume. Resized variants are cached
+# on the separate `image_cache` volume (regenerable; do not back up).
 #
 # Secrets/config come from ../prod.env (copy prod.env.template, fill in).
 #
@@ -54,8 +55,13 @@ services:
       redis:
         condition: service_healthy
     # Uploaded images persist here across redeploys — BACK THIS UP.
+    # image_cache holds sharp's resized variants: derived data, its own
+    # volume so it survives redeploys (staying warm) while staying OUT
+    # of the backup set. Safe to delete at any time — the next request
+    # re-encodes. Do NOT back it up.
     volumes:
       - uploads:/app/public/uploads
+      - image_cache:/app/.image-cache
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 15s
@@ -80,3 +86,4 @@ volumes:
   caddy_config:
   redis_data:
   uploads:
+  image_cache:
