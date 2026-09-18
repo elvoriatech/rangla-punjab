@@ -244,6 +244,8 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
     if (settled) {
       const { sendReceiptEmailForOrder } = await import("./receipt-email");
       void sendReceiptEmailForOrder(tenantId, orderId);
+      const { sendNewOrderNotification } = await import("./order-notification");
+      void sendNewOrderNotification(tenantId, orderId);
     }
     return settled;
   });

@@ -123,3 +123,26 @@ describe("accepted payments", () => {
     ]);
   });
 });
+
+describe("new-order notification emails", () => {
+  it("defaults to none", () => {
+    expect(parseOrderingConfig({}).notifyEmails).toEqual([]);
+  });
+
+  it("splits the settings form's comma/newline string, lowercases and dedupes", () => {
+    expect(
+      parseOrderingConfig({ notifyEmails: "Chef@Ex.de, kueche@ex.de\nchef@ex.de; " }).notifyEmails,
+    ).toEqual(["chef@ex.de", "kueche@ex.de"]);
+  });
+
+  it("drops junk per address instead of failing the save", () => {
+    expect(
+      parseOrderingConfig({ notifyEmails: ["ok@ex.de", "not an email", 42, "@nope"] }).notifyEmails,
+    ).toEqual(["ok@ex.de"]);
+  });
+
+  it("caps the list at five", () => {
+    const many = Array.from({ length: 8 }, (_, i) => `p${i}@ex.de`);
+    expect(parseOrderingConfig({ notifyEmails: many }).notifyEmails).toHaveLength(5);
+  });
+});

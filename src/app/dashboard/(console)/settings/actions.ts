@@ -124,6 +124,9 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     deliveryFeeCents: deliveryAreas.length > 0 ? 0 : cents(form.get("deliveryFee")),
     deliveryMinCents: deliveryAreas.length > 0 ? 0 : cents(form.get("deliveryMin")),
     acceptedPayments: form.getAll("acceptedPayments").map(String),
+    // Comma/newline-separated textarea; the schema splits, dedupes and
+    // drops anything that isn't an address.
+    notifyEmails: String(form.get("notifyEmails") ?? ""),
   });
   return finish(userId, result.ok, "ordering");
 }

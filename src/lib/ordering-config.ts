@@ -58,6 +58,25 @@ const PAYMENT_IDS = PAYMENT_METHODS.map((m) => m.id) as readonly string[];
 /** What a typical German restaurant takes — the onboarding default. */
 export const DEFAULT_PAYMENTS: PaymentMethodId[] = ["cash", "girocard", "visa", "mastercard"];
 
+/** Owner inboxes that get a "new order" email. Up to five, so a shift
+ *  lead and the office can both be on it; junk is dropped per address
+ *  rather than failing the whole save. Accepts the comma/newline-separated
+ *  string the settings form posts as well as a stored array. */
+export const MAX_NOTIFY_EMAILS = 5;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const notifyEmailsField = z.preprocess((v) => {
+  const raw = Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,;\n]/) : [];
+  const out: string[] = [];
+  for (const item of raw) {
+    const email = String(item).trim().toLowerCase();
+    if (email && email.length <= 254 && EMAIL_RE.test(email) && !out.includes(email)) {
+      out.push(email);
+    }
+    if (out.length === MAX_NOTIFY_EMAILS) break;
+  }
+  return out;
+}, z.array(z.string()).max(MAX_NOTIFY_EMAILS));
+
 export const orderingConfigSchema = z.object({
   dineIn: z.boolean().default(true),
   takeaway: z.boolean().default(true),
@@ -74,6 +93,9 @@ export const orderingConfigSchema = z.object({
   deliveryZips: z.array(z.string().trim().min(3).max(10)).default([]),
   deliveryFeeCents: centsField(50_000).default(0),
   deliveryMinCents: centsField(500_000).default(0),
+  // Owner-side only — never reaches EffectiveOrdering, which is what the
+  // public menu and /api/v1/menu see.
+  notifyEmails: notifyEmailsField,
   // Shown in the public menu footer. Per-item sanitised (one unknown
   // value never nukes the list): legacy "credit" expands to
   // Visa + Mastercard, junk is dropped, absent → German-typical default.

@@ -75,9 +75,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   // markOrderPaid mails it once the payment settles, so the guest never
   // gets a "pay at the restaurant" receipt for an order they are about to
   // pay online. Replays already mailed on the first attempt.
+  // The owner's "new order" alert rides the same rule, so inbox and
+  // kitchen printer agree on when an order is real.
   if (!result.value.replayed && (orderInput.intendedPayment ?? "cash") === "cash") {
     const { sendReceiptEmailForOrder } = await import("@/lib/receipt-email");
     void sendReceiptEmailForOrder(context.tenantId, result.value.orderId);
+    const { sendNewOrderNotification } = await import("@/lib/order-notification");
+    void sendNewOrderNotification(context.tenantId, result.value.orderId);
   }
 
   log.info(result.value.replayed ? "order.replayed" : "order.placed", {

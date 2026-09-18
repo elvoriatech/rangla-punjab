@@ -10,7 +10,7 @@ import {
   SUPPORTED_LOCALES,
 } from "@/lib/venue-service";
 import { PLAN_LABELS } from "@/lib/plan-state";
-import { PAYMENT_METHODS } from "@/lib/ordering-config";
+import { MAX_NOTIFY_EMAILS, PAYMENT_METHODS } from "@/lib/ordering-config";
 import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
 import { uploadedImageUrl } from "@/lib/menu-images";
 import { siteUrl } from "@/lib/public-menu";
@@ -570,6 +570,26 @@ export default async function SettingsPage({
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="mt-4 border-t border-ink/10 pt-4">
+            <label className="block text-sm">
+              <span className="font-medium">New-order email alerts</span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Every new order lands in these inboxes as a kitchen ticket — cash orders the moment
+                they&apos;re placed, card and PayPal orders once they&apos;re paid. Up to{" "}
+                {MAX_NOTIFY_EMAILS} addresses, separated by commas. Leave empty to turn alerts off.
+              </span>
+              <textarea
+                name="notifyEmails"
+                rows={2}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="kueche@example.de, chef@example.de"
+                defaultValue={ordering.config.notifyEmails.join(", ")}
+                className="mt-2 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+            </label>
           </div>
 
           <SubmitButton
