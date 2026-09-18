@@ -321,6 +321,22 @@ describe("MenuView", () => {
     expect(html).not.toContain('aria-label="Language"');
   });
 
+  it("footer payment strip shows the Stripe card brands once card payment is live", () => {
+    const html = renderToStaticMarkup(
+      <MenuView menu={fixture} orderingModes={ALL_MODES} onlinePayment paypalPayment />,
+    );
+    expect(html).toContain("Accepted payments");
+    expect(html).toContain("/brand/pay/visa.svg");
+    expect(html).toContain("/brand/pay/mastercard.svg");
+    expect(html).toContain("/brand/pay/amex.svg");
+    expect(html).toContain("/brand/pay/paypal.svg");
+  });
+
+  it("footer payment strip stays off when nothing is accepted", () => {
+    const html = renderToStaticMarkup(<MenuView menu={fixture} orderingModes={ALL_MODES} />);
+    expect(html).not.toContain("Accepted payments");
+  });
+
   it("shows a filter-aware empty state when a filter narrows out every item", () => {
     const empty: PublicMenu = { ...fixture, categories: [] };
     const html = renderToStaticMarkup(<MenuView menu={empty} activeDiets={new Set(["halal"])} />);

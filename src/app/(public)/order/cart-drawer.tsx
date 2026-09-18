@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MessagePopup } from "@/components/message-popup";
+import { acceptedPaymentIds, PaymentMarks } from "../payment-marks";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 import {
   EMPTY_CART,
@@ -1046,6 +1047,21 @@ export function CartDrawer({
                         : "No payment now — you pay at the restaurant."}
                 </p>
               )}
+              {/* The brands the enabled rails can actually charge, on the
+                  card the guest is about to tap: a guest who cannot see a
+                  Visa mark assumes their card is not taken. Stripe implies
+                  Visa / Mastercard / Amex; PayPal appears on its own rail. */}
+              {onlinePayment || paypalPayment ? (
+                <div className="mt-3 flex flex-col items-center gap-1.5">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                    We accept
+                  </span>
+                  <PaymentMarks
+                    ids={acceptedPaymentIds({ onlinePayment, paypalPayment })}
+                    className="justify-center"
+                  />
+                </div>
+              ) : null}
             </>
           )}
         </div>

@@ -9,15 +9,7 @@ import { categoryIcon } from "@/lib/category-icons";
 import { menuImageSrcSet, menuImageUrl, TRANSPARENT_PIXEL } from "@/lib/menu-images";
 import type { EffectiveOrdering } from "@/lib/ordering-config";
 import type { OpeningHours, OpenState } from "@/lib/opening-hours";
-import { PAYMENT_METHODS } from "@/lib/ordering-config";
-import {
-  siAmericanexpress,
-  siApplepay,
-  siGooglepay,
-  siMastercard,
-  siPaypal,
-  siVisa,
-} from "simple-icons";
+import { acceptedPaymentIds, PaymentMarks } from "./payment-marks";
 import { WEEKDAY_LABELS } from "@/lib/opening-hours";
 import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
 import { AddToOrderButton } from "./order/add-button";
@@ -60,22 +52,6 @@ const DIET_META: Record<string, { label: string; icon: string; crossed?: boolean
   halal: { label: "Halal", icon: "حلال" },
   kosher: { label: "Kosher", icon: "✡" },
 };
-
-/** Brand acceptance marks (Simple Icons, CC0 icon data) rendered as
- *  inline SVG in currentColor so they read on every menu theme. Methods
- *  without a brand glyph (cash, girocard) fall back to their emoji. */
-const PAYMENT_ICONS: Record<string, { path: string; title: string }> = {
-  visa: { path: siVisa.path, title: "Visa" },
-  mastercard: { path: siMastercard.path, title: "Mastercard" },
-  amex: { path: siAmericanexpress.path, title: "American Express" },
-  paypal: { path: siPaypal.path, title: "PayPal" },
-  apple_pay: { path: siApplepay.path, title: "Apple Pay" },
-  google_pay: { path: siGooglepay.path, title: "Google Pay" },
-};
-
-const PAYMENT_EMOJI: Record<string, { emoji: string; label: string }> = Object.fromEntries(
-  PAYMENT_METHODS.filter((m) => m.emoji).map((m) => [m.id, { emoji: m.emoji, label: m.label }]),
-);
 
 export function MenuView({
   menu,
@@ -135,6 +111,15 @@ export function MenuView({
   };
   const ordering =
     !orderingPaused && !menu.isPreview && (modes.dineIn || modes.takeaway || modes.delivery);
+  // Footer payment strip: what the owner ticked in settings PLUS the card
+  // brands the live online rails can actually charge (Stripe → Visa /
+  // Mastercard / Amex, PayPal → PayPal), so a venue that turned card
+  // payment on never has to re-tick the same brands by hand.
+  const payMarks = acceptedPaymentIds({
+    accepted: modes.acceptedPayments,
+    onlinePayment: Boolean(onlinePayment),
+    paypalPayment: Boolean(paypalPayment),
+  });
   const showIcons = menu.venue.branding.categoryIcons === "icons";
   // Owner-chosen category navigation for LARGE screens: "side" renders a
   // sticky left rail and drops the top-bar tabs on lg+. Phones always
@@ -318,48 +303,13 @@ export function MenuView({
             <span className="text-center text-[10px] uppercase tracking-[0.32em] text-[var(--menu-surface-text,var(--menu-text))]/75 sm:text-left">
               Powered by {BRAND.name} · Digital Menus
             </span>
-            {modes.acceptedPayments.length > 0 ? (
-              <span className="flex max-w-md flex-wrap items-center justify-center gap-x-1.5 gap-y-1.5 sm:justify-end">
-                <span className="mr-1 w-full text-center text-[10px] uppercase tracking-[0.2em] text-[var(--menu-surface-text,var(--menu-text))]/75 sm:w-auto sm:text-right">
+            {payMarks.length > 0 ? (
+              <div className="flex max-w-md flex-col items-center gap-1.5 sm:items-end">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--menu-surface-text,var(--menu-text))]/75">
                   Accepted payments
                 </span>
-                {modes.acceptedPayments.map((id) => {
-                  const icon = PAYMENT_ICONS[id];
-                  const emoji = PAYMENT_EMOJI[id];
-                  if (!icon && !emoji) return null;
-                  const label = icon?.title ?? emoji!.label;
-                  return (
-                    <span
-                      key={id}
-                      role="img"
-                      aria-label={label}
-                      title={label}
-                      /* Sits in the footer, i.e. ON the surface — so it takes an
-                         ink wash instead of a border, and SURFACE ink instead of
-                         page ink. It was `bg-surface` on a surface ground (an
-                         invisible fill held together by its hairline) with page
-                         ink over it, which is 1.08:1 on brasserie under a
-                         backdrop. */
-                      className="flex h-9 min-w-11 items-center justify-center rounded-lg bg-[var(--menu-surface-text,var(--menu-text))]/7 px-2.5 text-[var(--menu-surface-text,var(--menu-text))]"
-                    >
-                      {icon ? (
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-5 w-auto"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path d={icon.path} />
-                        </svg>
-                      ) : (
-                        <span aria-hidden="true" className="text-xl leading-none">
-                          {emoji!.emoji}
-                        </span>
-                      )}
-                    </span>
-                  );
-                })}
-              </span>
+                <PaymentMarks ids={payMarks} className="justify-center sm:justify-end" />
+              </div>
             ) : null}
           </div>
         </div>
