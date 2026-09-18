@@ -20,6 +20,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid: "Please enter a valid email address and password.",
   invalid_credentials: "That email and password combination doesn't match our records.",
   rate_limited: "Too many attempts. Please wait a minute and try again.",
+  no_restaurant:
+    "This account isn't linked to a restaurant. Use the owner login, or ask the administrator to run the owner setup.",
 };
 
 /**

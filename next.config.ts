@@ -54,6 +54,14 @@ const CSP = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Version-skew protection (self-hosted, one container replaced per
+  // deploy): assets carry ?dpl=<id>, client navigations send
+  // x-deployment-id, and on a mismatch Next does a full reload instead of
+  // a client navigation that would 404 on old chunks or hit a Server
+  // Action id the new build no longer has ("This page couldn't load" on
+  // every tablet left open across a deploy). GIT_SHA is the image's
+  // build-arg (deploy.sh build); undefined in dev keeps HMR untouched.
+  deploymentId: process.env.GIT_SHA || undefined,
   experimental: {
     serverActions: {
       // Bulk photo/menu uploads post several files inline (multipart server

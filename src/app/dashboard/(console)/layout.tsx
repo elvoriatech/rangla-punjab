@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { NoActiveTenantError } from "@/lib/tenant";
+import { isPlatformAdmin } from "@/lib/platform-admin";
 import { getSessionInfo, getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import { getActiveVenueId, listOwnerVenues } from "@/lib/active-venue";
@@ -44,8 +46,22 @@ export default async function DashboardLayout({
 
   // Single-restaurant deploy: the console always shows the session user's
   // own venue — no slug in the URL to reconcile.
-  const venueResult = await getVenueForUser(userId);
-  if (!venueResult.ok) redirect("/dashboard");
+  let venueResult: Awaited<ReturnType<typeof getVenueForUser>>;
+  try {
+    venueResult = await getVenueForUser(userId);
+  } catch (err) {
+    // An account with no restaurant (the platform admin, or a stray
+    // signup) is not a server error: send admins to their console and
+    // everyone else to the login with a message, instead of the error page.
+    if (err instanceof NoActiveTenantError) {
+      if (await isPlatformAdmin(userId)) redirect("/admin");
+      redirect("/login?error=no_restaurant");
+    }
+    throw err;
+  }
+  // A missing venue on a live tenant would loop here forever; the login
+  // message is the honest answer.
+  if (!venueResult.ok) redirect("/login?error=no_restaurant");
   const venue = venueResult.value;
   // Branch switcher data: only meaningful when the tenant owns >1 venue.
   const [venues, activeVenueId] = await Promise.all([

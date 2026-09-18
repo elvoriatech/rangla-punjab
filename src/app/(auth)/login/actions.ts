@@ -8,6 +8,7 @@ import { loginUser } from "@/lib/auth-service";
 import { clientIp } from "@/lib/client-ip";
 import { venueAdminBase } from "@/lib/venue-service";
 import { isPlatformAdmin } from "@/lib/platform-admin";
+import { NoActiveTenantError } from "@/lib/tenant";
 import { checkRateLimit, LOGIN_EMAIL, LOGIN_IP } from "@/lib/rate-limit";
 
 const formSchema = z.object({
@@ -46,6 +47,12 @@ export async function loginAction(form: FormData): Promise<void> {
   await setSessionCookie(result.userId);
   // Guesto staff land on the platform console; owners on their venue.
   if (await isPlatformAdmin(result.userId)) redirect("/admin");
-  const base = await venueAdminBase(result.userId);
+  let base: string | null = null;
+  try {
+    base = await venueAdminBase(result.userId);
+  } catch (err) {
+    if (!(err instanceof NoActiveTenantError)) throw err;
+    redirect("/login?error=no_restaurant");
+  }
   redirect(base ?? "/dashboard");
 }
