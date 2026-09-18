@@ -3,40 +3,11 @@
 import { venueAdminBase } from "@/lib/venue-service";
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
-import { createBillingPortal, createCheckout } from "@/lib/billing-service";
-import { siteUrl } from "@/lib/public-menu";
 
 async function requireUser(): Promise<string> {
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
   return userId;
-}
-
-/**
- * Server action for the "Start / activate support subscription" button.
- * Success → redirect the whole page to Stripe's checkout URL (works even
- * without JS because it's a POST-then-redirect).
- */
-export async function subscribeToSupportAction(): Promise<void> {
-  const userId = await requireUser();
-  const base = siteUrl();
-  const adminBase = (await venueAdminBase(userId)) ?? "/dashboard";
-  const result = await createCheckout(userId, "support", {
-    successUrl: `${base}${adminBase}/billing?ok=1`,
-    cancelUrl: `${base}${adminBase}/billing?cancelled=1`,
-  });
-  if (result.ok) redirect(result.url);
-  // Fall through — checkout failed. Reload the billing page; error state
-  // display is a polish follow-up.
-  redirect(`${adminBase}/billing?error=checkout_failed`);
-}
-
-export async function openBillingPortalAction(): Promise<void> {
-  const userId = await requireUser();
-  const adminBase = (await venueAdminBase(userId)) ?? "/dashboard";
-  const result = await createBillingPortal(userId, `${siteUrl()}${adminBase}/billing`);
-  if (result.ok) redirect(result.url);
-  redirect(`${adminBase}/billing?error=no_customer`);
 }
 
 /** "Set up payouts" — start (or resume) Stripe Connect onboarding for

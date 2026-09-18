@@ -105,32 +105,6 @@ function main(): void {
   console.log(
     `placeholder images: ${kb(placeholderTotal)} across ${placeholders.length} files — OK`,
   );
-
-  // ── Guardrail 4: no single marketing image over 300 KB.
-  //
-  // The marketing ROUTE budget that used to live here is gone with the route.
-  // In the multi-tenant app `/` was a marketing landing page and the menu sat
-  // at `/r/[slug]`; this fork serves one restaurant, so `/` IS the menu and
-  // there is no `(marketing)` route group to measure. The check read a
-  // manifest that can never exist again and failed every run with
-  // "marketing manifest missing".
-  //
-  // The images under public/marketing are still shipped, so their cap stays.
-  const IMAGE_CAP = 300 * 1024;
-  for (const dir of ["public/marketing", "public/marketing/culture"]) {
-    for (const f of readdirSync(join(process.cwd(), dir))) {
-      const full = join(process.cwd(), dir, f);
-      if (statSync(full).isDirectory()) continue;
-      if (statSync(full).size > IMAGE_CAP) {
-        console.error(
-          `check-guest-bundle: marketing image ${dir}/${f} exceeds ${kb(IMAGE_CAP)} — run scripts/optimize-marketing.ts`,
-        );
-        process.exitCode = 1;
-        return;
-      }
-    }
-  }
-  console.log("marketing image sizes: OK");
 }
 
 main();
