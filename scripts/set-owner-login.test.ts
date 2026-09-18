@@ -123,6 +123,40 @@ describe("setOwnerLogin", () => {
     expect(result).toMatchObject({ ok: false, error: "email_taken" });
   });
 
+  it("with takeover, renames the account holding the email and gives it to the owner", async () => {
+    const { slug } = await provisioned();
+    const wantedEmail = `wanted-${randomUUID()}@ex.com`;
+    const other = await signupUser({
+      email: wantedEmail,
+      password: "Other-Pass-2026!!",
+      tenantName: "Other",
+    });
+    if (!other.ok) throw new Error("signup failed");
+    userIds.push(other.userId);
+    tenantIds.push(other.tenantId);
+
+    const result = await setOwnerLogin(ownerDb, {
+      slug,
+      email: wantedEmail,
+      password: "Owner@Rangla-Fresh1",
+      takeover: true,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.retiredAccount?.id).toBe(other.userId);
+    expect(result.snapshot.holder?.hasMembership).toBe(true);
+
+    // The owner now signs in with the wanted address; the other account
+    // still exists under its retired name with its own password.
+    expect((await loginUser(wantedEmail, "Owner@Rangla-Fresh1")).ok).toBe(true);
+    const retired = await ownerDb.user.findUniqueOrThrow({
+      where: { id: other.userId },
+      select: { email: true },
+    });
+    expect(retired.email.startsWith("retired-")).toBe(true);
+    expect((await loginUser(retired.email, "Other-Pass-2026!!")).ok).toBe(true);
+  });
+
   it("rejects short passwords and unknown venues without touching anything", async () => {
     const { slug, oldEmail } = await provisioned();
     expect(await setOwnerLogin(ownerDb, { slug, email: "x@ex.com", password: "short" })).toEqual({

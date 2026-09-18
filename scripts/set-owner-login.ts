@@ -34,6 +34,25 @@ export interface SetOwnerLoginInput {
   slug: string;
   email: string;
   password: string;
+  /**
+   * When a DIFFERENT account already holds `email`, rename that account to
+   * `retired-<epoch>-<email>` and proceed, instead of refusing. Opt-in
+   * (OWNER_TAKEOVER=1) because it changes a second account.
+   */
+  takeover?: boolean;
+}
+
+/** What the script found before touching anything — printed for diagnosis. */
+export interface OwnerLoginSnapshot {
+  owner: {
+    id: string;
+    email: string;
+    isPlatformAdmin: boolean;
+    verified: boolean;
+    deleted: boolean;
+  };
+  /** A different account that currently holds the requested email, if any. */
+  holder: { id: string; isPlatformAdmin: boolean; hasMembership: boolean } | null;
 }
 
 export type SetOwnerLoginResult =
@@ -46,11 +65,15 @@ export type SetOwnerLoginResult =
       demotedFromPlatformAdmin: boolean;
       /** It had the flag but is the ONLY admin, so we left it alone. */
       stillPlatformAdmin: boolean;
+      /** With `takeover`: the other account we renamed out of the way. */
+      retiredAccount: { id: string; newEmail: string } | null;
+      snapshot: OwnerLoginSnapshot;
     }
   | {
       ok: false;
       error: "venue_not_found" | "owner_not_found" | "email_taken" | "weak_password";
       detail?: string;
+      snapshot?: OwnerLoginSnapshot;
     };
 
 export async function setOwnerLogin(
@@ -69,17 +92,48 @@ export async function setOwnerLogin(
   const membership = await prisma.membership.findFirst({
     where: { tenantId: venue.tenantId, role: "owner" },
     orderBy: { createdAt: "asc" },
-    select: { userId: true, user: { select: { email: true, isPlatformAdmin: true } } },
+    select: {
+      userId: true,
+      user: {
+        select: { email: true, isPlatformAdmin: true, emailVerifiedAt: true, deletedAt: true },
+      },
+    },
   });
   if (!membership) return { ok: false, error: "owner_not_found" };
 
   // The email column is citext-unique. If someone ELSE already holds the
-  // requested address we must not silently steal or merge it.
+  // requested address we must not silently steal or merge it — unless the
+  // caller opted into a takeover, in which case that account is renamed
+  // (never deleted) so the owner can have the address.
   const clash = await prisma.user.findFirst({
     where: { email, NOT: { id: membership.userId } },
-    select: { id: true },
+    select: { id: true, isPlatformAdmin: true, _count: { select: { memberships: true } } },
   });
-  if (clash) return { ok: false, error: "email_taken", detail: `user ${clash.id}` };
+  const snapshot: OwnerLoginSnapshot = {
+    owner: {
+      id: membership.userId,
+      email: membership.user.email,
+      isPlatformAdmin: membership.user.isPlatformAdmin,
+      verified: membership.user.emailVerifiedAt !== null,
+      deleted: membership.user.deletedAt !== null,
+    },
+    holder: clash
+      ? {
+          id: clash.id,
+          isPlatformAdmin: clash.isPlatformAdmin,
+          hasMembership: clash._count.memberships > 0,
+        }
+      : null,
+  };
+  let retiredAccount: { id: string; newEmail: string } | null = null;
+  if (clash) {
+    if (!input.takeover) {
+      return { ok: false, error: "email_taken", detail: `user ${clash.id}`, snapshot };
+    }
+    const newEmail = `retired-${Date.now()}-${email}`;
+    await prisma.user.update({ where: { id: clash.id }, data: { email: newEmail } });
+    retiredAccount = { id: clash.id, newEmail };
+  }
 
   // Demote only if someone else can still reach /admin afterwards.
   let demote = false;
@@ -110,7 +164,28 @@ export async function setOwnerLogin(
     email,
     demotedFromPlatformAdmin: demote,
     stillPlatformAdmin: membership.user.isPlatformAdmin && !demote,
+    retiredAccount,
+    snapshot,
   };
+}
+
+function describe(snapshot: OwnerLoginSnapshot, requestedEmail: string): string {
+  const o = snapshot.owner;
+  const flags = [
+    o.isPlatformAdmin ? "platform-admin" : null,
+    o.verified ? "verified" : "unverified",
+    o.deleted ? "DELETED" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const lines = [`  venue owner account: ${o.email} (${flags})`];
+  if (snapshot.holder) {
+    const h = snapshot.holder;
+    lines.push(
+      `  ${requestedEmail} is held by a DIFFERENT account (${h.isPlatformAdmin ? "platform-admin" : "not admin"}, ${h.hasMembership ? "owns a restaurant" : "no restaurant"})`,
+    );
+  }
+  return lines.join("\n");
 }
 
 async function main(): Promise<void> {
@@ -119,19 +194,28 @@ async function main(): Promise<void> {
   const slug = process.env.RESTAURANT_SLUG ?? "rangla-punjab";
   const email = process.env.OWNER_EMAIL;
   const password = process.env.OWNER_PASSWORD;
+  const takeover = process.env.OWNER_TAKEOVER === "1";
   if (!email || !password) throw new Error("Set OWNER_EMAIL and OWNER_PASSWORD first.");
 
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   try {
-    const result = await setOwnerLogin(prisma, { slug, email, password });
+    const result = await setOwnerLogin(prisma, { slug, email, password, takeover });
+    if (result.snapshot) process.stdout.write(`found:\n${describe(result.snapshot, email)}\n`);
     if (!result.ok) {
       const why: Record<typeof result.error, string> = {
         venue_not_found: `venue "${slug}" does not exist — run seed-restaurant.ts first`,
         owner_not_found: `venue "${slug}" has no owner membership`,
-        email_taken: `${email} already belongs to another account (${result.detail})`,
+        email_taken:
+          `${email} already belongs to another account (${result.detail}). ` +
+          `Re-run with OWNER_TAKEOVER=1 to rename that account to retired-<time>-${email} and give the address to the owner`,
         weak_password: "OWNER_PASSWORD must be at least 12 characters",
       };
       throw new Error(why[result.error]);
+    }
+    if (result.retiredAccount) {
+      process.stdout.write(
+        `  renamed the other account (${result.retiredAccount.id}) to ${result.retiredAccount.newEmail}\n`,
+      );
     }
     const changed = result.previousEmail === result.email ? "" : ` (was ${result.previousEmail})`;
     process.stdout.write(
