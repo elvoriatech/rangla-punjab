@@ -229,6 +229,53 @@ const CTA_PAY =
   "bg-[var(--menu-positive)] font-semibold text-[var(--menu-on-positive,var(--menu-bg))] hover:opacity-90 active:scale-[0.985] disabled:opacity-60 " +
   FOCUS_RING;
 
+/** Pay tiles: icon over a short label, three across on a phone. Same colour
+ *  roles as the CTAs (positive fill for card, wash for cash), rounded-2xl so
+ *  a stacked tile does not read as a pill that lost its text. */
+const PAY_TILE =
+  "flex min-h-[68px] w-full flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2.5 text-center text-xs font-semibold leading-tight transition active:scale-[0.985] disabled:opacity-50 " +
+  FOCUS_RING +
+  " ";
+const PAY_TILE_CARD =
+  "bg-[var(--menu-positive)] text-[var(--menu-on-positive,var(--menu-bg))] hover:opacity-90";
+const PAY_TILE_PRIMARY =
+  "bg-[var(--menu-surface-accent,var(--menu-accent))] text-[var(--menu-on-surface-accent,var(--menu-bg))] hover:opacity-90";
+const PAY_TILE_QUIET =
+  "bg-[var(--menu-surface-text,var(--menu-text))]/7 text-[var(--menu-surface-text,var(--menu-text))] hover:bg-[var(--menu-surface-text,var(--menu-text))]/13";
+
+function CardIcon({ className }: { className?: string }): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+      <path d="M2.5 10h19M6.5 15h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CashIcon({ className }: { className?: string }): React.ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.6" />
+      <path d="M6 12h.01M18 12h.01" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const CTA_SECONDARY =
   CTA_BASE +
   "bg-[var(--menu-surface-text,var(--menu-text))]/7 font-medium text-[var(--menu-surface-text,var(--menu-text))] hover:bg-[var(--menu-surface-text,var(--menu-text))]/13 active:scale-[0.985] " +
@@ -911,60 +958,76 @@ export function CartDrawer({
 
               {error ? <MessagePopup kind="error" text={error} /> : null}
 
-              {/* One tap per payment method: the button both places the
-                  order and (for card / PayPal) opens the payment page. While
-                  one is working the others are disabled, so a nervous
-                  double-tap cannot start two payments. */}
+              {/* One tap per payment method, side by side: the button both
+                  places the order and (for card / PayPal) opens the payment
+                  page. While one is working the others are disabled, so a
+                  nervous double-tap cannot start two payments. The amount
+                  sits once above the row instead of on every tile. */}
               {(() => {
                 const busy = placing || payStarting;
                 const blocked = busy || count === 0 || detailsMissing || belowMinimum;
                 const cashLabel =
                   orderType === "delivery"
-                    ? "Order · cash to driver"
+                    ? "Cash to driver"
                     : orderType === "takeaway"
-                      ? "Order · pay at pickup"
-                      : "Order · pay at table";
-                const label = (method: PayMethod, idle: string): string =>
+                      ? "Pay at pickup"
+                      : "Pay at table";
+                const cols = 1 + (onlinePayment ? 1 : 0) + (paypalPayment ? 1 : 0);
+                const gridCols =
+                  cols === 3 ? "grid-cols-3" : cols === 2 ? "grid-cols-2" : "grid-cols-1";
+                const text = (method: PayMethod, idle: string): string =>
                   busy && payMethod === method
                     ? method === "cash"
                       ? "Placing…"
-                      : "Opening payment…"
-                    : `${idle} · ${money(total)}`;
+                      : "Opening…"
+                    : idle;
                 return (
-                  <div className="mt-4 space-y-2" role="group" aria-label="Place order and pay">
-                    {onlinePayment ? (
+                  <div className="mt-4" role="group" aria-label="Place order and pay">
+                    <p className="mb-2 text-center text-[11px] uppercase tracking-[0.18em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                      {onlinePayment || paypalPayment ? "Pay" : "Place order"} · {money(total)}
+                    </p>
+                    <div className={"grid gap-2 " + gridCols}>
+                      {onlinePayment ? (
+                        <button
+                          type="button"
+                          disabled={blocked}
+                          onClick={() => void submitOrder("card")}
+                          className={PAY_TILE + PAY_TILE_CARD}
+                        >
+                          <CardIcon className="h-6 w-6" />
+                          <span>{text("card", "Card")}</span>
+                        </button>
+                      ) : null}
+                      {paypalPayment ? (
+                        <button
+                          type="button"
+                          disabled={blocked}
+                          onClick={() => void submitOrder("paypal")}
+                          /* PayPal brand tile — the one hard-coded colour pair
+                             in the file, mandated by their guidelines. */
+                          className={
+                            PAY_TILE + "border-2 border-[#003087] bg-[#ffc439] text-[#003087]"
+                          }
+                        >
+                          <span aria-hidden="true" className="text-lg font-black italic leading-6">
+                            P
+                          </span>
+                          <span>{text("paypal", "PayPal")}</span>
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         disabled={blocked}
-                        onClick={() => void submitOrder("card")}
-                        className={CTA_PAY}
-                      >
-                        {label("card", "Pay by card")}
-                      </button>
-                    ) : null}
-                    {paypalPayment ? (
-                      <button
-                        type="button"
-                        disabled={blocked}
-                        onClick={() => void submitOrder("paypal")}
-                        /* PayPal brand button — the one hard-coded colour pair
-                           in the file, mandated by their guidelines. */
+                        onClick={() => void submitOrder("cash")}
                         className={
-                          "block w-full rounded-full border-2 border-[#003087] bg-[#ffc439] px-5 py-3 text-center text-sm font-bold uppercase tracking-[0.14em] text-[#003087] transition hover:opacity-90 active:scale-[0.985] disabled:opacity-50 " +
-                          FOCUS_RING
+                          PAY_TILE +
+                          (onlinePayment || paypalPayment ? PAY_TILE_QUIET : PAY_TILE_PRIMARY)
                         }
                       >
-                        {label("paypal", "Mit PayPal zahlen")}
+                        <CashIcon className="h-6 w-6" />
+                        <span>{text("cash", cashLabel)}</span>
                       </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      disabled={blocked}
-                      onClick={() => void submitOrder("cash")}
-                      className={onlinePayment || paypalPayment ? CTA_SECONDARY : CTA_PRIMARY}
-                    >
-                      {label("cash", cashLabel)}
-                    </button>
+                    </div>
                   </div>
                 );
               })()}

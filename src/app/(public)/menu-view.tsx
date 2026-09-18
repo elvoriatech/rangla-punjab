@@ -23,6 +23,7 @@ import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
 import { AddToOrderButton } from "./order/add-button";
 import { CartDrawer } from "./order/cart-lazy";
 import { AllergenDialog } from "./allergen-dialog";
+import { DishDescription } from "./dish-description";
 
 /**
  * Public menu render — theme_one aesthetic (deep chocolate + gold),
@@ -713,9 +714,12 @@ function FloatingSection({
                   ) : null}
                 </h3>
                 {item.description ? (
-                  <p className="mt-1 text-xs leading-relaxed text-[var(--menu-text-soft)]">
-                    {item.description}
-                  </p>
+                  <DishDescription
+                    text={item.description}
+                    dishName={item.name}
+                    locale={locale}
+                    className="mt-1 text-xs leading-relaxed text-[var(--menu-text-soft)]"
+                  />
                 ) : null}
                 <BadgeRow
                   allergens={item.allergens}
@@ -875,9 +879,12 @@ function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): Re
           </div>
         </div>
         {item.description ? (
-          <p className="text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-            {item.description}
-          </p>
+          <DishDescription
+            text={item.description}
+            dishName={item.name}
+            locale={locale}
+            className="text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+          />
         ) : null}
         <MobileAllergenLine
           allergens={item.allergens}
@@ -1043,9 +1050,12 @@ function ListDishRow({ item, locale, slug, ordering, priority }: DishProps): Rea
           </div>
         </div>
         {item.description ? (
-          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-            {item.description}
-          </p>
+          <DishDescription
+            text={item.description}
+            dishName={item.name}
+            locale={locale}
+            className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+          />
         ) : null}
         <MobileAllergenLine
           allergens={item.allergens}
@@ -1221,9 +1231,12 @@ function ShowcaseDishCard({
         </div>
       </div>
       {item.description ? (
-        <p className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-          {item.description}
-        </p>
+        <DishDescription
+          text={item.description}
+          dishName={item.name}
+          locale={locale}
+          className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+        />
       ) : null}
       <MobileAllergenLine
         allergens={item.allergens}
@@ -1527,9 +1540,12 @@ function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.
           </div>
         </div>
         {item.description ? (
-          <p className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text,var(--menu-text))]">
-            {item.description}
-          </p>
+          <DishDescription
+            text={item.description}
+            dishName={item.name}
+            locale={locale}
+            className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text,var(--menu-text))]"
+          />
         ) : null}
         <MobileAllergenLine
           allergens={item.allergens}
