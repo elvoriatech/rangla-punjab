@@ -5,6 +5,7 @@ import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
 import { rangeLabel, resolveReportRange, type ReportPreset } from "@/lib/report-range";
 import { getVenueReport } from "@/lib/report-service";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Berichte / Statements — the restaurant's financial & operations report.
@@ -96,12 +97,12 @@ export default async function ReportsPage({
             className="border border-ink/20 bg-card px-2 py-1.5 text-sm"
             aria-label="Bis"
           />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Wird geladen…"
             className="border border-ink/20 bg-card px-3 py-1.5 text-sm hover:border-orange"
           >
             Anzeigen
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { logoutAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Mobile top bar for the dashboard: a hamburger that toggles the nav
@@ -63,12 +64,12 @@ export function MobileNav({
         </p>
 
         <form action={logoutAction}>
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Logging out…"
             className="text-[10px] uppercase tracking-[0.22em] text-[var(--menu-text-soft)]"
           >
             Log out
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

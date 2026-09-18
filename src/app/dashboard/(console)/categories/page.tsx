@@ -10,6 +10,7 @@ import { signPreviewToken } from "@/lib/preview-token";
 import { ApplyTemplateButton } from "./apply-template-button";
 import { CategoryPhotoButton } from "./category-photo-button";
 import { addCategoryAction, deleteCategoryAction, moveCategoryAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Categories admin page. Server component: reads the list, renders it, wires
@@ -160,12 +161,12 @@ export default async function CategoriesPage({
                 placeholder="e.g. Antipasti"
                 className="flex-1 border border-brand-green/20 bg-white px-4 py-3 text-base focus:border-brand-green focus:outline-none"
               />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Adding…"
                 className="bg-brand-green px-5 py-3 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark"
               >
                 Add
-              </button>
+              </SubmitButton>
             </div>
             <label className="mt-3 block text-xs text-brand-green/70" htmlFor="new-category-photo">
               Photo (optional) — shown next to the section name on your menu. JPEG, PNG, or WebP up
@@ -249,14 +250,14 @@ function MoveButton({
     <form action={moveCategoryAction}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="direction" value={direction} />
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Moving…"
         disabled={disabled}
         aria-label={`Move ${direction}`}
         className="border border-brand-green/20 px-2 py-1 text-sm hover:border-brand-green disabled:opacity-30"
       >
         {direction === "up" ? "↑" : "↓"}
-      </button>
+      </SubmitButton>
     </form>
   );
 }
@@ -265,13 +266,13 @@ function DeleteButton({ id }: { id: string }) {
   return (
     <form action={deleteCategoryAction}>
       <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Deleting…"
         aria-label="Delete category"
         className="border border-brand-green/20 px-2 py-1 text-sm text-red-700 hover:border-red-700"
       >
         ✕
-      </button>
+      </SubmitButton>
     </form>
   );
 }

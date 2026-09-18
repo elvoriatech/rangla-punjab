@@ -16,6 +16,7 @@ import {
 } from "@/lib/menu-themes";
 import { signPreviewToken } from "@/lib/preview-token";
 import { saveAppearanceAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Appearance — how the public menu looks. Each theme card is a miniature
@@ -318,12 +319,12 @@ export default async function AppearancePage({
             </div>
           </fieldset>
 
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Saving…"
             className="mt-10 bg-orange px-6 py-3 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
           >
             Save appearance
-          </button>
+          </SubmitButton>
         </form>
 
         <aside aria-label="Live preview" className="xl:sticky xl:top-10 xl:self-start">

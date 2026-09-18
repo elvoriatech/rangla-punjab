@@ -26,6 +26,7 @@ import {
   saveOrderingAction,
   saveVenueNameAction,
 } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Venue settings: name, logo, currency, and menu languages. Every form is
@@ -122,12 +123,12 @@ export default async function SettingsPage({
         <p className="mt-2 text-xs text-muted">
           Shown at the top of your public menu and inside this dashboard.
         </p>
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Saving…"
           className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
         >
           Save name
-        </button>
+        </SubmitButton>
       </form>
 
       {/* Logo */}
@@ -159,21 +160,21 @@ export default async function SettingsPage({
                 accept="image/jpeg,image/png,image/webp"
                 className="block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
               />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Uploading…"
                 className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
               >
                 Upload logo
-              </button>
+              </SubmitButton>
             </form>
             {venue.branding.logoKey ? (
               <form action={removeLogoAction} className="mt-2">
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Removing…"
                   className="text-xs text-red-800 underline underline-offset-2 hover:text-red-900"
                 >
                   Remove logo
-                </button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>
@@ -214,21 +215,21 @@ export default async function SettingsPage({
                 accept="image/jpeg,image/png,image/webp"
                 className="block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
               />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Uploading…"
                 className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
               >
                 Upload banner
-              </button>
+              </SubmitButton>
             </form>
             {venue.branding.bannerKey ? (
               <form action={removeBannerAction} className="mt-2">
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Removing…"
                   className="text-xs text-red-800 underline underline-offset-2 hover:text-red-900"
                 >
                   Remove banner
-                </button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>
@@ -303,12 +304,12 @@ export default async function SettingsPage({
           </div>
         </fieldset>
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Saving…"
           className="mt-5 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
         >
           Save currency &amp; languages
-        </button>
+        </SubmitButton>
       </form>
 
       {/* Opening hours */}
@@ -383,12 +384,12 @@ export default async function SettingsPage({
               ).join(" · ")}
             </p>
           ) : null}
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Saving…"
             className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
           >
             Save opening hours
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -571,12 +572,12 @@ export default async function SettingsPage({
             </div>
           </div>
 
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Saving…"
             className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
           >
             Save ordering
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -598,12 +599,12 @@ export default async function SettingsPage({
             Offer the Halal filter and badge <span className="text-muted">(حلال)</span>
           </span>
         </label>
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Saving…"
           className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
         >
           Save diet filters
-        </button>
+        </SubmitButton>
       </form>
 
       {/* Web address (read-only) */}

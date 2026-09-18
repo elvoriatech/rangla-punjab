@@ -8,6 +8,7 @@ import { formatPrice } from "@/lib/public-menu";
 import { siteHost } from "@/lib/site-url";
 import { resolveMenuTexture, resolveMenuTheme } from "@/lib/menu-themes";
 import { publishMenuAction } from "./categories/actions";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Owner overview — the "front desk" of the dashboard. Visual hierarchy:
@@ -110,12 +111,12 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
             </p>
           </div>
           <form action={publishMenuAction}>
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Publishing…"
               className="bg-orange px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-card shadow-[0_8px_16px_-8px_rgba(194,90,34,0.5)] transition-colors hover:bg-orange-dark"
             >
               Publish menu
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </section>

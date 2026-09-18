@@ -117,10 +117,17 @@ export default async function PublicMenuPage({
 
   const diets = parseDietFilter(diet);
   const activeCategoryId = resolveCategoryParam(menu, cat);
-  // Apply diet then category so an "empty" state after category-filtering
-  // still respects the diet the guest picked.
-  const dietFiltered = filterMenuByDiet(menu, diets);
-  const filtered = filterMenuByCategory(dietFiltered, activeCategoryId);
+  // Category FIRST, then diet. The other order silently breaks the tabs:
+  // filterMenuByDiet drops categories it empties, so a category with no
+  // matching dishes is gone by the time filterMenuByCategory looks for it —
+  // and that function treats "no match" as a stale bookmark and returns the
+  // whole menu. Picking vegan and then tapping a meat-only category showed
+  // the entire vegan menu instead of an empty category.
+  // `activeCategoryId` is resolved against the UNFILTERED menu above, so
+  // the category always matches here and the diet pass can legitimately
+  // empty it — which is what renders the "no dishes match" empty state.
+  const catFiltered = filterMenuByCategory(menu, activeCategoryId);
+  const filtered = filterMenuByDiet(catFiltered, diets);
   // Keep the *unfiltered* category list around so the tabs render every
   // category even when the guest has narrowed the view to one.
   return (

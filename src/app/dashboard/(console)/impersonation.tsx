@@ -2,6 +2,7 @@ import { BRAND } from "@/lib/brand";
 import { getSessionInfo, setSessionCookie } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { redirect } from "next/navigation";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * The "viewing as owner" banner + exit. Rendered by the dashboard
@@ -28,12 +29,12 @@ export function ImpersonationBanner(): React.ReactElement {
         seeing this dashboard as the owner. Session ends automatically after 30 minutes.
       </span>
       <form action={endImpersonationAction}>
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Returning…"
           className="rounded border border-orange-200/50 px-3 py-1 text-xs font-semibold uppercase tracking-wider hover:bg-orange-50/10"
         >
           Return to admin
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

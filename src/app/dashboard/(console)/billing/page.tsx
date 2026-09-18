@@ -5,13 +5,13 @@ import { getStripeProvider } from "@/lib/stripe";
 import { siteUrl } from "@/lib/site-url";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { getOwnKeysStatus, getPayPalKeysStatus } from "@/lib/tenant-payment-keys";
-import { SubmitButton } from "@/components/submit-button";
 import {
   checkPaymentsAction,
   saveOwnKeysAction,
   savePayPalKeysAction,
   setupPaymentsAction,
 } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * `/dashboard/billing` — online-payment payouts (Stripe Connect or
@@ -209,22 +209,22 @@ export default async function BillingPage({
             <div className="mt-4 flex flex-wrap gap-3">
               {!active ? (
                 <form action={setupPaymentsAction}>
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Opening Stripe…"
                     className="bg-brand-green px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark"
                   >
                     {connected ? "Finish setup on Stripe ↗" : "Set up payouts with Stripe ↗"}
-                  </button>
+                  </SubmitButton>
                 </form>
               ) : null}
               {connected ? (
                 <form action={checkPaymentsAction}>
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    pendingLabel="Checking…"
                     className="border border-brand-green px-5 py-2 text-xs font-medium uppercase tracking-wider text-brand-green hover:bg-brand-green hover:text-brand-cream"
                   >
                     Check connection
-                  </button>
+                  </SubmitButton>
                 </form>
               ) : null}
             </div>

@@ -4,6 +4,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { listReservations } from "@/lib/reservation-service";
 import { getOrderingSettings } from "@/lib/venue-service";
 import { setReservationStatusAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Front-of-house reservations: what guests requested from the menu,
@@ -118,12 +119,12 @@ export default async function ReservationsPage({
                     <form action={setReservationStatusAction}>
                       <input type="hidden" name="id" value={r.id} />
                       <input type="hidden" name="status" value="confirmed" />
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Confirming…"
                         className="whitespace-nowrap bg-orange px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-card hover:bg-orange-dark"
                       >
                         ✓ Confirm
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
                   <form action={setReservationStatusAction}>
@@ -133,12 +134,12 @@ export default async function ReservationsPage({
                       name="status"
                       value={r.status === "confirmed" ? "cancelled" : "declined"}
                     />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Updating…"
                       className="whitespace-nowrap border border-ink/20 px-3.5 py-2 text-[11px] uppercase tracking-[0.12em] text-muted hover:border-ink/50 hover:text-ink"
                     >
                       {r.status === "confirmed" ? "✕ Cancel" : "✕ Decline"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </li>

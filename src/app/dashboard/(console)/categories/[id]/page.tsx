@@ -8,6 +8,7 @@ import { addItemAction, deleteItemAction, updateItemAction } from "./actions";
 import { menuImageUrl } from "@/lib/menu-images";
 import { isDrinkCategory } from "@/lib/category-icons";
 import { getVenueForUser } from "@/lib/venue-service";
+import { SubmitButton } from "@/components/submit-button";
 
 const ALLERGENS = [
   "gluten",
@@ -225,12 +226,12 @@ export default async function CategoryDetailPage({
           <input type="checkbox" name="isAvailable" defaultChecked className="accent-brand-green" />
           <span>Available on the menu</span>
         </label>
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Adding…"
           className="bg-brand-green px-5 py-3 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark"
         >
           Add item
-        </button>
+        </SubmitButton>
       </form>
 
       <h2 className="mt-14 font-serif text-2xl">Items</h2>
@@ -360,12 +361,12 @@ export default async function CategoryDetailPage({
                       </label>
                     </div>
                     <div className="flex gap-3">
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Saving…"
                         className="bg-brand-green px-4 py-2 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark"
                       >
                         Save item
-                      </button>
+                      </SubmitButton>
                       <Link
                         href={`${base}/categories/${category.id}`}
                         className="px-2 py-2 text-xs underline"
@@ -386,13 +387,13 @@ export default async function CategoryDetailPage({
               ) : null}
               <form action={deleteAction}>
                 <input type="hidden" name="id" value={item.id} />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Deleting…"
                   aria-label="Delete item"
                   className="border border-brand-green/20 px-2 py-1 text-sm text-red-700 hover:border-red-700"
                 >
                   ✕
-                </button>
+                </SubmitButton>
               </form>
             </li>
           ))

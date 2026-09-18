@@ -8,6 +8,7 @@ import { advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
 import { NewOrderChime } from "../../../kitchen/new-order-chime";
 import { AutoPrint } from "./auto-print";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Kitchen screen: newest orders first, big and scannable from arm's
@@ -194,13 +195,13 @@ export default async function OrdersPage({
                         name="to"
                         value={nextStatus(order.status, order.orderType)!}
                       />
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Updating…"
                         title={advanceLabel(nextStatus(order.status, order.orderType)!)}
                         className="whitespace-nowrap bg-orange px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-card hover:bg-orange-dark"
                       >
                         {advanceCompact(nextStatus(order.status, order.orderType)!)}
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
                 </div>

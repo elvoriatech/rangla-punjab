@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterMenuByCategory,
   filterMenuByDiet,
   parseDietFilter,
   categorySlug,
@@ -173,5 +174,35 @@ describe("category slugs", () => {
     expect(resolveCategoryParam(menu, "c2")).toBe("c2"); // old bookmark
     expect(resolveCategoryParam(menu, "nope")).toBeNull();
     expect(resolveCategoryParam(menu, undefined)).toBeNull();
+  });
+});
+
+describe("category + diet together (the order the page applies them)", () => {
+  it("empties a category that has nothing matching the diet, instead of showing the whole menu", () => {
+    // "Mains" holds only a gluten-free steak, so vegan leaves it with nothing.
+    const activeCategoryId = resolveCategoryParam(menu, "mains");
+    expect(activeCategoryId).toBe("c2");
+
+    // The order src/app/(public)/page.tsx uses: category first, then diet.
+    const out = filterMenuByDiet(filterMenuByCategory(menu, activeCategoryId), new Set(["vegan"]));
+
+    // Empty — which is what renders the "no dishes match" message.
+    // Swap the two calls and this returns Starters instead: filterMenuByDiet
+    // drops the emptied category, filterMenuByCategory then finds no match,
+    // reads that as a stale bookmark, and hands back the entire menu. That
+    // was the bug where picking vegan made the category tabs stop responding.
+    expect(out.categories).toEqual([]);
+  });
+
+  it("keeps only the matching items when the picked category does have them", () => {
+    const activeCategoryId = resolveCategoryParam(menu, "starters");
+    const out = filterMenuByDiet(filterMenuByCategory(menu, activeCategoryId), new Set(["vegan"]));
+    expect(out.categories.map((c) => c.id)).toEqual(["c1"]);
+    expect(out.categories[0].items.map((i) => i.id)).toEqual(["i1"]);
+  });
+
+  it("still ignores an unknown category so stale bookmarks show the full menu", () => {
+    expect(resolveCategoryParam(menu, "no-such-category")).toBeNull();
+    expect(filterMenuByCategory(menu, null).categories.map((c) => c.id)).toEqual(["c1", "c2"]);
   });
 });

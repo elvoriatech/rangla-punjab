@@ -13,15 +13,27 @@ export function SubmitButton({
   pendingLabel = "Working…",
   className,
   disabled = false,
+  ...rest
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   className?: string;
   disabled?: boolean;
-}): React.ReactElement {
+} & Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "type" | "disabled" | "className" | "children"
+>): React.ReactElement {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending || disabled} className={className}>
+    <button
+      type="submit"
+      disabled={pending || disabled}
+      className={className}
+      // Screen readers get the state change too — the spinner alone is
+      // invisible to them, and the label swap is not always announced.
+      aria-busy={pending || undefined}
+      {...rest}
+    >
       {pending ? (
         <span className="inline-flex items-center gap-2">
           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
