@@ -50,6 +50,7 @@ export async function savePayPalKeysAction(form: FormData): Promise<void> {
   await updatePayPalKeys(userId, {
     clientId: String(form.get("paypalClientId") ?? ""),
     secret: String(form.get("paypalSecret") ?? ""),
+    webhookId: String(form.get("paypalWebhookId") ?? ""),
     env: form.get("paypalEnv") === "live" ? "live" : "sandbox",
     enabled: form.get("paypalEnabled") === "on",
   });

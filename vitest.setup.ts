@@ -7,6 +7,7 @@ import "dotenv/config";
 delete process.env.STRIPE_SECRET_KEY;
 delete process.env.PAYPAL_CLIENT_ID;
 delete process.env.PAYPAL_CLIENT_SECRET;
+delete process.env.PAYPAL_WEBHOOK_ID;
 delete process.env.GOOGLE_CLIENT_ID;
 delete process.env.GOOGLE_CLIENT_SECRET;
 delete process.env.MICROSOFT_CLIENT_ID;

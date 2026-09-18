@@ -306,6 +306,21 @@ export default async function BillingPage({
             />
           </label>
           <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Webhook ID
+            <span className="ml-2 normal-case tracking-normal text-brand-green/50">
+              {payPal.webhookIdMask ? `— current: ${payPal.webhookIdMask}` : "— not set"}
+            </span>
+            <input
+              type="password"
+              name="paypalWebhookId"
+              autoComplete="off"
+              placeholder="Leave blank to keep current"
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            />
+          </label>
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
             Environment
             <select
               name="paypalEnv"
@@ -328,8 +343,12 @@ export default async function BillingPage({
             Enable — offer PayPal to guests at checkout
           </label>
           <p className="text-xs text-brand-green/60">
-            Webhook URL for your PayPal app (optional — capture is confirmed inline):{" "}
-            <code className="text-brand-green">{`${siteUrl()}/api/paypal/return`}</code>
+            In your PayPal app, under <span className="font-medium">Webhooks</span>, add{" "}
+            <code className="text-brand-green">{`${siteUrl()}/api/paypal/webhook`}</code> with the
+            events <span className="font-medium">Checkout order approved</span> and{" "}
+            <span className="font-medium">Payment capture completed</span>, then paste the Webhook
+            ID PayPal shows above. Without it, an order only settles when the guest comes back to
+            this site after paying; with it, PayPal confirms the payment even if they close the tab.
           </p>
           <SubmitButton
             pendingLabel="Saving…"

@@ -210,7 +210,7 @@ Everything below is data or config — no code changes.
 | `REDIS_URL` | Rate limits, job queue |
 | `SESSION_SECRET` | Signs session and receipt tokens |
 | `EMAIL_TRANSPORT` | `mailhog` (dev) · `resend` (prod, needs `RESEND_API_KEY`) |
-| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV` | Deployment-wide PayPal (a restaurant can instead enter its own in the dashboard) |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`, `PAYPAL_WEBHOOK_ID` | Deployment-wide PayPal (a restaurant can instead enter its own in the dashboard) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Deployment-wide Stripe; unset ⇒ the built-in fake provider, so dev never charges a card |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enables "Sign in with Google" for guests; unset ⇒ email sign-up only |
 
@@ -221,18 +221,23 @@ Everything below is data or config — no code changes.
 | Restaurant logo & banner | Dashboard → **Settings** (uploads, no deploy) |
 | Category and dish photos | Dashboard → **Menu** (tap a category's photo circle; dish photos in the item editor) — **JPEG/PNG/WebP only**, iPhone HEIC is rejected |
 | Menu theme, texture, colours | Dashboard → **Appearance** |
-| App icon & splash | `mobile/assets/` + `mobile/app.json` (`name`, `slug`, `scheme`), then rebuild |
+| App name, icon, splash, palette | `pnpm brand:mobile --venue <slug>` (reads the venue's logo + menu theme), then rebuild |
 | Web favicon / PWA icons | `public/brand/` |
 
 ### Payments
 
 - **Stripe** — the restaurant pastes its own secret + webhook signing key in
   Dashboard → **Payments**; money settles straight to its bank.
-- **PayPal** — same page: Client ID, Secret, Sandbox/Live, enable. Falls back
-  to the `PAYPAL_*` env vars when unset.
+- **PayPal** — same page: Client ID, Secret, Webhook ID, Sandbox/Live, enable.
+  Falls back to the `PAYPAL_*` env vars when unset.
 - Webhook endpoints to register with the provider:
-  `https://<domain>/api/stripe/own-webhook` (event
-  `checkout.session.completed`) and `https://<domain>/api/paypal/return`.
+  - Stripe: `https://<domain>/api/stripe/own-webhook` (event
+    `checkout.session.completed`), paste the signing secret in the dashboard.
+  - PayPal: `https://<domain>/api/paypal/webhook` (events
+    `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`), paste the Webhook
+    ID in the dashboard. The guest's return to `/api/paypal/return` also
+    captures, but only the webhook settles an order when the guest closes
+    the tab after approving.
 
 ---
 

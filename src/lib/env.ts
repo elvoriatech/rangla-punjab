@@ -64,6 +64,11 @@ const envSchema = z.object({
   PAYPAL_CLIENT_ID: z.string().min(1).optional(),
   PAYPAL_CLIENT_SECRET: z.string().min(1).optional(),
   PAYPAL_ENV: z.enum(["sandbox", "live"]).default("sandbox"),
+  // Webhook id of the endpoint registered in the PayPal app (deployment-
+  // wide fallback; a restaurant's own id from the dashboard wins). Without
+  // it /api/paypal/webhook rejects every delivery as not_configured and
+  // settlement relies on the return leg alone.
+  PAYPAL_WEBHOOK_ID: z.string().min(1).optional(),
 
   // Customer sign-in (guest accounts). Each pair optional — a provider
   // only shows on the login surfaces when BOTH its values are set. The

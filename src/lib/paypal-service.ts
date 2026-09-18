@@ -50,6 +50,7 @@ export async function createPayPalOrderPayment(
     const payPage = `${siteUrl()}/pay/${order.id}?token=${encodeURIComponent(token)}${appParam}`;
     const returnUrl = `${siteUrl()}/api/paypal/return?orderId=${encodeURIComponent(order.id)}&t=${encodeURIComponent(token)}${appParam}`;
     const approval = await provider.createOrderApproval({
+      tenantId,
       orderId: order.id,
       amountCents: order.totalCents,
       currency: order.currency,

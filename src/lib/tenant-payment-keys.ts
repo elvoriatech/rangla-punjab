@@ -93,6 +93,7 @@ export async function updateOwnKeys(
 export interface PayPalKeysStatus {
   clientIdMask: string | null;
   secretMask: string | null;
+  webhookIdMask: string | null;
   env: "sandbox" | "live";
   enabled: boolean;
   hasCredentials: boolean;
@@ -104,6 +105,7 @@ export async function getPayPalKeysStatus(userId: string): Promise<PayPalKeysSta
       select: {
         paypalClientIdMask: true,
         paypalSecretMask: true,
+        paypalWebhookIdMask: true,
         paypalClientIdEnc: true,
         paypalSecretEnc: true,
         paypalEnv: true,
@@ -113,6 +115,7 @@ export async function getPayPalKeysStatus(userId: string): Promise<PayPalKeysSta
     return {
       clientIdMask: t?.paypalClientIdMask ?? null,
       secretMask: t?.paypalSecretMask ?? null,
+      webhookIdMask: t?.paypalWebhookIdMask ?? null,
       env: t?.paypalEnv === "live" ? "live" : "sandbox",
       enabled: t?.paypalOwnEnabled ?? false,
       hasCredentials: Boolean(t?.paypalClientIdEnc && t?.paypalSecretEnc),
@@ -123,6 +126,8 @@ export async function getPayPalKeysStatus(userId: string): Promise<PayPalKeysSta
 export interface PayPalKeys {
   clientId: string | null;
   secret: string | null;
+  /** Webhook id the restaurant registered /api/paypal/webhook under. */
+  webhookId: string | null;
   env: "sandbox" | "live";
   enabled: boolean;
 }
@@ -134,6 +139,7 @@ export async function getPayPalKeys(userId: string): Promise<PayPalKeys> {
       select: {
         paypalClientIdEnc: true,
         paypalSecretEnc: true,
+        paypalWebhookIdEnc: true,
         paypalEnv: true,
         paypalOwnEnabled: true,
       },
@@ -141,6 +147,7 @@ export async function getPayPalKeys(userId: string): Promise<PayPalKeys> {
     return {
       clientId: decryptSecret(t?.paypalClientIdEnc),
       secret: decryptSecret(t?.paypalSecretEnc),
+      webhookId: decryptSecret(t?.paypalWebhookIdEnc),
       env: t?.paypalEnv === "live" ? "live" : "sandbox",
       enabled: t?.paypalOwnEnabled ?? false,
     };
@@ -150,7 +157,13 @@ export async function getPayPalKeys(userId: string): Promise<PayPalKeys> {
 /** Save PayPal credentials / toggle. Blank fields keep the stored value. */
 export async function updatePayPalKeys(
   userId: string,
-  patch: { clientId?: string; secret?: string; env: "sandbox" | "live"; enabled: boolean },
+  patch: {
+    clientId?: string;
+    secret?: string;
+    webhookId?: string;
+    env: "sandbox" | "live";
+    enabled: boolean;
+  },
 ): Promise<void> {
   await asUser(userId, async (tx) => {
     const data: Record<string, string | boolean> = {
@@ -167,6 +180,11 @@ export async function updatePayPalKeys(
       data.paypalSecretEnc = encryptSecret(secret);
       data.paypalSecretMask = maskSecret(secret);
     }
+    const webhookId = patch.webhookId?.trim();
+    if (webhookId) {
+      data.paypalWebhookIdEnc = encryptSecret(webhookId);
+      data.paypalWebhookIdMask = maskSecret(webhookId);
+    }
     await tx.tenant.updateMany({ data });
   });
 }
@@ -179,6 +197,7 @@ export async function getPayPalKeysForTenant(tenantId: string): Promise<PayPalKe
       select: {
         paypalClientIdEnc: true,
         paypalSecretEnc: true,
+        paypalWebhookIdEnc: true,
         paypalEnv: true,
         paypalOwnEnabled: true,
       },
@@ -186,6 +205,7 @@ export async function getPayPalKeysForTenant(tenantId: string): Promise<PayPalKe
     return {
       clientId: decryptSecret(t?.paypalClientIdEnc),
       secret: decryptSecret(t?.paypalSecretEnc),
+      webhookId: decryptSecret(t?.paypalWebhookIdEnc),
       env: t?.paypalEnv === "live" ? "live" : "sandbox",
       enabled: t?.paypalOwnEnabled ?? false,
     };

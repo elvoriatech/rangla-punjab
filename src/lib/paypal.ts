@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "./env";
 import { createLogger } from "./logger";
 
@@ -22,6 +23,7 @@ export interface PayPalApproval {
 export interface PayPalProvider {
   mode: "fake" | "sandbox" | "live";
   createOrderApproval(input: {
+    tenantId: string;
     orderId: string;
     amountCents: number;
     currency: string;
@@ -31,6 +33,29 @@ export interface PayPalProvider {
   }): Promise<PayPalApproval>;
   /** Capture an approved order. Idempotent: already-captured counts as paid. */
   captureOrder(ref: string): Promise<{ paid: boolean }>;
+  /**
+   * Is this webhook delivery genuinely from PayPal, for the endpoint
+   * registered as `webhookId`? PayPal has no shared HMAC secret — the
+   * real provider asks PayPal's verify-webhook-signature API; the fake
+   * checks an HMAC keyed on the webhook id so tests can sign payloads.
+   */
+  verifyWebhookSignature(input: PayPalWebhookVerifyInput): Promise<boolean>;
+}
+
+export interface PayPalWebhookVerifyInput {
+  /** Exact bytes of the request body — verification is over the wire form. */
+  rawBody: string;
+  headers: PayPalWebhookHeaders;
+  webhookId: string;
+}
+
+/** The five `paypal-*` headers PayPal sends with every webhook delivery. */
+export interface PayPalWebhookHeaders {
+  transmissionId: string;
+  transmissionTime: string;
+  transmissionSig: string;
+  certUrl: string;
+  authAlgo: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -56,6 +81,22 @@ class FakePayPalProvider implements PayPalProvider {
     // Refs the fake never issued fail, like a bogus capture would.
     return { paid: ref.startsWith("pp_fake_") };
   }
+
+  async verifyWebhookSignature(input: PayPalWebhookVerifyInput): Promise<boolean> {
+    const expected = fakeWebhookSignature(input.webhookId, input.rawBody);
+    const a = Buffer.from(input.headers.transmissionSig, "hex");
+    const b = Buffer.from(expected, "hex");
+    return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
+  }
+}
+
+/**
+ * The fake's stand-in for PayPal's signature: HMAC-SHA256 over the raw
+ * body keyed on the webhook id. Exported so tests can sign a payload
+ * exactly the way the fake verifies it.
+ */
+export function fakeWebhookSignature(webhookId: string, rawBody: string): string {
+  return createHmac("sha256", webhookId).update(rawBody).digest("hex");
 }
 
 /* ------------------------------------------------------------------ */
@@ -94,6 +135,7 @@ class RealPayPalProvider implements PayPalProvider {
   }
 
   async createOrderApproval(input: {
+    tenantId: string;
     orderId: string;
     amountCents: number;
     currency: string;
@@ -110,6 +152,11 @@ class RealPayPalProvider implements PayPalProvider {
         purchase_units: [
           {
             reference_id: input.orderId,
+            // PayPal echoes custom_id on the order AND on every capture it
+            // creates for it, so both CHECKOUT.ORDER.* and PAYMENT.CAPTURE.*
+            // webhooks can name our tenant + order (the PayPal sibling of
+            // Stripe's metadata.tenantId). 127-char limit; two cuids fit.
+            custom_id: payPalCustomId(input.tenantId, input.orderId),
             description: input.label.slice(0, 127),
             amount: {
               currency_code: input.currency.toUpperCase(),
@@ -158,6 +205,50 @@ class RealPayPalProvider implements PayPalProvider {
     const body = (await res.json()) as { status?: string };
     return { paid: body.status === "COMPLETED" };
   }
+
+  async verifyWebhookSignature(input: PayPalWebhookVerifyInput): Promise<boolean> {
+    const token = await this.accessToken();
+    let webhookEvent: unknown;
+    try {
+      webhookEvent = JSON.parse(input.rawBody);
+    } catch {
+      return false;
+    }
+    const res = await fetch(`${this.base}/v1/notifications/verify-webhook-signature`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        auth_algo: input.headers.authAlgo,
+        cert_url: input.headers.certUrl,
+        transmission_id: input.headers.transmissionId,
+        transmission_sig: input.headers.transmissionSig,
+        transmission_time: input.headers.transmissionTime,
+        webhook_id: input.webhookId,
+        webhook_event: webhookEvent,
+      }),
+    });
+    if (!res.ok) {
+      log.warn("paypal.webhook_verify_failed", { status: res.status });
+      return false;
+    }
+    const body = (await res.json()) as { verification_status?: string };
+    return body.verification_status === "SUCCESS";
+  }
+}
+
+/** `custom_id` we stamp on PayPal orders: "<tenantId>:<orderId>". */
+export function payPalCustomId(tenantId: string, orderId: string): string {
+  return `${tenantId}:${orderId}`;
+}
+
+/** Inverse of payPalCustomId; null for anything we did not stamp. */
+export function parsePayPalCustomId(
+  customId: string | null | undefined,
+): { tenantId: string; orderId: string } | null {
+  if (!customId) return null;
+  const idx = customId.indexOf(":");
+  if (idx <= 0 || idx === customId.length - 1) return null;
+  return { tenantId: customId.slice(0, idx), orderId: customId.slice(idx + 1) };
 }
 
 /* ------------------------------------------------------------------ */

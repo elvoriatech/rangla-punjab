@@ -70,7 +70,7 @@ but prod deliberately connects as the single owner role with RLS off — documen
 | **Print** | `/print/order/[id]?auto=1` | 80 mm kitchen ticket |
 | **Auth** | `/login`, `/reset/*`, `/verify/*` | No public signup (removed) — owners are provisioned from `/admin` |
 | **Legal** | `/legal/*` | MDX: privacy, terms, impressum, DPA, accessibility |
-| **APIs** | `/api/*` | auth, menu CRUD + publish, orders + pay + receipt, Stripe webhooks (×2), billing, QR, zip-lookup, metrics |
+| **APIs** | `/api/*` | auth, menu CRUD + publish, orders + pay + receipt, Stripe webhooks (×2), PayPal return + webhook, billing, QR, zip-lookup, metrics |
 
 ## 4. Data model (20 models, grouped)
 

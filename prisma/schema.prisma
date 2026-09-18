@@ -114,6 +114,11 @@ model Tenant {
   /// "sandbox" | "live" — which PayPal endpoint the credentials belong to.
   paypalEnv            String   @default("sandbox") @map("paypal_env")
   paypalOwnEnabled     Boolean  @default(false) @map("paypal_own_enabled")
+  /// PayPal webhook id (from developer.paypal.com → the app → Webhooks) —
+  /// the only input PayPal's verify-webhook-signature call needs besides
+  /// the request itself. Unset falls back to PAYPAL_WEBHOOK_ID.
+  paypalWebhookIdEnc   String?  @map("paypal_webhook_id_enc")
+  paypalWebhookIdMask  String?  @map("paypal_webhook_id_mask")
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
   deletedAt              DateTime?
