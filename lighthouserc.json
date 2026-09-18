@@ -39,9 +39,9 @@
         "resource-summary:document:size": ["error", { "maxNumericValue": 30000 }],
         "resource-summary:stylesheet:size": ["error", { "maxNumericValue": 24000 }],
         "resource-summary:font:size": ["error", { "maxNumericValue": 75000 }],
-        "resource-summary:image:size": ["error", { "maxNumericValue": 165000 }],
+        "resource-summary:image:size": ["error", { "maxNumericValue": 210000 }],
         "resource-summary:script:size": ["error", { "maxNumericValue": 260000 }],
-        "resource-summary:total:size": ["error", { "maxNumericValue": 540000 }]
+        "resource-summary:total:size": ["error", { "maxNumericValue": 580000 }]
       }
     },
     "upload": {

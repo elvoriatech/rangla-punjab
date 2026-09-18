@@ -230,6 +230,14 @@ jobs:
       # numberOfRuns is 3 (was 1) so the median smooths runner noise; it costs
       # roughly a minute. Headroom on the byte budgets is ~8%: tight enough to
       # catch a stray library import, loose enough not to trip on a font swap.
+      #
+      # IMAGES are the exception and get ~17%. Every other byte category is
+      # byte-identical between a dev laptop and the runner; images are not,
+      # because which lazy-loaded photos get fetched during the audit depends
+      # on viewport and timing. Measured 143,532 locally and 178,637 in CI on
+      # the same commit, so that budget — and `total`, which carries it — is
+      # pinned above the CI figure rather than the local one.
+      #
       # Tighten them when the render-delay work lands — LCP is currently ~3.5s,
       # dominated by main-thread work rather than by loading.
 
