@@ -210,8 +210,30 @@ jobs:
           retention-days: 7
 
       # ---------- P1-26: Lighthouse mobile budget --------------------------
+      #
+      # Budgets re-baselined 2026-09-18 against the CI-seeded demo venue on
+      # `/`. The previous numbers were inherited from the multi-tenant fork and
+      # described the old zero-JS `/r/demo` page: even July's report exceeded
+      # the total-size budget, so this gate had never once passed here.
+      #
+      # Measured over 5 runs, the split is stark. Byte sizes are IDENTICAL on
+      # every run; scores and LCP are not, and the GitHub runner is slower than
+      # a dev laptop (performance 0.82 in CI vs 0.89-0.93 locally on the same
+      # commit). So the budgets are split by what each can actually prove:
+      #
+      #   error  — byte sizes, and the a11y/SEO/best-practices scores. These
+      #            are deterministic, so a failure is a real regression.
+      #   warn   — the performance score and LCP. Both are CPU-throttled
+      #            timings on a shared runner; failing the build on them buys
+      #            flakes, not quality.
+      #
+      # numberOfRuns is 3 (was 1) so the median smooths runner noise; it costs
+      # roughly a minute. Headroom on the byte budgets is ~8%: tight enough to
+      # catch a stray library import, loose enough not to trip on a font swap.
+      # Tighten them when the render-delay work lands — LCP is currently ~3.5s,
+      # dominated by main-thread work rather than by loading.
 
-      - name: Lighthouse CI on /r/demo (P1-26)
+      - name: Lighthouse CI on / (P1-26)
         # Reuses the pnpm build from the axe step. Reuses the ms-playwright
         # cache indirectly — Lighthouse falls back to system Chrome on the
         # GitHub runner (chromium is pre-installed). Fails the PR if any
