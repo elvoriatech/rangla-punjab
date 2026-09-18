@@ -5,7 +5,7 @@ import { platformHealth } from "@/lib/health";
 import { env } from "@/lib/env";
 import { PLAN_CODES, PLANS } from "@/lib/plans";
 import { SUPPORTED_CURRENCIES, SUPPORTED_LOCALES } from "@/lib/venue-service";
-import pkg from "../../../../package.json";
+import { getBuildInfo } from "@/lib/build-info";
 
 /**
  * System — deliberately READ-ONLY. Infrastructure settings live in
@@ -20,12 +20,17 @@ export default async function AdminSystemPage(): Promise<React.ReactElement> {
   if (!(await isPlatformAdmin(userId))) notFound();
 
   const health = await platformHealth();
+  const build = getBuildInfo();
 
   const groups: { title: string; rows: [string, string][] }[] = [
     {
       title: "Application",
       rows: [
-        ["Version", pkg.version],
+        ["Version", build.version],
+        // The commit is the row that actually answers "did my deploy land?" —
+        // the version has read 0.1.0 since the fork.
+        ["Commit", build.commit],
+        ["Built", build.builtAt ?? "not stamped (dev build)"],
         ["Public URL", env.APP_URL],
         ["Node env", process.env.NODE_ENV ?? "development"],
       ],

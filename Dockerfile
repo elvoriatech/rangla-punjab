@@ -25,6 +25,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 
+# Stage sharp's platform packages under a fixed path. Which ones exist depends
+# on the BUILD platform — linuxmusl-x64 on CI and the VPS, linuxmusl-arm64 on
+# an Apple Silicon laptop — so the runner stage cannot name them literally
+# without breaking every build on the other architecture. `cp -a` keeps pnpm's
+# relative symlinks intact, which is what lets the binding find its libvips.
+RUN mkdir -p /img-pkgs && cp -a /app/node_modules/.pnpm/@img+* /img-pkgs/
+
 # ---------- Builder ----------
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
@@ -69,6 +76,16 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 
+# Which commit these bytes came from. Stamped here rather than read from git
+# at runtime: the container has no .git, and the answer must describe the
+# IMAGE, not whatever the host checkout happens to be at when someone asks.
+# `deploy/deploy.sh build` passes both; an unstamped build reads as "dev"
+# (src/lib/build-info.ts) instead of failing.
+ARG GIT_SHA=""
+ARG BUILD_TIME=""
+ENV GIT_SHA=$GIT_SHA \
+    BUILD_TIME=$BUILD_TIME
+
 # Least-privilege runtime user. Using fixed IDs (1001) so k8s SecurityContext
 # and volume ownership stay predictable across environments.
 RUN addgroup --system --gid 1001 nodejs && \
@@ -79,16 +96,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # sharp's prebuilt binding dlopen()s libvips from a SIBLING package, and a
-# bare .so is invisible to Next's static tracing: the standalone bundle
-# ships sharp-linuxmusl-x64's .node WITHOUT the libvips-cpp.so it links
-# against, so every /img request dies with ERR_DLOPEN_FAILED (a plain 500,
-# before the route's own 404/422 handling can run). Copy both real package
-# directories from `deps` at their exact .pnpm paths — pnpm's relative
-# symlink between them then resolves, and the binding loads.
-# Versions are pinned deliberately: a lockfile bump fails this COPY loudly
-# rather than silently shipping a broken /img route again.
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.pnpm/@img+sharp-libvips-linuxmusl-x64@1.3.2 /app/node_modules/.pnpm/@img+sharp-libvips-linuxmusl-x64@1.3.2
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.pnpm/@img+sharp-linuxmusl-x64@0.35.3 /app/node_modules/.pnpm/@img+sharp-linuxmusl-x64@0.35.3
+# bare .so is invisible to Next's static tracing: the standalone bundle ships
+# the .node WITHOUT the libvips-cpp.so it links against, so every /img request
+# dies with ERR_DLOPEN_FAILED (a plain 500, before the route's own 404/422
+# handling can run). Restore sharp's whole @img set from `deps`, where the
+# previous stage staged exactly the packages this platform installed.
+COPY --from=deps --chown=nextjs:nodejs /img-pkgs/ /app/node_modules/.pnpm/
 
 # Resized-variant cache (src/lib/image-cache.ts). Created here with the
 # right owner: /app is root-owned, so the app could not mkdir it at

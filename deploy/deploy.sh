@@ -21,13 +21,32 @@ set -a; source "$ENV_FILE"; set +a
 
 case "${1:-}" in
   build)
+    # Stamp the commit into the image so /admin/system can answer "what is
+    # actually running". `|| echo unknown` because the deploy box is a
+    # deployment target: git may refuse the checkout over ownership, and a
+    # missing SHA must not abort a release.
+    GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    IMAGE="${APP_IMAGE:-rangla-app:latest}"
+    echo "→ building ${IMAGE} from ${GIT_SHA} at ${BUILD_TIME}"
+
     # The brand vars are build-time (Next inlines NEXT_PUBLIC_* into the
     # client bundles), so they have to be passed here rather than in the
     # container environment — change the brand and you must rebuild.
     docker build \
       --build-arg NEXT_PUBLIC_APP_BRAND_NAME="${NEXT_PUBLIC_APP_BRAND_NAME:-Rangla Punjab}" \
       --build-arg NEXT_PUBLIC_APP_BRAND_TAGLINE="${NEXT_PUBLIC_APP_BRAND_TAGLINE:-}" \
-      -t "${APP_IMAGE:-resto-app:latest}" .
+      --build-arg GIT_SHA="${GIT_SHA}" \
+      --build-arg BUILD_TIME="${BUILD_TIME}" \
+      -t "${IMAGE}" .
+
+    # Second tag keyed on the commit, so `docker images` is a deploy history
+    # and a rollback is `APP_IMAGE=rangla-app:<sha> ./deploy/deploy.sh up`
+    # rather than a rebuild of an older checkout.
+    if [ "${GIT_SHA}" != "unknown" ]; then
+      docker tag "${IMAGE}" "${IMAGE%%:*}:${GIT_SHA}"
+      echo "→ also tagged ${IMAGE%%:*}:${GIT_SHA}"
+    fi
     ;;
   migrate)
     # Gate first: refuses destructive migration shapes.
@@ -38,6 +57,10 @@ case "${1:-}" in
   up)
     "${COMPOSE[@]}" up -d
     "${COMPOSE[@]}" ps
+    # Report what is now serving, read from the running container rather than
+    # from the checkout — those disagree exactly when it matters, e.g. after a
+    # build that silently failed and left the previous image up.
+    echo "→ running: $("${COMPOSE[@]}" exec -T app sh -c 'echo "${GIT_SHA:-unknown} built ${BUILD_TIME:-unknown}"' 2>/dev/null || echo 'unknown (app not answering)')"
     ;;
   seed)
     [ -n "${ADMIN_EMAIL:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ] || {
