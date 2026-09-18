@@ -331,6 +331,18 @@ export function CartDrawer({
 
   if (count === 0 && !placed) return null;
 
+  /** Save the PDF receipt without leaving the page — a hidden anchor with
+   *  `download`, clicked inside the guest's own tap so browsers allow it. */
+  function downloadReceipt(order: PlacedOrder): void {
+    const a = document.createElement("a");
+    a.href = `/api/orders/${order.orderId}/receipt?token=${encodeURIComponent(order.receiptToken)}&locale=${locale.startsWith("de") ? "de" : "en"}`;
+    a.download = `receipt-${String(order.orderNumber).padStart(4, "0")}.pdf`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   /** Open the hosted payment page for a placed order. Resolves (without
    *  navigating) when the payment could not be started, so the caller can
    *  fall back to the confirmation screen. */
@@ -362,7 +374,8 @@ export function CartDrawer({
     setPayStarting(false);
   }
 
-  async function submitOrder(): Promise<void> {
+  async function submitOrder(method: PayMethod): Promise<void> {
+    setPayMethod(method);
     setPlacing(true);
     setError(null);
     try {
@@ -374,7 +387,7 @@ export function CartDrawer({
         customerName: orderType === "dine_in" ? undefined : customerName.trim(),
         customerPhone: orderType === "dine_in" ? undefined : customerPhone.trim(),
         customerEmail: customerEmail.trim() || undefined,
-        intendedPayment: payMethod,
+        intendedPayment: method,
         address:
           orderType === "delivery"
             ? {
@@ -435,7 +448,9 @@ export function CartDrawer({
       // Card / PayPal: go straight to the payment page. If that hop fails
       // the confirmation screen below still offers the pay buttons, so
       // the order is never stranded.
-      if (payMethod !== "cash") await startPayment(value, payMethod);
+      if (method !== "cash") await startPayment(value, method);
+      // Cash: the order is final now — hand over the receipt straight away.
+      else downloadReceipt(value);
     } catch {
       setError("No connection — check your network and try again.");
     } finally {
@@ -530,7 +545,9 @@ export function CartDrawer({
                   {money(placed.totalCents)}
                 </span>{" "}
                 (incl. {VAT_RATE_LABEL}% VAT {money(vatFromGross(placed.totalCents))})
-                {payMethod === "cash" ? ", payable at the restaurant." : "."}
+                {payMethod === "cash"
+                  ? ", payable at the restaurant. Your receipt is downloading."
+                  : "."}
                 {customerEmail.trim()
                   ? ` We'll email your receipt to ${customerEmail.trim()}${payMethod === "cash" ? "" : " once the payment is confirmed"}.`
                   : ""}
@@ -723,61 +740,6 @@ export function CartDrawer({
                 </div>
               ) : null}
 
-              {onlinePayment || paypalPayment ? (
-                <div className="mt-4">
-                  <p className={"text-xs uppercase tracking-[0.18em] " + FIELD_LABEL}>Payment</p>
-                  <div
-                    role="radiogroup"
-                    aria-label="Payment method"
-                    className={
-                      onlinePayment && paypalPayment
-                        ? "mt-2 grid grid-cols-3 gap-2"
-                        : "mt-2 grid grid-cols-2 gap-2"
-                    }
-                  >
-                    {(
-                      [
-                        {
-                          id: "cash" as const,
-                          icon: "💶",
-                          label:
-                            orderType === "delivery"
-                              ? "Cash to driver"
-                              : orderType === "takeaway"
-                                ? "Pay at pickup"
-                                : "Pay at table",
-                          show: true,
-                        },
-                        { id: "card" as const, icon: "💳", label: "Card", show: onlinePayment },
-                        { id: "paypal" as const, icon: "🅿️", label: "PayPal", show: paypalPayment },
-                      ] as const
-                    )
-                      .filter((o) => o.show)
-                      .map((o) => (
-                        <button
-                          key={o.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={payMethod === o.id}
-                          onClick={() => setPayMethod(o.id)}
-                          className={payMethod === o.id ? CHIP_ON : CHIP_IDLE}
-                        >
-                          <span aria-hidden="true" className="block text-base">
-                            {o.icon}
-                          </span>
-                          {o.label}
-                          {payMethod === o.id ? (
-                            <span
-                              aria-hidden="true"
-                              className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
-                            />
-                          ) : null}
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              ) : null}
-
               {orderType === "dine_in" ? (
                 <label className="mt-3 block text-sm">
                   <span className={FIELD_LABEL}>Table number (optional)</span>
@@ -949,30 +911,71 @@ export function CartDrawer({
 
               {error ? <MessagePopup kind="error" text={error} /> : null}
 
-              <button
-                type="button"
-                disabled={placing || payStarting || count === 0 || detailsMissing || belowMinimum}
-                onClick={() => void submitOrder()}
-                className={"mt-4 " + CTA_PRIMARY}
-              >
-                {placing || payStarting
-                  ? payMethod === "cash"
-                    ? "Placing…"
-                    : "Opening payment…"
-                  : payMethod === "card"
-                    ? `Pay by card · ${money(total)}`
-                    : payMethod === "paypal"
-                      ? `Pay with PayPal · ${money(total)}`
-                      : `Place order · ${money(total)}`}
-              </button>
+              {/* One tap per payment method: the button both places the
+                  order and (for card / PayPal) opens the payment page. While
+                  one is working the others are disabled, so a nervous
+                  double-tap cannot start two payments. */}
+              {(() => {
+                const busy = placing || payStarting;
+                const blocked = busy || count === 0 || detailsMissing || belowMinimum;
+                const cashLabel =
+                  orderType === "delivery"
+                    ? "Order · cash to driver"
+                    : orderType === "takeaway"
+                      ? "Order · pay at pickup"
+                      : "Order · pay at table";
+                const label = (method: PayMethod, idle: string): string =>
+                  busy && payMethod === method
+                    ? method === "cash"
+                      ? "Placing…"
+                      : "Opening payment…"
+                    : `${idle} · ${money(total)}`;
+                return (
+                  <div className="mt-4 space-y-2" role="group" aria-label="Place order and pay">
+                    {onlinePayment ? (
+                      <button
+                        type="button"
+                        disabled={blocked}
+                        onClick={() => void submitOrder("card")}
+                        className={CTA_PAY}
+                      >
+                        {label("card", "Pay by card")}
+                      </button>
+                    ) : null}
+                    {paypalPayment ? (
+                      <button
+                        type="button"
+                        disabled={blocked}
+                        onClick={() => void submitOrder("paypal")}
+                        /* PayPal brand button — the one hard-coded colour pair
+                           in the file, mandated by their guidelines. */
+                        className={
+                          "block w-full rounded-full border-2 border-[#003087] bg-[#ffc439] px-5 py-3 text-center text-sm font-bold uppercase tracking-[0.14em] text-[#003087] transition hover:opacity-90 active:scale-[0.985] disabled:opacity-50 " +
+                          FOCUS_RING
+                        }
+                      >
+                        {label("paypal", "Mit PayPal zahlen")}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={blocked}
+                      onClick={() => void submitOrder("cash")}
+                      className={onlinePayment || paypalPayment ? CTA_SECONDARY : CTA_PRIMARY}
+                    >
+                      {label("cash", cashLabel)}
+                    </button>
+                  </div>
+                );
+              })()}
               {belowMinimum ? (
                 <p className="mt-2 text-center text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                   Delivery starts at {money(areaMin)} — add {money(areaMin - itemsTotal)} more.
                 </p>
               ) : (
                 <p className="mt-2 text-center text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                  {payMethod !== "cash"
-                    ? "We save your order, then open secure payment. Nothing is charged until you confirm there."
+                  {onlinePayment || paypalPayment
+                    ? "Card and PayPal open a secure payment page once your order is saved; nothing is charged before you confirm there. Your receipt downloads automatically afterwards."
                     : orderType === "delivery"
                       ? "No payment online — you pay the driver."
                       : orderType === "takeaway"

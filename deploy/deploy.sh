@@ -58,6 +58,22 @@ case "${1:-}" in
       pnpm prisma migrate deploy
     ;;
   up)
+    # Live logs UI (Dozzle) is opt-in: with DOZZLE_PASSWORD_SHA256 in
+    # prod.env we materialise its users file (gitignored) and switch the
+    # `logs` compose profile on. Password hash, never the password:
+    #   printf '%s' 'the-password' | shasum -a 256 | cut -d' ' -f1
+    if [ -n "${DOZZLE_PASSWORD_SHA256:-}" ]; then
+      DOZZLE_USER="${DOZZLE_USER:-owner}"
+      cat > deploy/dozzle-users.yml <<DOZZLE_USERS
+users:
+  ${DOZZLE_USER}:
+    name: "${DOZZLE_USER}"
+    password: "${DOZZLE_PASSWORD_SHA256}"
+    email: "logs@${APP_DOMAIN:-localhost}"
+DOZZLE_USERS
+      chmod 600 deploy/dozzle-users.yml
+      export COMPOSE_PROFILES="${COMPOSE_PROFILES:+${COMPOSE_PROFILES},}logs"
+    fi
     "${COMPOSE[@]}" up -d
     "${COMPOSE[@]}" ps
     # Report what is now serving, read from the running container rather than

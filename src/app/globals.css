@@ -204,6 +204,24 @@ body {
   font-size: 0.8125rem; /* 13px, was 12 */
   line-height: 1.5;
 }
+
+/* Tablets clipped to the counter (and the phone the owner checks orders
+ * on) do not get the desktop bump: restaurant tablets are 8–11", usually
+ * mounted an arm's length away, and the larger type cost a third of the
+ * order list. Back to the framework sizes below 1024 px. */
+@media (max-width: 1023px) {
+  .console-readable {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+  .console-readable .text-sm {
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+  .console-readable .text-xs {
+    font-size: 0.75rem;
+  }
+}
 .console-readable .text-\[11px\],
 .console-readable .text-\[10px\] {
   font-size: 0.75rem;

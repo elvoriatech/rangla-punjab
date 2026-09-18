@@ -87,7 +87,11 @@ export function DashboardRail({
     // inside effects (cascading-render hazard). Same pattern as the
     // marketing fail-open hooks.
     const id = setTimeout(() => {
-      setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "collapsed");
+      // Explicit choice wins. Otherwise: tablets clipped to the counter
+      // (< 1024 px) start collapsed so the work area gets the width; a
+      // desktop starts expanded.
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      setCollapsed(stored ? stored === "collapsed" : window.innerWidth < 1024);
     }, 0);
     return () => clearTimeout(id);
   }, []);

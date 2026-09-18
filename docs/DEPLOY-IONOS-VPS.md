@@ -142,6 +142,21 @@ cd /var/www/rangla-punjab   # wherever the checkout lives
 It prints the previous email, sets the new email + password, marks the email
 verified and signs out any old sessions. Safe to re-run.
 
+**Live logs in the browser (optional):** add to `prod.env`
+
+```
+DOZZLE_USER=owner
+DOZZLE_PASSWORD_SHA256=<sha-256 of the password you choose>
+```
+
+(`printf '%s' 'your-password' | shasum -a 256 | cut -d' ' -f1`), then run
+`./deploy/deploy.sh up`. Dozzle comes up at `https://<domain>/logs` with a
+login page and streams the live output of every container (app, caddy,
+redis). Filter the `app` container for `order.placed`, `payment.settled`,
+`stripe.webhook`, `paypal.webhook` or `receipt.emailed` to follow one order
+end to end. It reads the Docker socket read-only and cannot start or stop
+anything.
+
 **Stripe:** either fill `STRIPE_*` here **or** leave placeholders and set keys later in **`/admin/settings`** (encrypted in DB). You still need `SESSION_SECRET` for that.
 
 **Cloudflare:** optional. If you use orange-cloud proxy, point DNS to app public IP and set SSL to **Full (strict)**. If not, point an **A record** to the app public IP; Caddy will obtain Let's Encrypt for `APP_DOMAIN`.

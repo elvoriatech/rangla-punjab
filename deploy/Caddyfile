@@ -35,6 +35,13 @@ www.{$APP_DOMAIN} {
 		max_size 50MB
 	}
 
+	# Live logs (Dozzle, opt-in — see docker-compose.prod.yml). Dozzle
+	# serves its own login page; when the profile is off this answers 502
+	# for /logs and nothing else changes.
+	handle /logs* {
+		reverse_proxy dozzle:8080
+	}
+
 	reverse_proxy app:3000 {
 		# Health-gate the upstream so a restarting app returns 502 fast
 		# instead of hanging the guest's request.

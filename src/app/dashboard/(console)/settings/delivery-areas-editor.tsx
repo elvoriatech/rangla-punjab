@@ -75,21 +75,35 @@ export function DeliveryAreasEditor({ initial }: { initial: AreaInput[] }): Reac
 
   return (
     <div className="mt-3">
-      <div className="overflow-x-auto">
-        <div
-          className="grid min-w-[600px] items-center gap-x-3 gap-y-2 text-xs"
-          style={{ gridTemplateColumns: "92px 1fr 88px 96px 116px 34px" }}
-        >
-          <span className="font-medium uppercase tracking-wider text-muted">ZIP</span>
-          <span className="font-medium uppercase tracking-wider text-muted">Area / locality</span>
-          <span className="font-medium uppercase tracking-wider text-muted">Fee €</span>
-          <span className="font-medium uppercase tracking-wider text-muted">Min. €</span>
-          <span className="font-medium uppercase tracking-wider text-muted">
-            Free from € (0 = off)
-          </span>
-          <span />
+      {/* ≥ md: one aligned grid with a header row. Below that (phones, and
+          the tablets restaurants clip to the counter) each area is its own
+          two-column card with per-field labels — nothing scrolls sideways,
+          nothing is clipped. */}
+      <div className="md:grid md:items-center md:gap-x-3 md:gap-y-2 md:[grid-template-columns:92px_1fr_88px_96px_116px_34px] text-xs">
+        <span className="hidden font-medium uppercase tracking-wider text-muted md:block">ZIP</span>
+        <span className="hidden font-medium uppercase tracking-wider text-muted md:block">
+          Area / locality
+        </span>
+        <span className="hidden font-medium uppercase tracking-wider text-muted md:block">
+          Fee €
+        </span>
+        <span className="hidden font-medium uppercase tracking-wider text-muted md:block">
+          Min. €
+        </span>
+        <span className="hidden font-medium uppercase tracking-wider text-muted md:block">
+          Free from € (0 = off)
+        </span>
+        <span className="hidden md:block" />
+        <div className="space-y-3 md:contents">
           {rows.map((r, i) => (
-            <div key={r.id} className="contents">
+            <div
+              key={r.id}
+              className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-md border border-ink/10 p-3 md:contents md:border-0 md:p-0"
+            >
+              <span className="text-[10px] uppercase tracking-wider text-muted md:hidden">ZIP</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted md:hidden">
+                Area
+              </span>
               <input
                 type="text"
                 name={`areaZip_${i}`}
@@ -117,6 +131,9 @@ export function DeliveryAreasEditor({ initial }: { initial: AreaInput[] }): Reac
                 maxLength={80}
                 className={field}
               />
+              <span className="text-[10px] uppercase tracking-wider text-muted md:hidden">
+                Fee €
+              </span>
               <input
                 type="number"
                 name={`areaFee_${i}`}
@@ -127,6 +144,9 @@ export function DeliveryAreasEditor({ initial }: { initial: AreaInput[] }): Reac
                 placeholder="0.00"
                 className={field}
               />
+              <span className="text-[10px] uppercase tracking-wider text-muted md:hidden">
+                Min. €
+              </span>
               <input
                 type="number"
                 name={`areaMin_${i}`}
@@ -137,6 +157,9 @@ export function DeliveryAreasEditor({ initial }: { initial: AreaInput[] }): Reac
                 placeholder="0.00"
                 className={field}
               />
+              <span className="text-[10px] uppercase tracking-wider text-muted md:hidden">
+                Free from € (0 = off)
+              </span>
               <input
                 type="number"
                 name={`areaFreeOver_${i}`}
@@ -152,7 +175,7 @@ export function DeliveryAreasEditor({ initial }: { initial: AreaInput[] }): Reac
                 onClick={() => removeRow(r.id)}
                 aria-label={`Remove ${r.zip || "row"}`}
                 title="Remove area"
-                className="flex h-8 w-8 items-center justify-center border border-ink/20 text-ink/50 hover:border-red-700 hover:text-red-700"
+                className="col-span-2 flex h-8 w-8 items-center justify-center justify-self-end border border-ink/20 text-ink/50 hover:border-red-700 hover:text-red-700 md:col-span-1 md:justify-self-auto"
               >
                 ✕
               </button>

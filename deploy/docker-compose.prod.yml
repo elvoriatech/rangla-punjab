@@ -91,6 +91,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # Live container logs in the browser (app, caddy, redis) — for spotting a
+  # failing order or webhook without SSH. Opt-in: set COMPOSE_PROFILES=logs
+  # plus DOZZLE_USER / DOZZLE_PASSWORD_SHA256 in prod.env; deploy.sh writes
+  # the users file from those. Reached at https://<domain>/logs behind
+  # Dozzle's own login. Read-only socket: it can watch, never control.
+  dozzle:
+    image: amir20/dozzle:latest
+    profiles: ["logs"]
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./dozzle-users.yml:/data/users.yml:ro
+    environment:
+      DOZZLE_BASE: /logs
+      DOZZLE_AUTH_PROVIDER: simple
+      DOZZLE_NO_ANALYTICS: "true"
+      DOZZLE_ENABLE_ACTIONS: "false"
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   caddy_data:
   caddy_config:

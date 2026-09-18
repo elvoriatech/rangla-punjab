@@ -5,6 +5,7 @@ import { getOperatorSettings } from "@/lib/operator-settings";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { formatPrice } from "@/lib/public-menu";
 import { PayButton } from "./pay-button";
+import { AutoReceipt } from "./auto-receipt";
 import { PayPalButton } from "./paypal-button";
 import { paypalAvailable } from "@/lib/paypal";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
@@ -77,6 +78,10 @@ export default async function PayPage({
       {paid ? (
         <div className="mt-6 border border-[#3f7030]/40 bg-[#3f7030]/10 px-4 py-4 text-center">
           <p className="font-serif text-2xl text-[#3f7030]">Bezahlt ✓</p>
+          <AutoReceipt
+            href={`/api/orders/${encodeURIComponent(orderId)}/receipt?token=${encodeURIComponent(token)}&locale=de`}
+            filename={`beleg-${String(order.orderNumber).padStart(4, "0")}.pdf`}
+          />
           <p className="mt-1 text-sm text-muted">
             Zeigen Sie diesen Bildschirm bei Bedarf im Restaurant vor — die Küche sieht die
             Bestellung als bezahlt.

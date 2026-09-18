@@ -99,7 +99,7 @@ export default async function SettingsPage({
       : null;
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-12 text-ink lg:px-10">
+    <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 text-ink sm:px-6 md:py-12 lg:px-10">
       <p className="mb-2 text-xs uppercase tracking-[0.28em] text-gold-dark">Settings</p>
       <h1 className="font-serif text-4xl leading-tight">Restaurant details</h1>
 
