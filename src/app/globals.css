@@ -246,13 +246,19 @@ body {
   }
 }
 
+/* Transform only — deliberately NOT opacity. Dish cards and the venue
+   header play this on entry, and axe snapshots the page while it is still
+   running: a half-faded #ecdcb6 heading composites to #877a63 and reports
+   4.22:1 against the card, failing the WCAG AA gate on a design that
+   actually passes at rest. The same trap was already hit and documented for
+   `menu-slide-up` in menu-view.tsx, which rises 12px for exactly this
+   reason; `menu-rise` simply never got the same treatment. An 18px rise
+   keeps the arrival without ever putting mid-opacity text on screen. */
 @keyframes menu-rise {
   from {
-    opacity: 0;
     transform: translateY(18px);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }
