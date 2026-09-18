@@ -144,9 +144,9 @@ verified and signs out any old sessions. Safe to re-run.
 
 **Live logs in the browser:** `https://<domain>/logs` (Dozzle) is on from
 the first deploy — log in as user `admin` with `ADMIN_PASSWORD`. For a
-separate login add `DOZZLE_USER` and `DOZZLE_PASSWORD_SHA256`
-(`printf '%s' 'your-password' | shasum -a 256 | cut -d' ' -f1`) to `prod.env`
-and run `./deploy/deploy.sh up`. It streams the live output of every container (app, caddy,
+separate login add `DOZZLE_USER` and `DOZZLE_PASSWORD` (plain, like the
+other passwords in `prod.env`; deploy.sh turns it into the bcrypt hash
+Dozzle requires) and run `./deploy/deploy.sh up`. It streams the live output of every container (app, caddy,
 redis). Filter the `app` container for `order.placed`, `payment.settled`,
 `stripe.webhook`, `paypal.webhook` or `receipt.emailed` to follow one order
 end to end. It reads the Docker socket read-only and cannot start or stop

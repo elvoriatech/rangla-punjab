@@ -58,44 +58,54 @@ case "${1:-}" in
       pnpm prisma migrate deploy
     ;;
   up)
-    # Live logs UI (Dozzle) is opt-in: with DOZZLE_PASSWORD_SHA256 in
-    # prod.env we materialise its users file (gitignored) and switch the
-    # `logs` compose profile on. Password hash, never the password:
-    #   printf '%s' 'the-password' | shasum -a 256 | cut -d' ' -f1
-    # Default login = the /admin credentials (user "admin", ADMIN_PASSWORD),
-    # so the logs UI is on from the first deploy; DOZZLE_* override it.
-    if [ -z "${DOZZLE_PASSWORD_SHA256:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
-      DOZZLE_PASSWORD_SHA256="$(printf '%s' "${ADMIN_PASSWORD}" | sha256sum | cut -d' ' -f1)"
-      DOZZLE_USER="${DOZZLE_USER:-admin}"
+    # Live logs UI (Dozzle). Login = DOZZLE_USER / DOZZLE_PASSWORD from
+    # prod.env, defaulting to user "admin" with ADMIN_PASSWORD, so it is on
+    # from the first deploy. Dozzle ≥ v11 accepts only bcrypt hashes, so the
+    # users file is produced by Dozzle's own generator (never hand-hashed).
+    # Written under the deploy user's HOME, not into the checkout: the repo
+    # tree may be root-owned from an earlier manual clone, and a failed
+    # write here must never abort a release.
+    DOZZLE_PASS="${DOZZLE_PASSWORD:-${ADMIN_PASSWORD:-}}"
+    if [ -n "${DOZZLE_PASSWORD_SHA256:-}" ] && [ -z "${DOZZLE_PASSWORD:-}" ]; then
+      echo "! DOZZLE_PASSWORD_SHA256 is no longer used (Dozzle v11 needs bcrypt) — set DOZZLE_PASSWORD instead; using ADMIN_PASSWORD for now"
     fi
-    if [ -n "${DOZZLE_PASSWORD_SHA256:-}" ]; then
-      DOZZLE_USER="${DOZZLE_USER:-owner}"
-      # Written under the deploy user's HOME, not into the checkout: the
-      # repo tree may be root-owned from an earlier manual clone, and a
-      # failed write here must never abort a release. The compose file
-      # mounts whatever DOZZLE_USERS_FILE points at.
+    if [ -n "${DOZZLE_PASS}" ]; then
+      DOZZLE_USER="${DOZZLE_USER:-admin}"
       DOZZLE_USERS_DIR="${HOME:-/tmp}/.config/rangla"
       mkdir -p "${DOZZLE_USERS_DIR}"
       DOZZLE_USERS_FILE="${DOZZLE_USERS_DIR}/dozzle-users.yml"
-      cat > "${DOZZLE_USERS_FILE}" <<DOZZLE_USERS
-users:
-  ${DOZZLE_USER}:
-    name: "${DOZZLE_USER}"
-    password: "${DOZZLE_PASSWORD_SHA256}"
-    email: "logs@${APP_DOMAIN:-localhost}"
-DOZZLE_USERS
-      chmod 600 "${DOZZLE_USERS_FILE}"
-      export DOZZLE_USERS_FILE
-      export COMPOSE_PROFILES="${COMPOSE_PROFILES:+${COMPOSE_PROFILES},}logs"
+      if docker run --rm amir20/dozzle:latest generate \
+           --name "${DOZZLE_USER}" --email "logs@${APP_DOMAIN:-localhost}" \
+           --password "${DOZZLE_PASS}" "${DOZZLE_USER}" > "${DOZZLE_USERS_FILE}.tmp" 2>/dev/null \
+         && [ -s "${DOZZLE_USERS_FILE}.tmp" ]; then
+        mv "${DOZZLE_USERS_FILE}.tmp" "${DOZZLE_USERS_FILE}"
+        chmod 600 "${DOZZLE_USERS_FILE}"
+        export DOZZLE_USERS_FILE
+        export COMPOSE_PROFILES="${COMPOSE_PROFILES:+${COMPOSE_PROFILES},}logs"
+        echo "→ dozzle login: ${DOZZLE_USER} (users file ${DOZZLE_USERS_FILE})"
+      else
+        rm -f "${DOZZLE_USERS_FILE}.tmp"
+        echo "! could not generate the dozzle users file — logs UI stays off this release"
+      fi
     fi
     "${COMPOSE[@]}" up -d
     # The Caddyfile is a bind mount: a changed route (e.g. /logs) is on disk
     # but Caddy keeps serving the config it loaded at start until told.
     # Graceful reload, zero downtime; harmless when nothing changed.
-    if "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile; then
-      echo "→ caddy reloaded"
+    # …but a single-file bind mount pins the INODE: `git reset --hard`
+    # writes a new Caddyfile, and the container keeps the old one, so the
+    # reload would happily re-apply stale config. Compare what the container
+    # sees with what is on disk and recreate caddy when they differ (a few
+    # seconds of TLS downtime, only on releases that changed the Caddyfile).
+    HOST_SUM="$(sha256sum deploy/Caddyfile | cut -d' ' -f1)"
+    CONT_SUM="$("${COMPOSE[@]}" exec -T caddy sha256sum /etc/caddy/Caddyfile 2>/dev/null | cut -d' ' -f1 || true)"
+    if [ "${HOST_SUM}" != "${CONT_SUM}" ]; then
+      echo "→ Caddyfile changed on disk (container still has the old inode) — recreating caddy"
+      "${COMPOSE[@]}" up -d --force-recreate --no-deps caddy
+    elif "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile; then
+      echo "→ caddy reloaded (config unchanged or same file)"
     else
-      echo "! caddy reload failed — recreating caddy so the new Caddyfile is served"
+      echo "! caddy reload failed — recreating caddy"
       "${COMPOSE[@]}" up -d --force-recreate --no-deps caddy
     fi
     "${COMPOSE[@]}" ps
