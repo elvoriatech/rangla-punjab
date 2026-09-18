@@ -28,7 +28,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const outcome = await handleStripeEvent(event, { provider });
+    const outcome = await handleStripeEvent(event);
     return NextResponse.json({ received: true, kind: outcome.kind }, { status: outcome.status });
   } catch (err) {
     captureException(err, { eventId: event.id, eventType: event.type });

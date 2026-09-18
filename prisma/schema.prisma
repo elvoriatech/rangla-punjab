@@ -37,16 +37,6 @@ enum MenuVersionStatus {
   published
 }
 
-enum SubscriptionStatus {
-  trialing
-  active
-  past_due
-  grace
-  canceled
-  incomplete
-  unpaid
-}
-
 // 14 EU-regulated allergens (Reg. 1169/2011). Structured, never free text.
 enum Allergen {
   gluten
@@ -137,7 +127,6 @@ model Tenant {
   itemVariants  ItemVariant[]
   translations  Translation[]
   media         Media[]
-  subscription  Subscription?
   orders        Order[]
   orderItems    OrderItem[]
 
@@ -439,30 +428,6 @@ model Media {
 
   @@index([tenantId])
   @@map("media")
-}
-
-model Subscription {
-  id                   String             @id @default(cuid())
-  tenantId             String             @unique @map("tenant_id")
-  stripeCustomerId     String?            @map("stripe_customer_id")
-  stripeSubscriptionId String?            @map("stripe_subscription_id")
-  planCode             String             @default("trial") @map("plan_code")
-  status               SubscriptionStatus @default(trialing)
-  currentPeriodEnd     DateTime?          @map("current_period_end")
-  trialEnd             DateTime?          @map("trial_end")
-  cancelAt             DateTime?          @map("cancel_at")
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  // The DB-level uniqueness is a *partial* index (see migration) — one
-  // live row per tenant, but soft-deleted rows don't block resubscribes.
-  // Prisma sees a plain `@unique` for one-to-one typegen; drift is
-  // harmless because the app always filters `deletedAt: null`.
-  deletedAt DateTime? @map("deleted_at")
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("subscriptions")
 }
 
 // Per-event guest scan record. P2-9 reshaped from the earlier

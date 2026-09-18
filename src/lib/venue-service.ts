@@ -384,7 +384,7 @@ export async function getOrderingSettings(
       select: { ordering: true },
     });
     if (!venue) return { ok: false, error: "no_venue" as const };
-    const [tenant, subscription] = await Promise.all([
+    const [tenant] = await Promise.all([
       tx.tenant.findFirstOrThrow({
         select: {
           plan: true,
@@ -394,15 +394,11 @@ export async function getOrderingSettings(
           deletedAt: true,
         },
       }),
-      tx.subscription.findFirst({
-        where: { deletedAt: null },
-        select: { planCode: true, status: true, trialEnd: true, currentPeriodEnd: true },
-      }),
     ]);
     return {
       ok: true as const,
       value: {
-        access: resolveTenantAccess(tenant, subscription),
+        access: resolveTenantAccess(tenant),
         config: parseOrderingConfig(venue.ordering),
       },
     };

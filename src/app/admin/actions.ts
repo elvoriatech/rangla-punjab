@@ -5,13 +5,11 @@ import { revalidatePath } from "next/cache";
 import { clearSessionCookie, getSessionUserId } from "@/lib/auth";
 import { setImpersonationCookie } from "@/lib/auth";
 import {
-  adminAnnounce,
   adminImpersonateOwner,
   adminPurgeTenant,
   adminTransferOwnership,
   adminSetTenantDeleted,
   adminSetTenantStatus,
-  type AnnounceTarget,
 } from "@/lib/platform-admin";
 import { createLogger } from "@/lib/logger";
 
@@ -68,24 +66,6 @@ export async function purgeTenantAction(form: FormData): Promise<void> {
   revalidatePath("/admin/restaurants", "page");
   redirect(
     result === "ok" ? "/admin/restaurants?saved=1" : `/admin/restaurants/${tenantId}?error=1`,
-  );
-}
-
-/** Broadcast an announcement email to matching owners. */
-export async function announceAction(form: FormData): Promise<void> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  const target = String(form.get("target") ?? "all") as AnnounceTarget;
-  const result = await adminAnnounce(userId, {
-    subject: String(form.get("subject") ?? ""),
-    message: String(form.get("message") ?? ""),
-    target: (["all", "trial", "active", "lapsed"] as const).includes(target) ? target : "all",
-  });
-  if (!result.ok && result.error === "forbidden") redirect("/login");
-  redirect(
-    result.ok
-      ? `/admin/announcements?sent=${result.sent}&skipped=${result.skipped}`
-      : "/admin/announcements?error=1",
   );
 }
 

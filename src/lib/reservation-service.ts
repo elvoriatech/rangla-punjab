@@ -54,11 +54,7 @@ export async function createReservation(
         deletedAt: true,
       },
     });
-    const subscription = await tx.subscription.findFirst({
-      where: { deletedAt: null },
-      select: { planCode: true, status: true, trialEnd: true, currentPeriodEnd: true },
-    });
-    const access = resolveTenantAccess(tenant, subscription);
+    const access = resolveTenantAccess(tenant);
     const mode = effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering));
     if (!mode.reservations) return { ok: false, error: "reservations_off" as const };
 

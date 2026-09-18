@@ -67,13 +67,6 @@ export function isPlanCode(value: unknown): value is PlanCode {
   return typeof value === "string" && (PLAN_CODES as readonly string[]).includes(value);
 }
 
-export interface SubscriptionSnapshot {
-  planCode: string;
-  status: string;
-  trialEnd: Date | null;
-  currentPeriodEnd: Date | null;
-}
-
 export interface TenantSnapshot {
   createdAt: Date;
   plan: string | null; // admin override (unused for gating now)
@@ -112,15 +105,10 @@ function applyOverrides(base: Entitlements, overrides: unknown): Entitlements {
 
 /**
  * Single-restaurant access. Everything on, unless the tenant is suspended
- * or soft-deleted. `subscription` is accepted (and ignored for gating) so
- * existing call sites don't change.
+ * or soft-deleted. The subscription argument is gone with the table: this
+ * restaurant is billed directly, never through Stripe Billing in the app.
  */
-export function resolveTenantAccess(
-  tenant: TenantSnapshot,
-  _subscription: SubscriptionSnapshot | null = null,
-  _now: Date = new Date(),
-): TenantAccess {
-  void _subscription;
+export function resolveTenantAccess(tenant: TenantSnapshot, _now: Date = new Date()): TenantAccess {
   void _now;
   if (tenant.deletedAt) {
     return {

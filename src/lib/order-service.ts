@@ -134,7 +134,7 @@ export async function placeOrder(
     // Entitlement + owner-switch gate. Server-side on purpose: the
     // client renders only allowed modes, but a forged POST must hit the
     // same wall (same philosophy as recomputing prices below).
-    const [tenant, subscription, venue] = await Promise.all([
+    const [tenant, venue] = await Promise.all([
       tx.tenant.findFirstOrThrow({
         select: {
           plan: true,
@@ -144,16 +144,12 @@ export async function placeOrder(
           deletedAt: true,
         },
       }),
-      tx.subscription.findFirst({
-        where: { deletedAt: null },
-        select: { planCode: true, status: true, trialEnd: true, currentPeriodEnd: true },
-      }),
       tx.venue.findFirstOrThrow({
         where: { id: context.venueId },
         select: { ordering: true, hours: true, timezone: true },
       }),
     ]);
-    const access = resolveTenantAccess(tenant, subscription);
+    const access = resolveTenantAccess(tenant);
     const mode = effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering));
     const orderType: OrderType = input.orderType;
     if (!orderTypeAllowed(mode, orderType)) {
@@ -671,7 +667,7 @@ export async function getPublicVenueAccess(
   venueId: string,
 ): Promise<PublicVenueAccess> {
   return asTenant(tenantId, async (tx) => {
-    const [tenant, subscription, venue] = await Promise.all([
+    const [tenant, venue] = await Promise.all([
       tx.tenant.findFirstOrThrow({
         select: {
           plan: true,
@@ -682,13 +678,9 @@ export async function getPublicVenueAccess(
           stripeChargesEnabled: true,
         },
       }),
-      tx.subscription.findFirst({
-        where: { deletedAt: null },
-        select: { planCode: true, status: true, trialEnd: true, currentPeriodEnd: true },
-      }),
       tx.venue.findFirstOrThrow({ where: { id: venueId }, select: { ordering: true } }),
     ]);
-    const access = resolveTenantAccess(tenant, subscription);
+    const access = resolveTenantAccess(tenant);
     return {
       menuVisible: access.menuVisible,
       modes: effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering)),

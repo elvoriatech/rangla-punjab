@@ -10,7 +10,6 @@ import { publishDraft } from "./menu-versions-service";
 import { loadPublicMenu } from "./public-menu";
 import { resolvePreviewContext } from "./preview-context";
 import { renderPrintPack } from "./print-pack";
-import { createCheckout } from "./billing-service";
 
 /**
  * Phase 1 exit smoke (P1-30).
@@ -46,7 +45,6 @@ describe("Phase 1 exit-criteria smoke (P1-30)", () => {
       await asTenant(tid, (tx) => tx.menu.deleteMany({}));
       await asTenant(tid, (tx) => tx.venue.deleteMany({}));
       await asTenant(tid, (tx) => tx.media.deleteMany({}));
-      await asTenant(tid, (tx) => tx.subscription.deleteMany({}));
       await asTenant(tid, (tx) => tx.membership.deleteMany({}));
       await asTenant(tid, (tx) => tx.tenant.deleteMany({}));
     }
@@ -57,7 +55,7 @@ describe("Phase 1 exit-criteria smoke (P1-30)", () => {
     createdTenantIds.length = 0;
   });
 
-  it("signup → onboarding → build menu → publish → public render → QR PDF → billing checkout", async () => {
+  it("signup → onboarding → build menu → publish → public render → QR PDF", async () => {
     // ---- 1. Signup ---------------------------------------------------
     const email = `p1-30-smoke-${randomUUID()}@ex.com`;
     const signup = await signupUser({
@@ -123,13 +121,7 @@ describe("Phase 1 exit-criteria smoke (P1-30)", () => {
     const header = Buffer.from(pdfBytes.subarray(0, 5)).toString("utf8");
     expect(header).toBe("%PDF-");
 
-    // ---- 6. Billing test-mode checkout ------------------------------
-    const checkout = await createCheckout(signup.userId, "support", {
-      successUrl: "https://elvoria.example/billing/success",
-      cancelUrl: "https://elvoria.example/billing/cancel",
-    });
-    expect(checkout.ok).toBe(true);
-    if (!checkout.ok) return;
-    expect(checkout.url).toMatch(/^https?:\/\//);
+    // Step 6 was a platform-subscription checkout. This build bills the
+    // restaurant directly, not through the app, so there is nothing to smoke.
   });
 });

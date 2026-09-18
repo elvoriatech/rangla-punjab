@@ -2,7 +2,6 @@ import { prisma } from "./db";
 import { asTenant } from "./tenant";
 import { deletePrefix } from "./image-storage";
 import { createLogger } from "./logger";
-import { resolveTenantAccess } from "./plan-state";
 
 /**
  * Platform-admin (Guesto staff) services. Access rides on
@@ -35,10 +34,6 @@ export interface AdminTenantRow {
   onboardingState: unknown;
   hasPublished: boolean;
   scans30d: number;
-  subPlan: string | null;
-  subStatus: string | null;
-  subTrialEnd: Date | null;
-  subPeriodEnd: Date | null;
   venueName: string | null;
   venueSlug: string | null;
   ordersToday: number;
@@ -61,10 +56,6 @@ export async function adminListTenants(userId: string): Promise<AdminTenantRow[]
       owner_verified: boolean | null;
       onboarding_state: unknown;
       has_published: boolean;
-      sub_plan: string | null;
-      sub_status: string | null;
-      sub_trial_end: Date | null;
-      sub_period_end: Date | null;
       venue_name: string | null;
       venue_slug: string | null;
       orders_today: bigint;
@@ -85,105 +76,12 @@ export async function adminListTenants(userId: string): Promise<AdminTenantRow[]
     onboardingState: r.onboarding_state,
     hasPublished: r.has_published,
     scans30d: Number(r.scans_30d),
-    subPlan: r.sub_plan,
-    subStatus: r.sub_status,
-    subTrialEnd: r.sub_trial_end,
-    subPeriodEnd: r.sub_period_end,
     venueName: r.venue_name,
     venueSlug: r.venue_slug,
     ordersToday: Number(r.orders_today),
     orders30d: Number(r.orders_30d),
     revenue30dCents: Number(r.revenue_30d_cents),
   }));
-}
-
-export interface AdminTenantPage {
-  rows: AdminTenantRow[];
-  totalCount: number;
-}
-
-/** DB-side paged + searched listing for the console's tenant table —
- *  the per-row activity subqueries only run for the visible page, so
- *  this stays fast at tens of thousands of tenants. The unpaged
- *  adminListTenants remains for aggregate consumers. */
-export async function adminListTenantsPage(
-  userId: string,
-  input: { limit: number; offset: number; q?: string },
-): Promise<AdminTenantPage | null> {
-  if (!(await isPlatformAdmin(userId))) return null;
-  const rows = await prisma.$queryRaw<
-    {
-      id: string;
-      name: string;
-      status: string;
-      deleted_at: Date | null;
-      plan_override: string | null;
-      entitlement_overrides: unknown;
-      created_at: Date;
-      owner_email: string | null;
-      owner_verified: boolean | null;
-      onboarding_state: unknown;
-      has_published: boolean;
-      sub_plan: string | null;
-      sub_status: string | null;
-      sub_trial_end: Date | null;
-      sub_period_end: Date | null;
-      venue_name: string | null;
-      venue_slug: string | null;
-      orders_today: bigint;
-      orders_30d: bigint;
-      revenue_30d_cents: bigint;
-      scans_30d: bigint;
-      total_count: bigint;
-    }[]
-  >`SELECT * FROM admin_list_tenants(${input.limit}, ${input.offset}, ${input.q ?? null})`;
-  return {
-    totalCount: rows.length ? Number(rows[0]!.total_count) : 0,
-    rows: rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      status: r.status,
-      deletedAt: r.deleted_at,
-      entitlementOverrides: r.entitlement_overrides,
-      createdAt: r.created_at,
-      ownerEmail: r.owner_email,
-      ownerVerified: r.owner_verified,
-      onboardingState: r.onboarding_state,
-      hasPublished: r.has_published,
-      scans30d: Number(r.scans_30d),
-      subPlan: r.sub_plan,
-      subStatus: r.sub_status,
-      subTrialEnd: r.sub_trial_end,
-      subPeriodEnd: r.sub_period_end,
-      venueName: r.venue_name,
-      venueSlug: r.venue_slug,
-      ordersToday: Number(r.orders_today),
-      orders30d: Number(r.orders_30d),
-      revenue30dCents: Number(r.revenue_30d_cents),
-    })),
-  };
-}
-
-/** Derived access state for a console row (Active / Suspended / Deleted) —
- *  one call site per page instead of each re-assembling the snapshot. */
-export function accessForRow(t: AdminTenantRow): ReturnType<typeof resolveTenantAccess> {
-  return resolveTenantAccess(
-    {
-      createdAt: t.createdAt,
-      plan: null,
-      entitlementOverrides: t.entitlementOverrides,
-      status: t.status,
-      deletedAt: t.deletedAt,
-    },
-    t.subStatus
-      ? {
-          planCode: t.subPlan ?? "starter",
-          status: t.subStatus,
-          trialEnd: t.subTrialEnd,
-          currentPeriodEnd: t.subPeriodEnd,
-        }
-      : null,
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -387,65 +285,8 @@ export async function adminPurgeTenant(userId: string, tenantId: string): Promis
 /* Announcements                                                       */
 /* ------------------------------------------------------------------ */
 
-export type AnnounceTarget = "all" | "trial" | "active" | "lapsed";
-
 export type AnnounceResult =
   { ok: true; sent: number; skipped: number } | { ok: false; error: "forbidden" | "invalid" };
-
-/** Email every matching owner. Sequential-ish in small chunks — at
- *  platform scale this becomes a queue job; the seam (target filter →
- *  sendEmail) stays identical. */
-export async function adminAnnounce(
-  userId: string,
-  input: { subject: string; message: string; target: AnnounceTarget },
-): Promise<AnnounceResult> {
-  const tenants = await adminListTenants(userId);
-  if (!tenants) return { ok: false, error: "forbidden" };
-  const subject = input.subject.trim();
-  const message = input.message.trim();
-  if (!subject || subject.length > 150 || !message || message.length > 5_000) {
-    return { ok: false, error: "invalid" };
-  }
-
-  const { AnnouncementEmail } = await import("@/emails/announcement-email");
-  const { sendEmail } = await import("./email");
-  const targets = tenants
-    .map((t) => ({ t, access: accessForRow(t) }))
-    .filter(({ t, access }) => {
-      if (!t.ownerEmail || t.deletedAt) return false;
-      if (input.target === "all") return true;
-      if (input.target === "trial") return access.state === "trial";
-      if (input.target === "active")
-        return access.state === "active" || access.state === "override";
-      return access.state === "lapsed_grace" || access.state === "lapsed_off";
-    });
-
-  let sent = 0;
-  const CHUNK = 10;
-  for (let i = 0; i < targets.length; i += CHUNK) {
-    await Promise.all(
-      targets.slice(i, i + CHUNK).map(async ({ t }) => {
-        try {
-          await sendEmail({
-            to: t.ownerEmail!,
-            subject,
-            react: AnnouncementEmail({ venueName: t.venueName ?? t.name, message }),
-          });
-          sent += 1;
-        } catch {
-          // Counted below as skipped; one bad address must not stop a broadcast.
-        }
-      }),
-    );
-  }
-  auditLog.info("admin.announcement_sent", {
-    userId,
-    target: input.target,
-    sent,
-    total: targets.length,
-  });
-  return { ok: true, sent, skipped: targets.length - sent };
-}
 
 /* ------------------------------------------------------------------ */
 /* Impersonation ("log in as owner")                                   */
