@@ -38,7 +38,7 @@ async function main(): Promise<void> {
       hasTouch: isMobile,
     });
     const page = await ctx.newPage();
-    await page.goto(`${BASE}/r/${SLUG}?x=${Date.now()}`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/?x=${Date.now()}`, { waitUntil: "networkidle" });
     await page.waitForTimeout(4500);
     await page.addStyleTag({ content: clean });
     await page.screenshot({ path });

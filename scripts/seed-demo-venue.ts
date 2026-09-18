@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 /**
- * Seeds a public demo venue at `/r/demo` for smoke checks and the
+ * Seeds a public demo venue (slug `demo`) for smoke checks and the
  * Playwright axe job (P1-25). Idempotent: re-running is a no-op once
  * the slug exists. Uses the migration-privilege connection because
  * this is CI fixture data, not tenant-authored content — RLS is not
@@ -23,7 +23,7 @@ async function main(): Promise<void> {
   });
   if (existing) {
     process.stdout.write(
-      `✓ seed-demo-venue: /r/${DEMO_VENUE_SLUG} already exists (${existing.id})\n`,
+      `✓ seed-demo-venue: venue "${DEMO_VENUE_SLUG}" already exists (${existing.id})\n`,
     );
     await prisma.$disconnect();
     return;
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
     });
 
     process.stdout.write(
-      `✓ seed-demo-venue: created /r/${DEMO_VENUE_SLUG} (tenant=${tenant.id}, venue=${venue.id})\n`,
+      `✓ seed-demo-venue: created venue "${DEMO_VENUE_SLUG}" (tenant=${tenant.id}, venue=${venue.id})\n`,
     );
   });
 

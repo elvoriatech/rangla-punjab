@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     });
     if (existing) {
       process.stdout.write(
-        `✓ seed-restaurant: /r/${RESTAURANT_SLUG} already exists (${existing.id}) — no-op\n`,
+        `✓ seed-restaurant: venue "${RESTAURANT_SLUG}" already exists (${existing.id}) — no-op\n`,
       );
       return;
     }
@@ -149,7 +149,7 @@ async function main(): Promise<void> {
       }
 
       process.stdout.write(
-        `✓ seed-restaurant: created "${RESTAURANT_NAME}" at /r/${RESTAURANT_SLUG}\n` +
+        `✓ seed-restaurant: created "${RESTAURANT_NAME}" (venue "${RESTAURANT_SLUG}", public menu at /)\n` +
           `  tenant=${tenant.id} venue=${venue.id}\n` +
           `  template=${TEMPLATE_KEY} → ${categories} categories, ${items} items\n` +
           `  owner login: ${OWNER_EMAIL} / ${OWNER_PASSWORD}\n`,

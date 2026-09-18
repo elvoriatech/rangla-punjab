@@ -219,7 +219,7 @@ async function main(): Promise<void> {
     }
     const changed = result.previousEmail === result.email ? "" : ` (was ${result.previousEmail})`;
     process.stdout.write(
-      `✓ owner login for /r/${slug}: ${result.email}${changed} — password reset, old sessions signed out\n`,
+      `✓ owner login for venue "${slug}": ${result.email}${changed} — password reset, old sessions signed out\n`,
     );
     if (result.demotedFromPlatformAdmin) {
       process.stdout.write(

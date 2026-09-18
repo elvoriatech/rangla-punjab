@@ -3,7 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import type { Dietary } from "@prisma/client";
 
 /**
- * Seeds a real restaurant menu (German Indian restaurant) at `/r/indisches-restaurant`.
+ * Seeds a real restaurant menu (German Indian restaurant), venue slug `indisches-restaurant`.
  * Idempotent: re-running is a no-op once the slug exists. Uses the
  * migration-privilege connection because this is operator-imported fixture
  * data, not tenant-authored content via the app.
@@ -750,7 +750,7 @@ async function main(): Promise<void> {
   });
   if (existing) {
     process.stdout.write(
-      `✓ seed-indian-restaurant: /r/${VENUE_SLUG} already exists (${existing.id})\n`,
+      `✓ seed-indian-restaurant: venue "${VENUE_SLUG}" already exists (${existing.id})\n`,
     );
     await prisma.$disconnect();
     return;
@@ -862,7 +862,7 @@ async function main(): Promise<void> {
     });
 
     process.stdout.write(
-      `✓ seed-indian-restaurant: created /r/${VENUE_SLUG} — ${MENU.length} categories, ${itemCount} items (tenant=${tenant.id}, venue=${venue.id})\n`,
+      `✓ seed-indian-restaurant: created venue "${VENUE_SLUG}" — ${MENU.length} categories, ${itemCount} items (tenant=${tenant.id}, venue=${venue.id})\n`,
     );
   });
 

@@ -66,7 +66,7 @@ async function main(): Promise<void> {
   const guest = await phone.newPage();
 
   await capture("guest-phone", async () => {
-    await guest.goto(`${BASE}/r/${SLUG}`, { waitUntil: "networkidle" });
+    await guest.goto(`${BASE}/`, { waitUntil: "networkidle" });
     await guest.waitForTimeout(4500); // card reveal fail-open
     await cleanPage(guest);
     await guest.screenshot({ path: `${OUT}/product-guest-phone.png` });
