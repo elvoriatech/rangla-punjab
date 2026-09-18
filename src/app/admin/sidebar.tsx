@@ -11,12 +11,10 @@ import {
   LayoutTemplate,
   LifeBuoy,
   LogOut,
-  Megaphone,
   PanelLeftClose,
   PanelLeftOpen,
   ScrollText,
   Settings,
-  Store,
   type LucideIcon,
 } from "lucide-react";
 import { useRef } from "react";
@@ -33,9 +31,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 
 const NAV: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/restaurants", label: "Restaurants", icon: Store },
   { href: "/admin/templates", label: "Templates", icon: LayoutTemplate },
-  { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/audit", label: "Audit", icon: ScrollText },
   { href: "/admin/backups", label: "Backups", icon: DatabaseBackup },
   { href: "/admin/runbooks", label: "Runbooks", icon: LifeBuoy },
