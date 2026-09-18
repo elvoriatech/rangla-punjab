@@ -4,7 +4,7 @@
       "startServerCommand": "pnpm start",
       "startServerReadyPattern": "Ready in",
       "startServerReadyTimeout": 60000,
-      "url": ["http://127.0.0.1:3000/r/demo"],
+      "url": ["http://127.0.0.1:3000/"],
       "numberOfRuns": 1,
       "settings": {
         "formFactor": "mobile",

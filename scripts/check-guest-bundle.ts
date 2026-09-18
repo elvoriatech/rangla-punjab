@@ -5,7 +5,7 @@ import { gzipSync } from "node:zlib";
 /**
  * Guest bundle budget — fails the build if the JS shipped to a QR-scan
  * visitor grows past the ceiling. Reads the real app-build-manifest
- * (what the /r/[slug] route actually references), gzips each chunk,
+ * (what the `/` guest menu route actually references), gzips each chunk,
  * sums. Run after `pnpm build`:
  *
  *   pnpm check:bundle
@@ -16,7 +16,11 @@ import { gzipSync } from "node:zlib";
  */
 
 const BUDGET_GZIP_BYTES = 220 * 1024;
-const ROUTE_MANIFEST = join(".next", "server", "app", "r", "[slug]", "page", "build-manifest.json");
+// This build serves ONE restaurant, so the guest menu is the root route —
+// there is no `/r/[slug]` any more, and pointing at it made this script fail
+// with "run `pnpm build` first" even on a fresh build. The `(public)` route
+// group stays in the on-disk path even though it never appears in a URL.
+const ROUTE_MANIFEST = join(".next", "server", "app", "(public)", "page", "build-manifest.json");
 
 interface RouteManifest {
   polyfillFiles: string[];
@@ -60,7 +64,7 @@ function main(): void {
     console.log(`${String(gz).padStart(8)}  ${file}`);
   }
   const kb = (n: number): string => `${(n / 1024).toFixed(1)} KB`;
-  console.log(`\nguest route /r/[slug]: ${kb(total)} gzipped (budget ${kb(BUDGET_GZIP_BYTES)})`);
+  console.log(`\nguest route /: ${kb(total)} gzipped (budget ${kb(BUDGET_GZIP_BYTES)})`);
   if (total > BUDGET_GZIP_BYTES) {
     console.error(
       `check-guest-bundle: OVER BUDGET by ${kb(total - BUDGET_GZIP_BYTES)} — something heavy leaked into the guest page.`,
@@ -102,37 +106,16 @@ function main(): void {
     `placeholder images: ${kb(placeholderTotal)} across ${placeholders.length} files — OK`,
   );
 
-  // ── Guardrail 4: marketing route JS budget (has framer-motion; must
-  //    not balloon) + no single marketing image over 300 KB.
-  const MARKETING_BUDGET = 240 * 1024;
-  try {
-    const mManifest = JSON.parse(
-      readFileSync(
-        join(process.cwd(), ".next", "server", "app", "(marketing)", "page", "build-manifest.json"),
-        "utf8",
-      ),
-    ) as RouteManifest;
-    const mFiles = [
-      ...mManifest.polyfillFiles,
-      ...mManifest.rootMainFiles,
-      ...Object.values(mManifest.pages).flat(),
-    ];
-    let mTotal = 0;
-    for (const file of mFiles) {
-      if (!file.endsWith(".js") && !file.endsWith(".css")) continue;
-      mTotal += gzipSync(readFileSync(join(process.cwd(), ".next", file))).length;
-    }
-    console.log(`marketing route /: ${kb(mTotal)} gzipped (budget ${kb(MARKETING_BUDGET)})`);
-    if (mTotal > MARKETING_BUDGET) {
-      console.error("check-guest-bundle: marketing route OVER BUDGET");
-      process.exitCode = 1;
-      return;
-    }
-  } catch {
-    console.error("check-guest-bundle: marketing manifest missing");
-    process.exitCode = 1;
-    return;
-  }
+  // ── Guardrail 4: no single marketing image over 300 KB.
+  //
+  // The marketing ROUTE budget that used to live here is gone with the route.
+  // In the multi-tenant app `/` was a marketing landing page and the menu sat
+  // at `/r/[slug]`; this fork serves one restaurant, so `/` IS the menu and
+  // there is no `(marketing)` route group to measure. The check read a
+  // manifest that can never exist again and failed every run with
+  // "marketing manifest missing".
+  //
+  // The images under public/marketing are still shipped, so their cap stays.
   const IMAGE_CAP = 300 * 1024;
   for (const dir of ["public/marketing", "public/marketing/culture"]) {
     for (const f of readdirSync(join(process.cwd(), dir))) {

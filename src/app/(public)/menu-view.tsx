@@ -417,6 +417,14 @@ type DishProps = {
   locale: string;
   slug: string;
   ordering: boolean;
+  /**
+   * The first dish on the page — almost always the Largest Contentful
+   * Paint element. Lazy-loading it defers the very pixel LCP is measured
+   * on: Lighthouse scored `lcp-lazy-loaded` 0 and LCP landed at 3.6s
+   * against a 2.7s budget. Eager + high fetch priority for that one image
+   * only; everything below the fold stays lazy.
+   */
+  priority?: boolean;
 };
 
 /** Numbered heading + wide photo-left cards (the serif editorial look). */
@@ -475,7 +483,13 @@ function EditorialSection({
               className="fade-in-up"
               style={{ animationDelay: `${catIndex * 60 + itemIndex * 40}ms` }}
             >
-              <DishCard item={item} locale={locale} slug={slug} ordering={ordering} />
+              <DishCard
+                item={item}
+                locale={locale}
+                slug={slug}
+                ordering={ordering}
+                priority={catIndex === 0 && itemIndex === 0}
+              />
             </li>
           ))}
         </ul>
@@ -786,7 +800,13 @@ function GridSection({
               className="fade-in-up"
               style={{ animationDelay: `${catIndex * 60 + itemIndex * 30}ms` }}
             >
-              <GridDishCard item={item} locale={locale} slug={slug} ordering={ordering} />
+              <GridDishCard
+                item={item}
+                locale={locale}
+                slug={slug}
+                ordering={ordering}
+                priority={catIndex === 0 && itemIndex === 0}
+              />
             </li>
           ))}
         </ul>
@@ -796,7 +816,7 @@ function GridSection({
 }
 
 /** Photo on top, name + price centered underneath — the bistro card. */
-function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactElement {
+function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): React.ReactElement {
   const src = menuImageUrl(item.photoKey, item.id, 480);
   const srcSet = menuImageSrcSet(item.photoKey, item.id, 480);
   return (
@@ -816,7 +836,8 @@ function GridDishCard({ item, locale, slug, ordering }: DishProps): React.ReactE
           src={src}
           srcSet={srcSet}
           alt=""
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
         />
         <span
@@ -959,7 +980,13 @@ function ListSection({
               className="fade-in-up"
               style={{ animationDelay: `${catIndex * 60 + itemIndex * 25}ms` }}
             >
-              <ListDishRow item={item} locale={locale} slug={slug} ordering={ordering} />
+              <ListDishRow
+                item={item}
+                locale={locale}
+                slug={slug}
+                ordering={ordering}
+                priority={catIndex === 0 && itemIndex === 0}
+              />
             </li>
           ))}
         </ul>
@@ -968,7 +995,7 @@ function ListSection({
   );
 }
 
-function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactElement {
+function ListDishRow({ item, locale, slug, ordering, priority }: DishProps): React.ReactElement {
   return (
     <article
       // The reveal script mutates class/style before hydration; React
@@ -986,7 +1013,8 @@ function ListDishRow({ item, locale, slug, ordering }: DishProps): React.ReactEl
           src={menuImageUrl(item.photoKey, item.id, 320)}
           srcSet={menuImageSrcSet(item.photoKey, item.id, 320)}
           alt=""
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute left-1.5 top-1.5 z-10 max-h-[calc(100%-0.75rem)] overflow-hidden">
@@ -1123,7 +1151,13 @@ function ShowcaseSection({
               className="fade-in-up"
               style={{ animationDelay: `${catIndex * 60 + itemIndex * 35}ms` }}
             >
-              <ShowcaseDishCard item={item} locale={locale} slug={slug} ordering={ordering} />
+              <ShowcaseDishCard
+                item={item}
+                locale={locale}
+                slug={slug}
+                ordering={ordering}
+                priority={catIndex === 0 && itemIndex === 0}
+              />
             </li>
           ))}
         </ul>
@@ -1132,7 +1166,13 @@ function ShowcaseSection({
   );
 }
 
-function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.ReactElement {
+function ShowcaseDishCard({
+  item,
+  locale,
+  slug,
+  ordering,
+  priority,
+}: DishProps): React.ReactElement {
   const src = menuImageUrl(item.photoKey, item.id, 480);
   const srcSet = menuImageSrcSet(item.photoKey, item.id, 480);
   return (
@@ -1152,7 +1192,8 @@ function ShowcaseDishCard({ item, locale, slug, ordering }: DishProps): React.Re
           src={src}
           srcSet={srcSet}
           alt=""
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute left-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
@@ -1444,7 +1485,7 @@ function VenueMark({ venue }: { venue: PublicMenu["venue"] }): React.ReactElemen
 /* Dish card — full-width tile with gradient photo + gold accents      */
 /* ------------------------------------------------------------------ */
 
-function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactElement {
+function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.ReactElement {
   return (
     <article
       // The reveal script mutates class/style before hydration; React
@@ -1454,7 +1495,7 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
       className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
     >
       <div className="relative self-stretch">
-        <DishPhoto item={item} />
+        <DishPhoto item={item} priority={priority} />
         <div className="absolute left-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
           <PhotoDietBadges dietary={item.dietary} />
         </div>
@@ -1544,8 +1585,10 @@ function DishCard({ item, locale, slug, ordering }: DishProps): React.ReactEleme
 
 function DishPhoto({
   item,
+  priority,
 }: {
   item: PublicMenu["categories"][number]["items"][number];
+  priority?: boolean;
 }): React.ReactElement {
   // Uploaded photo (resized via /img) or a stable styled default from
   // /public — same dish, same picture, on every visit.
@@ -1561,7 +1604,8 @@ function DishPhoto({
         src={src}
         srcSet={srcSet}
         alt=""
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : undefined}
         className="absolute inset-0 h-full w-full object-cover"
       />
       {/* Subtle shine sweep on hover — pure CSS. */}
