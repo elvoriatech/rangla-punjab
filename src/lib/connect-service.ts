@@ -1,5 +1,5 @@
 import { asTenant, asUser } from "./tenant";
-import { getStripeProvider, stripeProviderForKey } from "./stripe";
+import { getStripeProvider, stripeProviderForKey, stripeDirectChargeAvailable } from "./stripe";
 import { computePlatformFeeCents, getOperatorSettings } from "./operator-settings";
 import { decryptSecret } from "./secrets";
 import { siteUrl } from "./site-url";
@@ -146,16 +146,21 @@ export async function createOrderPayment(
     const payPage = `${siteUrl()}/pay/${order.id}?token=${encodeURIComponent(token)}`;
     const label = `${order.venue.name} — order #${String(order.orderNumber).padStart(4, "0")}`;
 
-    // Own-keys direct charge (upfront/flat plan): the restaurant charges on
-    // their OWN Stripe account and keeps 100% — no connected account or
-    // platform fee. Falls through to Connect if own-keys aren't set up.
-    if (settings.feeMode === "upfront" && tenant.stripeOwnEnabled) {
-      const ownSecret = decryptSecret(tenant.stripeOwnSecretEnc);
-      if (ownSecret) {
-        const ownProvider = await stripeProviderForKey(
-          ownSecret,
-          decryptSecret(tenant.stripeOwnWebhookEnc),
-        );
+    // Direct charge (single-restaurant / upfront plan): the restaurant
+    // charges on its OWN Stripe account and keeps 100% — no connected
+    // account, no platform fee. Keys pasted in Dashboard → Payments win;
+    // otherwise the deployment's STRIPE_* env keys (prod.env) are that
+    // account. Only a fake provider in production is refused, so an
+    // order can never be "paid" without money moving.
+    if (settings.feeMode === "upfront") {
+      const ownSecret = tenant.stripeOwnEnabled ? decryptSecret(tenant.stripeOwnSecretEnc) : null;
+      const ownProvider = ownSecret
+        ? await stripeProviderForKey(ownSecret, decryptSecret(tenant.stripeOwnWebhookEnc))
+        : (await stripeDirectChargeAvailable(false))
+          ? provider
+          : null;
+      if (!ownProvider) return { ok: false, error: "not_available" as const };
+      {
         const checkout = await ownProvider.createDirectCheckout({
           orderId: order.id,
           tenantId,
@@ -181,12 +186,14 @@ export async function createOrderPayment(
           feeCents: 0,
           mode: ownProvider.mode,
           own: true,
+          ownKeys: Boolean(ownSecret),
         });
         return { ok: true as const, url: checkout.url };
       }
     }
 
-    // Connect path (percentage plan, or upfront without own-keys): needs the
+    // Connect path (percentage plan only — unreachable in the single-
+    // restaurant build, where feeMode is pinned to "upfront"): needs the
     // restaurant's connected account to exist and have passed Stripe KYC.
     if (!tenant.stripeAccountId || !tenant.stripeChargesEnabled) {
       return { ok: false, error: "not_available" as const };

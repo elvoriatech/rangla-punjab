@@ -51,10 +51,19 @@ function statusCompact(status: string): string {
 /** How the guest pays: "Paid · Card"/"Paid · PayPal" once settled online,
  *  "Cash" (settled at the restaurant) otherwise. */
 function paymentBadge(order: { paymentStatus: string; paymentProvider: string | null }): string {
-  if (order.paymentStatus !== "paid") return "Cash";
-  if (order.paymentProvider === "paypal") return "Paid · PayPal";
-  if (order.paymentProvider === "stripe") return "Paid · Card";
-  return "Paid";
+  const rail =
+    order.paymentProvider === "paypal"
+      ? "PayPal"
+      : order.paymentProvider === "stripe"
+        ? "Card"
+        : null;
+  if (order.paymentStatus === "paid") return rail ? `Paid · ${rail}` : "Paid";
+  // An online attempt that never settled: the guest started Card/PayPal
+  // but no webhook or return leg confirmed it. Surface it — it is the
+  // one line the owner needs to spot a failed payment — instead of
+  // quietly labelling it "Cash".
+  if (order.paymentStatus === "pending" && rail) return `${rail} · not confirmed`;
+  return "Cash";
 }
 
 export default async function OrdersPage({

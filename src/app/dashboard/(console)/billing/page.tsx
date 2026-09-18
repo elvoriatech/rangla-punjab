@@ -5,6 +5,7 @@ import { getStripeProvider } from "@/lib/stripe";
 import { siteUrl } from "@/lib/site-url";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { getOwnKeysStatus, getPayPalKeysStatus } from "@/lib/tenant-payment-keys";
+import { sharedStripeConfigured } from "@/lib/stripe";
 import {
   checkPaymentsAction,
   saveOwnKeysAction,
@@ -44,6 +45,10 @@ export default async function BillingPage({
   const { feeMode } = await getOperatorSettings();
   const ownKeysMode = feeMode === "upfront";
   const ownKeys = ownKeysMode ? await getOwnKeysStatus(userId) : null;
+  // prod.env STRIPE_* keys (or the /admin/settings pair) stand in for the
+  // restaurant's account until keys are pasted here (single-restaurant build).
+  const envStripe = await sharedStripeConfigured();
+  const ownActive = Boolean(ownKeys?.enabled && ownKeys.hasSecret);
   const payPal = await getPayPalKeysStatus(userId);
   // Bounce-back from onboarding: refresh the charges-enabled mirror
   // before rendering (real Stripe also pushes account.updated webhooks).
@@ -71,7 +76,7 @@ export default async function BillingPage({
           <h2 className="font-serif text-2xl">Card payments via Stripe</h2>
           <span
             className={`text-xs font-semibold uppercase tracking-wider ${
-              (ownKeysMode ? ownKeys?.enabled && ownKeys.hasSecret : active)
+              (ownKeysMode ? ownActive || (!ownKeys?.hasSecret && envStripe) : active)
                 ? "text-[#3f7030]"
                 : (ownKeysMode ? ownKeys?.hasSecret : connected)
                   ? "text-amber-700"
@@ -79,11 +84,13 @@ export default async function BillingPage({
             }`}
           >
             {ownKeysMode
-              ? ownKeys?.enabled && ownKeys.hasSecret
+              ? ownActive
                 ? "● On"
                 : ownKeys?.hasSecret
                   ? "◐ Keys saved · off"
-                  : "○ Not set up"
+                  : envStripe
+                    ? "● On · server keys"
+                    : "○ Not set up"
               : active
                 ? "● Active"
                 : connected
@@ -144,6 +151,14 @@ export default async function BillingPage({
                 />
                 Enable — accept online payments with these keys
               </label>
+              {envStripe && !ownKeys?.hasSecret ? (
+                <p className="border-l-4 border-[#3f7030] bg-[#f0f6ec] px-4 py-2 text-xs text-[#2f5a24]">
+                  Card payments are live using the Stripe keys from the server&apos;s prod.env (
+                  <code>STRIPE_SECRET_KEY</code> / <code>STRIPE_WEBHOOK_SECRET</code>). Register the
+                  webhook URL below in that Stripe account. Paste keys here only if you want to
+                  switch accounts without a redeploy.
+                </p>
+              ) : null}
               <p className="text-xs text-brand-green/60">
                 Both values come from your Stripe Dashboard. The secret key is under{" "}
                 <span className="font-medium">Developers → API keys</span> (use the live{" "}

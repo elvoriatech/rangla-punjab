@@ -187,8 +187,8 @@ describe("connect payments (fake provider, full flow)", () => {
     expect(pay.ok).toBe(true);
   });
 
-  it("still refuses payment when the connected account has no charges enabled", async () => {
-    const fx = await fixture("growth"); // never onboarded → charges disabled
+  it("charges directly on the deployment's keys when no own keys are saved — no Connect needed", async () => {
+    const fx = await fixture("growth"); // never onboarded → no connected account at all
     const placed = await placeOrder(fx, {
       orderType: "dine_in",
       items: [{ itemId: fx.itemId, quantity: 1 }],
@@ -199,7 +199,16 @@ describe("connect payments (fake provider, full flow)", () => {
       placed.value.orderId,
       placed.value.receiptToken,
     );
-    expect(pay).toEqual({ ok: false, error: "not_available" });
+    // Single-restaurant build: the shared (env / fake) provider IS the
+    // restaurant's account, so checkout is a direct charge with 0 fee.
+    expect(pay.ok).toBe(true);
+    const order = await asTenant(fx.tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: placed.value.orderId } }),
+    );
+    expect(order.paymentStatus).toBe("pending");
+    expect(order.paymentProvider).toBe("stripe");
+    expect(order.paymentRef?.startsWith("pi_own_")).toBe(true);
+    expect(order.applicationFeeCents).toBe(0);
   });
 
   it("rejects forged or mismatched receipt tokens", async () => {

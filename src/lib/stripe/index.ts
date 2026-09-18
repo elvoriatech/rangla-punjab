@@ -92,3 +92,26 @@ export async function stripeProviderForKey(
   const shared = await getStripeProvider();
   return shared.mode === "fake" ? shared : new FakeStripeProvider(webhook ?? "test-webhook-secret");
 }
+
+/**
+ * Single-restaurant build: the shared Stripe keys — STRIPE_SECRET_KEY +
+ * STRIPE_WEBHOOK_SECRET in prod.env, or the pair saved in /admin/settings —
+ * ARE the restaurant's own account when no keys were pasted in Dashboard →
+ * Payments (the Stripe sibling of the PAYPAL_* env fallback). True when a
+ * real provider is configured from them.
+ */
+export async function sharedStripeConfigured(): Promise<boolean> {
+  return (await getStripeProvider()).mode !== "fake";
+}
+
+/**
+ * May a guest be charged directly (no Connect account)? Own keys always;
+ * otherwise the shared provider — real env keys, or the in-memory fake
+ * outside production. In production the fake must never take an order's
+ * money "successfully", so it is not offered.
+ */
+export async function stripeDirectChargeAvailable(tenantHasOwnKeys = false): Promise<boolean> {
+  if (tenantHasOwnKeys) return true;
+  const provider = await getStripeProvider();
+  return provider.mode !== "fake" || env.NODE_ENV !== "production";
+}

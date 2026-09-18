@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { decryptSecret } from "@/lib/secrets";
-import { stripeProviderForKey } from "@/lib/stripe";
+import { getStripeProvider, sharedStripeConfigured, stripeProviderForKey } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/connect-service";
 import { captureException } from "@/lib/observability";
 
@@ -23,11 +23,19 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
   const secret = decryptSecret(tenant?.stripeOwnSecretEnc);
   const webhook = decryptSecret(tenant?.stripeOwnWebhookEnc);
-  if (!tenant || !secret || !webhook) {
+  // Dashboard keys win; otherwise the deployment's STRIPE_* env keys are the
+  // restaurant's account (single-restaurant build) and STRIPE_WEBHOOK_SECRET
+  // verifies this delivery — so the owner may register either this URL or
+  // /api/stripe/webhook and both settle the order.
+  const provider =
+    tenant && secret && webhook
+      ? await stripeProviderForKey(secret, webhook)
+      : (await sharedStripeConfigured())
+        ? await getStripeProvider()
+        : null;
+  if (!provider) {
     return NextResponse.json({ error: "not_configured" }, { status: 400 });
   }
-
-  const provider = await stripeProviderForKey(secret, webhook);
   let event;
   try {
     event = provider.constructWebhookEvent(body, signature);
@@ -39,7 +47,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as { metadata?: Record<string, string | null> };
       const orderId = session.metadata?.orderId;
-      if (orderId) await markOrderPaid(tenant.id, orderId);
+      const tenantId =
+        session.metadata?.tenantId ??
+        tenant?.id ??
+        (await prisma.tenant.findFirst({ select: { id: true } }))?.id;
+      if (orderId && tenantId) await markOrderPaid(tenantId, orderId);
     }
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {

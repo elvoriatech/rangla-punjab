@@ -118,7 +118,20 @@ accounts — an admin has no restaurant, so `/admin` credentials can't open
 ## 5. Run the mobile apps
 
 The apps talk to the web app, so **keep `pnpm dev` running** in another
-terminal. Then start Metro:
+terminal.
+
+The app is white-label — its name, deep-link scheme, store ids, icon, splash,
+hero artwork and palette are all generated from a venue's row, so brand it
+once before starting Metro (and again whenever that venue's logo or menu theme
+changes):
+
+```bash
+pnpm brand:mobile --venue rangla-punjab
+```
+
+Add `--dry-run` to see the palette, its contrast table and the files it would
+write without touching anything; `pnpm brand:mobile --help` lists every flag.
+Details in [mobile/BUILDS.md](mobile/BUILDS.md). Then start Metro:
 
 ```bash
 cd mobile && npx expo start --port 8082
@@ -211,7 +224,7 @@ Everything below is data or config — no code changes.
 | `SESSION_SECRET` | Signs session and receipt tokens |
 | `EMAIL_TRANSPORT` | `mailhog` (dev) · `resend` (prod, needs `RESEND_API_KEY`) |
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`, `PAYPAL_WEBHOOK_ID` | Deployment-wide PayPal (a restaurant can instead enter its own in the dashboard) |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Deployment-wide Stripe; unset ⇒ the built-in fake provider, so dev never charges a card |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | The restaurant's Stripe account (guests are charged on it directly) unless keys are pasted in Dashboard → Payments; unset ⇒ the built-in fake provider, so dev never charges a card |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enables "Sign in with Google" for guests; unset ⇒ email sign-up only |
 
 ### Logos and images
@@ -226,13 +239,19 @@ Everything below is data or config — no code changes.
 
 ### Payments
 
-- **Stripe** — the restaurant pastes its own secret + webhook signing key in
-  Dashboard → **Payments**; money settles straight to its bank.
+- **Stripe** — either set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` in
+  `prod.env` (then `./deploy/deploy.sh up` to restart with them), or paste
+  the secret + webhook signing key in Dashboard → **Payments**. Either way the
+  guest is charged on the restaurant's own account; money settles straight
+  to its bank.
 - **PayPal** — same page: Client ID, Secret, Webhook ID, Sandbox/Live, enable.
   Falls back to the `PAYPAL_*` env vars when unset.
 - Webhook endpoints to register with the provider:
-  - Stripe: `https://<domain>/api/stripe/own-webhook` (event
-    `checkout.session.completed`), paste the signing secret in the dashboard.
+  - Stripe: `https://<domain>/api/stripe/webhook` (event
+    `checkout.session.completed`). Its signing secret is `STRIPE_WEBHOOK_SECRET`
+    in `prod.env`, or — if you use dashboard keys — paste it in Dashboard →
+    Payments and register `/api/stripe/own-webhook` instead. Both URLs settle
+    orders; only the secret they are verified with differs.
   - PayPal: `https://<domain>/api/paypal/webhook` (events
     `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`), paste the Webhook
     ID in the dashboard. The guest's return to `/api/paypal/return` also
