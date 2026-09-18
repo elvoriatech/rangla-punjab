@@ -218,14 +218,19 @@ body {
      Everything inside this block vanishes for reduced-motion users. */
 
   /* Dish cards rise softly as they scroll into view. The inline script
-     at the end of the menu hides below-fold cards (.pre-reveal) and
-     swaps in .in-view as they enter the viewport; each card then plays
-     a *timed* ease-out rise — smooth regardless of scroll speed, unlike
-     a scroll-scrubbed timeline. Fail-open: without JS neither class
-     ever appears and every card is simply visible. */
-  .dish-card.pre-reveal {
-    opacity: 0;
-  }
+     at the end of the menu marks below-fold cards (.pre-reveal) and swaps
+     in .in-view as they enter the viewport; each card then plays a *timed*
+     ease-out rise — smooth regardless of scroll speed, unlike a
+     scroll-scrubbed timeline. Fail-open: without JS neither class ever
+     appears and every card is simply visible.
+
+     `.pre-reveal` deliberately has NO styles. It used to set opacity: 0 to
+     hide a card until its reveal faded it in — but menu-rise is transform
+     only now, so nothing needs hiding, and an opacity-0 card is a card axe
+     reads as invisible text: it measured contrast on fully transparent ink
+     and reported 1.07:1 against the page ground, failing the a11y gate on
+     roughly four runs in five. The class stays as the marker the script
+     toggles; the rise alone is the effect. */
   .dish-card.in-view {
     animation: menu-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
