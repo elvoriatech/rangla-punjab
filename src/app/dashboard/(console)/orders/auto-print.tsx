@@ -3,7 +3,51 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 const PREF_KEY = "rangla-auto-print";
+/** Legacy: highest order number printed. Read once to baseline, then retired. */
 const MAX_KEY = "rangla-auto-print-max";
+/** Order ids already printed on this device (most recent last, capped). */
+const PRINTED_KEY = "rangla-auto-print-ids";
+const PRINTED_CAP = 500;
+
+export interface PrintableOrder {
+  id: string;
+  orderNumber: number;
+  /** none = cash, pending = online payment started, paid = settled. */
+  paymentStatus: string;
+}
+
+/**
+ * A ticket goes to the kitchen when the restaurant is sure of the money:
+ * cash orders at once; card / PayPal orders only once the payment has
+ * settled (a pending one may be abandoned in the checkout, and a kitchen
+ * that already cooked it has no recourse). Pure, so it is unit-tested.
+ */
+export function isReadyToPrint(order: PrintableOrder): boolean {
+  return order.paymentStatus !== "pending";
+}
+
+/** Which of the open orders still need a ticket on this device. */
+export function pickOrdersToPrint(
+  open: PrintableOrder[],
+  printedIds: ReadonlySet<string>,
+): PrintableOrder[] {
+  return open.filter((o) => isReadyToPrint(o) && !printedIds.has(o.id));
+}
+
+function readPrinted(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(PRINTED_KEY);
+    const arr = raw ? (JSON.parse(raw) as unknown) : null;
+    return new Set(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writePrinted(ids: Set<string>): void {
+  const arr = [...ids].slice(-PRINTED_CAP);
+  window.localStorage.setItem(PRINTED_KEY, JSON.stringify(arr));
+}
 const PREF_EVENT = "rangla-auto-print-pref";
 
 function subscribe(callback: () => void): () => void {
@@ -36,7 +80,7 @@ export function AutoPrint({
   open,
   printBase,
 }: {
-  open: { id: string; orderNumber: number }[];
+  open: PrintableOrder[];
   printBase: string;
 }): React.ReactElement {
   const pref = useSyncExternalStore(subscribe, readPref, () => "on");
@@ -44,22 +88,35 @@ export function AutoPrint({
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
-    const incomingMax = open.reduce((max, o) => Math.max(max, o.orderNumber), 0);
-    let stored: string | null = null;
+    let printed: Set<string>;
+    let hasIds: boolean;
+    let legacyMax: string | null;
     try {
-      stored = window.localStorage.getItem(MAX_KEY);
+      hasIds = window.localStorage.getItem(PRINTED_KEY) !== null;
+      legacyMax = window.localStorage.getItem(MAX_KEY);
+      printed = readPrinted();
     } catch {
       return;
     }
-    if (stored === null) {
-      // First run on this device: don't reprint the whole history.
-      window.localStorage.setItem(MAX_KEY, String(incomingMax));
+    if (!hasIds) {
+      // First run on this device (or first run since the id-based tracker
+      // replaced the order-number high-water mark): baseline to what is on
+      // screen instead of reprinting the whole backlog. Pending online
+      // orders are deliberately NOT baselined — they print when paid.
+      for (const o of open) if (isReadyToPrint(o)) printed.add(o.id);
+      // Legacy high-water mark: anything at or below it was already printed.
+      if (legacyMax !== null) {
+        const max = Number(legacyMax) || 0;
+        for (const o of open) if (o.orderNumber <= max) printed.add(o.id);
+        window.localStorage.removeItem(MAX_KEY);
+      }
+      writePrinted(printed);
       return;
     }
-    const lastPrinted = Number(stored) || 0;
-    const fresh = open.filter((o) => o.orderNumber > lastPrinted);
+    const fresh = pickOrdersToPrint(open, printed);
     if (fresh.length === 0) return;
-    window.localStorage.setItem(MAX_KEY, String(Math.max(incomingMax, lastPrinted)));
+    for (const o of fresh) printed.add(o.id);
+    writePrinted(printed);
 
     for (const order of fresh) {
       const frame = document.createElement("iframe");

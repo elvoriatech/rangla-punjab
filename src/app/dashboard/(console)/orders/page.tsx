@@ -114,7 +114,11 @@ export default async function OrdersPage({
           </p>
           <AutoPrint
             printBase={`/print/order`}
-            open={open.map((o) => ({ id: o.id, orderNumber: o.orderNumber }))}
+            open={open.map((o) => ({
+              id: o.id,
+              orderNumber: o.orderNumber,
+              paymentStatus: o.paymentStatus,
+            }))}
           />
         </div>
       </div>

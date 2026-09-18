@@ -91,7 +91,11 @@ export default async function OrderTicketPage({
           <span>{time.format(order.createdAt)}</span>
         </div>
         {order.paymentStatus === "paid" ? (
-          <p className="mt-0.5 font-bold">** PAID ONLINE **</p>
+          <p className="mt-0.5 font-bold">
+            ** PAID ONLINE{order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **
+          </p>
+        ) : order.paymentStatus === "pending" ? (
+          <p className="mt-0.5 font-bold">** ONLINE PAYMENT PENDING **</p>
         ) : null}
 
         <p className="mt-2 border-y-2 border-black py-1 text-center text-sm font-bold tracking-wider">
@@ -148,7 +152,13 @@ export default async function OrderTicketPage({
           <span>TOTAL</span>
           <span>{formatPrice(order.totalCents, order.currency, "de")}</span>
         </div>
-        <p className="mt-2 text-center text-[11px]">Payment at the restaurant.</p>
+        <p className="mt-2 text-center text-[11px]">
+          {order.paymentStatus === "paid"
+            ? `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`
+            : order.paymentStatus === "pending"
+              ? "Online payment NOT confirmed yet — do not hand out; wait for the paid ticket."
+              : "Payment at the restaurant."}
+        </p>
 
         <PrintControls auto={auto === "1"} />
       </div>
