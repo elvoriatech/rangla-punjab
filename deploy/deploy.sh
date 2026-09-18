@@ -70,14 +70,22 @@ case "${1:-}" in
     fi
     if [ -n "${DOZZLE_PASSWORD_SHA256:-}" ]; then
       DOZZLE_USER="${DOZZLE_USER:-owner}"
-      cat > deploy/dozzle-users.yml <<DOZZLE_USERS
+      # Written under the deploy user's HOME, not into the checkout: the
+      # repo tree may be root-owned from an earlier manual clone, and a
+      # failed write here must never abort a release. The compose file
+      # mounts whatever DOZZLE_USERS_FILE points at.
+      DOZZLE_USERS_DIR="${HOME:-/tmp}/.config/rangla"
+      mkdir -p "${DOZZLE_USERS_DIR}"
+      DOZZLE_USERS_FILE="${DOZZLE_USERS_DIR}/dozzle-users.yml"
+      cat > "${DOZZLE_USERS_FILE}" <<DOZZLE_USERS
 users:
   ${DOZZLE_USER}:
     name: "${DOZZLE_USER}"
     password: "${DOZZLE_PASSWORD_SHA256}"
     email: "logs@${APP_DOMAIN:-localhost}"
 DOZZLE_USERS
-      chmod 600 deploy/dozzle-users.yml
+      chmod 600 "${DOZZLE_USERS_FILE}"
+      export DOZZLE_USERS_FILE
       export COMPOSE_PROFILES="${COMPOSE_PROFILES:+${COMPOSE_PROFILES},}logs"
     fi
     "${COMPOSE[@]}" up -d

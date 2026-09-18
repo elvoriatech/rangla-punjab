@@ -102,7 +102,9 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./dozzle-users.yml:/data/users.yml:ro
+      # deploy.sh writes this under the deploy user's HOME and exports the
+      # path; the default only matters for a hand-run compose.
+      - ${DOZZLE_USERS_FILE:-./dozzle-users.yml}:/data/users.yml:ro
     environment:
       DOZZLE_BASE: /logs
       DOZZLE_AUTH_PROVIDER: simple
