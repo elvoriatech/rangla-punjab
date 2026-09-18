@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
-import { colors, fonts, hero, radius, scrim } from "../theme";
+import { CHEVRON_FORWARD, colors, fonts, hero, radius, scrim } from "../theme";
 import { useI18n } from "../i18n";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
 import { DishSheet } from "../dish-sheet";
@@ -138,7 +138,7 @@ export function HomeScreen({
               <Text style={styles.modeTitle}>{t.reserveBtn}</Text>
               <Text style={styles.modeSub}>{t.reserveSub}</Text>
             </View>
-            <Text style={styles.reserveChevron}>›</Text>
+            <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
           </Pressable>
         ) : null}
 
@@ -156,7 +156,7 @@ export function HomeScreen({
                 <Image source={{ uri: cat.photoUrl }} style={styles.catPhoto} />
               ) : (
                 <View style={[styles.catPhoto, styles.catFallback]}>
-                  <Text style={{ fontFamily: fonts.body, fontSize: 22 }}>🍛</Text>
+                  <Text style={{ ...fonts.body, fontSize: 22 }}>🍛</Text>
                 </View>
               )}
               <Text style={styles.catName} numberOfLines={1}>
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   heroText: {
     color: colors.onRed,
     fontSize: 20,
-    fontFamily: fonts.bodyHeavy,
+    ...fonts.bodyHeavy,
     textShadowColor: "rgba(0,0,0,0.45)",
     textShadowRadius: 6,
     flex: 1,
@@ -245,10 +245,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 10,
   },
-  reserveChevron: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 20 },
-  modeEmoji: { fontFamily: fonts.body, fontSize: 26 },
-  modeTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },
-  modeSub: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
+  reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
+  modeEmoji: { ...fonts.body, fontSize: 26 },
+  modeTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
+  modeSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11 },
   catChip: { alignItems: "center", width: 72 },
   catPhoto: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.line },
   catFallback: {
@@ -256,5 +256,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.creamCard,
   },
-  catName: { color: colors.ink, fontSize: 11, marginTop: 5, fontFamily: fonts.bodySemi },
+  catName: { color: colors.ink, fontSize: 11, marginTop: 5, ...fonts.bodySemi },
 });

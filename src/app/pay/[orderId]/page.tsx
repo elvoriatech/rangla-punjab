@@ -9,6 +9,8 @@ import { AutoReceipt } from "./auto-receipt";
 import { PayPalButton } from "./paypal-button";
 import { paypalAvailable } from "@/lib/paypal";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
+import { postOrderCopy } from "@/lib/i18n/post-order";
+import { dirFor, isLocaleCode, uiLocale } from "@/lib/locales";
 
 /**
  * Local payment page. With the FAKE provider this is where the guest
@@ -16,6 +18,9 @@ import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
  * Stripe-hosted checkout instead and only land here on the success
  * bounce (?status=success), where the page shows the settled state.
  * Access is gated by the order's HMAC receipt token.
+ *
+ * Language follows plan decision 5: a valid `?locale=` wins, else the
+ * venue's default locale.
  */
 
 export default async function PayPage({
@@ -23,10 +28,16 @@ export default async function PayPage({
   searchParams,
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ token?: string; ref?: string; status?: string; app?: string }>;
+  searchParams: Promise<{
+    token?: string;
+    ref?: string;
+    status?: string;
+    app?: string;
+    locale?: string;
+  }>;
 }): Promise<React.ReactElement> {
   const { orderId } = await params;
-  const { token, ref, app } = await searchParams;
+  const { token, ref, app, locale: localeParam } = await searchParams;
   // Opened from the mobile app? Then the settled state leads back there.
   const appReturnUrl = sanitizeAppReturnUrl(app);
   if (!token) notFound();
@@ -36,19 +47,26 @@ export default async function PayPage({
   const order = await getOrderForReceipt(verified.tenantId, orderId);
   if (!order) notFound();
 
-  const money = (cents: number): string => formatPrice(cents, order.currency, "de");
+  const locale = uiLocale(isLocaleCode(localeParam) ? localeParam : order.venue.defaultLocale);
+  const t = postOrderCopy(locale);
+  const money = (cents: number): string => formatPrice(cents, order.currency, locale);
   const paid = order.paymentStatus === "paid";
   const vatCents = vatFromGross(order.totalCents);
+  const orderNo = String(order.orderNumber).padStart(4, "0");
   // P2-4: site kill switch — no new payments while paused (a settled order
   // still shows its paid state below).
   const { siteActive } = await getOperatorSettings();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center bg-cream px-6 py-16 text-ink">
-      <p className="text-xs uppercase tracking-[0.28em] text-gold-dark">{order.venue.name}</p>
-      <h1 className="mt-2 font-serif text-3xl leading-tight">
-        Bestellung Nr. {String(order.orderNumber).padStart(4, "0")}
-      </h1>
+    <main
+      dir={dirFor(locale)}
+      className="mx-auto flex min-h-screen max-w-md flex-col justify-center bg-cream px-6 py-16 text-ink"
+    >
+      {/* Arabic is cursive — `uppercase`/`letter-spacing` only damage it. */}
+      <p className="text-xs uppercase tracking-[0.28em] rtl:normal-case rtl:tracking-normal text-gold-dark">
+        {order.venue.name}
+      </p>
+      <h1 className="mt-2 font-serif text-3xl leading-tight">{t.orderHeading(orderNo)}</h1>
 
       <ul className="mt-6 divide-y divide-ink/10 border border-ink/15 bg-card">
         {order.items.map((item, i) => (
@@ -62,53 +80,50 @@ export default async function PayPage({
         {/* German gross pricing: VAT is contained in the total, shown as a
             split so the page doubles as the guest's receipt. */}
         <li className="flex items-baseline justify-between gap-3 px-4 pt-2.5 text-xs text-muted">
-          <span>Netto</span>
+          <span>{t.net}</span>
           <span className="tabular-nums">{money(order.totalCents - vatCents)}</span>
         </li>
         <li className="flex items-baseline justify-between gap-3 px-4 pb-1 text-xs text-muted">
-          <span>MwSt. {VAT_RATE_LABEL} % (enthalten)</span>
+          <span>{t.vatLine(VAT_RATE_LABEL)}</span>
           <span className="tabular-nums">{money(vatCents)}</span>
         </li>
         <li className="flex items-baseline justify-between gap-3 px-4 py-3 text-sm font-semibold">
-          <span className="uppercase tracking-[0.16em]">Gesamt</span>
+          <span className="uppercase tracking-[0.16em] rtl:normal-case rtl:tracking-normal">
+            {t.total}
+          </span>
           <span className="tabular-nums">{money(order.totalCents)}</span>
         </li>
       </ul>
 
       {paid ? (
         <div className="mt-6 border border-[#3f7030]/40 bg-[#3f7030]/10 px-4 py-4 text-center">
-          <p className="font-serif text-2xl text-[#3f7030]">Bezahlt ✓</p>
+          <p className="font-serif text-2xl text-[#3f7030]">{t.paid}</p>
           <AutoReceipt
-            href={`/api/orders/${encodeURIComponent(orderId)}/receipt?token=${encodeURIComponent(token)}&locale=de`}
-            filename={`beleg-${String(order.orderNumber).padStart(4, "0")}.pdf`}
+            href={`/api/orders/${encodeURIComponent(orderId)}/receipt?token=${encodeURIComponent(token)}&locale=${locale}`}
+            filename={`${t.receiptFilePrefix}-${orderNo}.pdf`}
+            label={t.downloadReceipt}
           />
-          <p className="mt-1 text-sm text-muted">
-            Zeigen Sie diesen Bildschirm bei Bedarf im Restaurant vor — die Küche sieht die
-            Bestellung als bezahlt.
-          </p>
+          <p className="mt-1 text-sm text-muted">{t.showAtRestaurant}</p>
           {appReturnUrl ? (
             <a
               href={appReturnUrl}
-              className="mt-4 block w-full bg-orange px-4 py-3.5 text-center text-sm font-semibold uppercase tracking-[0.18em] text-card transition hover:bg-orange-dark"
+              className="mt-4 block w-full bg-orange px-4 py-3.5 text-center text-sm font-semibold uppercase tracking-[0.18em] rtl:normal-case rtl:tracking-normal text-card transition hover:bg-orange-dark"
             >
-              Zurück zur App / Back to the app
+              {t.backToApp}
             </a>
           ) : (
             <a
               href={`/`}
               className="mt-4 inline-block text-sm text-orange-dark underline underline-offset-2"
             >
-              Zurück zur Speisekarte
+              {t.backToMenu}
             </a>
           )}
         </div>
       ) : !siteActive ? (
         <div className="mt-6 border border-ink/15 bg-card px-4 py-4 text-center">
-          <p className="font-serif text-2xl">Bestellungen pausiert</p>
-          <p className="mt-1 text-sm text-muted">
-            Online-Zahlungen sind gerade pausiert. Bitte zahlen Sie im Restaurant oder versuchen Sie
-            es später erneut.
-          </p>
+          <p className="font-serif text-2xl">{t.paused}</p>
+          <p className="mt-1 text-sm text-muted">{t.pausedBody}</p>
         </div>
       ) : (
         <>
@@ -118,16 +133,19 @@ export default async function PayPage({
               token={token}
               payRef={ref}
               amountLabel={money(order.totalCents)}
+              locale={locale}
             />
           ) : null}
           {paypalAvailable() ? (
-            <PayPalButton orderId={orderId} token={token} appReturnUrl={appReturnUrl} />
+            <PayPalButton
+              orderId={orderId}
+              token={token}
+              appReturnUrl={appReturnUrl}
+              locale={locale}
+            />
           ) : null}
           {!ref && !paypalAvailable() ? (
-            <p className="mt-6 text-sm text-muted">
-              Dieser Zahlungslink ist unvollständig — bitte starten Sie erneut über Ihre
-              Bestellbestätigung.
-            </p>
+            <p className="mt-6 text-sm text-muted">{t.incompleteLink}</p>
           ) : null}
         </>
       )}

@@ -7,6 +7,8 @@
  * `Allergen` enum must stay in sync. A test asserts the two lists match.
  */
 
+import { UI_LOCALES, type UiLocale } from "./locales";
+
 export const ALLERGENS = [
   "gluten",
   "crustaceans",
@@ -49,30 +51,53 @@ export const ALLERGEN_ANNEX_II: Record<AllergenKey, number> = {
   molluscs: 14,
 };
 
-export const SUPPORTED_LOCALES = ["en", "de"] as const;
-export type Locale = (typeof SUPPORTED_LOCALES)[number];
+/** The locales with a full guest-copy catalogue (src/lib/locales.ts) —
+ *  an allergen list a guest can't read is worse than useless, so this
+ *  list tracks the UI tier exactly rather than keeping its own. */
+export const SUPPORTED_LOCALES: readonly UiLocale[] = UI_LOCALES;
+export type Locale = UiLocale;
 
 /**
  * Localised display name for each allergen. Nominative form so the label
  * composes cleanly with either the "contains" template or the "traces"
  * template below. The German entries follow the Bundesministerium für
- * Ernährung und Landwirtschaft's food-labelling guidance for Annex II.
+ * Ernährung und Landwirtschaft's food-labelling guidance for Annex II;
+ * the Spanish and Italian ones follow the wording their national
+ * food-safety authorities use for the same Annex II items.
  */
 export const ALLERGEN_LABELS: Record<AllergenKey, Record<Locale, string>> = {
-  gluten: { en: "gluten", de: "Gluten" },
-  crustaceans: { en: "crustaceans", de: "Krebstiere" },
-  eggs: { en: "eggs", de: "Eier" },
-  fish: { en: "fish", de: "Fisch" },
-  peanuts: { en: "peanuts", de: "Erdnüsse" },
-  soybeans: { en: "soybeans", de: "Sojabohnen" },
-  milk: { en: "milk", de: "Milch" },
-  nuts: { en: "nuts", de: "Schalenfrüchte" },
-  celery: { en: "celery", de: "Sellerie" },
-  mustard: { en: "mustard", de: "Senf" },
-  sesame: { en: "sesame", de: "Sesamsamen" },
-  sulphites: { en: "sulphites", de: "Sulfite" },
-  lupin: { en: "lupin", de: "Lupinen" },
-  molluscs: { en: "molluscs", de: "Weichtiere" },
+  gluten: { en: "gluten", de: "Gluten", es: "gluten", it: "glutine", ar: "الغلوتين" },
+  crustaceans: {
+    en: "crustaceans",
+    de: "Krebstiere",
+    es: "crustáceos",
+    it: "crostacei",
+    ar: "القشريات",
+  },
+  eggs: { en: "eggs", de: "Eier", es: "huevos", it: "uova", ar: "البيض" },
+  fish: { en: "fish", de: "Fisch", es: "pescado", it: "pesce", ar: "الأسماك" },
+  peanuts: {
+    en: "peanuts",
+    de: "Erdnüsse",
+    es: "cacahuetes",
+    it: "arachidi",
+    ar: "الفول السوداني",
+  },
+  soybeans: { en: "soybeans", de: "Sojabohnen", es: "soja", it: "soia", ar: "فول الصويا" },
+  milk: { en: "milk", de: "Milch", es: "leche", it: "latte", ar: "الحليب" },
+  nuts: {
+    en: "nuts",
+    de: "Schalenfrüchte",
+    es: "frutos de cáscara",
+    it: "frutta a guscio",
+    ar: "المكسرات",
+  },
+  celery: { en: "celery", de: "Sellerie", es: "apio", it: "sedano", ar: "الكرفس" },
+  mustard: { en: "mustard", de: "Senf", es: "mostaza", it: "senape", ar: "الخردل" },
+  sesame: { en: "sesame", de: "Sesamsamen", es: "sésamo", it: "sesamo", ar: "السمسم" },
+  sulphites: { en: "sulphites", de: "Sulfite", es: "sulfitos", it: "solfiti", ar: "الكبريتيت" },
+  lupin: { en: "lupin", de: "Lupinen", es: "altramuces", it: "lupini", ar: "الترمس" },
+  molluscs: { en: "molluscs", de: "Weichtiere", es: "moluscos", it: "molluschi", ar: "الرخويات" },
 };
 
 /**
@@ -90,7 +115,32 @@ export const ALLERGEN_UI: Record<Locale, { contains: string; traces: string }> =
     contains: "Enthält: {name}",
     traces: "Mögliche Spuren: {name}",
   },
+  es: {
+    contains: "Contiene {name}",
+    traces: "Puede contener trazas de {name}",
+  },
+  it: {
+    contains: "Contiene {name}",
+    traces: "Può contenere tracce di {name}",
+  },
+  ar: {
+    contains: "يحتوي على {name}",
+    traces: "قد يحتوي على آثار من {name}",
+  },
 };
+
+/**
+ * Bare localised name, for lists that carry their own "Contains" /
+ * "May contain traces of" heading (the guest allergen dialog). Menus
+ * imported before the enum was enforced can still hold a non-canonical
+ * key, so an unknown id degrades to a humanised form rather than
+ * disappearing from a legally-required disclosure.
+ */
+export function allergenName(key: string, locale: Locale): string {
+  if (isAllergenKey(key)) return ALLERGEN_LABELS[key][locale];
+  const t = key.replace(/_/g, " ");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
 
 export function getAllergenLabel(
   key: AllergenKey,

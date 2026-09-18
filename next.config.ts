@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
+// The ONE locale registry (src/lib/locales.ts) is dependency-free precisely
+// so this config can import it — the cache rule below and `<html lang>`
+// must never drift apart.
+import { LOCALE_PATH_PATTERN } from "./src/lib/locales";
 
 const withMDX = createMDX({
   // Options intentionally minimal — we author placeholder legal copy for
@@ -115,13 +119,13 @@ const nextConfig: NextConfig = {
         // Public menu is static-first and edge-cached (roadmap §3). The
         // menu now lives at the domain root: `/` (default locale) and
         // `/{locale}`. The optional locale param — constrained to the
-        // BCP-47 codes we support — keeps this rule off /dashboard,
-        // /admin, /login, etc.
+        // BCP-47 codes in the locale registry — keeps this rule off
+        // /dashboard, /admin, /login, etc.
         // 5-minute freshness + purge-on-write (src/lib/cdn-purge.ts):
         // the purge makes changes instant; the short TTL bounds
         // staleness for anything a URL-list purge can't reach
         // (query-string variants on non-enterprise Cloudflare).
-        source: "/:locale(en|de|fr|it|es|nl|pl|pt|tr|ar)?",
+        source: `/:locale(${LOCALE_PATH_PATTERN})?`,
         // P1-9: never cache preview responses — every dashboard user's phone-
         // preview URL is a fresh signed token, and a cached preview would
         // outlive the token's TTL.
@@ -136,7 +140,7 @@ const nextConfig: NextConfig = {
       {
         // Explicit no-store for the preview path so Cloudflare/browsers do
         // not hold a copy after the token expires.
-        source: "/:locale(en|de|fr|it|es|nl|pl|pt|tr|ar)?",
+        source: `/:locale(${LOCALE_PATH_PATTERN})?`,
         has: [{ type: "query", key: "preview" }],
         headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
       },

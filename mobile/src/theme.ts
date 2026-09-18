@@ -1,3 +1,5 @@
+import { I18nManager, type TextStyle } from "react-native";
+
 /**
  * The app's brand tokens. The palette itself is DERIVED from the venue's menu
  * theme and written to `brand.generated.ts` by `pnpm brand:mobile` — the same
@@ -12,20 +14,53 @@ export { colors, brand, logo, hero, scrim } from "./brand.generated";
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
-/** Display serif (Playfair Display) + soft body sans (Nunito), loaded in
- *  App.tsx. Custom families don't synthesize weights reliably on Android,
- *  so every weight is its own family name — use these instead of
- *  fontWeight anywhere text is styled. */
-export const fonts = {
-  display: "PlayfairDisplay_700Bold",
-  displayHeavy: "PlayfairDisplay_800ExtraBold",
-  displayItalic: "PlayfairDisplay_600SemiBold_Italic",
-  body: "Nunito_400Regular",
-  bodyLight: "Nunito_300Light",
-  bodySemi: "Nunito_600SemiBold",
-  bodyBold: "Nunito_700Bold",
-  bodyHeavy: "Nunito_800ExtraBold",
-} as const;
+/**
+ * Layout direction. This is a NATIVE, process-wide flag (`I18nManager`),
+ * not React state: it can only change across a restart, so reading it once
+ * at module load is correct and lets StyleSheet objects bake it in. The
+ * language switcher flips it and reloads the app (see `i18n.tsx`).
+ */
+export const isRTL = I18nManager.isRTL;
+
+/** Chevrons that point "forward"/"back" in reading order. Use these instead
+ *  of a literal › or ‹ so they mirror with the layout. */
+export const CHEVRON_FORWARD = isRTL ? "‹" : "›";
+export const CHEVRON_BACK = isRTL ? "›" : "‹";
+
+/**
+ * Display serif (Playfair Display) + soft body sans (Nunito), loaded in
+ * App.tsx. Custom families don't synthesize weights reliably on Android, so
+ * every weight is its own family name.
+ *
+ * Each token is a STYLE FRAGMENT, not a family string — spread it
+ * (`{ ...fonts.bodyBold }`) instead of writing `fontFamily:`. That is what
+ * lets the RTL build swap the whole set: Nunito and Playfair are Latin-only
+ * and would render Arabic as tofu, so an RTL layout falls back to the
+ * platform's own UI font and expresses weight with `fontWeight`.
+ */
+const latin = {
+  display: { fontFamily: "PlayfairDisplay_700Bold" },
+  displayHeavy: { fontFamily: "PlayfairDisplay_800ExtraBold" },
+  displayItalic: { fontFamily: "PlayfairDisplay_600SemiBold_Italic" },
+  body: { fontFamily: "Nunito_400Regular" },
+  bodyLight: { fontFamily: "Nunito_300Light" },
+  bodySemi: { fontFamily: "Nunito_600SemiBold" },
+  bodyBold: { fontFamily: "Nunito_700Bold" },
+  bodyHeavy: { fontFamily: "Nunito_800ExtraBold" },
+} as const satisfies Record<string, TextStyle>;
+
+const system = {
+  display: { fontWeight: "700" },
+  displayHeavy: { fontWeight: "800" },
+  displayItalic: { fontWeight: "600", fontStyle: "italic" },
+  body: { fontWeight: "400" },
+  bodyLight: { fontWeight: "300" },
+  bodySemi: { fontWeight: "600" },
+  bodyBold: { fontWeight: "700" },
+  bodyHeavy: { fontWeight: "800" },
+} as const satisfies Record<keyof typeof latin, TextStyle>;
+
+export const fonts: Record<keyof typeof latin, TextStyle> = isRTL ? system : latin;
 
 export function money(cents: number, currency = "EUR"): string {
   const eur = (cents / 100).toFixed(2).replace(".", ",");

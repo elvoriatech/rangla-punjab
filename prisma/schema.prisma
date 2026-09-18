@@ -626,6 +626,11 @@ model Customer {
   email       String
   name        String?
   phone       String?
+  /// Last address this customer had food delivered to — same shape as
+  /// `Order.deliveryAddress` ({street, zip, city?, note?}). "Last used"
+  /// semantics: every delivery order overwrites it, so checkout can
+  /// prefill without the guest re-typing. Never a billing record.
+  lastDeliveryAddress Json? @map("last_delivery_address")
   /// Argon2id hash — only for provider "password" accounts (email sign-up);
   /// OAuth customers keep null.
   passwordHash String? @map("password_hash")

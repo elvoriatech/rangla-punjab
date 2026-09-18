@@ -130,9 +130,19 @@ export function getCartSnapshot(slug: string): CartLine[] {
 }
 
 /** Client-safe price formatter (public-menu's formatPrice pulls in the
- *  server-only db module, so cart components use this twin). */
+ *  server-only db module, so cart components use this twin). Mirrors
+ *  `formatPrice`'s fallback: `Intl` throws on a malformed locale or an
+ *  unknown currency code, and a cart that renders no prices at all is a
+ *  worse failure than an unstyled amount. */
 export function formatCents(cents: number, currency: string, locale: string): string {
-  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(cents / 100);
+  try {
+    return new Intl.NumberFormat(locale || "en", {
+      style: "currency",
+      currency: currency || "EUR",
+    }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency || "EUR"}`;
+  }
 }
 
 /**

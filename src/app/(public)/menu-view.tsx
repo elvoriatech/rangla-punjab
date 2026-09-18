@@ -10,13 +10,14 @@ import { menuImageSrcSet, menuImageUrl, TRANSPARENT_PIXEL } from "@/lib/menu-ima
 import type { EffectiveOrdering } from "@/lib/ordering-config";
 import type { OpeningHours, OpenState } from "@/lib/opening-hours";
 import { acceptedPaymentIds, PaymentMarks } from "./payment-marks";
-import { WEEKDAY_LABELS } from "@/lib/opening-hours";
 import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
 import { AddToOrderButton } from "./order/add-button";
 import { CartDrawer } from "./order/cart-lazy";
 import { AllergenDialog } from "./allergen-dialog";
 import { DishDescription } from "./dish-description";
 import { CategoryLink, CategoryTabs as CategoryTabsClient, TabLink } from "./category-tabs";
+import { menuCopy, type MenuCopy } from "@/lib/i18n/menu";
+import { LOCALES } from "@/lib/locales";
 
 /**
  * Public menu render — theme_one aesthetic (deep chocolate + gold),
@@ -30,8 +31,9 @@ import { CategoryLink, CategoryTabs as CategoryTabsClient, TabLink } from "./cat
  *
  * Accessibility:
  *   - <main> + one <h1> for the venue + <section> per category
- *   - <nav aria-label="Categories"> and <nav aria-label="Dietary
- *     filter"> land in the sticky top bar
+ *   - a labelled <nav> for the category rail and one for the diet rail
+ *     land in the sticky top bar (labels come from the guest-copy
+ *     catalogue, so behaviour never keys off them)
  *   - Tab links carry aria-current="page" on the active one
  *   - Dish placeholder image is aria-hidden — screen-readers get the
  *     name + description + allergens as-is
@@ -40,18 +42,51 @@ import { CategoryLink, CategoryTabs as CategoryTabsClient, TabLink } from "./cat
  *     filter surface today)
  */
 
-/** Label + icon per offered diet. Halal's "icon" is the حلال word-mark —
- *  the closest thing to the certification logo that ships as text.
- *  Dish rows show ICONS ONLY; the label survives as tooltip + sr-only
- *  text so nothing is lost for screen readers. */
-const DIET_META: Record<string, { label: string; icon: string; crossed?: boolean }> = {
-  vegan: { label: "Vegan", icon: "🌱" },
-  vegetarian: { label: "Vegetarian", icon: "🥬" },
-  gluten_free: { label: "Gluten-free", icon: "🌾", crossed: true },
-  dairy_free: { label: "Dairy-free", icon: "🥛", crossed: true },
-  halal: { label: "Halal", icon: "حلال" },
-  kosher: { label: "Kosher", icon: "✡" },
+/** Icon per offered diet. Halal's "icon" is the حلال word-mark — the
+ *  closest thing to the certification logo that ships as text. Dish rows
+ *  show ICONS ONLY; the label (from the guest-copy catalogue) survives as
+ *  tooltip + sr-only text so nothing is lost for screen readers. */
+const DIET_META: Record<string, { icon: string; crossed?: boolean }> = {
+  vegan: { icon: "🌱" },
+  vegetarian: { icon: "🥬" },
+  gluten_free: { icon: "🌾", crossed: true },
+  dairy_free: { icon: "🥛", crossed: true },
+  halal: { icon: "حلال" },
+  kosher: { icon: "✡" },
 };
+
+/** Diet ids are plain strings on the wire (a venue could carry one the
+ *  catalogue has not met); an unknown id degrades to its humanised key
+ *  rather than vanishing from the filter rail. */
+function dietLabel(t: MenuCopy, id: string): string {
+  return (t.diets as Record<string, string | undefined>)[id] ?? id.replace(/_/g, " ");
+}
+
+/** "mon" → "Mon" / "Mo" / "الاثنين" without a weekday table per language:
+ *  2024-01-07 is a Sunday, so day index 0..6 lands on that calendar week
+ *  and `Intl` supplies the CLDR short name. */
+const WEEKDAY_INDEX: Record<string, number> = {
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+};
+
+function shortWeekday(day: string, locale: string): string {
+  const i = WEEKDAY_INDEX[day];
+  if (i === undefined) return day;
+  try {
+    return new Intl.DateTimeFormat(locale || "en", {
+      weekday: "short",
+      timeZone: "UTC",
+    }).format(new Date(Date.UTC(2024, 0, 7 + i)));
+  } catch {
+    return day;
+  }
+}
 
 export function MenuView({
   menu,
@@ -83,6 +118,9 @@ export function MenuView({
 }): React.ReactElement {
   const brand = menu.venue.branding.primaryColor ?? "#b8935f";
   const locale = menu.locale || menu.venue.defaultLocale || "en";
+  // ONE catalogue lookup for the whole render; every sub-component takes
+  // `t` as a prop rather than resolving the locale again.
+  const t = menuCopy(locale);
   const diets = activeDiets ?? new Set<string>();
   const activeDiet = diets.size > 0 ? Array.from(diets)[0]! : null;
   const catList = allCategories ?? menu.categories.map((c) => ({ id: c.id, name: c.name }));
@@ -169,7 +207,7 @@ export function MenuView({
           role="status"
           className="bg-[var(--menu-accent,#b8935f)] px-4 py-2 text-center text-sm font-medium text-white"
         >
-          Online ordering is paused right now — please check back soon.
+          {t.banners.orderingPaused}
         </div>
       ) : null}
       {kioskFontPx ? (
@@ -189,14 +227,14 @@ export function MenuView({
            test-visible) without polluting the dark visual design
            the sighted user gets from the gold-on-espresso VenueMark. */}
         <h1 className="sr-only" style={{ color: brand }}>
-          {menu.venue.name} menu
+          {t.metadata.srHeading(menu.venue.name)}
         </h1>
         {menu.isPreview ? (
           <p
             role="status"
             className="mx-auto max-w-6xl px-6 pt-6 text-xs font-semibold uppercase tracking-widest text-[var(--menu-accent)]"
           >
-            Draft preview — your private link. Guests only see what you publish.
+            {t.banners.draftPreview}
           </p>
         ) : null}
 
@@ -205,7 +243,13 @@ export function MenuView({
              restaurant's identity (logo + name) and the open/closed
              pill overlaid — the sticky bar below then carries only the
              menu controls. */
-          <HeroBanner venue={menu.venue} openNow={openNow} reserve={reserve} />
+          <HeroBanner
+            venue={menu.venue}
+            openNow={openNow}
+            reserve={reserve}
+            t={t}
+            locale={locale}
+          />
         ) : null}
 
         <StickyBar
@@ -219,10 +263,17 @@ export function MenuView({
           reserve={reserve}
           sideNav={sideNav}
           hero={Boolean(menu.venue.branding.bannerKey)}
+          t={t}
+          locale={locale}
         />
 
         {theme.layout === "hero" && !activeCategoryId ? (
-          <HeroSplash venue={menu.venue} categories={menu.categories} activeDiet={activeDiet} />
+          <HeroSplash
+            venue={menu.venue}
+            categories={menu.categories}
+            activeDiet={activeDiet}
+            t={t}
+          />
         ) : null}
 
         <div
@@ -237,14 +288,15 @@ export function MenuView({
               active={activeCategoryId ?? null}
               activeDiet={activeDiet}
               showIcons={showIcons}
+              t={t}
             />
           ) : null}
           <div className="min-w-0">
             {menu.categories.length === 0 ? (
               <p className="mx-auto mt-16 max-w-lg text-center text-sm text-[var(--menu-text)]/70">
                 {diets.size > 0 || activeCategoryId
-                  ? "No dishes match every diet you picked. Uncheck a filter above to see more."
-                  : "Nothing on the menu yet — the restaurant is still building it."}
+                  ? t.emptyStates.noDietMatch
+                  : t.emptyStates.emptyMenu}
               </p>
             ) : (
               <div className={theme.layout === "editorial" ? "space-y-20" : "space-y-24"}>
@@ -265,6 +317,7 @@ export function MenuView({
                       slug={menu.venue.slug}
                       ordering={ordering}
                       showIcons={showIcons}
+                      t={t}
                     />
                   </div>
                 ))}
@@ -295,18 +348,23 @@ export function MenuView({
                 {menu.venue.name}
               </span>
             </div>
-            <LocaleSwitcher current={locale} enabled={menu.venue.enabledLocales} />
+            <LocaleSwitcher
+              current={locale}
+              enabled={menu.venue.enabledLocales}
+              activeDiet={activeDiet}
+              t={t}
+            />
           </div>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-baseline sm:justify-between">
             {/* Footer = ON the surface: page-ink (--menu-text-soft) was
                 1.8:1 against dark-red surfaces — surface ink instead. */}
-            <span className="text-center text-[10px] uppercase tracking-[0.32em] text-[var(--menu-surface-text,var(--menu-text))]/75 sm:text-left">
-              Powered by {BRAND.name} · Digital Menus
+            <span className="text-center text-[10px] uppercase tracking-[0.32em] text-[var(--menu-surface-text,var(--menu-text))]/75 sm:text-start">
+              {t.footer.poweredBy(BRAND.name)}
             </span>
             {payMarks.length > 0 ? (
               <div className="flex max-w-md flex-col items-center gap-1.5 sm:items-end">
                 <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--menu-surface-text,var(--menu-text))]/75">
-                  Accepted payments
+                  {t.footer.acceptedPayments}
                 </span>
                 <PaymentMarks ids={payMarks} className="justify-center sm:justify-end" />
               </div>
@@ -358,6 +416,7 @@ type SectionProps = {
   slug: string;
   ordering: boolean;
   showIcons: boolean;
+  t: MenuCopy;
 };
 
 /** Round icon medallion used by section headings when icons are on and
@@ -378,6 +437,7 @@ type DishProps = {
   locale: string;
   slug: string;
   ordering: boolean;
+  t: MenuCopy;
   /**
    * The first dish on the page — almost always the Largest Contentful
    * Paint element. Lazy-loading it defers the very pixel LCP is measured
@@ -396,6 +456,7 @@ function EditorialSection({
   slug,
   ordering,
   showIcons,
+  t,
 }: SectionProps): React.ReactElement {
   return (
     <section
@@ -431,11 +492,11 @@ function EditorialSection({
         </h2>
         <span
           aria-hidden="true"
-          className="ml-2 h-px flex-1 self-end bg-gradient-to-r from-[var(--menu-accent)]/40 to-transparent"
+          className="ms-2 h-px flex-1 self-end bg-gradient-to-r from-[var(--menu-accent)]/40 to-transparent rtl:bg-gradient-to-l"
         />
       </div>
       {cat.items.length === 0 ? (
-        <p className="text-sm text-[var(--menu-text)]/60">No dishes in this section.</p>
+        <p className="text-sm text-[var(--menu-text)]/60">{t.emptyStates.noDishesInSection}</p>
       ) : (
         <ul className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {cat.items.map((item, itemIndex) => (
@@ -450,6 +511,7 @@ function EditorialSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                t={t}
               />
             </li>
           ))}
@@ -470,10 +532,12 @@ function HeroSplash({
   venue,
   categories,
   activeDiet,
+  t,
 }: {
   venue: PublicMenu["venue"];
   categories: PublicMenu["categories"];
   activeDiet: string | null;
+  t: MenuCopy;
 }): React.ReactElement {
   const words = venue.name.split(/\s+/);
   const first = words[0] ?? venue.name;
@@ -482,10 +546,10 @@ function HeroSplash({
   const slugOf = categorySlugs(categories.map((c) => ({ id: c.id, name: c.name })));
   const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
   return (
-    <section aria-label="Willkommen" className="bg-[#0f0d0a] text-[#f5f1e8]">
+    <section aria-label={t.hero.welcomeAria} className="bg-[#0f0d0a] text-[#f5f1e8]">
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 pb-6 pt-12 sm:px-8 md:grid-cols-[minmax(0,1fr)_auto] lg:px-12">
         <div>
-          <p className="font-serif text-xl italic text-[var(--menu-accent)]">Willkommen bei</p>
+          <p className="font-serif text-xl italic text-[var(--menu-accent)]">{t.hero.welcomeTo}</p>
           <h2 className="mt-2 text-4xl font-black uppercase leading-[1.05] tracking-tight sm:text-6xl">
             {first}
             {rest ? (
@@ -496,28 +560,23 @@ function HeroSplash({
             ) : null}
           </h2>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-[#f5f1e8]/75">
-            Frisch gekocht, schnell serviert — stöbere durch die Karte und bestelle direkt vom
-            Handy.
+            {t.hero.tagline}
           </p>
           <div className="mt-6">
             <a
               href="#menu"
               className="inline-block rounded-full bg-[var(--menu-accent)] px-7 py-3 text-sm font-bold uppercase tracking-wider text-[#171207] transition hover:opacity-90"
             >
-              Jetzt bestellen ↓
+              {t.hero.orderNow}
             </a>
           </div>
           <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-xs text-[#f5f1e8]/80">
-            {[
-              ["Schnell serviert", "Direkt aus der Küche"],
-              ["Beste Qualität", "Frische Zutaten"],
-              ["Faire Preise", "Jeden Tag"],
-            ].map(([t, sub]) => (
-              <li key={t} className="flex items-center gap-2.5">
+            {t.hero.features.map((f) => (
+              <li key={f.title} className="flex items-center gap-2.5">
                 <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[var(--menu-accent)]" />
                 <span>
-                  <span className="block font-bold uppercase tracking-wide">{t}</span>
-                  <span className="block text-[#f5f1e8]/60">{sub}</span>
+                  <span className="block font-bold uppercase tracking-wide">{f.title}</span>
+                  <span className="block text-[#f5f1e8]/60">{f.sub}</span>
                 </span>
               </li>
             ))}
@@ -558,11 +617,11 @@ function HeroSplash({
       {/* Unboxed photo categories on the body ground. */}
       {categories.length >= 2 ? (
         <nav
-          aria-label="Kategorien mit Bild"
+          aria-label={t.hero.categoriesAria}
           className="bg-[var(--menu-bg)] pb-2 pt-8 text-[var(--menu-text)]"
         >
           <p className="text-center text-[11px] font-bold uppercase tracking-[0.3em] text-[var(--menu-accent)]">
-            Unsere Kategorien
+            {t.hero.categoriesHeading}
           </p>
           <ul className="mx-auto mt-6 flex max-w-6xl flex-wrap items-start justify-center gap-x-10 gap-y-8 px-6">
             {categories.slice(0, 8).map((c) => (
@@ -587,7 +646,7 @@ function HeroSplash({
                   )}
                   <span className="mt-2 block text-sm font-semibold leading-tight">{c.name}</span>
                   <span className="block text-[11px] text-[var(--menu-text-soft)]">
-                    {c.items.length} Gerichte
+                    {t.hero.dishCount(c.items.length)}
                   </span>
                 </Link>
               </li>
@@ -611,6 +670,7 @@ function FloatingSection({
   slug,
   ordering,
   showIcons,
+  t,
 }: SectionProps): React.ReactElement {
   return (
     <section
@@ -633,7 +693,9 @@ function FloatingSection({
         <span aria-hidden="true" className="mt-3 h-1 w-16 rounded-full bg-[var(--menu-accent)]" />
       </div>
       {cat.items.length === 0 ? (
-        <p className="text-center text-sm text-[var(--menu-text)]/60">No dishes in this section.</p>
+        <p className="text-center text-sm text-[var(--menu-text)]/60">
+          {t.emptyStates.noDishesInSection}
+        </p>
       ) : (
         <ul className="grid grid-cols-2 gap-x-6 gap-y-14 sm:gap-x-10 md:grid-cols-3">
           {cat.items.map((item, itemIndex) => (
@@ -656,8 +718,8 @@ function FloatingSection({
                     loading="lazy"
                     className="aspect-square w-full rounded-full object-cover shadow-[0_18px_40px_-18px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:scale-[1.03]"
                   />
-                  <div className="absolute left-1 top-1 z-10 max-h-[calc(100%-0.5rem)] overflow-hidden">
-                    <PhotoDietBadges dietary={item.dietary} />
+                  <div className="absolute start-1 top-1 z-10 max-h-[calc(100%-0.5rem)] overflow-hidden">
+                    <PhotoDietBadges dietary={item.dietary} t={t} />
                   </div>
                 </div>
                 <h3
@@ -668,8 +730,8 @@ function FloatingSection({
                 >
                   {item.name}
                   {!item.isAvailable ? (
-                    <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
-                      unavailable
+                    <span className="ms-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-text-soft)] no-underline">
+                      {t.badges.unavailable}
                     </span>
                   ) : null}
                 </h3>
@@ -686,14 +748,16 @@ function FloatingSection({
                   traces={item.traces}
                   spice={item.spice}
                   dishName={item.name}
+                  t={t}
+                  locale={locale}
                 />
                 <div className="mt-auto flex w-full items-center justify-between gap-2 pt-3">
                   <p
-                    aria-label="price"
+                    aria-label={t.badges.price}
                     className="text-base font-bold tabular-nums text-[var(--menu-text)]"
                   >
                     {item.offer ? (
-                      <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
+                      <s className="me-1.5 text-[0.85em] font-normal opacity-55">
                         {formatPrice(item.offer.basePriceCents, item.currency, locale)}
                       </s>
                     ) : null}
@@ -701,6 +765,7 @@ function FloatingSection({
                   </p>
                   {ordering && item.isAvailable ? (
                     <AddToOrderButton
+                      locale={locale}
                       slug={slug}
                       itemId={item.id}
                       name={item.name}
@@ -724,6 +789,7 @@ function GridSection({
   slug,
   ordering,
   showIcons,
+  t,
 }: SectionProps): React.ReactElement {
   return (
     <section
@@ -755,7 +821,9 @@ function GridSection({
         <span aria-hidden="true" className="mt-3 h-1 w-16 rounded-full bg-[var(--menu-accent)]" />
       </div>
       {cat.items.length === 0 ? (
-        <p className="text-center text-sm text-[var(--menu-text)]/60">No dishes in this section.</p>
+        <p className="text-center text-sm text-[var(--menu-text)]/60">
+          {t.emptyStates.noDishesInSection}
+        </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
           {cat.items.map((item, itemIndex) => (
@@ -770,6 +838,7 @@ function GridSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                t={t}
               />
             </li>
           ))}
@@ -780,7 +849,14 @@ function GridSection({
 }
 
 /** Photo on top, name + price centered underneath — the bistro card. */
-function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): React.ReactElement {
+function GridDishCard({
+  item,
+  locale,
+  slug,
+  ordering,
+  priority,
+  t,
+}: DishProps): React.ReactElement {
   const src = menuImageUrl(item.photoKey, item.id, 480);
   const srcSet = menuImageSrcSet(item.photoKey, item.id, 480);
   return (
@@ -808,8 +884,8 @@ function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): Re
           aria-hidden="true"
           className="dish-shine pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
         />
-        <div className="absolute left-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
-          <PhotoDietBadges dietary={item.dietary} />
+        <div className="absolute start-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
+          <PhotoDietBadges dietary={item.dietary} t={t} />
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-1 px-2.5 py-3 sm:px-3 sm:py-4">
@@ -824,8 +900,8 @@ function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): Re
           >
             {item.name}
             {!item.isAvailable ? (
-              <span className="ml-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
-                unavailable
+              <span className="ms-1 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
+                {t.badges.unavailable}
               </span>
             ) : null}
           </h3>
@@ -835,6 +911,8 @@ function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): Re
               traces={item.traces}
               spice={item.spice}
               dishName={item.name}
+              t={t}
+              locale={locale}
             />
           </div>
         </div>
@@ -851,6 +929,8 @@ function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): Re
           traces={item.traces}
           spice={item.spice}
           dishName={item.name}
+          t={t}
+          locale={locale}
         />
 
         {item.variants.length > 0 ? (
@@ -868,25 +948,26 @@ function GridDishCard({ item, locale, slug, ordering, priority }: DishProps): Re
         ) : null}
         <div className="mt-auto flex w-full items-center justify-between gap-2 pt-2">
           <p
-            aria-label="price"
+            aria-label={t.badges.price}
             className="text-base font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]"
           >
             {item.offer ? (
               <>
-                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
-                  Angebot
+                <span className="me-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  {t.badges.offer}
                 </span>
-                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
-                  <span className="sr-only">regulärer Preis </span>
+                <s className="me-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">{t.badges.regularPrice} </span>
                   {formatPrice(item.offer.basePriceCents, item.currency, locale)}
                 </s>
-                <span className="sr-only">Angebotspreis </span>
+                <span className="sr-only">{t.badges.offerPrice} </span>
               </>
             ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
             <AddToOrderButton
+              locale={locale}
               slug={slug}
               itemId={item.id}
               name={item.name}
@@ -908,6 +989,7 @@ function ListSection({
   slug,
   ordering,
   showIcons,
+  t,
 }: SectionProps): React.ReactElement {
   return (
     <section
@@ -938,7 +1020,9 @@ function ListSection({
         <span aria-hidden="true" className="h-px flex-1 bg-[var(--menu-accent)]/50" />
       </div>
       {cat.items.length === 0 ? (
-        <p className="text-center text-sm text-[var(--menu-text)]/60">No dishes in this section.</p>
+        <p className="text-center text-sm text-[var(--menu-text)]/60">
+          {t.emptyStates.noDishesInSection}
+        </p>
       ) : (
         <ul className="grid grid-cols-1 gap-x-14 gap-y-6 md:grid-cols-2">
           {cat.items.map((item, itemIndex) => (
@@ -953,6 +1037,7 @@ function ListSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                t={t}
               />
             </li>
           ))}
@@ -962,7 +1047,7 @@ function ListSection({
   );
 }
 
-function ListDishRow({ item, locale, slug, ordering, priority }: DishProps): React.ReactElement {
+function ListDishRow({ item, locale, slug, ordering, priority, t }: DishProps): React.ReactElement {
   return (
     <article
       // The reveal script mutates class/style before hydration; React
@@ -984,11 +1069,11 @@ function ListDishRow({ item, locale, slug, ordering, priority }: DishProps): Rea
           fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute left-1.5 top-1.5 z-10 max-h-[calc(100%-0.75rem)] overflow-hidden">
-          <PhotoDietBadges dietary={item.dietary} />
+        <div className="absolute start-1.5 top-1.5 z-10 max-h-[calc(100%-0.75rem)] overflow-hidden">
+          <PhotoDietBadges dietary={item.dietary} t={t} />
         </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col py-2.5 pl-1.5 pr-3 sm:py-3 sm:pl-2 sm:pr-4">
+      <div className="flex min-w-0 flex-1 flex-col py-2.5 ps-1.5 pe-3 sm:py-3 sm:ps-2 sm:pe-4">
         <div className="flex items-start justify-between gap-3">
           <h3
             id={`item-${item.id}`}
@@ -1006,6 +1091,8 @@ function ListDishRow({ item, locale, slug, ordering, priority }: DishProps): Rea
               traces={item.traces}
               spice={item.spice}
               dishName={item.name}
+              t={t}
+              locale={locale}
             />
           </div>
         </div>
@@ -1022,6 +1109,8 @@ function ListDishRow({ item, locale, slug, ordering, priority }: DishProps): Rea
           traces={item.traces}
           spice={item.spice}
           dishName={item.name}
+          t={t}
+          locale={locale}
         />
         {item.variants.length > 0 ? (
           <ul className="mt-1.5 space-y-0.5 text-sm text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
@@ -1038,25 +1127,26 @@ function ListDishRow({ item, locale, slug, ordering, priority }: DishProps): Rea
         ) : null}
         <div className="mt-auto flex items-center justify-between gap-3 pt-2">
           <p
-            aria-label="price"
+            aria-label={t.badges.price}
             className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
             {item.offer ? (
               <>
-                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
-                  Angebot
+                <span className="me-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  {t.badges.offer}
                 </span>
-                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
-                  <span className="sr-only">regulärer Preis </span>
+                <s className="me-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">{t.badges.regularPrice} </span>
                   {formatPrice(item.offer.basePriceCents, item.currency, locale)}
                 </s>
-                <span className="sr-only">Angebotspreis </span>
+                <span className="sr-only">{t.badges.offerPrice} </span>
               </>
             ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
             <AddToOrderButton
+              locale={locale}
               slug={slug}
               itemId={item.id}
               name={item.name}
@@ -1078,6 +1168,7 @@ function ShowcaseSection({
   slug,
   ordering,
   showIcons,
+  t,
 }: SectionProps): React.ReactElement {
   return (
     <section
@@ -1112,7 +1203,9 @@ function ShowcaseSection({
         />
       </div>
       {cat.items.length === 0 ? (
-        <p className="text-center text-sm text-[var(--menu-text)]/60">No dishes in this section.</p>
+        <p className="text-center text-sm text-[var(--menu-text)]/60">
+          {t.emptyStates.noDishesInSection}
+        </p>
       ) : (
         <ul className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 sm:gap-y-14 lg:grid-cols-3">
           {cat.items.map((item, itemIndex) => (
@@ -1127,6 +1220,7 @@ function ShowcaseSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                t={t}
               />
             </li>
           ))}
@@ -1142,6 +1236,7 @@ function ShowcaseDishCard({
   slug,
   ordering,
   priority,
+  t,
 }: DishProps): React.ReactElement {
   const src = menuImageUrl(item.photoKey, item.id, 480);
   const srcSet = menuImageSrcSet(item.photoKey, item.id, 480);
@@ -1166,11 +1261,11 @@ function ShowcaseDishCard({
           fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute left-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
-          <PhotoDietBadges dietary={item.dietary} />
+        <div className="absolute start-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
+          <PhotoDietBadges dietary={item.dietary} t={t} />
         </div>
       </div>
-      <div className="flex w-full items-start justify-between gap-3 text-left">
+      <div className="flex w-full items-start justify-between gap-3 text-start">
         <h3
           id={`item-${item.id}`}
           className={
@@ -1187,6 +1282,8 @@ function ShowcaseDishCard({
             traces={item.traces}
             spice={item.spice}
             dishName={item.name}
+            t={t}
+            locale={locale}
           />
         </div>
       </div>
@@ -1203,6 +1300,8 @@ function ShowcaseDishCard({
         traces={item.traces}
         spice={item.spice}
         dishName={item.name}
+        t={t}
+        locale={locale}
       />
       {item.variants.length > 0 ? (
         <ul className="mt-1 w-full max-w-[220px] space-y-0.5 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
@@ -1219,25 +1318,26 @@ function ShowcaseDishCard({
       ) : null}
       <div className="mt-auto flex w-full items-center justify-between gap-3 pt-3">
         <p
-          aria-label="price"
+          aria-label={t.badges.price}
           className="inline-block rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-4 py-1 text-base font-bold tabular-nums text-[var(--menu-surface-text,var(--menu-text))]"
         >
           {item.offer ? (
             <>
-              <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
-                Angebot
+              <span className="me-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                {t.badges.offer}
               </span>
-              <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
-                <span className="sr-only">regulärer Preis </span>
+              <s className="me-1.5 text-[0.85em] font-normal opacity-55">
+                <span className="sr-only">{t.badges.regularPrice} </span>
                 {formatPrice(item.offer.basePriceCents, item.currency, locale)}
               </s>
-              <span className="sr-only">Angebotspreis </span>
+              <span className="sr-only">{t.badges.offerPrice} </span>
             </>
           ) : null}
           {formatPrice(item.priceCents, item.currency, locale)}
         </p>
         {ordering && item.isAvailable ? (
           <AddToOrderButton
+            locale={locale}
             slug={slug}
             itemId={item.id}
             name={item.name}
@@ -1260,10 +1360,14 @@ function HeroBanner({
   venue,
   openNow,
   reserve,
+  t,
+  locale,
 }: {
   venue: PublicMenu["venue"];
   openNow?: OpenState;
   reserve?: { slug: string; hours: OpeningHours; timezone: string };
+  t: MenuCopy;
+  locale: string;
 }): React.ReactElement {
   return (
     <div className="relative h-40 w-full sm:h-48 lg:h-60">
@@ -1282,11 +1386,11 @@ function HeroBanner({
         aria-hidden="true"
         className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
       />
-      <div className="absolute right-4 top-4 flex flex-col items-end gap-2 sm:right-6">
-        <OpenBadge state={openNow} />
-        {reserve ? <ReserveDialog {...reserve} /> : null}
+      <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
+        <OpenBadge state={openNow} t={t} locale={locale} />
+        {reserve ? <ReserveDialog {...reserve} locale={locale} /> : null}
       </div>
-      <div className="absolute bottom-4 left-4 flex items-center gap-3 sm:bottom-5 sm:left-6 lg:left-12">
+      <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
         <VenueMark venue={venue} />
         <span className="font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
           {venue.name}
@@ -1307,6 +1411,8 @@ function StickyBar({
   reserve,
   sideNav = false,
   hero = false,
+  t,
+  locale,
 }: {
   venue: PublicMenu["venue"];
   categories: { id: string; name: string }[];
@@ -1320,6 +1426,8 @@ function StickyBar({
   /** Banner hero above carries logo + open pill — this bar then holds
    *  only the menu controls (categories + diets), grouped together. */
   hero?: boolean;
+  t: MenuCopy;
+  locale: string;
 }): React.ReactElement {
   return (
     <header className="menu-hero sticky top-0 z-20 border-b border-[var(--menu-text)]/10 bg-[var(--menu-bg)]/95 backdrop-blur">
@@ -1333,12 +1441,14 @@ function StickyBar({
               active={activeCategoryId}
               activeDiet={activeDiet}
               showIcons={showIcons}
+              t={t}
             />
           </div>
         ) : null
       ) : (
         <div className="mx-auto flex min-h-[3.5rem] max-w-none items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:px-12">
-          {/* Logo + restaurant name, left-aligned at every width. */}
+          {/* Logo + restaurant name, leading edge at every width (right
+              of the bar under dir="rtl"). */}
           <VenueMark venue={venue} />
           {/* Category tabs: desktop only, fill the middle — unless the
               owner chose the side rail, which replaces them on lg+. */}
@@ -1348,12 +1458,13 @@ function StickyBar({
               active={activeCategoryId}
               activeDiet={activeDiet}
               showIcons={showIcons}
+              t={t}
             />
           </div>
           {/* Open/closed pill + reserve button: right corner at every width. */}
           <div className="flex shrink-0 items-center gap-2">
-            <OpenBadge state={openNow} />
-            {reserve ? <ReserveDialog {...reserve} /> : null}
+            <OpenBadge state={openNow} t={t} locale={locale} />
+            {reserve ? <ReserveDialog {...reserve} locale={locale} /> : null}
           </div>
         </div>
       )}
@@ -1365,6 +1476,7 @@ function StickyBar({
             active={activeCategoryId}
             activeDiet={activeDiet}
             showIcons={showIcons}
+            t={t}
           />
         </div>
       </div>
@@ -1378,6 +1490,7 @@ function StickyBar({
                 : null
             }
             offeredDiets={offeredDiets}
+            t={t}
           />
         </div>
       </div>
@@ -1388,7 +1501,15 @@ function StickyBar({
 /** Live open/closed pill in the top bar. Silent when hours are unset —
  *  never shows a misleading "Closed" for a venue that hasn't entered
  *  hours. Positive/negative use the theme's own tokens. */
-function OpenBadge({ state }: { state?: OpenState }): React.ReactElement | null {
+function OpenBadge({
+  state,
+  t,
+  locale,
+}: {
+  state?: OpenState;
+  t: MenuCopy;
+  locale: string;
+}): React.ReactElement | null {
   if (!state || !state.configured) return null;
 
   // Compact on phones (dot + word), full detail from sm up — so the pill
@@ -1402,27 +1523,29 @@ function OpenBadge({ state }: { state?: OpenState }): React.ReactElement | null 
   // which ignored the theme entirely.
   if (state.open) {
     return (
-      <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-positive)]/14 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text)]">
+      <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-positive)]/14 py-1.5 ps-2.5 pe-3 text-xs font-semibold text-[var(--menu-text)]">
         <span
           aria-hidden="true"
           className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-positive)] ring-4 ring-[var(--menu-positive)]/25"
         />
-        Open
-        <span className="hidden font-medium opacity-80 sm:inline">· until {state.until}</span>
+        {t.badges.open}
+        <span className="hidden font-medium opacity-80 sm:inline">
+          · {t.badges.until(state.until)}
+        </span>
       </span>
     );
   }
   const opensLabel =
     state.opensDay && state.opensAt
-      ? `Opens ${WEEKDAY_LABELS[state.opensDay].slice(0, 3)} ${state.opensAt}`
+      ? t.badges.opensAt(shortWeekday(state.opensDay, locale), state.opensAt)
       : "";
   return (
-    <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-danger)]/12 py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-text)]">
+    <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-danger)]/12 py-1.5 ps-2.5 pe-3 text-xs font-semibold text-[var(--menu-text)]">
       <span
         aria-hidden="true"
         className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-danger)] ring-4 ring-[var(--menu-danger)]/25"
       />
-      Closed
+      {t.badges.closed}
       {opensLabel ? (
         <span className="hidden font-medium opacity-80 sm:inline">· {opensLabel}</span>
       ) : null}
@@ -1458,7 +1581,7 @@ function VenueMark({ venue }: { venue: PublicMenu["venue"] }): React.ReactElemen
 /* Dish card — full-width tile with gradient photo + gold accents      */
 /* ------------------------------------------------------------------ */
 
-function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.ReactElement {
+function DishCard({ item, locale, slug, ordering, priority, t }: DishProps): React.ReactElement {
   return (
     <article
       // The reveal script mutates class/style before hydration; React
@@ -1469,8 +1592,8 @@ function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.
     >
       <div className="relative self-stretch">
         <DishPhoto item={item} priority={priority} />
-        <div className="absolute left-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
-          <PhotoDietBadges dietary={item.dietary} />
+        <div className="absolute start-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
+          <PhotoDietBadges dietary={item.dietary} t={t} />
         </div>
       </div>
       <div className="flex flex-col">
@@ -1485,8 +1608,8 @@ function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.
           >
             {item.name}
             {!item.isAvailable ? (
-              <span className="ml-2 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
-                unavailable
+              <span className="ms-2 align-middle text-[9px] uppercase tracking-widest text-[var(--menu-surface-text-soft,var(--menu-text-soft))] no-underline">
+                {t.badges.unavailable}
               </span>
             ) : null}
           </h3>
@@ -1496,6 +1619,8 @@ function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.
               traces={item.traces}
               spice={item.spice}
               dishName={item.name}
+              t={t}
+              locale={locale}
             />
           </div>
         </div>
@@ -1512,6 +1637,8 @@ function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.
           traces={item.traces}
           spice={item.spice}
           dishName={item.name}
+          t={t}
+          locale={locale}
         />
         {item.variants.length > 0 ? (
           <ul className="mt-2 space-y-0.5 text-xs text-[var(--menu-surface-text,var(--menu-text))]">
@@ -1528,25 +1655,26 @@ function DishCard({ item, locale, slug, ordering, priority }: DishProps): React.
         ) : null}
         <div className="mt-auto flex items-center justify-between gap-3 pt-3">
           <p
-            aria-label="price"
+            aria-label={t.badges.price}
             className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
             {item.offer ? (
               <>
-                <span className="mr-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
-                  Angebot
+                <span className="me-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                  {t.badges.offer}
                 </span>
-                <s className="mr-1.5 text-[0.85em] font-normal opacity-55">
-                  <span className="sr-only">regulärer Preis </span>
+                <s className="me-1.5 text-[0.85em] font-normal opacity-55">
+                  <span className="sr-only">{t.badges.regularPrice} </span>
                   {formatPrice(item.offer.basePriceCents, item.currency, locale)}
                 </s>
-                <span className="sr-only">Angebotspreis </span>
+                <span className="sr-only">{t.badges.offerPrice} </span>
               </>
             ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
             <AddToOrderButton
+              locale={locale}
               slug={slug}
               itemId={item.id}
               name={item.name}
@@ -1604,11 +1732,13 @@ function SideRail({
   active,
   activeDiet,
   showIcons,
+  t,
 }: {
   categories: { id: string; name: string }[];
   active: string | null;
   activeDiet: string | null;
   showIcons: boolean;
+  t: MenuCopy;
 }): React.ReactElement {
   const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
   const slugOf = categorySlugs(categories);
@@ -1617,13 +1747,13 @@ function SideRail({
   // bubble with the sharp bottom-right corner.
   const linkBase = "block rounded-xl px-3.5 py-2 text-[13px] leading-snug transition-colors";
   const railActive =
-    "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]";
+    "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-end-end-radius:3px]";
   const railIdle =
     "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]";
   return (
     <aside className="hidden lg:block">
       <nav
-        aria-label="Categories"
+        aria-label={t.nav.categories}
         className="sticky top-32 max-h-[calc(100vh-10rem)] overflow-y-auto rounded-2xl bg-[var(--menu-surface)]/85 p-2 shadow-[0_2px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm [scrollbar-width:thin]"
       >
         <ul className="space-y-0.5">
@@ -1636,7 +1766,7 @@ function SideRail({
               activeClass={`${linkBase} ${railActive}`}
               idleClass={`${linkBase} ${railIdle}`}
             >
-              All
+              {t.nav.all}
             </CategoryLink>
           </li>
           {categories.map((c) => (
@@ -1650,7 +1780,7 @@ function SideRail({
                 idleClass={`${linkBase} ${railIdle}`}
               >
                 {showIcons ? (
-                  <span aria-hidden="true" className="mr-1.5 text-sm normal-case tracking-normal">
+                  <span aria-hidden="true" className="me-1.5 text-sm normal-case tracking-normal">
                     {categoryIcon(c.name)}
                   </span>
                 ) : null}
@@ -1669,11 +1799,13 @@ function CategoryTabs({
   active,
   activeDiet,
   showIcons,
+  t,
 }: {
   categories: { id: string; name: string }[];
   active: string | null;
   activeDiet: string | null;
   showIcons: boolean;
+  t: MenuCopy;
 }): React.ReactElement | null {
   const slugOf = categorySlugs(categories);
   return (
@@ -1684,6 +1816,10 @@ function CategoryTabs({
       active={active}
       activeDiet={activeDiet}
       showIcons={showIcons}
+      /* The rail is a client component but the catalogue stays on the
+         server: it takes the two strings it renders, not the locale. */
+      navLabel={t.nav.categories}
+      allLabel={t.nav.all}
     />
   );
 }
@@ -1692,10 +1828,12 @@ function DietTabs({
   active,
   activeCategorySlug,
   offeredDiets,
+  t,
 }: {
   active: string | null;
   activeCategorySlug: string | null;
   offeredDiets: string[];
+  t: MenuCopy;
 }): React.ReactElement {
   const catQs = activeCategorySlug ? `cat=${activeCategorySlug}` : "";
   const buildHref = (diet: string | null): string => {
@@ -1705,11 +1843,18 @@ function DietTabs({
     return parts.length > 0 ? `/?${parts.join("&")}` : `/`;
   };
   return (
-    <nav aria-label="Dietary filter" className="-mx-1 w-full overflow-x-auto">
+    /* `data-diet-filter` is the hook category-tabs.tsx rewrites these
+       hrefs through — the aria-label is translated and must never be a
+       selector. */
+    <nav
+      data-diet-filter=""
+      aria-label={t.nav.dietaryFilter}
+      className="-mx-1 w-full overflow-x-auto"
+    >
       <ul className="mx-auto flex w-max min-w-max items-center gap-1 px-1 text-[10px] uppercase tracking-[0.28em]">
         <li>
           <TabLink href={buildHref(null)} active={active === null} variant="secondary">
-            All diets
+            {t.nav.allDiets}
           </TabLink>
         </li>
         {offeredDiets.map((d) => (
@@ -1717,14 +1862,14 @@ function DietTabs({
             <TabLink href={buildHref(d)} active={active === d} variant="secondary">
               <span
                 aria-hidden="true"
-                className="relative mr-1 inline-block normal-case tracking-normal"
+                className="relative me-1 inline-block normal-case tracking-normal"
               >
                 {DIET_META[d]?.icon}
                 {DIET_META[d]?.crossed ? (
                   <span className="absolute left-1/2 top-1/2 h-[1.5px] w-[1.4em] -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded-full bg-current opacity-90" />
                 ) : null}
               </span>
-              {DIET_META[d]?.label ?? d.replace(/_/g, " ")}
+              {dietLabel(t, d)}
             </TabLink>
           </li>
         ))}
@@ -1742,11 +1887,15 @@ function BadgeRow({
   traces,
   spice = 0,
   dishName,
+  t,
+  locale,
 }: {
   allergens: string[];
   traces: string[];
   spice?: number;
   dishName: string;
+  t: MenuCopy;
+  locale: string;
 }): React.ReactElement | null {
   if (allergens.length === 0 && traces.length === 0 && spice === 0) return null;
   return (
@@ -1755,14 +1904,14 @@ function BadgeRow({
           only spice + the allergen popup, so nothing shows twice. */}
       {spice > 0 ? (
         <span
-          title={`Spicy — level ${Math.min(spice, 3)} of 3`}
+          title={t.badges.spicyTitle(Math.min(spice, 3))}
           className="inline-flex h-6 items-center justify-center rounded-full bg-[var(--menu-danger)]/12 px-1.5 tracking-tighter"
         >
           <span aria-hidden="true">{"🌶".repeat(Math.min(spice, 3))}</span>
-          <span className="sr-only">Spicy, level {Math.min(spice, 3)} of 3</span>
+          <span className="sr-only">{t.badges.spicyLevel(Math.min(spice, 3))}</span>
         </span>
       ) : null}
-      <AllergenDialog allergens={allergens} traces={traces} dishName={dishName} />
+      <AllergenDialog allergens={allergens} traces={traces} dishName={dishName} locale={locale} />
     </div>
   );
 }
@@ -1770,7 +1919,13 @@ function BadgeRow({
 /** Icon chips overlaid on the dish photo — every device. Stacked
  *  VERTICALLY so a long list never spills past the photo's edge; the
  *  wrapper clips at the photo boundary. */
-function PhotoDietBadges({ dietary }: { dietary: string[] }): React.ReactElement | null {
+function PhotoDietBadges({
+  dietary,
+  t,
+}: {
+  dietary: string[];
+  t: MenuCopy;
+}): React.ReactElement | null {
   const known = dietary.filter((d) => DIET_META[d]);
   if (known.length === 0) return null;
   return (
@@ -1778,7 +1933,7 @@ function PhotoDietBadges({ dietary }: { dietary: string[] }): React.ReactElement
       {known.map((d) => (
         <span
           key={d}
-          title={DIET_META[d]!.label}
+          title={dietLabel(t, d)}
           className={`rounded-full bg-black/60 px-1.5 py-0.5 backdrop-blur-sm ${
             d === "halal" ? "text-[9px] font-bold text-emerald-200" : "text-[11px] leading-none"
           }`}
@@ -1789,7 +1944,7 @@ function PhotoDietBadges({ dietary }: { dietary: string[] }): React.ReactElement
               <span className="absolute left-1/2 top-1/2 h-[1.5px] w-[1.4em] -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded-full bg-current opacity-90" />
             ) : null}
           </span>
-          <span className="sr-only">{DIET_META[d]!.label}</span>
+          <span className="sr-only">{dietLabel(t, d)}</span>
         </span>
       ))}
     </div>
@@ -1803,25 +1958,29 @@ function MobileAllergenLine({
   traces,
   spice = 0,
   dishName,
+  t,
+  locale,
 }: {
   allergens: string[];
   traces: string[];
   spice?: number;
   dishName: string;
+  t: MenuCopy;
+  locale: string;
 }): React.ReactElement | null {
   if (allergens.length === 0 && traces.length === 0 && spice === 0) return null;
   return (
     <div className="mt-1 flex items-center gap-1 sm:hidden">
       {spice > 0 ? (
         <span
-          title={`Spicy — level ${Math.min(spice, 3)} of 3`}
+          title={t.badges.spicyTitle(Math.min(spice, 3))}
           className="inline-flex h-6 items-center rounded-full bg-[var(--menu-danger)]/12 px-1.5 text-sm leading-none tracking-tighter"
         >
           <span aria-hidden="true">{"🌶".repeat(Math.min(spice, 3))}</span>
-          <span className="sr-only">Spicy, level {Math.min(spice, 3)} of 3</span>
+          <span className="sr-only">{t.badges.spicyLevel(Math.min(spice, 3))}</span>
         </span>
       ) : null}
-      <AllergenDialog allergens={allergens} traces={traces} dishName={dishName} />
+      <AllergenDialog allergens={allergens} traces={traces} dishName={dishName} locale={locale} />
     </div>
   );
 }
@@ -1830,23 +1989,17 @@ function MobileAllergenLine({
 /* Locale switcher                                                     */
 /* ------------------------------------------------------------------ */
 
-// Flag + native name per menu language. Flags stand for the language, not
-// a country — an imperfect but universally understood convention.
-const LOCALE_META: Record<string, { flag: string; label: string }> = {
-  en: { flag: "🇬🇧", label: "English" },
-  de: { flag: "🇩🇪", label: "Deutsch" },
-  fr: { flag: "🇫🇷", label: "Français" },
-  it: { flag: "🇮🇹", label: "Italiano" },
-  es: { flag: "🇪🇸", label: "Español" },
-  nl: { flag: "🇳🇱", label: "Nederlands" },
-  pl: { flag: "🇵🇱", label: "Polski" },
-  pt: { flag: "🇵🇹", label: "Português" },
-  tr: { flag: "🇹🇷", label: "Türkçe" },
-  ar: { flag: "🇸🇦", label: "العربية" },
-};
+// Flag + native name per menu language, straight off the ONE registry.
+// Flags stand for the language, not a country — an imperfect but
+// universally understood convention.
+const LOCALE_META = new Map<string, { flag: string; label: string }>(
+  LOCALES.map((l) => [l.code as string, { flag: l.flag as string, label: l.label as string }]),
+);
 
 function localeMeta(code: string): { flag: string; label: string } {
-  return LOCALE_META[code.slice(0, 2).toLowerCase()] ?? { flag: "🌐", label: code.toUpperCase() };
+  return (
+    LOCALE_META.get(code.slice(0, 2).toLowerCase()) ?? { flag: "🌐", label: code.toUpperCase() }
+  );
 }
 
 /** Flag dropdown built on <details> — opens upward from the footer and
@@ -1855,14 +2008,22 @@ function localeMeta(code: string): { flag: string; label: string } {
 function LocaleSwitcher({
   current,
   enabled,
+  activeDiet,
+  t,
 }: {
   current: string;
   enabled: string[];
+  /** Carried across the language switch — the locale route parses
+   *  `?diet=`, so the guest keeps the filter they came with. `?cat=` is
+   *  deliberately dropped: the locale route does not read it. */
+  activeDiet: string | null;
+  t: MenuCopy;
 }): React.ReactElement | null {
   if (enabled.length < 2) return null;
   const active = localeMeta(current);
+  const dietQs = activeDiet ? `?diet=${activeDiet}` : "";
   return (
-    <nav aria-label="Language" className="relative">
+    <nav aria-label={t.nav.language} className="relative">
       <details className="group relative">
         <summary
           aria-current="true"
@@ -1882,7 +2043,7 @@ function LocaleSwitcher({
             ▲
           </span>
         </summary>
-        <ul className="absolute bottom-full right-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+        <ul className="absolute bottom-full end-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] sm:start-1/2 sm:end-auto sm:-translate-x-1/2 sm:rtl:translate-x-1/2">
           {enabled.map((l) => {
             const meta = localeMeta(l);
             return l === current ? (
@@ -1895,14 +2056,14 @@ function LocaleSwitcher({
                   {meta.flag}
                 </span>
                 {meta.label}
-                <span aria-hidden="true" className="ml-auto">
+                <span aria-hidden="true" className="ms-auto">
                   ✓
                 </span>
               </li>
             ) : (
               <li key={l}>
                 <a
-                  href={`/${l}`}
+                  href={`/${l}${dietQs}`}
                   hrefLang={l}
                   className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[var(--menu-surface-text,var(--menu-text))] transition-colors hover:bg-[var(--menu-surface-text,var(--menu-text))]/10"
                 >

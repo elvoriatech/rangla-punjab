@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { OpeningHours } from "@/lib/opening-hours";
 import { reservableDates, slotTimesForDate } from "@/lib/opening-hours";
+import { menuCopy } from "@/lib/i18n/menu";
 
 /**
  * Table-reservation dialog on the public menu. The date list holds only
@@ -41,20 +42,31 @@ const CTA =
   "w-full rounded-md bg-[var(--menu-surface-accent,var(--menu-accent))] py-3.5 text-base " +
   "font-semibold text-[var(--menu-on-surface-accent,var(--menu-bg))] hover:opacity-90 disabled:opacity-50";
 
-const DATE_LABEL = new Intl.DateTimeFormat("de-DE", {
-  weekday: "short",
-  day: "2-digit",
-  month: "2-digit",
-});
+/** Day + date, in the guest's language — the formatter was pinned to
+ *  `de-DE`, which handed a Spanish guest "Mi., 12.03." Built per render
+ *  because the locale is a prop; `Intl` caches the heavy work itself. */
+function dateFormatter(locale: string): Intl.DateTimeFormat {
+  try {
+    return new Intl.DateTimeFormat(locale || "en", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+    });
+  } catch {
+    return new Intl.DateTimeFormat("en", { weekday: "short", day: "2-digit", month: "2-digit" });
+  }
+}
 
 export function ReserveDialog({
   slug,
   hours,
   timezone,
+  locale,
 }: {
   slug: string;
   hours: OpeningHours;
   timezone: string;
+  locale: string;
 }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
@@ -67,6 +79,8 @@ export function ReserveDialog({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ date: string; time: string } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const t = menuCopy(locale);
+  const dateLabel = useMemo(() => dateFormatter(locale), [locale]);
 
   // Dates/slots are computed at open time so a dialog left open overnight
   // can't offer yesterday.
@@ -115,16 +129,16 @@ export function ReserveDialog({
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setError(
           body.error === "rate_limited"
-            ? "Too many requests — please try again in a moment."
+            ? t.reserve.errorRateLimited
             : body.error === "invalid_time"
-              ? "That time just became unavailable — please pick another slot."
-              : "Something went wrong — please try again or call us.",
+              ? t.reserve.errorInvalidTime
+              : t.reserve.errorGeneric,
         );
         return;
       }
       setDone({ date, time });
     } catch {
-      setError("Something went wrong — please try again or call us.");
+      setError(t.reserve.errorGeneric);
     } finally {
       setBusy(false);
     }
@@ -143,7 +157,7 @@ export function ReserveDialog({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="z-10 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--menu-accent)] py-1.5 pl-2.5 pr-3 text-xs font-semibold text-[var(--menu-on-accent,#fff)] shadow-sm hover:opacity-90"
+        className="z-10 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--menu-accent)] py-1.5 ps-2.5 pe-3 text-xs font-semibold text-[var(--menu-on-accent,#fff)] shadow-sm hover:opacity-90"
       >
         {/* Inline calendar glyph — no icon library on the guest bundle. */}
         <svg
@@ -158,7 +172,10 @@ export function ReserveDialog({
           <rect x="3" y="5" width="18" height="16" rx="2" />
           <path d="M8 3v4M16 3v4M3 10h18" />
         </svg>
-        Reserve<span className="hidden sm:inline">&nbsp;a table</span>
+        {/* Two whole phrases rather than a word plus a suffix: only
+            English happens to grow the long form by appending. */}
+        <span className="sm:hidden">{t.reserve.buttonShort}</span>
+        <span className="hidden sm:inline">{t.reserve.buttonLong}</span>
       </button>
 
       {open ? (
@@ -172,20 +189,18 @@ export function ReserveDialog({
             ref={dialogRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Reserve a table"
+            aria-label={t.reserve.title}
             className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-[var(--menu-surface)] p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-2xl sm:rounded-2xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-serif text-2xl">Reserve a table</h2>
-                <p className={`mt-1.5 text-sm ${INK_SOFT}`}>
-                  We hold your table for 15 minutes past the reserved time.
-                </p>
+                <h2 className="font-serif text-2xl">{t.reserve.title}</h2>
+                <p className={`mt-1.5 text-sm ${INK_SOFT}`}>{t.reserve.holdNote}</p>
               </div>
               <button
                 type="button"
                 onClick={reset}
-                aria-label="Close"
+                aria-label={t.reserve.close}
                 className="rounded p-1 text-2xl leading-none text-[var(--menu-surface-text-soft,var(--menu-text-soft))] hover:text-[var(--menu-surface-text,var(--menu-text))]"
               >
                 ×
@@ -200,23 +215,21 @@ export function ReserveDialog({
                 >
                   ✓
                 </p>
-                <h3 className="mt-4 font-serif text-xl">Request received!</h3>
+                <h3 className="mt-4 font-serif text-xl">{t.reserve.received}</h3>
                 <p className={`mt-2 text-sm ${INK_SOFT}`}>
-                  {DATE_LABEL.format(new Date(`${done.date}T12:00:00`))} · {done.time} · {guests}{" "}
-                  {guests === 1 ? "guest" : "guests"}
+                  {dateLabel.format(new Date(`${done.date}T12:00:00`))} · {done.time} ·{" "}
+                  {t.reserve.guestCount(guests)}
                 </p>
-                <p className="mt-3 text-sm">
-                  The restaurant will confirm your reservation by phone shortly.
-                </p>
+                <p className="mt-3 text-sm">{t.reserve.confirmByPhone}</p>
                 <button type="button" onClick={reset} className={`mt-6 ${CTA}`}>
-                  Done
+                  {t.reserve.done}
                 </button>
               </div>
             ) : (
               <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block">
-                    <span className={FIELD_LABEL}>Date</span>
+                    <span className={FIELD_LABEL}>{t.reserve.date}</span>
                     <select
                       required
                       value={date}
@@ -227,17 +240,17 @@ export function ReserveDialog({
                       className={FIELD_SELECT}
                     >
                       <option value="" disabled>
-                        Select…
+                        {t.reserve.select}
                       </option>
                       {dates.map((d) => (
                         <option key={d.date} value={d.date}>
-                          {DATE_LABEL.format(new Date(`${d.date}T12:00:00`))}
+                          {dateLabel.format(new Date(`${d.date}T12:00:00`))}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label className="block">
-                    <span className={FIELD_LABEL}>Time</span>
+                    <span className={FIELD_LABEL}>{t.reserve.time}</span>
                     <select
                       required
                       value={time}
@@ -246,7 +259,7 @@ export function ReserveDialog({
                       className={`${FIELD_SELECT} disabled:opacity-60`}
                     >
                       <option value="" disabled>
-                        {date ? "Select…" : "Pick a date"}
+                        {date ? t.reserve.select : t.reserve.pickDateFirst}
                       </option>
                       {slots.map((t) => (
                         <option key={t} value={t}>
@@ -258,7 +271,7 @@ export function ReserveDialog({
                 </div>
 
                 <label className="block">
-                  <span className={FIELD_LABEL}>Guests</span>
+                  <span className={FIELD_LABEL}>{t.reserve.guests}</span>
                   <select
                     value={guests}
                     onChange={(e) => setGuests(Number(e.target.value))}
@@ -266,14 +279,14 @@ export function ReserveDialog({
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                       <option key={n} value={n}>
-                        {n} {n === 1 ? "guest" : "guests"}
+                        {t.reserve.guestCount(n)}
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className="block">
-                  <span className={FIELD_LABEL}>Name</span>
+                  <span className={FIELD_LABEL}>{t.reserve.name}</span>
                   <input
                     type="text"
                     required
@@ -286,7 +299,7 @@ export function ReserveDialog({
                   />
                 </label>
                 <label className="block">
-                  <span className={FIELD_LABEL}>Phone</span>
+                  <span className={FIELD_LABEL}>{t.reserve.phone}</span>
                   <input
                     type="tel"
                     required
@@ -300,13 +313,13 @@ export function ReserveDialog({
                   />
                 </label>
                 <label className="block">
-                  <span className={FIELD_LABEL}>Note (optional)</span>
+                  <span className={FIELD_LABEL}>{t.reserve.note}</span>
                   <input
                     type="text"
                     maxLength={200}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="Birthday, window seat, stroller…"
+                    placeholder={t.reserve.notePlaceholder}
                     className={FIELD}
                   />
                 </label>
@@ -321,11 +334,9 @@ export function ReserveDialog({
                 ) : null}
 
                 <button type="submit" disabled={busy || !date || !time} className={CTA}>
-                  {busy ? "Sending…" : "Request reservation"}
+                  {busy ? t.reserve.sending : t.reserve.submit}
                 </button>
-                <p className={`text-center text-xs ${INK_SOFT}`}>
-                  No payment needed — the restaurant confirms by phone.
-                </p>
+                <p className={`text-center text-xs ${INK_SOFT}`}>{t.reserve.noPayment}</p>
               </form>
             )}
           </div>

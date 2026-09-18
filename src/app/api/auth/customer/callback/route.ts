@@ -42,11 +42,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (state.d && /^[a-z0-9-]{4,40}$/i.test(state.d)) {
     await redis.set(
       `customer-device:${state.d}`,
-      JSON.stringify({
-        status: "ok",
-        token: signedIn.token,
-        customer: { email: signedIn.email, name: signedIn.name },
-      }),
+      // The full profile, identical to what POST /api/auth/customer/google
+      // and GET /api/v1/me return — the app prefills checkout from it and
+      // must not care which sign-in route it came through. A superset of
+      // the old {email, name}, so older builds keep working.
+      JSON.stringify({ status: "ok", token: signedIn.token, customer: signedIn.customer }),
       "EX",
       600,
     );

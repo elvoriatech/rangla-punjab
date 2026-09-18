@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ApiItem } from "./api";
-import { useI18n } from "./i18n";
+import { DIET_ICONS, useI18n } from "./i18n";
 import { colors, fonts, money, radius } from "./theme";
 
 /**
@@ -10,35 +10,10 @@ import { colors, fonts, money, radius } from "./theme";
  * neighbours; everything that gets clipped there lives here: the full
  * description, allergens, traces, diet tags and spice level.
  *
- * Labels are duplicated from src/lib/allergens.ts on purpose: the RN
- * bundle can't import the Next app's modules, and the guest surface must
- * not ship a placeholder like "gluten_free".
+ * The allergen and diet LABELS live in the per-language catalogue
+ * (`i18n.tsx`) alongside every other string — one dictionary, five
+ * languages, no second place to forget a translation.
  */
-
-const ALLERGENS: Record<string, { de: string; en: string }> = {
-  gluten: { de: "Gluten", en: "gluten" },
-  crustaceans: { de: "Krebstiere", en: "crustaceans" },
-  eggs: { de: "Eier", en: "eggs" },
-  fish: { de: "Fisch", en: "fish" },
-  peanuts: { de: "Erdnüsse", en: "peanuts" },
-  soybeans: { de: "Sojabohnen", en: "soybeans" },
-  milk: { de: "Milch", en: "milk" },
-  nuts: { de: "Schalenfrüchte", en: "nuts" },
-  celery: { de: "Sellerie", en: "celery" },
-  mustard: { de: "Senf", en: "mustard" },
-  sesame: { de: "Sesam", en: "sesame" },
-  sulphites: { de: "Sulfite", en: "sulphites" },
-  lupin: { de: "Lupinen", en: "lupin" },
-  molluscs: { de: "Weichtiere", en: "molluscs" },
-};
-
-const DIETARY: Record<string, { de: string; en: string; icon: string }> = {
-  vegetarian: { de: "Vegetarisch", en: "Vegetarian", icon: "🌿" },
-  vegan: { de: "Vegan", en: "Vegan", icon: "🌱" },
-  gluten_free: { de: "Glutenfrei", en: "Gluten-free", icon: "🌾" },
-  dairy_free: { de: "Laktosefrei", en: "Dairy-free", icon: "🥛" },
-  halal: { de: "Halal", en: "Halal", icon: "🕌" },
-};
 
 export function DishSheet({
   item,
@@ -49,9 +24,9 @@ export function DishSheet({
   onClose: () => void;
   onAdd: (item: ApiItem) => void;
 }): React.ReactElement {
-  const { t, lang } = useI18n();
-  const label = (map: Record<string, { de: string; en: string }>, key: string): string =>
-    map[key] ? (lang === "de" ? map[key]!.de : map[key]!.en) : key.replaceAll("_", " ");
+  const { t } = useI18n();
+  const label = (map: Record<string, string>, key: string): string =>
+    map[key] ?? key.replaceAll("_", " ");
 
   return (
     <Modal visible={item !== null} animationType="slide" transparent onRequestClose={onClose}>
@@ -90,7 +65,7 @@ export function DishSheet({
                     {item.dietary.map((d) => (
                       <View key={d} style={styles.tag}>
                         <Text style={styles.tagText}>
-                          {DIETARY[d]?.icon ?? "•"} {label(DIETARY, d)}
+                          {DIET_ICONS[d] ?? "•"} {label(t.dietary, d)}
                         </Text>
                       </View>
                     ))}
@@ -101,7 +76,7 @@ export function DishSheet({
                   <View style={{ gap: 3 }}>
                     <Text style={styles.metaLabel}>{t.dishAllergens}</Text>
                     <Text style={styles.metaValue}>
-                      {item.allergens.map((a) => label(ALLERGENS, a)).join(", ")}
+                      {item.allergens.map((a) => label(t.allergens, a)).join(", ")}
                     </Text>
                   </View>
                 ) : null}
@@ -110,7 +85,7 @@ export function DishSheet({
                   <View style={{ gap: 3 }}>
                     <Text style={styles.metaLabel}>{t.dishTraces}</Text>
                     <Text style={styles.metaValue}>
-                      {item.traces.map((a) => label(ALLERGENS, a)).join(", ")}
+                      {item.traces.map((a) => label(t.allergens, a)).join(", ")}
                     </Text>
                   </View>
                 ) : null}
@@ -152,7 +127,7 @@ const styles = StyleSheet.create({
   close: {
     position: "absolute",
     top: 12,
-    right: 12,
+    end: 12,
     width: 34,
     height: 34,
     borderRadius: 17,
@@ -161,16 +136,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   closeText: { color: colors.onRed, fontSize: 22, lineHeight: 24 },
-  name: { color: colors.ink, fontFamily: fonts.display, fontSize: 23, lineHeight: 29 },
-  price: { color: colors.red, fontFamily: fonts.bodyHeavy, fontSize: 19 },
+  name: { color: colors.ink, ...fonts.display, fontSize: 23, lineHeight: 29 },
+  price: { color: colors.red, ...fonts.bodyHeavy, fontSize: 19 },
   basePrice: {
     color: colors.inkSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 15,
     textDecorationLine: "line-through",
   },
   spice: { fontSize: 14 },
-  description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21 },
+  description: { color: colors.inkSoft, ...fonts.body, fontSize: 14.5, lineHeight: 21 },
   tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: {
     backgroundColor: colors.creamCard,
@@ -180,15 +155,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  tagText: { color: colors.ink, fontFamily: fonts.bodySemi, fontSize: 12 },
+  tagText: { color: colors.ink, ...fonts.bodySemi, fontSize: 12 },
   metaLabel: {
     color: colors.inkSoft,
-    fontFamily: fonts.bodySemi,
+    ...fonts.bodySemi,
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
-  metaValue: { color: colors.ink, fontFamily: fonts.body, fontSize: 13.5, lineHeight: 19 },
+  metaValue: { color: colors.ink, ...fonts.body, fontSize: 13.5, lineHeight: 19 },
   cta: {
     backgroundColor: colors.red,
     borderRadius: radius.pill,
@@ -196,10 +171,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 6,
   },
-  ctaText: { color: colors.onRed, fontFamily: fonts.bodyHeavy, fontSize: 15 },
+  ctaText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 15 },
   soldOut: {
     color: colors.danger,
-    fontFamily: fonts.bodySemi,
+    ...fonts.bodySemi,
     fontSize: 14,
     textAlign: "center",
     marginTop: 6,

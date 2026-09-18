@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useI18n } from "../i18n";
+import { GOOGLE_NATIVE, useAuth } from "../auth";
+import { GoogleButton } from "../google-button";
 import { brand, colors, fonts, hero, logo, radius, scrim } from "../theme";
 
 /**
@@ -46,6 +48,16 @@ export function WelcomeScreen({
   onAccount: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  const auth = useAuth();
+
+  // One tap to an account, right on the launch screen — native Google
+  // where the build supports it, the browser device flow otherwise.
+  async function startGoogle(): Promise<void> {
+    if (auth.busyProvider) return;
+    const outcome = await auth.loginWithGoogle();
+    if (outcome === "unavailable") await auth.login("google");
+  }
+
   return (
     <ImageBackground
       source={hero}
@@ -123,6 +135,16 @@ export function WelcomeScreen({
                 <ActivityIndicator color={colors.ink} />
               )}
             </Pressable>
+            {auth.customer || !auth.googleAvailable ? null : (
+              <View style={styles.googleSlot}>
+                <GoogleButton
+                  label={t.continueWithGoogle}
+                  onPress={() => void startGoogle()}
+                  disabled={!ready}
+                  busy={auth.busyProvider === GOOGLE_NATIVE}
+                />
+              </View>
+            )}
             <Pressable
               onPress={onAccount}
               disabled={!ready}
@@ -165,13 +187,13 @@ const styles = StyleSheet.create({
   brand: {
     color: colors.onRed,
     fontSize: 36,
-    fontFamily: fonts.display,
+    ...fonts.display,
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowRadius: 6,
   },
   ruleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
   rule: { width: 42, height: 1, backgroundColor: colors.goldSoft },
-  sub: { color: colors.goldSoft, fontSize: 12, letterSpacing: 4, fontFamily: fonts.bodyBold },
+  sub: { color: colors.goldSoft, fontSize: 12, letterSpacing: 4, ...fonts.bodyBold },
   ornamentSmall: { width: 150, height: 28, marginTop: 10, opacity: 0.95 },
   featureRow: {
     flexDirection: "row",
@@ -186,18 +208,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 13,
     textAlign: "center",
-    fontFamily: fonts.bodySemi,
+    ...fonts.bodySemi,
   },
   ornamentWide: { width: 220, height: 40, marginTop: 24, opacity: 0.95 },
   welcome: {
     color: colors.onRed,
     fontSize: 30,
-    fontFamily: fonts.displayItalic,
+    ...fonts.displayItalic,
     marginTop: 12,
   },
   tagline: {
     color: colors.goldSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 14,
     textAlign: "center",
     lineHeight: 22,
@@ -211,7 +233,8 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: "center",
   },
-  primaryText: { color: colors.ink, fontFamily: fonts.bodyHeavy, fontSize: 15, letterSpacing: 0.3 },
+  primaryText: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 15, letterSpacing: 0.3 },
+  googleSlot: { alignSelf: "stretch", marginTop: 12 },
   secondaryBtn: {
     alignSelf: "stretch",
     borderWidth: 1.5,
@@ -221,6 +244,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
-  secondaryText: { color: colors.onRed, fontFamily: fonts.bodyBold, fontSize: 14 },
-  error: { color: colors.onRed, fontFamily: fonts.body, fontSize: 14, marginBottom: 12 },
+  secondaryText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 14 },
+  error: { color: colors.onRed, ...fonts.body, fontSize: 14, marginBottom: 12 },
 });

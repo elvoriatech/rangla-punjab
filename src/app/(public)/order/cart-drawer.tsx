@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { MessagePopup } from "@/components/message-popup";
 import { acceptedPaymentIds, PaymentMarks } from "../payment-marks";
+import { checkoutCopy } from "@/lib/i18n/checkout";
+import { dirFor, uiLocale } from "@/lib/locales";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 import {
   EMPTY_CART,
@@ -101,16 +104,33 @@ export interface DrawerModes {
   deliveryMinCents: number;
 }
 
+/** The label is a catalogue KEY — the words come from `checkoutCopy`, so
+ *  this table stays language-free. */
 const TYPE_META: {
   type: OrderType;
   icon: string;
-  label: string;
+  label: "dineIn" | "takeaway" | "delivery";
   enabled: (m: DrawerModes) => boolean;
 }[] = [
-  { type: "dine_in", icon: "🍽", label: "Dine-in", enabled: (m) => m.dineIn },
-  { type: "takeaway", icon: "🥡", label: "Pickup", enabled: (m) => m.takeaway },
-  { type: "delivery", icon: "🛵", label: "Delivery", enabled: (m) => m.delivery },
+  { type: "dine_in", icon: "🍽", label: "dineIn", enabled: (m) => m.dineIn },
+  { type: "takeaway", icon: "🥡", label: "takeaway", enabled: (m) => m.takeaway },
+  { type: "delivery", icon: "🛵", label: "delivery", enabled: (m) => m.delivery },
 ];
+
+/** The slice of `GET /api/v1/me` the drawer prefills from. Every field is
+ *  optional on purpose: older deployments answer with `{email,name}` only,
+ *  and the drawer must not care. */
+interface CustomerProfile {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  lastDeliveryAddress?: {
+    street?: string | null;
+    zip?: string | null;
+    city?: string | null;
+    note?: string | null;
+  } | null;
+}
 
 /* ------------------------------------------------------------------------- *
  * Control recipes — fill as the affordance, not a border.
@@ -147,6 +167,11 @@ const TYPE_META: {
  *  Ink is the ring color because ink-vs-surface is the one pair guaranteed on
  *  every theme AND every backdrop pairing; `outline-offset-2` keeps the surface
  *  between ring and control so the ring's adjacent color is always the ground. */
+/** Arabic is cursive: `uppercase` does nothing to it and `letter-spacing`
+ *  pulls joined letters apart, so every small-caps label drops both when the
+ *  page is RTL. Spelled out literally — Tailwind scans source text. */
+const RTL_TYPE = " rtl:normal-case rtl:tracking-normal";
+
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-text,var(--menu-text))]";
 
@@ -158,7 +183,9 @@ const ICON_BTN =
 
 /** Secondary pill. */
 const QUIET_BTN =
-  "flex items-center justify-center gap-2 rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/7 px-4 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-[var(--menu-surface-text,var(--menu-text))] transition hover:bg-[var(--menu-surface-text,var(--menu-text))]/13 active:scale-[0.98] " +
+  "flex items-center justify-center gap-2 rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/7 px-4 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-[var(--menu-surface-text,var(--menu-text))] transition hover:bg-[var(--menu-surface-text,var(--menu-text))]/13 active:scale-[0.98]" +
+  RTL_TYPE +
+  " " +
   FOCUS_RING;
 
 /** Destructive pill: neutral at rest, danger wash on hover, danger ICON only —
@@ -166,7 +193,9 @@ const QUIET_BTN =
  *  onto QUIET_BTN because two competing `hover:bg-*` utilities resolve by
  *  Tailwind's sort order, not by their order in the string. */
 const DANGER_BTN =
-  "flex items-center justify-center gap-2 rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/7 px-4 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-[var(--menu-surface-text,var(--menu-text))] transition hover:bg-[var(--menu-danger)]/12 [&_svg]:transition-colors hover:[&_svg]:text-[var(--menu-danger)] active:scale-[0.98] " +
+  "flex items-center justify-center gap-2 rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/7 px-4 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-[var(--menu-surface-text,var(--menu-text))] transition hover:bg-[var(--menu-danger)]/12 [&_svg]:transition-colors hover:[&_svg]:text-[var(--menu-danger)] active:scale-[0.98]" +
+  RTL_TYPE +
+  " " +
   FOCUS_RING;
 
 /** Per-row remove: no fill at rest, because one of these sits in every row and
@@ -215,7 +244,9 @@ const FIELD_READONLY =
 const FIELD_LABEL = "text-[var(--menu-surface-text-soft,var(--menu-text-soft))]";
 
 const CTA_BASE =
-  "block w-full rounded-full px-5 py-3 text-center text-sm uppercase tracking-[0.14em] transition ";
+  "block w-full rounded-full px-5 py-3 text-center text-sm uppercase tracking-[0.14em] transition" +
+  RTL_TYPE +
+  " ";
 
 /** The one dominant fill on the screen. `--menu-on-surface-accent` rather than
  *  `--menu-bg`, which is ~3.5:1 on fresh-bistro's accent — an AA failure on the
@@ -284,7 +315,9 @@ const CTA_SECONDARY =
 
 /** Tertiary: no fill, no border — the underline identifies it as a control. */
 const CTA_LINK =
-  "block w-full rounded-full px-5 py-2.5 text-center text-xs uppercase tracking-[0.14em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))] underline decoration-1 underline-offset-4 transition hover:text-[var(--menu-surface-text,var(--menu-text))] " +
+  "block w-full rounded-full px-5 py-2.5 text-center text-xs uppercase tracking-[0.14em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))] underline decoration-1 underline-offset-4 transition hover:text-[var(--menu-surface-text,var(--menu-text))]" +
+  RTL_TYPE +
+  " " +
   FOCUS_RING;
 
 export function CartDrawer({
@@ -312,6 +345,10 @@ export function CartDrawer({
     () => EMPTY_CART,
   );
   const [open, setOpen] = useState(false);
+  const t = checkoutCopy(locale);
+  // Guest-copy locale for links we hand on (receipt PDF, tracker): the
+  // venue locale collapsed to a language those surfaces can render.
+  const copyLocale = uiLocale(locale);
 
   // Bottom-sheet scroll on touch devices: while the sheet is open, lock
   // the page behind it. Without this a swipe on the sheet scrolls the
@@ -349,6 +386,56 @@ export function CartDrawer({
   const attemptRef = useRef<{ key: string; signature: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Prefill from the signed-in customer, once, the first time the sheet
+   * opens (plan decision 10).
+   *
+   * Deliberately not on render: the menu page is static and edge-cached,
+   * so the profile read has to be a client-side effect behind a guest
+   * action. It reads no cookie itself — the browser attaches the session
+   * cookie to a same-origin request — and writes nothing to storage.
+   * Not signed in (401), offline, or a response without the newer fields:
+   * nothing happens and the guest types as before.
+   */
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (!open || prefilled.current) return;
+    prefilled.current = true;
+    let cancelled = false;
+    const fillIfEmpty = (setter: Dispatch<SetStateAction<string>>, value: unknown): void => {
+      if (cancelled || typeof value !== "string" || !value.trim()) return;
+      const next = value.trim();
+      setter((prev) => (prev.trim() ? prev : next));
+    };
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/me", { credentials: "include" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { customer?: CustomerProfile } | null;
+        const me = body?.customer;
+        if (!me) return;
+        fillIfEmpty(setCustomerName, me.name);
+        fillIfEmpty(setCustomerEmail, me.email);
+        fillIfEmpty(setCustomerPhone, me.phone);
+        const addr = me.lastDeliveryAddress;
+        if (!addr) return;
+        fillIfEmpty(setStreet, addr.street);
+        fillIfEmpty(setNote, addr.note);
+        // Only when the ZIP is one this venue actually delivers to —
+        // otherwise the <select> would carry a value with no option.
+        const zipKnown =
+          modes.deliveryAreas.length === 0 ||
+          modes.deliveryAreas.some((a) => a.zip === addr.zip?.trim());
+        if (zipKnown) fillIfEmpty(setZip, addr.zip);
+      } catch {
+        // Offline, blocked, or a non-JSON body — the form stays empty.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, modes.deliveryAreas]);
+
   const count = cartCount(lines);
   const itemsTotal = cartTotalCents(lines);
   // Per-ZIP delivery areas: the selected row sets fee + minimum (fee
@@ -383,7 +470,7 @@ export function CartDrawer({
    *  `download`, clicked inside the guest's own tap so browsers allow it. */
   function downloadReceipt(order: PlacedOrder): void {
     const a = document.createElement("a");
-    a.href = `/api/orders/${order.orderId}/receipt?token=${encodeURIComponent(order.receiptToken)}&locale=${locale.startsWith("de") ? "de" : "en"}`;
+    a.href = `/api/orders/${order.orderId}/receipt?token=${encodeURIComponent(order.receiptToken)}&locale=${copyLocale}`;
     a.download = `receipt-${String(order.orderNumber).padStart(4, "0")}.pdf`;
     a.rel = "noopener";
     document.body.appendChild(a);
@@ -408,16 +495,14 @@ export function CartDrawer({
       });
       const body = (await res.json().catch(() => null)) as { url?: string } | null;
       if (res.ok && body?.url) {
-        location.href = body.url;
+        // `assign` rather than `location.href =`: the same navigation, but
+        // a call the lint rules don't read as mutating a global.
+        window.location.assign(body.url);
         return; // keep the button busy while the page unloads
       }
-      setError(
-        method === "paypal"
-          ? "PayPal couldn't be opened — your order is saved; try the PayPal button below or pay at the restaurant."
-          : "Card payment couldn't be opened — your order is saved; try the button below or pay at the restaurant.",
-      );
+      setError(method === "paypal" ? t.errPaypalOpen : t.errCardOpen);
     } catch {
-      setError("No connection — your order is saved; try paying again below.");
+      setError(t.errPayRetry);
     }
     setPayStarting(false);
   }
@@ -472,18 +557,18 @@ export function CartDrawer({
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         setError(
           body?.error === "unknown_items"
-            ? "The menu changed while you were ordering. Please review your items and try again."
+            ? t.errUnknownItems
             : body?.error === "rate_limited"
-              ? "Too many orders from this connection — please wait a minute."
+              ? t.errRateLimited
               : body?.error === "type_not_available"
-                ? "This order type just went offline — pick another option."
+                ? t.errTypeNotAvailable
                 : body?.error === "outside_delivery_area"
-                  ? "Sorry, that address is outside the delivery area."
+                  ? t.errOutsideArea
                   : body?.error === "below_delivery_minimum"
-                    ? `Delivery starts at ${money(areaMin)} — add a little more.`
+                    ? t.errBelowMinimum(money(areaMin))
                     : body?.error === "invalid_time"
-                      ? "That time just passed or is outside opening hours — pick another."
-                      : "The order didn't go through. Please try again.",
+                      ? t.errInvalidTime
+                      : t.errGeneric,
         );
         return;
       }
@@ -500,47 +585,49 @@ export function CartDrawer({
       // Cash: the order is final now — hand over the receipt straight away.
       else downloadReceipt(value);
     } catch {
-      setError("No connection — check your network and try again.");
+      setError(t.errNoConnection);
     } finally {
       setPlacing(false);
     }
   }
 
   const receiptHref = placed
-    ? `/api/orders/${placed.orderId}/receipt?token=${encodeURIComponent(placed.receiptToken)}&locale=${locale.startsWith("de") ? "de" : "en"}`
+    ? `/api/orders/${placed.orderId}/receipt?token=${encodeURIComponent(placed.receiptToken)}&locale=${copyLocale}`
     : "#";
   const trackHref = placed
-    ? `/order-status/${placed.orderId}?token=${encodeURIComponent(placed.receiptToken)}`
+    ? `/order-status/${placed.orderId}?token=${encodeURIComponent(placed.receiptToken)}&locale=${copyLocale}`
     : "#";
   /** Whether the confirmation screen already has a dominant pay CTA. When it
    *  doesn't, "Track your order" is the primary action and takes that weight. */
   const hasPaymentCta = onlinePayment || paypalPayment;
 
   return (
-    <div className="menu-theme">
+    /* `dir` here as well as on <html>: the sheet is a fixed overlay, and
+       this keeps it mirrored even if it is ever portalled elsewhere. */
+    <div className="menu-theme" dir={dirFor(locale)}>
       {/* Floating bar */}
       {!open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
           className={
-            "menu-pop fixed bottom-4 right-4 z-30 flex items-center gap-3 rounded-full bg-[var(--menu-surface)] px-5 py-3 text-sm font-medium text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] transition-transform hover:scale-[1.03] active:scale-95 " +
+            "menu-pop fixed bottom-4 end-4 z-30 flex items-center gap-3 rounded-full bg-[var(--menu-surface)] px-5 py-3 text-sm font-medium text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] transition-transform hover:scale-[1.03] active:scale-95 " +
             FOCUS_RING
           }
         >
           {placed ? (
             <span className="text-[var(--menu-surface-accent,var(--menu-accent))]">
-              Order #{placed.orderNumber} ✓
+              {t.placedBadge(String(placed.orderNumber))}
             </span>
           ) : (
             <>
               <span className="relative inline-flex" aria-hidden="true">
                 <CartIcon className="h-5 w-5 text-[var(--menu-surface-accent,var(--menu-accent))]" />
-                <span className="absolute -right-2.5 -top-2 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-[var(--menu-accent)] px-1 text-[10px] font-bold leading-none text-[var(--menu-on-accent,var(--menu-bg))]">
+                <span className="absolute -end-2.5 -top-2 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-[var(--menu-accent)] px-1 text-[10px] font-bold leading-none text-[var(--menu-on-accent,var(--menu-bg))]">
                   {count}
                 </span>
               </span>
-              <span className="ml-1">Your order</span>
+              <span className="ms-1">{t.yourOrder}</span>
               {/* Ink, not accent: 14px semibold in accent is 3.28:1 on
                   fresh-bistro. Gold is reserved for the TOTAL. */}
               <span className="font-semibold">{money(total)}</span>
@@ -553,12 +640,12 @@ export function CartDrawer({
       {open ? (
         <div
           role="dialog"
-          aria-label="Your order"
+          aria-label={t.yourOrder}
           /* The ONE surviving four-sided border, re-based from `--menu-line` to
              ink/10: a dark sheet on a dark ground needs an edge and the shadow
              alone will not carry it, but it must be the same faint step off the
              surface on every theme rather than a gold rule on one. */
-          className="menu-sheet fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[85vh] w-full max-w-lg touch-pan-y overflow-y-auto overscroll-contain rounded-t-2xl supports-[height:100dvh]:max-h-[85dvh] border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-5 text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_-24px_48px_-24px_rgba(0,0,0,0.55)] sm:bottom-4 sm:right-4 sm:mx-0 sm:ml-auto sm:rounded-2xl"
+          className="menu-sheet fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[85vh] w-full max-w-lg touch-pan-y overflow-y-auto overscroll-contain rounded-t-2xl supports-[height:100dvh]:max-h-[85dvh] border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-5 text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_-24px_48px_-24px_rgba(0,0,0,0.55)] sm:bottom-4 sm:end-4 sm:mx-0 sm:ms-auto sm:rounded-2xl"
         >
           <div className="flex items-center justify-between gap-4">
             <h2 className="flex items-center gap-2.5 font-serif text-2xl">
@@ -568,12 +655,12 @@ export function CartDrawer({
               >
                 <CartIcon className="h-4.5 w-4.5 text-[var(--menu-surface-accent,var(--menu-accent))]" />
               </span>
-              {placed ? `Order #${placed.orderNumber}` : "Your order"}
+              {placed ? t.headingPlaced(String(placed.orderNumber)) : t.yourOrder}
             </h2>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              aria-label="Close order panel"
+              aria-label={t.close}
               className={ICON_BTN}
             >
               ✕
@@ -583,21 +670,19 @@ export function CartDrawer({
           {placed ? (
             <div className="mt-4 space-y-4">
               <p className="text-sm leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                Your order is in — the staff sees it as{" "}
+                {t.placedIntro}{" "}
                 <span className="font-semibold text-[var(--menu-surface-text,var(--menu-text))]">
-                  order #{placed.orderNumber}
+                  {t.placedRef(String(placed.orderNumber))}
                 </span>
-                {tableNumber.trim() ? ` for table ${tableNumber.trim()}` : ""}. Total{" "}
+                {tableNumber.trim() ? t.placedForTable(tableNumber.trim()) : ""}. {t.total}{" "}
                 {/* Ink, not accent: 14px semibold, same 3.28:1 reason. */}
                 <span className="font-semibold text-[var(--menu-surface-text,var(--menu-text))]">
                   {money(placed.totalCents)}
                 </span>{" "}
-                (incl. {VAT_RATE_LABEL}% VAT {money(vatFromGross(placed.totalCents))})
-                {payMethod === "cash"
-                  ? ", payable at the restaurant. Your receipt is downloading."
-                  : "."}
+                ({t.vatIncluded(VAT_RATE_LABEL, money(vatFromGross(placed.totalCents)))})
+                {payMethod === "cash" ? t.placedCashTail : "."}
                 {customerEmail.trim()
-                  ? ` We'll email your receipt to ${customerEmail.trim()}${payMethod === "cash" ? "" : " once the payment is confirmed"}.`
+                  ? t.placedEmailTail(customerEmail.trim(), payMethod !== "cash")
                   : ""}
               </p>
               {error ? <MessagePopup kind="error" text={error} /> : null}
@@ -608,7 +693,7 @@ export function CartDrawer({
                   onClick={() => void startPayment(placed, "card")}
                   className={CTA_PAY}
                 >
-                  {payStarting ? "Opening payment…" : `Pay online · ${money(placed.totalCents)}`}
+                  {payStarting ? t.openingPayment : t.payOnline(money(placed.totalCents))}
                 </button>
               ) : null}
               {paypalPayment && placed ? (
@@ -621,11 +706,13 @@ export function CartDrawer({
                      only hard-coded hex in the file and the only four-sided
                      border besides the sheet's own edge. Do not "theme" it. */
                   className={
-                    "block w-full rounded-full border-2 border-[#003087] bg-[#ffc439] px-5 py-3 text-center text-sm font-bold uppercase tracking-[0.14em] text-[#003087] transition hover:opacity-90 active:scale-[0.985] disabled:opacity-60 " +
+                    "block w-full rounded-full border-2 border-[#003087] bg-[#ffc439] px-5 py-3 text-center text-sm font-bold uppercase tracking-[0.14em] text-[#003087] transition hover:opacity-90 active:scale-[0.985] disabled:opacity-60" +
+                    RTL_TYPE +
+                    " " +
                     FOCUS_RING
                   }
                 >
-                  {payStarting ? "Opening PayPal…" : "Mit PayPal zahlen"}
+                  {payStarting ? t.openingPaypal : t.payWithPaypal}
                 </button>
               ) : null}
               {/* One dominant fill, then a wash, then text links. This stack
@@ -633,10 +720,10 @@ export function CartDrawer({
                   and the PDF download shouted as loudly as paying. Track is
                   promoted to primary only when there is nothing left to pay. */}
               <a href={trackHref} className={hasPaymentCta ? CTA_SECONDARY : CTA_PRIMARY}>
-                Track your order
+                {t.trackOrder}
               </a>
               <a href={receiptHref} className={CTA_LINK}>
-                Download receipt (PDF)
+                {t.downloadReceipt}
               </a>
               <button
                 type="button"
@@ -647,7 +734,7 @@ export function CartDrawer({
                 }}
                 className={CTA_LINK}
               >
-                Start a new order
+                {t.startNewOrder}
               </button>
             </div>
           ) : (
@@ -655,7 +742,7 @@ export function CartDrawer({
               {/* No dividers. Rows are separated by proximity instead: the
                   inter-row gap (16px) is more than twice the largest gap inside
                   a row, the tinted qty cluster anchors each one, and the price
-                  is right-aligned. A faint hairline was the alternative and it
+                  sits on the end edge. A faint hairline was the alternative and it
                   composites to ~1.15:1 — the same mush this replaced, and the
                   first thing to disappear on a phone in daylight. */}
               <ul className="mt-4 space-y-4">
@@ -664,13 +751,13 @@ export function CartDrawer({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{line.name}</p>
                       <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                        {money(line.priceCents)} each
+                        {t.each(money(line.priceCents))}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        aria-label={`One less ${line.name}`}
+                        aria-label={t.oneLess(line.name)}
                         onClick={() => setQuantity(slug, line.itemId, line.quantity - 1)}
                         className={ICON_BTN + " text-base leading-none"}
                       >
@@ -679,7 +766,7 @@ export function CartDrawer({
                       <span className="w-6 text-center text-sm tabular-nums">{line.quantity}</span>
                       <button
                         type="button"
-                        aria-label={`One more ${line.name}`}
+                        aria-label={t.oneMore(line.name)}
                         onClick={() => setQuantity(slug, line.itemId, line.quantity + 1)}
                         className={ICON_BTN + " text-base leading-none"}
                       >
@@ -689,15 +776,15 @@ export function CartDrawer({
                     {/* Ink, not accent — 14px semibold accent is 3.28:1 on
                         fresh-bistro, and reserving gold for the TOTAL alone
                         makes the total read as the summary it is. */}
-                    <p className="w-20 text-right text-sm font-semibold tabular-nums">
+                    <p className="w-20 text-end text-sm font-semibold tabular-nums">
                       {money(line.priceCents * line.quantity)}
                     </p>
                     {/* Remove the whole line in one tap — quicker than
                         stepping the quantity down to zero. */}
                     <button
                       type="button"
-                      aria-label={`Remove ${line.name} from the order`}
-                      title="Remove"
+                      aria-label={t.removeLine(line.name)}
+                      title={t.remove}
                       onClick={() => setQuantity(slug, line.itemId, 0)}
                       className={ROW_DELETE_BTN}
                     >
@@ -721,15 +808,15 @@ export function CartDrawer({
                   only line in the list region. Re-based to ink/12 so it is
                   actually visible on all 19 themes instead of 1.2:1 on 17. */}
               <div className="mt-4 flex items-center justify-between border-t border-[var(--menu-surface-text,var(--menu-text))]/12 pt-3">
-                <span className="text-sm uppercase tracking-[0.18em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                  Total
+                <span className="text-sm uppercase tracking-[0.18em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                  {t.total}
                 </span>
                 <span className="font-serif text-2xl font-semibold text-[var(--menu-surface-accent,var(--menu-accent))]">
                   {money(total)}
                 </span>
               </div>
-              <p className="mt-1 text-right text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                incl. {VAT_RATE_LABEL}% VAT (MwSt.) {money(vatFromGross(total))}
+              <p className="mt-1 text-end text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                {t.vatIncluded(VAT_RATE_LABEL, money(vatFromGross(total)))}
               </p>
 
               {/* Cart actions: empty the whole order, or hop back to the
@@ -737,18 +824,18 @@ export function CartDrawer({
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => clearCart(slug)} className={DANGER_BTN}>
                   <TrashIcon className="h-4 w-4" />
-                  Clear cart
+                  {t.clearCart}
                 </button>
                 <button type="button" onClick={() => setOpen(false)} className={QUIET_BTN}>
                   <PlusIcon className="h-4 w-4" />
-                  Add items
+                  {t.addItems}
                 </button>
               </div>
 
               {enabledTypes.length > 1 ? (
                 <div
                   role="radiogroup"
-                  aria-label="Order type"
+                  aria-label={t.orderTypeGroup}
                   /* Was a hardcoded grid-cols-3, so two enabled modes rendered
                      at a third of the width beside a dead column. Both literals
                      must appear in source for Tailwind to emit them. */
@@ -758,26 +845,26 @@ export function CartDrawer({
                       : "mt-4 grid grid-cols-3 gap-2"
                   }
                 >
-                  {enabledTypes.map((t) => (
+                  {enabledTypes.map((mode) => (
                     <button
-                      key={t.type}
+                      key={mode.type}
                       type="button"
                       role="radio"
-                      aria-checked={orderType === t.type}
-                      onClick={() => setOrderType(t.type)}
-                      className={orderType === t.type ? CHIP_ON : CHIP_IDLE}
+                      aria-checked={orderType === mode.type}
+                      onClick={() => setOrderType(mode.type)}
+                      className={orderType === mode.type ? CHIP_ON : CHIP_IDLE}
                     >
                       <span aria-hidden="true" className="block text-base">
-                        {t.icon}
+                        {mode.icon}
                       </span>
-                      {t.label}
+                      {t[mode.label]}
                       {/* Selection needs three simultaneous signals, because the
                           wash alone is 1.17:1 against the surface and 1.4.1
                           forbids color as the only carrier: hue (accent wash vs
                           neutral), weight (semibold), and this solid bar, which
                           carries the ≥3:1 state contrast as a FILL rather than a
                           border. Reads as a segmented control. */}
-                      {orderType === t.type ? (
+                      {orderType === mode.type ? (
                         <span
                           aria-hidden="true"
                           className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
@@ -790,20 +877,20 @@ export function CartDrawer({
 
               {orderType === "dine_in" ? (
                 <label className="mt-3 block text-sm">
-                  <span className={FIELD_LABEL}>Table number (optional)</span>
+                  <span className={FIELD_LABEL}>{t.tableNumber}</span>
                   <input
                     type="text"
                     value={tableNumber}
                     maxLength={20}
                     onChange={(e) => setTableNumber(e.target.value)}
-                    placeholder="e.g. 12"
+                    placeholder={t.tableNumberPlaceholder}
                     className={FIELD}
                   />
                 </label>
               ) : (
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-sm">
-                    <span className={FIELD_LABEL}>Your name</span>
+                    <span className={FIELD_LABEL}>{t.yourName}</span>
                     <input
                       type="text"
                       value={customerName}
@@ -814,21 +901,21 @@ export function CartDrawer({
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className={FIELD_LABEL}>Phone number</span>
+                    <span className={FIELD_LABEL}>{t.phone}</span>
                     <input
                       type="tel"
                       value={customerPhone}
                       maxLength={30}
                       required
                       onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="+49 …"
+                      placeholder={t.phonePlaceholder}
                       className={FIELD}
                     />
                   </label>
                   {requestSlots.length > 0 ? (
                     <label className="block text-sm sm:col-span-2">
                       <span className={FIELD_LABEL}>
-                        {orderType === "delivery" ? "Delivery time" : "Pickup time"}
+                        {orderType === "delivery" ? t.deliveryTime : t.pickupTime}
                       </span>
                       {/* ASAP is the default; the slots are later-today
                           times inside opening hours (server re-checks). */}
@@ -837,7 +924,7 @@ export function CartDrawer({
                         onChange={(e) => setRequestedTime(e.target.value)}
                         className={FIELD_SELECT}
                       >
-                        <option value="">As soon as possible</option>
+                        <option value="">{t.asap}</option>
                         {requestSlots.map((t) => (
                           <option key={t} value={t}>
                             {t}
@@ -849,7 +936,7 @@ export function CartDrawer({
                 </div>
               )}
               <label className="mt-3 block text-sm">
-                <span className={FIELD_LABEL}>Email (optional) — we&apos;ll send your receipt</span>
+                <span className={FIELD_LABEL}>{t.email}</span>
                 <input
                   type="email"
                   inputMode="email"
@@ -857,7 +944,7 @@ export function CartDrawer({
                   value={customerEmail}
                   maxLength={120}
                   onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={t.emailPlaceholder}
                   className={FIELD}
                 />
               </label>
@@ -865,7 +952,7 @@ export function CartDrawer({
               {orderType === "delivery" ? (
                 <div className="mt-3 space-y-3">
                   <label className="block text-sm">
-                    <span className={FIELD_LABEL}>Street and house number</span>
+                    <span className={FIELD_LABEL}>{t.street}</span>
                     <input
                       type="text"
                       value={street}
@@ -878,7 +965,7 @@ export function CartDrawer({
                   {modes.deliveryAreas.length > 0 ? (
                     <div className="grid grid-cols-[minmax(0,130px)_1fr] gap-3">
                       <label className="block text-sm">
-                        <span className={FIELD_LABEL}>ZIP</span>
+                        <span className={FIELD_LABEL}>{t.zip}</span>
                         {/* The restaurant delivers to a fixed ZIP list, so
                             the guest PICKS their area instead of typing —
                             "do you deliver here?" answers itself. */}
@@ -889,7 +976,7 @@ export function CartDrawer({
                           className={FIELD_SELECT}
                         >
                           <option value="" disabled>
-                            Select…
+                            {t.selectPlaceholder}
                           </option>
                           {modes.deliveryAreas.map((a) => (
                             <option key={a.zip} value={a.zip}>
@@ -899,7 +986,7 @@ export function CartDrawer({
                         </select>
                       </label>
                       <label className="block text-sm">
-                        <span className={FIELD_LABEL}>City / Community / Village</span>
+                        <span className={FIELD_LABEL}>{t.city}</span>
                         {/* Filled automatically from the selected ZIP — the
                             restaurant named this area, the guest never
                             types it. */}
@@ -908,14 +995,14 @@ export function CartDrawer({
                           value={selectedArea?.locality ?? ""}
                           readOnly
                           tabIndex={-1}
-                          placeholder="— select your ZIP —"
+                          placeholder={t.cityPlaceholder}
                           className={FIELD_READONLY}
                         />
                       </label>
                     </div>
                   ) : (
                     <label className="block max-w-[150px] text-sm">
-                      <span className={FIELD_LABEL}>ZIP</span>
+                      <span className={FIELD_LABEL}>{t.zip}</span>
                       <input
                         type="text"
                         value={zip}
@@ -929,29 +1016,29 @@ export function CartDrawer({
                   {selectedArea && selectedArea.freeOverCents > 0 ? (
                     <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                       {itemsTotal >= selectedArea.freeOverCents
-                        ? "Free delivery to this area 🎉"
-                        : `Free delivery from ${money(selectedArea.freeOverCents)}`}
+                        ? t.freeDeliveryHere
+                        : t.freeDeliveryFrom(money(selectedArea.freeOverCents))}
                     </p>
                   ) : null}
                   <label className="block text-sm">
-                    <span className={FIELD_LABEL}>Delivery note (optional)</span>
+                    <span className={FIELD_LABEL}>{t.deliveryNote}</span>
                     <input
                       type="text"
                       value={note}
                       maxLength={200}
-                      placeholder="e.g. ring twice, 3rd floor"
+                      placeholder={t.deliveryNotePlaceholder}
                       onChange={(e) => setNote(e.target.value)}
                       className={FIELD}
                     />
                   </label>
                   {feeCents > 0 ? (
                     <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                      Delivery fee {money(feeCents)}
-                      {areaMin > 0 ? ` · minimum order ${money(areaMin)}` : ""}
+                      {t.deliveryFee(money(feeCents))}
+                      {areaMin > 0 ? t.minimumOrderSuffix(money(areaMin)) : ""}
                     </p>
                   ) : areaMin > 0 ? (
                     <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                      Minimum order {money(areaMin)}
+                      {t.minimumOrder(money(areaMin))}
                     </p>
                   ) : null}
                 </div>
@@ -969,23 +1056,19 @@ export function CartDrawer({
                 const blocked = busy || count === 0 || detailsMissing || belowMinimum;
                 const cashLabel =
                   orderType === "delivery"
-                    ? "Cash to driver"
+                    ? t.cashToDriver
                     : orderType === "takeaway"
-                      ? "Pay at pickup"
-                      : "Pay at table";
+                      ? t.payAtPickup
+                      : t.payAtTable;
                 const cols = 1 + (onlinePayment ? 1 : 0) + (paypalPayment ? 1 : 0);
                 const gridCols =
                   cols === 3 ? "grid-cols-3" : cols === 2 ? "grid-cols-2" : "grid-cols-1";
                 const text = (method: PayMethod, idle: string): string =>
-                  busy && payMethod === method
-                    ? method === "cash"
-                      ? "Placing…"
-                      : "Opening…"
-                    : idle;
+                  busy && payMethod === method ? (method === "cash" ? t.placing : t.opening) : idle;
                 return (
-                  <div className="mt-4" role="group" aria-label="Place order and pay">
-                    <p className="mb-2 text-center text-[11px] uppercase tracking-[0.18em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                      {onlinePayment || paypalPayment ? "Pay" : "Place order"} · {money(total)}
+                  <div className="mt-4" role="group" aria-label={t.payGroup}>
+                    <p className="mb-2 text-center text-[11px] uppercase tracking-[0.18em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                      {onlinePayment || paypalPayment ? t.pay : t.placeOrder} · {money(total)}
                     </p>
                     <div className={"grid gap-2 " + gridCols}>
                       {onlinePayment ? (
@@ -996,7 +1079,7 @@ export function CartDrawer({
                           className={PAY_TILE + PAY_TILE_CARD}
                         >
                           <CardIcon className="h-6 w-6" />
-                          <span>{text("card", "Card")}</span>
+                          <span>{text("card", t.card)}</span>
                         </button>
                       ) : null}
                       {paypalPayment ? (
@@ -1013,7 +1096,7 @@ export function CartDrawer({
                           <span aria-hidden="true" className="text-lg font-black italic leading-6">
                             P
                           </span>
-                          <span>{text("paypal", "PayPal")}</span>
+                          <span>{text("paypal", t.paypal)}</span>
                         </button>
                       ) : null}
                       <button
@@ -1034,17 +1117,17 @@ export function CartDrawer({
               })()}
               {belowMinimum ? (
                 <p className="mt-2 text-center text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                  Delivery starts at {money(areaMin)} — add {money(areaMin - itemsTotal)} more.
+                  {t.belowMinimum(money(areaMin), money(areaMin - itemsTotal))}
                 </p>
               ) : (
                 <p className="mt-2 text-center text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                   {onlinePayment || paypalPayment
-                    ? "Card and PayPal open a secure payment page once your order is saved; nothing is charged before you confirm there. Your receipt downloads automatically afterwards."
+                    ? t.explainerOnline
                     : orderType === "delivery"
-                      ? "No payment online — you pay the driver."
+                      ? t.explainerDelivery
                       : orderType === "takeaway"
-                        ? "No payment online — you pay at pickup."
-                        : "No payment now — you pay at the restaurant."}
+                        ? t.explainerPickup
+                        : t.explainerDineIn}
                 </p>
               )}
               {/* The brands the enabled rails can actually charge, on the
@@ -1053,8 +1136,8 @@ export function CartDrawer({
                   Visa / Mastercard / Amex; PayPal appears on its own rail. */}
               {onlinePayment || paypalPayment ? (
                 <div className="mt-3 flex flex-col items-center gap-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                    We accept
+                  <span className="text-[10px] uppercase tracking-[0.2em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                    {t.weAccept}
                   </span>
                   <PaymentMarks
                     ids={acceptedPaymentIds({ onlinePayment, paypalPayment })}

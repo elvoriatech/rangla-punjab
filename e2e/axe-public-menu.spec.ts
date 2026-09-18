@@ -10,14 +10,16 @@ import AxeBuilder from "@axe-core/playwright";
  * decent HTML page and would drown the signal. WCAG 2.1 AA is the
  * conformance target per CLAUDE.md.
  *
- * The default locale is exercised; the German-locale variant is
- * scanned separately so a translation regression can't hide behind the
- * English page passing.
+ * The default locale is exercised; the translated variants are scanned
+ * separately so a translation regression can't hide behind the English
+ * page passing. `/ar` additionally covers the RTL render — `dir="rtl"`
+ * flips the whole layout, and axe is the cheapest guard against a
+ * mirrored control landing somewhere unreachable.
  */
 
 const BLOCKING_IMPACTS = new Set(["serious", "critical"]);
 
-for (const route of ["/", "/de"]) {
+for (const route of ["/", "/de", "/ar"]) {
   test(`no serious/critical a11y violations on ${route}`, async ({ page }) => {
     await page.goto(route, { waitUntil: "domcontentloaded" });
 

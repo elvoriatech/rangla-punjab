@@ -4,16 +4,31 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": ""
+      }
     },
     "preview-lan": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "http://REPLACE-WITH-THIS-MACS-LAN-IP:3000" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://REPLACE-WITH-THIS-MACS-LAN-IP:3000",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": ""
+      }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": ""
+      }
     }
   },
   "submit": { "production": {} }

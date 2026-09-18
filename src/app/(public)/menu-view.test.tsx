@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MenuView } from "./menu-view";
+import { MENU_COPY, menuCopy } from "@/lib/i18n/menu";
+import { UI_LOCALES, dirFor } from "@/lib/locales";
 
 // Ordering fully enabled — most assertions exercise the cart-enabled render.
 const ALL_MODES = {
@@ -341,5 +343,136 @@ describe("MenuView", () => {
     const empty: PublicMenu = { ...fixture, categories: [] };
     const html = renderToStaticMarkup(<MenuView menu={empty} activeDiets={new Set(["halal"])} />);
     expect(html).toContain("No dishes match every diet");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Guest localisation                                                  */
+/* ------------------------------------------------------------------ */
+
+/** The fixture is en-GB; these swap the locale the way the `/{locale}`
+ *  route does — `menu.locale` plus the venue's enabled list. */
+function localised(locale: string): PublicMenu {
+  return {
+    ...fixture,
+    locale,
+    venue: { ...fixture.venue, enabledLocales: ["en-GB", "de", "es", "it", "ar"] },
+  };
+}
+
+describe("MenuView localisation", () => {
+  it("renders Spanish chrome on /es", () => {
+    const html = renderToStaticMarkup(
+      <MenuView menu={localised("es")} orderingModes={ALL_MODES} onlinePayment />,
+    );
+    expect(html).toContain("Pagos aceptados");
+    expect(html).toContain("Todas las dietas");
+    expect(html).toContain("Vegetariano");
+    expect(html).toContain("Información de alérgenos");
+    // Prices follow the locale too: es-ES puts the symbol last.
+    expect(html).toMatch(/18,00\s*€/);
+  });
+
+  it("renders Italian chrome on /it", () => {
+    const html = renderToStaticMarkup(<MenuView menu={localised("it")} />);
+    expect(html).toContain("Tutte le diete");
+    expect(html).toContain("Informazioni sugli allergeni");
+    expect(html).toContain('aria-label="Lingua"');
+  });
+
+  it("renders Arabic chrome on /ar", () => {
+    const html = renderToStaticMarkup(<MenuView menu={localised("ar")} />);
+    expect(html).toContain('aria-label="اللغة"'); // footer language switcher
+    expect(html).toContain("كل الأنظمة الغذائية"); // "all diets"
+    expect(html).toContain("معلومات مسبّبات الحساسية"); // allergen dialog trigger
+    // No English chrome leaked through.
+    expect(html).not.toContain("All diets");
+  });
+
+  it("German menu keeps the formal register", () => {
+    const html = renderToStaticMarkup(<MenuView menu={localised("de")} />);
+    expect(html).toContain("Alle Ernährungsformen");
+    expect(html).toContain("Allergeninformationen");
+  });
+
+  it("falls back to English chrome for a venue locale without a catalogue", () => {
+    // `fr` is a venue locale with no guest-copy catalogue (locales.ts).
+    const html = renderToStaticMarkup(<MenuView menu={localised("fr")} />);
+    expect(html).toContain("All diets");
+  });
+
+  it("keeps the diet filter when the guest switches language", () => {
+    const html = renderToStaticMarkup(
+      <MenuView menu={localised("en-GB")} activeDiets={new Set(["vegan"])} />,
+    );
+    expect(html).toMatch(/<a[^>]*href="\/es\?diet=vegan"/);
+  });
+
+  it("labels the diet rail with a data attribute, not a translated aria-label", () => {
+    // category-tabs.tsx rewrites these hrefs through `nav[data-diet-filter]`;
+    // keying on the aria-label would break the moment it is translated.
+    const html = renderToStaticMarkup(<MenuView menu={localised("ar")} />);
+    expect(html).toContain("data-diet-filter");
+  });
+});
+
+describe("MENU_COPY", () => {
+  it("resolves every UI locale, including region tags and unknown codes", () => {
+    expect(UI_LOCALES).toEqual(["en", "de", "it", "es", "ar"]);
+    for (const l of UI_LOCALES) expect(menuCopy(l)).toBe(MENU_COPY[l]);
+    expect(menuCopy("en-GB")).toBe(MENU_COPY.en);
+    expect(menuCopy("ar-EG")).toBe(MENU_COPY.ar);
+    expect(menuCopy("fr")).toBe(MENU_COPY.en);
+    expect(menuCopy(null)).toBe(MENU_COPY.en);
+  });
+
+  it("has a non-empty value for every key in every locale", () => {
+    // The `Record<UiLocale, MenuCopy>` type already enforces the SHAPE;
+    // this catches a key left as "" or a function returning nothing.
+    const walk = (value: unknown, path: string): void => {
+      if (typeof value === "string") {
+        expect(value.trim(), `${path} is blank`).not.toBe("");
+        return;
+      }
+      if (typeof value === "function") {
+        // Every interpolating key takes strings and/or numbers; 2 is a
+        // plural-safe count and "x" a stand-in for a name or a time.
+        const arity = (value as (...a: unknown[]) => string).length;
+        const args = Array.from({ length: arity }, () =>
+          path.match(/count|Level|spicy/i) ? 2 : "x",
+        );
+        const out = (value as (...a: unknown[]) => string)(...args);
+        expect(typeof out, `${path} did not return a string`).toBe("string");
+        expect(out.trim(), `${path} returned blank`).not.toBe("");
+        return;
+      }
+      if (Array.isArray(value)) {
+        expect(value.length, `${path} is empty`).toBeGreaterThan(0);
+        value.forEach((v, i) => walk(v, `${path}[${i}]`));
+        return;
+      }
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        walk(v, `${path}.${k}`);
+      }
+    };
+    for (const locale of UI_LOCALES) walk(MENU_COPY[locale], locale);
+  });
+
+  it("counts every locale as right-to-left only where it is", () => {
+    expect(dirFor("ar")).toBe("rtl");
+    expect(dirFor("ar-EG")).toBe("rtl");
+    expect(dirFor("de")).toBe("ltr");
+    expect(dirFor("en-GB")).toBe("ltr");
+    expect(dirFor(undefined)).toBe("ltr");
+  });
+
+  it("gives each locale its own copy — no English left in a translation", () => {
+    for (const locale of UI_LOCALES) {
+      if (locale === "en") continue;
+      expect(MENU_COPY[locale].nav.allDiets, locale).not.toBe(MENU_COPY.en.nav.allDiets);
+      expect(MENU_COPY[locale].allergens.contains, locale).not.toBe(
+        MENU_COPY.en.allergens.contains,
+      );
+    }
   });
 });

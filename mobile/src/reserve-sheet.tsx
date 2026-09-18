@@ -13,7 +13,7 @@ import {
 import Svg, { Circle, Path } from "react-native-svg";
 import type { ApiMenu } from "./api";
 import { createReservation } from "./api";
-import { useI18n } from "./i18n";
+import { localeTag, useI18n } from "./i18n";
 import { colors, fonts, radius } from "./theme";
 
 /**
@@ -50,7 +50,7 @@ export function ReserveSheet({
 
   const times = useMemo(() => slots.find((s) => s.date === date)?.times ?? [], [slots, date]);
   const dateLabel = (iso: string): string =>
-    new Date(`${iso}T12:00:00`).toLocaleDateString(lang === "de" ? "de-DE" : "en-GB", {
+    new Date(`${iso}T12:00:00`).toLocaleDateString(localeTag(lang), {
       weekday: "short",
       day: "2-digit",
       month: "2-digit",
@@ -304,10 +304,10 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  title: { color: colors.ink, fontFamily: fonts.display, fontSize: 22 },
+  title: { color: colors.ink, ...fonts.display, fontSize: 22 },
   close: { color: colors.inkSoft, fontSize: 28, lineHeight: 30 },
-  lead: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
-  fieldLabel: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bodySemi },
+  lead: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
+  fieldLabel: { color: colors.inkSoft, fontSize: 12, ...fonts.bodySemi },
   dropdown: {
     flexDirection: "row",
     alignItems: "center",
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  dropdownValue: { color: colors.ink, fontFamily: fonts.body, fontSize: 15 },
+  dropdownValue: { color: colors.ink, ...fonts.body, fontSize: 15 },
   chevron: { color: colors.inkSoft, fontSize: 14 },
   input: {
     backgroundColor: colors.creamCard,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 11,
     color: colors.ink,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 15,
   },
   cta: {
@@ -339,24 +339,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  ctaText: { color: colors.onRed, fontFamily: fonts.bodyHeavy, fontSize: 15 },
+  ctaText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 15 },
   /** doneBox centres its children, which shrinks a width-less Pressable
    *  to its label — stretch the confirmation button back to full width. */
   ctaStretch: { alignSelf: "stretch", marginTop: 14 },
   footnote: {
     color: colors.inkSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 11,
     textAlign: "center",
   },
-  error: { color: colors.danger, fontFamily: fonts.bodySemi, fontSize: 13, textAlign: "center" },
+  error: { color: colors.danger, ...fonts.bodySemi, fontSize: 13, textAlign: "center" },
   doneBox: { alignItems: "center", gap: 8, paddingVertical: 22 },
   doneTick: { color: colors.red, fontSize: 40 },
-  doneTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 20 },
-  doneMeta: { color: colors.ink, fontFamily: fonts.bodySemi, fontSize: 14 },
+  doneTitle: { color: colors.ink, ...fonts.display, fontSize: 20 },
+  doneMeta: { color: colors.ink, ...fonts.bodySemi, fontSize: 14 },
   doneSub: {
     color: colors.inkSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 13,
     textAlign: "center",
     paddingHorizontal: 12,
@@ -382,8 +382,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   optionActive: { backgroundColor: "#fdeee6" },
-  optionText: { color: colors.ink, fontFamily: fonts.body, fontSize: 15 },
-  optionTextActive: { color: colors.red, fontFamily: fonts.bodyHeavy },
+  optionText: { color: colors.ink, ...fonts.body, fontSize: 15 },
+  optionTextActive: { color: colors.red, ...fonts.bodyHeavy },
 });
 
 /**

@@ -47,7 +47,7 @@ interface TrackTarget {
 
 function Shell(): React.ReactElement {
   const cart = useCart();
-  const { t, lang } = useI18n();
+  const { t, lang, applyVenueLocales } = useI18n();
   const insets = useSafeAreaInsets();
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -65,6 +65,13 @@ function Shell(): React.ReactElement {
       .catch(() => setLoadError(true));
   }, [lang]);
   useEffect(load, [load]);
+
+  // The venue decides which languages exist: narrow the picker and the
+  // device default to what it actually publishes (and that the app has
+  // copy for). Idempotent — safe to run on every menu refresh.
+  useEffect(() => {
+    if (menu) applyVenueLocales(menu.venue);
+  }, [menu, applyVenueLocales]);
 
   // A republished menu invalidates persisted cart item ids — re-anchor
   // the cart to whatever the server is serving right now.
@@ -260,13 +267,13 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 24,
   },
-  bootBrand: { color: colors.onRed, fontSize: 30, fontFamily: fonts.bodyHeavy },
-  bootSub: { color: colors.goldSoft, fontFamily: fonts.body, fontSize: 12, letterSpacing: 4 },
+  bootBrand: { color: colors.onRed, fontSize: 30, ...fonts.bodyHeavy },
+  bootSub: { color: colors.goldSoft, ...fonts.body, fontSize: 12, letterSpacing: 4 },
   bootState: {
     color: colors.onRed,
     opacity: 0.85,
     marginTop: 20,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 14,
   },
   bootRetry: {
@@ -277,7 +284,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 10,
   },
-  bootRetryText: { color: colors.goldSoft, fontFamily: fonts.bodyBold },
+  bootRetryText: { color: colors.goldSoft, ...fonts.bodyBold },
   // The mockup's floating pill bar: inset from the screen edges with a
   // long rounded arc on every corner, buttons drawn in toward each other.
   tabBar: {
@@ -296,12 +303,12 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   tabBtn: { flex: 1, alignItems: "center", gap: 3 },
-  tabLabel: { color: colors.onRed, opacity: 0.6, fontFamily: fonts.body, fontSize: 10 },
-  tabLabelActive: { opacity: 1, fontFamily: fonts.bodyBold },
+  tabLabel: { color: colors.onRed, opacity: 0.6, ...fonts.body, fontSize: 10 },
+  tabLabelActive: { opacity: 1, ...fonts.bodyBold },
   badge: {
     position: "absolute",
     top: -4,
-    right: -10,
+    end: -10,
     backgroundColor: colors.goldSoft,
     borderRadius: 999,
     minWidth: 16,
@@ -310,5 +317,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 3,
   },
-  badgeText: { color: colors.ink, fontSize: 10, fontFamily: fonts.bodyHeavy },
+  badgeText: { color: colors.ink, fontSize: 10, ...fonts.bodyHeavy },
 });

@@ -3,6 +3,7 @@ import { corsPreflight, withCors } from "@/lib/cors";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getOrderTracking } from "@/lib/order-service";
 import { guestSteps, statusChain, stepIndex } from "@/lib/order-status";
+import { postOrderCopy } from "@/lib/i18n/post-order";
 
 /**
  * GET /api/v1/orders/{id}/status?token=…
@@ -30,6 +31,11 @@ export async function GET(
 
   const steps = guestSteps(order.orderType);
   const current = stepIndex(order.status, order.orderType);
+  // The step labels are catalogue keys now; the payload keeps its original
+  // de/en pair so shipped app builds keep rendering. An app that wants
+  // another language reads `key` and looks it up in its own catalogue.
+  const stepsDe = postOrderCopy("de").steps;
+  const stepsEn = postOrderCopy("en").steps;
   return withCors(
     NextResponse.json(
       {
@@ -42,8 +48,9 @@ export async function GET(
           currentStepIndex: current,
           steps: steps.map((s, i) => ({
             key: s.key,
-            labelDe: s.de,
-            labelEn: s.en,
+            labelKey: s.label,
+            labelDe: stepsDe[s.label],
+            labelEn: stepsEn[s.label],
             reached: i <= current,
           })),
           orderType: order.orderType,

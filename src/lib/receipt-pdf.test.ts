@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildReceiptPdf } from "./receipt-pdf";
+import { PDF_COPY, pdfCopy, pdfLocale } from "./i18n/pdf";
 import type { ReceiptOrder } from "./order-service";
 
 /**
@@ -60,6 +61,34 @@ describe("buildReceiptPdf", () => {
       "de",
     );
     expect(isPdf(pdf)).toBe(true);
+  });
+
+  it("builds Spanish and Italian receipts (accented labels are WinAnsi-safe)", async () => {
+    for (const locale of ["es", "it"]) {
+      const pdf = await buildReceiptPdf(
+        {
+          ...baseOrder,
+          orderType: "delivery",
+          requestedFor: new Date("2026-07-26T00:30:00Z"),
+          deliveryAddress: { street: "Calle Mayor 3", zip: "28013", city: "Madrid" },
+        },
+        locale,
+      );
+      expect(isPdf(pdf)).toBe(true);
+      expect(pdf.length).toBeGreaterThan(1000);
+    }
+  });
+
+  it("renders an Arabic order in English (decision 4 — StandardFonts can't draw Arabic)", async () => {
+    // Byte-identical to the English build: same catalogue, same number and
+    // date formats. If `ar` ever started using its own, `safe()` would
+    // strip the glyphs and the receipt would come out with blank labels.
+    expect(pdfCopy("ar")).toBe(PDF_COPY.en);
+    expect(pdfLocale("ar")).toBe("en");
+    const ar = await buildReceiptPdf(baseOrder, "ar");
+    const en = await buildReceiptPdf(baseOrder, "en");
+    expect(isPdf(ar)).toBe(true);
+    expect(ar.length).toBe(en.length);
   });
 
   it("still builds the plain ASAP and dine-in receipts", async () => {

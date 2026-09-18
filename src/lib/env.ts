@@ -75,6 +75,13 @@ const envSchema = z.object({
   // dev fake provider covers local testing with no credentials at all.
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  // Native one-tap sign-in: the app sends a Google ID token, which is
+  // addressed to whichever OAuth client issued it (iOS / Android / the
+  // web client the app's SDK is configured with). Comma-separated; these
+  // are the accepted `aud` values for POST /api/auth/customer/google.
+  // Public identifiers, not secrets — but they must be OURS, or anyone's
+  // Google token would sign in. Human-provided (see prod.env.template).
+  GOOGLE_MOBILE_CLIENT_IDS: z.string().min(1).optional(),
   MICROSOFT_CLIENT_ID: z.string().min(1).optional(),
   MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
 });

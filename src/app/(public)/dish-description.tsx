@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { menuCopy } from "@/lib/i18n/menu";
 
 /**
  * Dish description, two lines by default. Long texts are clamped and get a
- * "Mehr / More" button that opens the full text in a centred popup (same
+ * "More" button (in the guest's language) that opens the full text in a centred popup (same
  * portal + neutral-card pattern as the allergen dialog, and for the same
  * reason: dish cards clip and transform, so an in-card expansion would be
  * cut off).
@@ -30,7 +31,7 @@ export function DishDescription({
   const [hydrated, setHydrated] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const [open, setOpen] = useState(false);
-  const de = locale.startsWith("de");
+  const t = menuCopy(locale);
 
   useEffect(() => {
     // Deferred a tick (react-hooks forbids synchronous setState in effects).
@@ -73,11 +74,15 @@ export function DishDescription({
           type="button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
-          aria-label={`${de ? "Mehr über" : "More about"} ${dishName}`}
+          aria-label={t.dish.moreAbout(dishName)}
           className="mt-0.5 inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-text,var(--menu-text))]"
         >
-          {de ? "Mehr" : "More"}
-          <span aria-hidden="true">›</span>
+          {t.dish.more}
+          {/* Directional glyph: mirrored under `dir="rtl"` so it still
+              points away from the label instead of back into it. */}
+          <span aria-hidden="true" className="inline-block rtl:-scale-x-100">
+            ›
+          </span>
         </button>
       ) : null}
       {open
@@ -90,7 +95,7 @@ export function DishDescription({
             >
               <button
                 type="button"
-                aria-label={de ? "Schließen" : "Close"}
+                aria-label={t.dish.close}
                 onClick={() => setOpen(false)}
                 className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-[2px]"
               />
@@ -102,7 +107,7 @@ export function DishDescription({
                   onClick={() => setOpen(false)}
                   className="mt-6 w-full rounded-full bg-neutral-900 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
                 >
-                  {de ? "Schließen" : "Close"}
+                  {t.dish.close}
                 </button>
               </div>
             </div>,

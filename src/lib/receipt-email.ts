@@ -4,6 +4,7 @@ import { captureException } from "./observability";
 import { getOrderForReceipt } from "./order-service";
 import { signReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
+import { uiLocale } from "./locales";
 import { ReceiptEmail, receiptSubject } from "@/emails/receipt-email";
 
 const log = createLogger();
@@ -24,11 +25,12 @@ export async function sendReceiptEmailForOrder(
     if (!order) return { sent: false, reason: "not_found" };
     if (!order.customerEmail) return { sent: false, reason: "no_email" };
 
-    const locale = order.venue.defaultLocale.startsWith("de") ? "de" : "en";
+    // Venue language, collapsed to a locale we have a catalogue for.
+    const locale = uiLocale(order.venue.defaultLocale);
     const token = signReceiptToken(order.id, tenantId);
     const base = siteUrl();
     const receiptUrl = `${base}/api/orders/${encodeURIComponent(order.id)}/receipt?token=${encodeURIComponent(token)}&locale=${locale}`;
-    const trackUrl = `${base}/order-status/${encodeURIComponent(order.id)}?token=${encodeURIComponent(token)}`;
+    const trackUrl = `${base}/order-status/${encodeURIComponent(order.id)}?token=${encodeURIComponent(token)}&locale=${locale}`;
 
     await sendEmail({
       to: order.customerEmail,

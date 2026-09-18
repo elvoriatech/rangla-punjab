@@ -12,6 +12,7 @@ import { loadPublicMenu, siteUrl } from "@/lib/public-menu";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { filterMenuByDiet, parseDietFilter, resolveCategoryParam } from "@/lib/dietary-filter";
 import { MenuView } from "./menu-view";
+import { menuCopy } from "@/lib/i18n/menu";
 
 /**
  * Public menu page — the guest-facing hot path. Server component only:
@@ -58,8 +59,12 @@ export async function generateMetadata(): Promise<Metadata> {
   if (!loaded) return {};
   const { menu } = loaded;
   const url = `${siteUrl()}/`;
-  const title = `${menu.venue.name} — Menu`;
-  const description = `Menu for ${menu.venue.name}. See dishes, prices, allergen and dietary information.`;
+  // Title + description in the venue's own language: this is the snippet
+  // a search engine shows, and an English one under a Spanish menu reads
+  // like someone else's restaurant.
+  const t = menuCopy(menu.locale);
+  const title = t.metadata.title(menu.venue.name);
+  const description = t.metadata.description(menu.venue.name);
   return {
     title,
     description,

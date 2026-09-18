@@ -80,50 +80,11 @@ describe("public menu — locale overlay", () => {
       });
     });
 
+    // `publishDraft` carries the translations onto the snapshot's fresh
+    // ids, so the published tree the guest reads is already translated —
+    // no re-emit needed here.
     const publish = await publishDraft(signup.userId);
     if (!publish.ok) throw new Error("publish failed");
-
-    // Also copy the translations onto the *published* category/item ids —
-    // publishing snapshots content but not translation rows in P1-7, so we
-    // re-emit them for the published tree here to keep the test honest.
-    // (A future task can fold translations into the publish snapshot.)
-    const publishedCat = await asUser(signup.userId, (tx) =>
-      tx.category.findFirstOrThrow({
-        where: { menuVersionId: publish.publishedVersionId },
-        include: { items: true },
-      }),
-    );
-    const publishedItem = publishedCat.items[0]!;
-    await asUser(signup.userId, async (tx) => {
-      await tx.translation.createMany({
-        data: [
-          {
-            tenantId: signup.tenantId,
-            entityType: "category",
-            entityId: publishedCat.id,
-            locale: "de",
-            field: "name",
-            value: "Hauptgerichte",
-          },
-          {
-            tenantId: signup.tenantId,
-            entityType: "item",
-            entityId: publishedItem.id,
-            locale: "de",
-            field: "name",
-            value: "Steinpilzrisotto",
-          },
-          {
-            tenantId: signup.tenantId,
-            entityType: "item",
-            entityId: publishedItem.id,
-            locale: "de",
-            field: "description",
-            value: "gereifter Parmesan, Thymian",
-          },
-        ],
-      });
-    });
 
     const venue = await asUser(signup.userId, (tx) =>
       tx.venue.findFirstOrThrow({ select: { slug: true } }),

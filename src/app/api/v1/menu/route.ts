@@ -7,6 +7,7 @@ import { getRestaurantSlug } from "@/lib/restaurant";
 import { menuImageUrl } from "@/lib/menu-images";
 import { siteUrl } from "@/lib/site-url";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
+import { isLocaleCode } from "@/lib/locales";
 
 /**
  * GET /api/v1/menu[?locale=de]
@@ -14,6 +15,12 @@ import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/
  * The mobile app's menu read — the published menu of THE restaurant
  * (single-tenant deploy, no slug in the URL). Delegates to the same
  * loader the web page uses, so the two surfaces can never disagree.
+ *
+ * `?locale` is validated against the venue's `enabledLocales` (plan
+ * decision 6). An unknown or disabled code is NOT a 404 — a stale app
+ * preference must never cost the guest the menu — it silently falls back
+ * to the venue default, and `venue.locale` in the response says which
+ * language actually came back.
  *
  * Contract rules (binding on every v1 payload): money is integer cents,
  * image URLs are absolute, timestamps are ISO, and clients MUST tolerate
@@ -26,14 +33,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return withCors(NextResponse.json({ ok: false, error: "not_published" }, { status: 404 }));
   }
 
-  const locale = req.nextUrl.searchParams.get("locale") ?? undefined;
-  const [menu, access] = await Promise.all([
-    loadPublicMenu(context, locale ?? undefined),
+  // A code the registry doesn't know can't be enabled either, so it never
+  // reaches the loader; a known-but-disabled one is caught below.
+  const requested = req.nextUrl.searchParams.get("locale");
+  const candidate = isLocaleCode(requested) ? requested : undefined;
+  const [firstPass, access] = await Promise.all([
+    loadPublicMenu(context, candidate),
     getPublicVenueAccess(context.tenantId, context.venueId),
   ]);
-  if (!menu) {
+  if (!firstPass) {
     return withCors(NextResponse.json({ ok: false, error: "not_published" }, { status: 404 }));
   }
+  // Disabled-but-valid (an app holding a locale the owner has since turned
+  // off): reload in the venue's language so the payload and the echoed
+  // locale agree. Cold path — the common case is already correct.
+  const enabled = candidate ? firstPass.venue.enabledLocales.includes(candidate) : true;
+  const menu = enabled ? firstPass : ((await loadPublicMenu(context)) ?? firstPass);
 
   const origin = siteUrl();
   const abs = (path: string): string => (path.startsWith("http") ? path : `${origin}${path}`);

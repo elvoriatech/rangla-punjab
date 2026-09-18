@@ -1,0 +1,581 @@
+import { uiLocale, type UiLocale } from "@/lib/locales";
+
+/**
+ * Guest-copy catalogue for the public menu chrome — everything the
+ * restaurant itself does not author (dish names, descriptions and
+ * category names come from the venue's own `Translation` rows).
+ *
+ * No i18n runtime (CLAUDE.md): this is a plain object per locale.
+ * English is the shape, so `MenuCopy = typeof en` makes TypeScript
+ * refuse a locale that forgets a key, and `menu-view.test.tsx` adds a
+ * runtime check that none of them is blank.
+ *
+ * Keys that take values are FUNCTIONS, never templates with positional
+ * markers: word order differs per language and `${}` is the only
+ * interpolation that survives a translator moving the slot.
+ */
+
+/** Diet ids come from `dietary-filter.ts` (+ the optional halal filter). */
+type DietLabels = {
+  vegan: string;
+  vegetarian: string;
+  gluten_free: string;
+  dairy_free: string;
+  halal: string;
+  kosher: string;
+};
+
+type Feature = { title: string; sub: string };
+
+const en = {
+  nav: {
+    categories: "Categories",
+    dietaryFilter: "Dietary filter",
+    language: "Language",
+    all: "All",
+    allDiets: "All diets",
+  },
+  badges: {
+    open: "Open",
+    /** Suffix of the open pill: "Open · until 22:00". */
+    until: (time: string): string => `until ${time}`,
+    closed: "Closed",
+    opensAt: (day: string, time: string): string => `Opens ${day} ${time}`,
+    unavailable: "unavailable",
+    offer: "Offer",
+    /** Screen-reader prefixes around a struck-through original price. */
+    regularPrice: "regular price",
+    offerPrice: "offer price",
+    price: "price",
+    spicyTitle: (level: number): string => `Spicy — level ${level} of 3`,
+    spicyLevel: (level: number): string => `Spicy, level ${level} of 3`,
+  },
+  diets: {
+    vegan: "Vegan",
+    vegetarian: "Vegetarian",
+    gluten_free: "Gluten-free",
+    dairy_free: "Dairy-free",
+    halal: "Halal",
+    kosher: "Kosher",
+  } as DietLabels,
+  allergens: {
+    info: "Allergen information",
+    infoFor: (dish: string): string => `Allergen information — ${dish}`,
+    heading: "Allergens",
+    contains: "Contains",
+    traces: "May contain traces of",
+    close: "Close",
+  },
+  dish: {
+    more: "More",
+    moreAbout: (dish: string): string => `More about ${dish}`,
+    close: "Close",
+  },
+  reserve: {
+    buttonShort: "Reserve",
+    buttonLong: "Reserve a table",
+    title: "Reserve a table",
+    holdNote: "We hold your table for 15 minutes past the reserved time.",
+    close: "Close",
+    received: "Request received!",
+    confirmByPhone: "The restaurant will confirm your reservation by phone shortly.",
+    done: "Done",
+    date: "Date",
+    time: "Time",
+    guests: "Guests",
+    name: "Name",
+    phone: "Phone",
+    note: "Note (optional)",
+    select: "Select…",
+    pickDateFirst: "Pick a date",
+    guestCount: (n: number): string => (n === 1 ? "1 guest" : `${n} guests`),
+    notePlaceholder: "Birthday, window seat, stroller…",
+    sending: "Sending…",
+    submit: "Request reservation",
+    noPayment: "No payment needed — the restaurant confirms by phone.",
+    errorRateLimited: "Too many requests — please try again in a moment.",
+    errorInvalidTime: "That time just became unavailable — please pick another slot.",
+    errorGeneric: "Something went wrong — please try again or call us.",
+  },
+  emptyStates: {
+    noDishesInSection: "No dishes in this section.",
+    noDietMatch: "No dishes match every diet you picked. Uncheck a filter above to see more.",
+    emptyMenu: "Nothing on the menu yet — the restaurant is still building it.",
+  },
+  banners: {
+    orderingPaused: "Online ordering is paused right now — please check back soon.",
+    draftPreview: "Draft preview — your private link. Guests only see what you publish.",
+  },
+  footer: {
+    poweredBy: (brand: string): string => `Powered by ${brand} · Digital Menus`,
+    acceptedPayments: "Accepted payments",
+  },
+  hero: {
+    welcomeAria: "Welcome",
+    welcomeTo: "Welcome to",
+    tagline: "Cooked fresh, served fast — browse the menu and order straight from your phone.",
+    orderNow: "Order now ↓",
+    features: [
+      { title: "Served fast", sub: "Straight from the kitchen" },
+      { title: "Best quality", sub: "Fresh ingredients" },
+      { title: "Fair prices", sub: "Every day" },
+    ] as Feature[],
+    categoriesHeading: "Our categories",
+    categoriesAria: "Categories with photos",
+    dishCount: (n: number): string => (n === 1 ? "1 dish" : `${n} dishes`),
+  },
+  metadata: {
+    title: (venue: string): string => `${venue} — Menu`,
+    description: (venue: string): string =>
+      `Menu for ${venue}. See dishes, prices, allergen and dietary information.`,
+    srHeading: (venue: string): string => `${venue} menu`,
+  },
+};
+
+export type MenuCopy = typeof en;
+
+/** German addresses the guest formally ("Sie") — the tone the rest of the
+ *  product uses with restaurant guests and owners alike. */
+const de: MenuCopy = {
+  nav: {
+    categories: "Kategorien",
+    dietaryFilter: "Ernährungsfilter",
+    language: "Sprache",
+    all: "Alle",
+    allDiets: "Alle Ernährungsformen",
+  },
+  badges: {
+    open: "Geöffnet",
+    until: (time) => `bis ${time}`,
+    closed: "Geschlossen",
+    opensAt: (day, time) => `Öffnet ${day} ${time}`,
+    unavailable: "nicht verfügbar",
+    offer: "Angebot",
+    regularPrice: "regulärer Preis",
+    offerPrice: "Angebotspreis",
+    price: "Preis",
+    spicyTitle: (level) => `Scharf — Stufe ${level} von 3`,
+    spicyLevel: (level) => `Scharf, Stufe ${level} von 3`,
+  },
+  diets: {
+    vegan: "Vegan",
+    vegetarian: "Vegetarisch",
+    gluten_free: "Glutenfrei",
+    dairy_free: "Milchfrei",
+    halal: "Halal",
+    kosher: "Koscher",
+  },
+  allergens: {
+    info: "Allergeninformationen",
+    infoFor: (dish) => `Allergeninformationen — ${dish}`,
+    heading: "Allergene",
+    contains: "Enthält",
+    traces: "Kann Spuren enthalten von",
+    close: "Schließen",
+  },
+  dish: {
+    more: "Mehr",
+    moreAbout: (dish) => `Mehr über ${dish}`,
+    close: "Schließen",
+  },
+  reserve: {
+    buttonShort: "Reservieren",
+    buttonLong: "Tisch reservieren",
+    title: "Tisch reservieren",
+    holdNote: "Wir halten Ihren Tisch 15 Minuten über die reservierte Zeit hinaus frei.",
+    close: "Schließen",
+    received: "Anfrage eingegangen!",
+    confirmByPhone: "Das Restaurant bestätigt Ihre Reservierung in Kürze telefonisch.",
+    done: "Fertig",
+    date: "Datum",
+    time: "Uhrzeit",
+    guests: "Personen",
+    name: "Name",
+    phone: "Telefon",
+    note: "Anmerkung (optional)",
+    select: "Bitte wählen…",
+    pickDateFirst: "Erst Datum wählen",
+    guestCount: (n) => (n === 1 ? "1 Person" : `${n} Personen`),
+    notePlaceholder: "Geburtstag, Fensterplatz, Kinderwagen…",
+    sending: "Wird gesendet…",
+    submit: "Reservierung anfragen",
+    noPayment: "Keine Zahlung nötig — das Restaurant bestätigt telefonisch.",
+    errorRateLimited: "Zu viele Anfragen — bitte versuchen Sie es gleich noch einmal.",
+    errorInvalidTime: "Diese Uhrzeit ist gerade vergeben — bitte wählen Sie eine andere.",
+    errorGeneric: "Etwas ist schiefgelaufen — bitte versuchen Sie es erneut oder rufen Sie uns an.",
+  },
+  emptyStates: {
+    noDishesInSection: "In diesem Bereich sind noch keine Gerichte.",
+    noDietMatch:
+      "Keine Gerichte erfüllen alle gewählten Ernährungsformen. Entfernen Sie oben einen Filter, um mehr zu sehen.",
+    emptyMenu: "Noch keine Gerichte — das Restaurant stellt die Karte gerade zusammen.",
+  },
+  banners: {
+    orderingPaused:
+      "Online-Bestellungen sind gerade pausiert — bitte schauen Sie bald wieder vorbei.",
+    draftPreview: "Entwurfsvorschau — Ihr privater Link. Gäste sehen nur, was Sie veröffentlichen.",
+  },
+  footer: {
+    poweredBy: (brand) => `Bereitgestellt von ${brand} · Digitale Speisekarten`,
+    acceptedPayments: "Akzeptierte Zahlungsmittel",
+  },
+  hero: {
+    welcomeAria: "Willkommen",
+    welcomeTo: "Willkommen bei",
+    tagline:
+      "Frisch gekocht, schnell serviert — stöbern Sie in der Karte und bestellen Sie direkt vom Handy.",
+    orderNow: "Jetzt bestellen ↓",
+    features: [
+      { title: "Schnell serviert", sub: "Direkt aus der Küche" },
+      { title: "Beste Qualität", sub: "Frische Zutaten" },
+      { title: "Faire Preise", sub: "Jeden Tag" },
+    ],
+    categoriesHeading: "Unsere Kategorien",
+    categoriesAria: "Kategorien mit Bild",
+    dishCount: (n) => (n === 1 ? "1 Gericht" : `${n} Gerichte`),
+  },
+  metadata: {
+    title: (venue) => `${venue} — Speisekarte`,
+    description: (venue) =>
+      `Speisekarte von ${venue}. Gerichte, Preise, Allergene und Ernährungshinweise auf einen Blick.`,
+    srHeading: (venue) => `Speisekarte ${venue}`,
+  },
+};
+
+/** Neutral European Spanish, formal "usted" — a guest is a guest. */
+const es: MenuCopy = {
+  nav: {
+    categories: "Categorías",
+    dietaryFilter: "Filtro dietético",
+    language: "Idioma",
+    all: "Todo",
+    allDiets: "Todas las dietas",
+  },
+  badges: {
+    open: "Abierto",
+    until: (time) => `hasta las ${time}`,
+    closed: "Cerrado",
+    opensAt: (day, time) => `Abre ${day} a las ${time}`,
+    unavailable: "no disponible",
+    offer: "Oferta",
+    regularPrice: "precio habitual",
+    offerPrice: "precio de oferta",
+    price: "precio",
+    spicyTitle: (level) => `Picante — nivel ${level} de 3`,
+    spicyLevel: (level) => `Picante, nivel ${level} de 3`,
+  },
+  diets: {
+    vegan: "Vegano",
+    vegetarian: "Vegetariano",
+    gluten_free: "Sin gluten",
+    dairy_free: "Sin lácteos",
+    halal: "Halal",
+    kosher: "Kosher",
+  },
+  allergens: {
+    info: "Información de alérgenos",
+    infoFor: (dish) => `Información de alérgenos — ${dish}`,
+    heading: "Alérgenos",
+    contains: "Contiene",
+    traces: "Puede contener trazas de",
+    close: "Cerrar",
+  },
+  dish: {
+    more: "Más",
+    moreAbout: (dish) => `Más sobre ${dish}`,
+    close: "Cerrar",
+  },
+  reserve: {
+    buttonShort: "Reservar",
+    buttonLong: "Reservar mesa",
+    title: "Reservar mesa",
+    holdNote: "Mantenemos su mesa durante 15 minutos después de la hora reservada.",
+    close: "Cerrar",
+    received: "¡Solicitud recibida!",
+    confirmByPhone: "El restaurante confirmará su reserva por teléfono en breve.",
+    done: "Listo",
+    date: "Fecha",
+    time: "Hora",
+    guests: "Comensales",
+    name: "Nombre",
+    phone: "Teléfono",
+    note: "Nota (opcional)",
+    select: "Seleccionar…",
+    pickDateFirst: "Elija una fecha",
+    guestCount: (n) => (n === 1 ? "1 comensal" : `${n} comensales`),
+    notePlaceholder: "Cumpleaños, mesa junto a la ventana, carrito…",
+    sending: "Enviando…",
+    submit: "Solicitar reserva",
+    noPayment: "No hace falta pagar: el restaurante confirma por teléfono.",
+    errorRateLimited: "Demasiadas solicitudes: inténtelo de nuevo en un momento.",
+    errorInvalidTime: "Esa hora acaba de ocuparse: elija otra franja.",
+    errorGeneric: "Algo ha salido mal: inténtelo de nuevo o llámenos.",
+  },
+  emptyStates: {
+    noDishesInSection: "No hay platos en esta sección.",
+    noDietMatch:
+      "Ningún plato cumple todas las dietas elegidas. Quite un filtro de arriba para ver más.",
+    emptyMenu: "La carta aún está vacía: el restaurante la está preparando.",
+  },
+  banners: {
+    orderingPaused: "Los pedidos online están pausados ahora mismo: vuelva a intentarlo pronto.",
+    draftPreview:
+      "Vista previa del borrador: su enlace privado. Los clientes solo ven lo publicado.",
+  },
+  footer: {
+    poweredBy: (brand) => `Con tecnología de ${brand} · Cartas digitales`,
+    acceptedPayments: "Pagos aceptados",
+  },
+  hero: {
+    welcomeAria: "Bienvenida",
+    welcomeTo: "Bienvenidos a",
+    tagline:
+      "Recién hecho, servido al momento: explore la carta y pida directamente desde el móvil.",
+    orderNow: "Pedir ahora ↓",
+    features: [
+      { title: "Servicio rápido", sub: "Directo de la cocina" },
+      { title: "Máxima calidad", sub: "Ingredientes frescos" },
+      { title: "Precios justos", sub: "Todos los días" },
+    ],
+    categoriesHeading: "Nuestras categorías",
+    categoriesAria: "Categorías con foto",
+    dishCount: (n) => (n === 1 ? "1 plato" : `${n} platos`),
+  },
+  metadata: {
+    title: (venue) => `${venue} — Carta`,
+    description: (venue) =>
+      `Carta de ${venue}. Platos, precios, alérgenos e información dietética.`,
+    srHeading: (venue) => `Carta de ${venue}`,
+  },
+};
+
+/** Italian addresses the table, not one person — the plural "voi" form
+ *  restaurants use with guests. */
+const it: MenuCopy = {
+  nav: {
+    categories: "Categorie",
+    dietaryFilter: "Filtro dietetico",
+    language: "Lingua",
+    all: "Tutto",
+    allDiets: "Tutte le diete",
+  },
+  badges: {
+    open: "Aperto",
+    until: (time) => `fino alle ${time}`,
+    closed: "Chiuso",
+    opensAt: (day, time) => `Apre ${day} alle ${time}`,
+    unavailable: "non disponibile",
+    offer: "Offerta",
+    regularPrice: "prezzo normale",
+    offerPrice: "prezzo in offerta",
+    price: "prezzo",
+    spicyTitle: (level) => `Piccante — livello ${level} di 3`,
+    spicyLevel: (level) => `Piccante, livello ${level} di 3`,
+  },
+  diets: {
+    vegan: "Vegano",
+    vegetarian: "Vegetariano",
+    gluten_free: "Senza glutine",
+    dairy_free: "Senza lattosio",
+    halal: "Halal",
+    kosher: "Kosher",
+  },
+  allergens: {
+    info: "Informazioni sugli allergeni",
+    infoFor: (dish) => `Informazioni sugli allergeni — ${dish}`,
+    heading: "Allergeni",
+    contains: "Contiene",
+    traces: "Può contenere tracce di",
+    close: "Chiudi",
+  },
+  dish: {
+    more: "Altro",
+    moreAbout: (dish) => `Altro su ${dish}`,
+    close: "Chiudi",
+  },
+  reserve: {
+    buttonShort: "Prenota",
+    buttonLong: "Prenota un tavolo",
+    title: "Prenota un tavolo",
+    holdNote: "Teniamo il vostro tavolo per 15 minuti oltre l'orario prenotato.",
+    close: "Chiudi",
+    received: "Richiesta ricevuta!",
+    confirmByPhone: "Il ristorante confermerà la vostra prenotazione telefonicamente a breve.",
+    done: "Fatto",
+    date: "Data",
+    time: "Orario",
+    guests: "Persone",
+    name: "Nome",
+    phone: "Telefono",
+    note: "Nota (facoltativa)",
+    select: "Seleziona…",
+    pickDateFirst: "Scegliete una data",
+    guestCount: (n) => (n === 1 ? "1 persona" : `${n} persone`),
+    notePlaceholder: "Compleanno, tavolo vicino alla finestra, passeggino…",
+    sending: "Invio…",
+    submit: "Richiedi prenotazione",
+    noPayment: "Nessun pagamento richiesto: il ristorante conferma per telefono.",
+    errorRateLimited: "Troppe richieste: riprovate tra un istante.",
+    errorInvalidTime: "Quell'orario non è più disponibile: scegliete un altro slot.",
+    errorGeneric: "Qualcosa è andato storto: riprovate o chiamateci.",
+  },
+  emptyStates: {
+    noDishesInSection: "Nessun piatto in questa sezione.",
+    noDietMatch:
+      "Nessun piatto soddisfa tutte le diete scelte. Rimuovete un filtro qui sopra per vederne altri.",
+    emptyMenu: "Il menu è ancora vuoto: il ristorante lo sta preparando.",
+  },
+  banners: {
+    orderingPaused: "Gli ordini online sono sospesi in questo momento: riprovate tra poco.",
+    draftPreview:
+      "Anteprima della bozza: il vostro link privato. Gli ospiti vedono solo ciò che pubblicate.",
+  },
+  footer: {
+    poweredBy: (brand) => `Servizio offerto da ${brand} · Menu digitali`,
+    acceptedPayments: "Pagamenti accettati",
+  },
+  hero: {
+    welcomeAria: "Benvenuti",
+    welcomeTo: "Benvenuti da",
+    tagline:
+      "Cucinato al momento, servito in fretta: sfogliate il menu e ordinate direttamente dal telefono.",
+    orderNow: "Ordina ora ↓",
+    features: [
+      { title: "Servizio rapido", sub: "Direttamente dalla cucina" },
+      { title: "Qualità migliore", sub: "Ingredienti freschi" },
+      { title: "Prezzi onesti", sub: "Tutti i giorni" },
+    ],
+    categoriesHeading: "Le nostre categorie",
+    categoriesAria: "Categorie con foto",
+    dishCount: (n) => (n === 1 ? "1 piatto" : `${n} piatti`),
+  },
+  metadata: {
+    title: (venue) => `${venue} — Menu`,
+    description: (venue) =>
+      `Menu di ${venue}. Piatti, prezzi, allergeni e informazioni dietetiche.`,
+    srHeading: (venue) => `Menu di ${venue}`,
+  },
+};
+
+/**
+ * Modern Standard Arabic, addressing the guests in the plural — the
+ * register an Arabic menu or a waiter would use. Counted nouns follow
+ * MSA number agreement: 1 singular, 2 dual, 3–10 plural, 11+ singular
+ * accusative.
+ */
+const ar: MenuCopy = {
+  nav: {
+    categories: "الأقسام",
+    dietaryFilter: "تصفية حسب النظام الغذائي",
+    language: "اللغة",
+    all: "الكل",
+    allDiets: "كل الأنظمة الغذائية",
+  },
+  badges: {
+    open: "مفتوح",
+    until: (time) => `حتى ${time}`,
+    closed: "مغلق",
+    opensAt: (day, time) => `يفتح ${day} ${time}`,
+    unavailable: "غير متاح",
+    offer: "عرض",
+    regularPrice: "السعر العادي",
+    offerPrice: "سعر العرض",
+    price: "السعر",
+    spicyTitle: (level) => `حار — المستوى ${level} من 3`,
+    spicyLevel: (level) => `حار، المستوى ${level} من 3`,
+  },
+  diets: {
+    vegan: "نباتي صرف",
+    vegetarian: "نباتي",
+    gluten_free: "خالٍ من الغلوتين",
+    dairy_free: "خالٍ من الألبان",
+    halal: "حلال",
+    kosher: "كوشر",
+  },
+  allergens: {
+    info: "معلومات مسبّبات الحساسية",
+    infoFor: (dish) => `معلومات مسبّبات الحساسية — ${dish}`,
+    heading: "مسبّبات الحساسية",
+    contains: "يحتوي على",
+    traces: "قد يحتوي على آثار من",
+    close: "إغلاق",
+  },
+  dish: {
+    more: "المزيد",
+    moreAbout: (dish) => `المزيد عن ${dish}`,
+    close: "إغلاق",
+  },
+  reserve: {
+    buttonShort: "احجز",
+    buttonLong: "احجز طاولة",
+    title: "حجز طاولة",
+    holdNote: "نحتفظ بطاولتكم لمدة 15 دقيقة بعد الموعد المحجوز.",
+    close: "إغلاق",
+    received: "تم استلام طلبكم!",
+    confirmByPhone: "سيؤكد المطعم حجزكم هاتفياً بعد قليل.",
+    done: "تم",
+    date: "التاريخ",
+    time: "الوقت",
+    guests: "عدد الضيوف",
+    name: "الاسم",
+    phone: "رقم الهاتف",
+    note: "ملاحظة (اختياري)",
+    select: "اختر…",
+    pickDateFirst: "اختر التاريخ أولاً",
+    guestCount: (n) =>
+      n === 1 ? "ضيف واحد" : n === 2 ? "ضيفان" : n <= 10 ? `${n} ضيوف` : `${n} ضيفاً`,
+    notePlaceholder: "عيد ميلاد، طاولة بجانب النافذة، عربة أطفال…",
+    sending: "جارٍ الإرسال…",
+    submit: "طلب الحجز",
+    noPayment: "لا حاجة للدفع — يؤكد المطعم الحجز هاتفياً.",
+    errorRateLimited: "طلبات كثيرة — يرجى المحاولة بعد قليل.",
+    errorInvalidTime: "لم يعد هذا الموعد متاحاً — يرجى اختيار موعد آخر.",
+    errorGeneric: "حدث خطأ ما — يرجى المحاولة مجدداً أو الاتصال بنا.",
+  },
+  emptyStates: {
+    noDishesInSection: "لا توجد أطباق في هذا القسم.",
+    noDietMatch:
+      "لا توجد أطباق تطابق جميع الأنظمة الغذائية التي اخترتموها. أزيلوا أحد عوامل التصفية بالأعلى لعرض المزيد.",
+    emptyMenu: "لا توجد أطباق بعد — المطعم لا يزال يُعدّ القائمة.",
+  },
+  banners: {
+    orderingPaused: "الطلب عبر الإنترنت متوقف مؤقتاً — يرجى العودة قريباً.",
+    draftPreview: "معاينة المسودة — رابطكم الخاص. لا يرى الضيوف سوى ما تنشرونه.",
+  },
+  footer: {
+    poweredBy: (brand) => `مُقدَّم من ${brand} · قوائم طعام رقمية`,
+    acceptedPayments: "طرق الدفع المقبولة",
+  },
+  hero: {
+    welcomeAria: "ترحيب",
+    welcomeTo: "أهلاً بكم في",
+    tagline: "طهي طازج وتقديم سريع — تصفّحوا القائمة واطلبوا مباشرةً من هواتفكم.",
+    orderNow: "اطلب الآن ↓",
+    features: [
+      { title: "تقديم سريع", sub: "مباشرةً من المطبخ" },
+      { title: "أفضل جودة", sub: "مكوّنات طازجة" },
+      { title: "أسعار عادلة", sub: "كل يوم" },
+    ],
+    categoriesHeading: "أقسامنا",
+    categoriesAria: "الأقسام بالصور",
+    dishCount: (n) =>
+      n === 1 ? "طبق واحد" : n === 2 ? "طبقان" : n <= 10 ? `${n} أطباق` : `${n} طبقاً`,
+  },
+  metadata: {
+    title: (venue) => `${venue} — قائمة الطعام`,
+    description: (venue) =>
+      `قائمة طعام ${venue}. الأطباق والأسعار ومعلومات مسبّبات الحساسية والأنظمة الغذائية.`,
+    srHeading: (venue) => `قائمة طعام ${venue}`,
+  },
+};
+
+export const MENU_COPY: Record<UiLocale, MenuCopy> = { en, de, es, it, ar };
+
+/**
+ * Catalogue for a venue/route locale. Region tags collapse ("en-GB" →
+ * "en") and anything without a catalogue falls back to English, so a
+ * caller never has to validate the locale first.
+ */
+export function menuCopy(locale: string | null | undefined): MenuCopy {
+  return MENU_COPY[uiLocale(locale)];
+}

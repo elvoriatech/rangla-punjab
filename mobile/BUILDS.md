@@ -41,6 +41,61 @@ Native splash: the top-level `splash` key is what this Expo version reads for
 the web/PWA path. Add `expo-splash-screen` when a native splash is needed; the
 generated splash asset is already sized for it.
 
+## Languages, RTL and Google sign-in
+
+### Guest languages
+The app ships copy in **English, German, Italian, Spanish and Arabic** —
+the same five the website calls `UiLocale` (`src/lib/locales.ts`). The
+picker on the Konto/Account screen only lists the languages the VENUE has
+enabled (`enabledLocales` from `/api/v1/menu`), intersected with those
+five; a locale the venue enables but the app has no copy for (fr, nl, …)
+still translates the dish text server-side and keeps English chrome.
+
+With no stored choice the app follows the device language, narrowed the
+same way, then the venue's `defaultLocale`, then English.
+
+**Arabic is right-to-left.** Layout direction is a native, process-wide
+flag, so switching to or away from Arabic calls `I18nManager.forceRTL()`
+and RELOADS the app via `expo-updates`. In Expo Go or a dev client with
+updates disabled, `reloadAsync()` is unavailable and the app instead asks
+the guest to close and reopen it — so test RTL in a dev/EAS build, not in
+Expo Go. Nunito and Playfair are Latin-only, so an RTL build swaps the
+whole type scale to the platform UI font (weights via `fontWeight`); that
+switch lives in `src/theme.ts` and needs no per-screen changes.
+
+### One-tap Google sign-in
+`@react-native-google-signin/google-signin` — a **native module**, so it
+does NOT work in Expo Go. Expo Go and any build without the client ids
+below fall back to the existing browser device-code flow, which is why
+nothing regresses before the credentials exist.
+
+| Build var | Where it comes from | Used by |
+| --- | --- | --- |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google Cloud → OAuth client, type **Web** | Android sign-in + the ID token audience |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | OAuth client, type **iOS** (bundle id `com.elvoria.ranglapunjab`) | iOS sign-in + the `iosUrlScheme` the config plugin registers |
+| `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | OAuth client, type **Android** (package + release SHA-1) | recorded for completeness; Android reads the web id at runtime |
+
+They are placeholders (`""`) in every `eas.json` profile — fill them in
+before a build that should have one-tap. `app.config.js` only adds the
+Google config plugin when the iOS client id is set, and accepts it either
+as `123-abc.apps.googleusercontent.com` or already reversed
+(`com.googleusercontent.apps.123-abc`).
+
+The server side is `POST /api/auth/customer/google`, which verifies the
+ID token against Google's JWKS and upserts the customer — **registration
+is implicit**: a guest's first Google tap creates the account. It answers
+503 until the server itself has `GOOGLE_CLIENT_ID`, and the app then
+falls back to the browser flow.
+
+The customer token moved from AsyncStorage to `expo-secure-store`
+(Keychain / EncryptedSharedPreferences); an existing AsyncStorage token
+is migrated on first read, so nobody is signed out by the upgrade.
+
+⛔ **Human-gated, cannot be automated from here:** creating the three
+Google Cloud OAuth clients (including the Android release SHA-1 from the
+EAS keystore), pasting them into `eas.json`, and setting `GOOGLE_CLIENT_ID`
+/ `GOOGLE_CLIENT_SECRET` on the server.
+
 ## Android APK (sideloadable, no store needed)
 ```bash
 cd mobile

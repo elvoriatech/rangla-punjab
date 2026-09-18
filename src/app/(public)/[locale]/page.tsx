@@ -11,6 +11,7 @@ import { loadPublicMenu, siteUrl } from "@/lib/public-menu";
 import { filterMenuByDiet, parseDietFilter } from "@/lib/dietary-filter";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { MenuView } from "../menu-view";
+import { menuCopy } from "@/lib/i18n/menu";
 
 /**
  * Locale-scoped public menu page. Mirrors `/r/[slug]` but forces the
@@ -54,8 +55,10 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   languages["x-default"] = `${base}/${menu.venue.defaultLocale}`;
 
   const url = `${base}/${locale}`;
-  const title = `${menu.venue.name} — Menu`;
-  const description = `Menu for ${menu.venue.name}. See dishes, prices, allergen and dietary information.`;
+  // Snippet copy follows the URL's locale, same as the page body.
+  const t = menuCopy(locale);
+  const title = t.metadata.title(menu.venue.name);
+  const description = t.metadata.description(menu.venue.name);
   return {
     title,
     description,

@@ -123,13 +123,13 @@ export function DishRow({
             <Pressable
               onPress={() => onAdd(item)}
               hitSlop={10}
-              accessibilityLabel={`${item.name} hinzufügen`}
+              accessibilityLabel={`${t.dishAdd} — ${item.name}`}
               style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}
             >
               <Text style={styles.addBtnText}>+</Text>
             </Pressable>
           ) : (
-            <Text style={[styles.soldOut, { marginLeft: "auto" }]}>{t.soldOut}</Text>
+            <Text style={[styles.soldOut, { marginStart: "auto" }]}>{t.soldOut}</Text>
           )}
         </View>
       </View>
@@ -168,10 +168,10 @@ const styles = StyleSheet.create({
   },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   headerCenter: { flex: 1, alignItems: "center" },
-  headerTitle: { color: colors.onRed, fontSize: 20, fontFamily: fonts.display },
+  headerTitle: { color: colors.onRed, fontSize: 20, ...fonts.display },
   headerSubtitle: {
     color: colors.goldSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 11,
     letterSpacing: 3,
     marginTop: 1,
@@ -183,15 +183,15 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 10,
   },
-  sectionTitle: { color: colors.ink, fontSize: 18, fontFamily: fonts.bodyBold },
-  sectionAction: { color: colors.red, fontSize: 13, fontFamily: fonts.bodySemi },
+  sectionTitle: { color: colors.ink, fontSize: 18, ...fonts.bodyBold },
+  sectionAction: { color: colors.red, fontSize: 13, ...fonts.bodySemi },
   primaryBtn: {
     backgroundColor: colors.goldSoft,
     borderRadius: radius.pill,
     paddingVertical: 14,
     alignItems: "center",
   },
-  primaryBtnText: { color: colors.ink, fontFamily: fonts.bodyBold, letterSpacing: 0.5 },
+  primaryBtnText: { color: colors.ink, ...fonts.bodyBold, letterSpacing: 0.5 },
   // The photo is INSET, not bled to the card edges: a full-height image
   // fought the card's own rounding and grew with the description, so a
   // long dish looked like a poster. Fixed square thumb, padded all round.
@@ -218,12 +218,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.line,
   },
-  dishName: { color: colors.ink, fontSize: 15.5, lineHeight: 20, fontFamily: fonts.bodyBold },
-  dishDesc: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18 },
-  dishPrice: { color: colors.red, fontSize: 14, fontFamily: fonts.bodyBold },
+  dishName: { color: colors.ink, fontSize: 15.5, lineHeight: 20, ...fonts.bodyBold },
+  dishDesc: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, lineHeight: 18 },
+  dishPrice: { color: colors.red, fontSize: 14, ...fonts.bodyBold },
   dishBasePrice: {
     color: colors.inkSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 12,
     textDecorationLine: "line-through",
   },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   offerBadgeText: {
     color: colors.ink,
     fontSize: 8,
-    fontFamily: fonts.bodyHeavy,
+    ...fonts.bodyHeavy,
     letterSpacing: 0.5,
   },
   // Mockup's add control: a soft-cornered SQUARE pinned to the card's
@@ -251,10 +251,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.red,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: "auto",
+    marginStart: "auto",
   },
-  addBtnText: { color: colors.onRed, fontSize: 22, fontFamily: fonts.bodySemi, lineHeight: 25 },
-  soldOut: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, fontStyle: "italic" },
+  addBtnText: { color: colors.onRed, fontSize: 22, ...fonts.bodySemi, lineHeight: 25 },
+  soldOut: { color: colors.inkSoft, ...fonts.body, fontSize: 11, fontStyle: "italic" },
   stepper: { flexDirection: "row", alignItems: "center", gap: 10 },
   stepBtn: {
     width: 28,
@@ -265,11 +265,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepBtnText: { color: colors.red, fontSize: 16, fontFamily: fonts.bodyBold, lineHeight: 18 },
+  stepBtnText: { color: colors.red, fontSize: 16, ...fonts.bodyBold, lineHeight: 18 },
   stepQty: {
     color: colors.ink,
     fontSize: 15,
-    fontFamily: fonts.bodyBold,
+    ...fonts.bodyBold,
     minWidth: 18,
     textAlign: "center",
   },

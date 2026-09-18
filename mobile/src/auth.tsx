@@ -1,19 +1,39 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Linking } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Linking, Platform } from "react-native";
 import { BASE_URL } from "./api";
+import { clearToken, readToken, writeToken } from "./token-store";
 
 /**
- * Customer sign-in for the app — the hand-rolled device flow: the app
- * mints a device code, opens the provider login in the system browser
- * (Google / Microsoft / local dev form), and polls until the backend
- * parks the opaque customer token under that code. No deep links, no
- * OAuth SDK, works in Expo Go.
+ * Customer sign-in for the app.
+ *
+ * Two routes to the same opaque customer token:
+ *
+ *  1. **Native Google one-tap** (`loginWithGoogle`) — the Google SDK
+ *     returns an ID token, the backend verifies it against Google's JWKS
+ *     and upserts the customer. Registration is implicit: the first
+ *     sign-in creates the account. Needs the EXPO_PUBLIC_GOOGLE_*_CLIENT_ID
+ *     build vars AND a native build (the module does not exist in Expo Go).
+ *  2. **Device-code browser flow** (`login`) — the app mints a device
+ *     code, opens the provider login in the system browser and polls
+ *     until the backend parks the token under that code. No native
+ *     module, works everywhere; the fallback whenever (1) is unavailable.
+ *
+ * Plus email/password against the app's own account endpoints.
  */
 
+export interface DeliveryAddress {
+  street?: string | null;
+  zip?: string | null;
+  city?: string | null;
+  note?: string | null;
+}
 export interface CustomerProfile {
+  id?: string;
   email: string;
   name: string | null;
+  /** Wired by the profile endpoints; older servers omit both. */
+  phone?: string | null;
+  lastDeliveryAddress?: DeliveryAddress | null;
 }
 export interface AccountOrder {
   orderId: string;
@@ -27,13 +47,30 @@ export interface AccountOrder {
   receiptToken: string;
 }
 
+/** Why a Google sign-in didn't produce a session. "unavailable" is the
+ *  only one the UI treats as "use the browser flow instead". */
+export type GoogleOutcome = "unavailable" | "cancelled" | "failed" | null;
+
+/** `busyProvider` while the NATIVE Google sheet is up. Distinct from
+ *  "google" (the browser device flow) because only the latter means
+ *  "we're waiting on another app to come back". */
+export const GOOGLE_NATIVE = "google-native";
+
 interface AuthApi {
   token: string | null;
   customer: CustomerProfile | null;
   busyProvider: string | null;
   providers: { id: string; label: string }[];
+  /** Is there ANY route to a Google account from this build — the native
+   *  SDK (client ids present, module linked) or a server-side Google
+   *  provider in the browser device flow? False means: don't offer the
+   *  button, it would dead-end. */
+  googleAvailable: boolean;
   refreshProviders: () => Promise<void>;
   login: (providerId: string) => Promise<boolean>;
+  /** Native one-tap. Falls back to the device-code browser flow itself
+   *  when the native module or the client ids are missing. */
+  loginWithGoogle: () => Promise<GoogleOutcome>;
   /** Email/password sign-in or sign-up against the app's own account
    *  endpoints. Returns null on success, or an error key for the UI. */
   loginWithEmail: (
@@ -48,7 +85,43 @@ interface AuthApi {
 }
 
 const AuthContext = createContext<AuthApi | null>(null);
-const KEY = "rangla-customer-token";
+
+// Baked at build time (expo convention). Absent in dev and in any build
+// made before the Google Cloud OAuth clients existed — that is the
+// supported state, not an error: the app keeps the browser flow.
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+
+/** Android reads its client id from the SHA-1 registered in Google Cloud
+ *  and only needs the WEB id; iOS needs its own. */
+const googleConfigured =
+  Platform.OS === "ios"
+    ? Boolean(GOOGLE_IOS_CLIENT_ID)
+    : Platform.OS === "android"
+      ? Boolean(GOOGLE_WEB_CLIENT_ID || GOOGLE_ANDROID_CLIENT_ID)
+      : false;
+
+type GoogleModule = {
+  GoogleSignin: {
+    configure: (options: Record<string, unknown>) => void;
+    hasPlayServices: (options?: { showPlayServicesUpdateDialog: boolean }) => Promise<boolean>;
+    signIn: () => Promise<{ type: string; data?: { idToken: string | null } | null }>;
+    signOut: () => Promise<unknown>;
+  };
+};
+
+/** Required lazily and defensively: in Expo Go the native module is not
+ *  linked and touching it throws. A throw here just means "no one-tap". */
+function loadGoogle(): GoogleModule | null {
+  if (!googleConfigured) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("@react-native-google-signin/google-signin") as GoogleModule;
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const [token, setToken] = useState<string | null>(null);
@@ -56,9 +129,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
   const [providers, setProviders] = useState<{ id: string; label: string }[]>([]);
   const [cancelled, setCancelled] = useState(0);
+  const [googleReady] = useState(() => googleConfigured && loadGoogle() !== null);
+  // `providers` is only populated once something calls refreshProviders
+  // (the account screen does, on mount) — deliberately not at boot: the
+  // endpoint mints a Redis-backed device code on every call.
+  const googleAvailable = googleReady || providers.some((p) => p.id === "google");
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((saved) => {
+    void readToken().then((saved) => {
       if (saved) setToken(saved);
     });
   }, []);
@@ -75,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         if (!alive) return;
         if (res.status === 401) {
           setToken(null);
-          await AsyncStorage.removeItem(KEY);
+          await clearToken();
           return;
         }
         const body = (await res.json()) as { customer?: CustomerProfile };
@@ -86,6 +164,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       alive = false;
     };
   }, [token]);
+
+  const adopt = useCallback(async (next: string, profile?: CustomerProfile | null) => {
+    setToken(next);
+    if (profile) setCustomer(profile);
+    await writeToken(next);
+  }, []);
 
   const refreshProviders = useCallback(async () => {
     try {
@@ -122,9 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
             customer?: CustomerProfile;
           };
           if (data.status === "ok" && data.token) {
-            setToken(data.token);
-            if (data.customer) setCustomer(data.customer);
-            await AsyncStorage.setItem(KEY, data.token);
+            await adopt(data.token, data.customer);
             return true;
           }
         }
@@ -135,8 +217,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         setBusyProvider(null);
       }
     },
-    [cancelled],
+    [cancelled, adopt],
   );
+
+  const loginWithGoogle = useCallback(async (): Promise<GoogleOutcome> => {
+    const mod = loadGoogle();
+    if (!mod) return "unavailable";
+    setBusyProvider(GOOGLE_NATIVE);
+    try {
+      const { GoogleSignin } = mod;
+      GoogleSignin.configure({
+        ...(GOOGLE_WEB_CLIENT_ID ? { webClientId: GOOGLE_WEB_CLIENT_ID } : {}),
+        ...(GOOGLE_IOS_CLIENT_ID ? { iosClientId: GOOGLE_IOS_CLIENT_ID } : {}),
+        scopes: ["email", "profile"],
+      });
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
+      const result = await GoogleSignin.signIn();
+      if (result.type !== "success") return "cancelled";
+      const idToken = result.data?.idToken;
+      if (!idToken) return "failed";
+      // The session lives on our own token, not Google's — drop the
+      // native session so the next sign-in shows the account chooser.
+      await GoogleSignin.signOut().catch(() => {});
+      const res = await fetch(`${BASE_URL}/api/auth/customer/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        token?: string;
+        customer?: CustomerProfile;
+      };
+      // 503 = the server has no Google client ids configured; the browser
+      // flow is the only route that can work, so say "unavailable".
+      if (res.status === 503) return "unavailable";
+      if (!res.ok || !body.token) return "failed";
+      await adopt(body.token, body.customer);
+      return null;
+    } catch {
+      return "failed";
+    } finally {
+      setBusyProvider(null);
+    }
+  }, [adopt]);
 
   const loginWithEmail = useCallback(
     async (
@@ -173,15 +298,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
             return "invalid";
           return "failed";
         }
-        setToken(body.token);
-        if (body.customer) setCustomer(body.customer);
-        await AsyncStorage.setItem(KEY, body.token);
+        await adopt(body.token, body.customer);
         return null;
       } catch {
         return "failed";
       }
     },
-    [],
+    [adopt],
   );
 
   const cancelLogin = useCallback(() => {
@@ -193,7 +316,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     const current = token;
     setToken(null);
     setCustomer(null);
-    await AsyncStorage.removeItem(KEY);
+    await clearToken();
     if (current) {
       fetch(`${BASE_URL}/api/v1/me`, {
         method: "DELETE",
@@ -216,8 +339,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       customer,
       busyProvider,
       providers,
+      googleAvailable,
       refreshProviders,
       login,
+      loginWithGoogle,
       loginWithEmail,
       cancelLogin,
       logout,
@@ -228,8 +353,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       customer,
       busyProvider,
       providers,
+      googleAvailable,
       refreshProviders,
       login,
+      loginWithGoogle,
       loginWithEmail,
       cancelLogin,
       logout,

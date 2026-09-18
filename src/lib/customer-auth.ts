@@ -1,4 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { env } from "./env";
 import { asTenant } from "./tenant";
 import { hashPassword, verifyPassword } from "./password";
@@ -196,11 +198,82 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/** Where the food goes — the exact shape `Order.deliveryAddress` stores,
+ *  so checkout can round-trip one into the other without a mapper. */
+export interface CustomerAddress {
+  street?: string;
+  zip?: string;
+  city?: string;
+  note?: string;
+}
+
+/**
+ * Everything checkout needs to prefill: who they are, how to reach them,
+ * and where they last had food delivered. One shape for `GET/PATCH
+ * /api/v1/me`, the Google sign-in response and the device-code flow, so
+ * the app treats every sign-in route identically.
+ */
+export interface CustomerProfile {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  lastDeliveryAddress: CustomerAddress | null;
+}
+
+/** The columns a profile is made of — one definition, every query. */
+export const customerProfileSelect = {
+  id: true,
+  email: true,
+  name: true,
+  phone: true,
+  lastDeliveryAddress: true,
+} as const;
+
+interface CustomerProfileRow {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  lastDeliveryAddress: unknown;
+}
+
+/** Prisma hands `Json?` back as `unknown`; narrow it to the four string
+ *  fields we store and drop anything else a hand-edited row may hold. */
+export function toCustomerProfile(row: CustomerProfileRow): CustomerProfile {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    phone: row.phone,
+    lastDeliveryAddress: parseCustomerAddress(row.lastDeliveryAddress),
+  };
+}
+
+function parseCustomerAddress(value: unknown): CustomerAddress | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const str = (v: unknown): string | undefined =>
+    typeof v === "string" && v.trim() ? v.trim() : undefined;
+  const address: CustomerAddress = {
+    street: str(raw.street),
+    zip: str(raw.zip),
+    city: str(raw.city),
+    note: str(raw.note),
+  };
+  const kept = Object.fromEntries(
+    Object.entries(address).filter(([, v]) => v !== undefined),
+  ) as CustomerAddress;
+  return Object.keys(kept).length ? kept : null;
+}
+
 export interface SignedInCustomer {
   customerId: string;
   email: string;
   name: string | null;
   token: string;
+  /** The same row as a full profile — what the app prefills checkout from. */
+  customer: CustomerProfile;
 }
 
 /** Upsert the customer by (provider, sub) and mint a fresh opaque token. */
@@ -222,20 +295,14 @@ export async function signInCustomer(
         name: identity.name,
       },
       // Refresh display fields on every login — people rename themselves.
+      // `phone` and `lastDeliveryAddress` are NOT touched: the IdP doesn't
+      // know them, and the guest's own checkout data must survive a login.
       update: { email: identity.email, name: identity.name, deletedAt: null },
-      select: { id: true, email: true, name: true },
+      select: customerProfileSelect,
     });
-    const token = randomBytes(32).toString("base64url");
-    await tx.customerToken.create({
-      data: {
-        tenantId,
-        customerId: customer.id,
-        tokenHash: hashToken(token),
-        expiresAt: new Date(Date.now() + CUSTOMER_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000),
-      },
-    });
+    const signedIn = await mintCustomerToken(tx, tenantId, customer);
     log.info("customer_auth.signed_in", { customerId: customer.id, provider });
-    return { customerId: customer.id, email: customer.email, name: customer.name, token };
+    return signedIn;
   });
 }
 
@@ -249,7 +316,7 @@ export type PasswordAuthResult =
 async function mintCustomerToken(
   tx: Parameters<Parameters<typeof asTenant>[1]>[0],
   tenantId: string,
-  customer: { id: string; email: string; name: string | null },
+  customer: CustomerProfileRow,
 ): Promise<SignedInCustomer> {
   const token = randomBytes(32).toString("base64url");
   await tx.customerToken.create({
@@ -260,7 +327,13 @@ async function mintCustomerToken(
       expiresAt: new Date(Date.now() + CUSTOMER_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000),
     },
   });
-  return { customerId: customer.id, email: customer.email, name: customer.name, token };
+  return {
+    customerId: customer.id,
+    email: customer.email,
+    name: customer.name,
+    token,
+    customer: toCustomerProfile(customer),
+  };
 }
 
 /** Email sign-up. Fails with "exists" when the email already has a
@@ -304,7 +377,7 @@ export async function registerCustomerWithPassword(
         passwordHash,
       },
       update: { email, name: name?.trim() || null, passwordHash, deletedAt: null },
-      select: { id: true, email: true, name: true },
+      select: customerProfileSelect,
     });
     const signedIn = await mintCustomerToken(tx, tenantId, customer);
     log.info("customer_auth.registered", { customerId: customer.id });
@@ -329,28 +402,22 @@ export async function signInCustomerWithPassword(
           providerSub: email,
         },
       },
-      select: { id: true, email: true, name: true, passwordHash: true, deletedAt: true },
+      select: { ...customerProfileSelect, passwordHash: true, deletedAt: true },
     });
     if (!customer || customer.deletedAt || !customer.passwordHash) {
       return { ok: false as const, error: "invalid_credentials" as const };
     }
     const valid = await verifyPassword(customer.passwordHash, password);
     if (!valid) return { ok: false as const, error: "invalid_credentials" as const };
-    const signedIn = await mintCustomerToken(tx, tenantId, {
-      id: customer.id,
-      email: customer.email,
-      name: customer.name,
-    });
+    const signedIn = await mintCustomerToken(tx, tenantId, customer);
     log.info("customer_auth.signed_in", { customerId: customer.id, provider: PASSWORD_PROVIDER });
     return { ok: true as const, value: signedIn };
   });
 }
 
-export interface VerifiedCustomer {
-  id: string;
-  email: string;
-  name: string | null;
-}
+/** Historic alias — the verifier has always returned the customer row;
+ *  it now carries the checkout fields too. */
+export type VerifiedCustomer = CustomerProfile;
 
 /** Token → customer, or null. One verifier for cookie and app bearer. */
 export async function verifyCustomerToken(
@@ -366,10 +433,154 @@ export async function verifyCustomerToken(
         expiresAt: { gt: new Date() },
         customer: { deletedAt: null },
       },
-      select: { customer: { select: { id: true, email: true, name: true } } },
+      select: { customer: { select: customerProfileSelect } },
     });
-    return row ? row.customer : null;
+    return row ? toCustomerProfile(row.customer) : null;
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Profile edits (PATCH /api/v1/me + the post-order back-fill)         */
+/* ------------------------------------------------------------------ */
+
+export interface CustomerProfilePatch {
+  name?: string | null;
+  phone?: string | null;
+  lastDeliveryAddress?: CustomerAddress | null;
+}
+
+/**
+ * Write the guest's own profile fields. Caller must already have proved
+ * the customer id belongs to this tenant (token verification, or an
+ * order it just wrote); the update still runs under RLS, so a stray id
+ * from another tenant updates nothing.
+ *
+ * `undefined` leaves a field alone; an explicit `null` clears it.
+ */
+export async function updateCustomerProfile(
+  tenantId: string,
+  customerId: string,
+  patch: CustomerProfilePatch,
+): Promise<CustomerProfile | null> {
+  const data = customerProfileUpdateData(patch);
+  return asTenant(tenantId, async (tx) => {
+    const updated = await tx.customer.updateMany({
+      where: { id: customerId, deletedAt: null },
+      data,
+    });
+    if (!updated.count) return null;
+    const row = await tx.customer.findFirst({
+      where: { id: customerId },
+      select: customerProfileSelect,
+    });
+    return row ? toCustomerProfile(row) : null;
+  });
+}
+
+export interface CustomerProfileUpdateData {
+  name?: string | null;
+  phone?: string | null;
+  lastDeliveryAddress?: Prisma.CustomerUpdateManyMutationInput["lastDeliveryAddress"];
+}
+
+/** Patch → Prisma `data`. Shared with the in-transaction back-fill in
+ *  order-service, which must not open a second connection. */
+export function customerProfileUpdateData(patch: CustomerProfilePatch): CustomerProfileUpdateData {
+  const data: CustomerProfileUpdateData = {};
+  if (patch.name !== undefined) data.name = patch.name?.trim() || null;
+  if (patch.phone !== undefined) data.phone = patch.phone?.trim() || null;
+  if (patch.lastDeliveryAddress !== undefined) {
+    // Prisma needs the DbNull sentinel to write SQL NULL into a Json
+    // column — a plain `null` would store the JSON value `null`. The
+    // spread is what turns our named shape into the index-signature'd
+    // object Prisma's Json input type wants.
+    data.lastDeliveryAddress = patch.lastDeliveryAddress
+      ? { ...patch.lastDeliveryAddress }
+      : Prisma.DbNull;
+  }
+  return data;
+}
+
+/* ------------------------------------------------------------------ */
+/* Native Google sign-in — ID token straight from the device           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The browser flow above hops to Google and back; a native app already
+ * holds a signed ID token from the Google SDK and just needs it checked.
+ * Verification is the full JWT check against Google's published keys —
+ * signature, issuer, audience (one of OUR OAuth client ids: web, iOS,
+ * Android), expiry — plus `email_verified`. Never `tokeninfo`: that
+ * endpoint is a network round-trip per sign-in and trusts whatever the
+ * device's DNS resolves to.
+ *
+ * The identity it returns feeds the same `signInCustomer()` upsert as
+ * the browser flow, and `sub` is the same Google subject, so a guest who
+ * first signed in on the web lands on the SAME customer row.
+ */
+const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
+const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
+
+interface GoogleIdTokenConfig {
+  audiences: string[];
+  keys: JWTVerifyGetKey;
+}
+
+/** Test seam: a local key set + client ids, so suites sign their own
+ *  tokens and CI never reaches googleapis.com. Refused in production. */
+let googleOverride: GoogleIdTokenConfig | null = null;
+export function setGoogleIdTokenConfigForTests(config: GoogleIdTokenConfig | null): void {
+  if (env.NODE_ENV === "production") throw new Error("google id-token test seam is dev-only");
+  googleOverride = config;
+}
+
+/** Every OAuth client id an ID token may be addressed to: the web client
+ *  (shared with the browser flow) plus the app's native client ids. */
+export function googleIdTokenAudiences(): string[] {
+  if (googleOverride) return googleOverride.audiences;
+  const ids = [env.GOOGLE_CLIENT_ID ?? "", ...(env.GOOGLE_MOBILE_CLIENT_IDS ?? "").split(",")]
+    .map((id) => id.trim())
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+let remoteJwks: JWTVerifyGetKey | null = null;
+function googleKeys(): JWTVerifyGetKey {
+  if (googleOverride) return googleOverride.keys;
+  // Cached + rotated by jose itself — one key fetch per process, not per
+  // sign-in.
+  remoteJwks ??= createRemoteJWKSet(new URL(GOOGLE_JWKS_URL));
+  return remoteJwks;
+}
+
+export async function verifyGoogleIdToken(idToken: string): Promise<CustomerIdentity | null> {
+  const audience = googleIdTokenAudiences();
+  if (!audience.length) return null;
+  try {
+    const { payload } = await jwtVerify(idToken, googleKeys(), {
+      issuer: GOOGLE_ISSUERS,
+      audience,
+    });
+    const claims = payload as {
+      sub?: string;
+      email?: string;
+      email_verified?: boolean | string;
+      name?: string;
+    };
+    if (!claims.sub || !claims.email) return null;
+    // Google sends a boolean; some older tokens send the string. An
+    // unverified address must never take over an existing account.
+    if (claims.email_verified !== true && claims.email_verified !== "true") {
+      log.warn("customer_auth.google_id_token_unverified_email", { sub: claims.sub });
+      return null;
+    }
+    return { sub: claims.sub, email: claims.email, name: claims.name ?? null };
+  } catch (error) {
+    log.warn("customer_auth.google_id_token_rejected", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return null;
+  }
 }
 
 /** Log out everywhere this token is used. */

@@ -4,7 +4,7 @@ import Svg, { Path } from "react-native-svg";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow } from "../components";
 import { DishSheet } from "../dish-sheet";
-import { colors, fonts } from "../theme";
+import { colors, fonts, isRTL } from "../theme";
 import { useI18n } from "../i18n";
 
 /** Kategorien — chip rail + dish list, the mockup's category browser. */
@@ -79,7 +79,12 @@ function Chip({
       {active ? (
         // The mockup bubble's tail: hangs off the bottom-right, its top
         // edge curving INWARD (concave) out to a long sharp point.
-        <Svg width={16} height={15} viewBox="0 0 16 15" style={styles.chipTail}>
+        <Svg
+          width={16}
+          height={15}
+          viewBox="0 0 16 15"
+          style={[styles.chipTail, isRTL && { transform: [{ scaleX: -1 }] }]}
+        >
           <Path d="M0 0 C3 9 9 13.4 16 15 L0 15 Z" fill={colors.red} />
         </Svg>
       ) : null}
@@ -109,10 +114,12 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor: colors.red,
     borderRadius: 18,
-    borderBottomRightRadius: 0,
+    // Logical corner: the tail hangs off the END of the row, so the
+    // squared-off corner has to follow the reading direction too.
+    borderEndEndRadius: 0,
   },
-  chipTail: { position: "absolute", right: -15, bottom: 0 },
-  chipText: { color: colors.ink, fontSize: 13.5, fontFamily: fonts.bodySemi },
-  chipTextActive: { color: colors.onRed, fontFamily: fonts.bodyBold },
-  catHeading: { color: colors.ink, fontSize: 17, fontFamily: fonts.bodyHeavy, marginTop: 8 },
+  chipTail: { position: "absolute", end: -15, bottom: 0 },
+  chipText: { color: colors.ink, fontSize: 13.5, ...fonts.bodySemi },
+  chipTextActive: { color: colors.onRed, ...fonts.bodyBold },
+  catHeading: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy, marginTop: 8 },
 });

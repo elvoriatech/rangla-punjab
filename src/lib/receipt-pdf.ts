@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatPrice } from "./public-menu";
-import { VAT_RATE_LABEL, vatFromGross } from "./vat";
+import { pdfCopy, pdfLocale } from "./i18n/pdf";
+import { vatFromGross } from "./vat";
 import type { ReceiptOrder } from "./order-service";
 
 /**
@@ -15,7 +16,10 @@ const WIDTH = 226.8; // 80 mm in PDF points
 const MARGIN = 14;
 const LINE = 11; // line height at 8.5 pt Courier
 const FONT_SIZE = 8.5;
-const LABEL_CHARS = 8; // width of the fulfilment label column, in characters
+// Width of the fulfilment label column, in characters. 10 rather than 8 so
+// the longest Spanish/Italian labels ("Direccion", "Indirizzo") fit without
+// abbreviation; the value column still holds ~28 characters.
+const LABEL_CHARS = 10;
 
 // Material "phone" handset, 24×24 viewbox — drawn as a vector because the
 // WinAnsi Courier face has no phone glyph.
@@ -60,50 +64,13 @@ export async function buildReceiptPdf(
   const monoBold = await doc.embedFont(StandardFonts.CourierBold);
   const logo = logoPng ? await doc.embedPng(logoPng).catch(() => null) : null;
 
-  const price = (cents: number): string => formatPrice(cents, order.currency, locale);
-  // Guest-facing copy in the guest's language. Labels stay ≤ LABEL_CHARS.
-  const t =
-    locale === "de"
-      ? {
-          type: "Art",
-          delivery: "Lieferung",
-          pickup: "Abholung",
-          planned: "Geplant",
-          name: "Name",
-          phone: "Telefon",
-          address: "Adresse",
-          note: "Hinweis",
-          table: "Tisch",
-          order: "Bestellung Nr.",
-          paidOnline: "ONLINE BEZAHLT",
-          net: "Netto",
-          vat: `MwSt. ${VAT_RATE_LABEL} % (enthalten)`,
-          total: "GESAMT",
-          vatNote: `Gesamtbetrag inkl. ${VAT_RATE_LABEL} % MwSt.`,
-          unpaid: ["Die Zahlung erfolgt im", "Restaurant - dies ist", "keine Rechnung."],
-          paid: ["Online bezahlt - vielen Dank."],
-          thanks: "Vielen Dank & bis bald!",
-        }
-      : {
-          type: "Type",
-          delivery: "Delivery",
-          pickup: "Pickup",
-          planned: "Planned",
-          name: "Name",
-          phone: "Phone",
-          address: "Address",
-          note: "Note",
-          table: "Table",
-          order: "Order #",
-          paidOnline: "PAID ONLINE",
-          net: "Net",
-          vat: `VAT ${VAT_RATE_LABEL}% (incl.)`,
-          total: "TOTAL",
-          vatNote: `Total includes ${VAT_RATE_LABEL}% VAT.`,
-          unpaid: ["Payment is settled at the", "restaurant - this is not", "a tax invoice."],
-          paid: ["Paid online - thank you."],
-          thanks: "Thank you & see you soon!",
-        };
+  // `ar` renders in English here (plan decision 4) — StandardFonts cannot
+  // draw Arabic at all, so a "translated" PDF would come out blank rather
+  // than merely English. The formats follow the same fallback.
+  const intlLocale = pdfLocale(locale);
+  const price = (cents: number): string => formatPrice(cents, order.currency, intlLocale);
+  // Guest-facing copy in the guest's language. Labels stay <= LABEL_CHARS.
+  const t = pdfCopy(locale);
   // Courier is fixed-width: usable chars per line at 8.5pt across 198.8pt.
   const charW = mono.widthOfTextAtSize("0", FONT_SIZE);
   const cols = Math.floor((WIDTH - 2 * MARGIN) / charW);
@@ -132,7 +99,7 @@ export async function buildReceiptPdf(
 
   // Fulfilment details as label/value rows, built from the order's fields.
   const scheduled = order.requestedFor
-    ? new Intl.DateTimeFormat("de-DE", {
+    ? new Intl.DateTimeFormat(intlLocale, {
         hour: "2-digit",
         minute: "2-digit",
         timeZone: "Europe/Berlin",
@@ -236,7 +203,7 @@ export async function buildReceiptPdf(
   rule();
   spread(
     `${t.order} ${String(order.orderNumber).padStart(4, "0")}`,
-    new Intl.DateTimeFormat(locale, {
+    new Intl.DateTimeFormat(intlLocale, {
       dateStyle: "short",
       timeStyle: "short",
       timeZone: "Europe/Berlin",

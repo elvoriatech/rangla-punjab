@@ -11,7 +11,12 @@
  * Forward-only: staff may skip ahead (a rush order can go placed → done
  * in one tap) but never backwards — "un-cooking" an order would lie to
  * a guest who already saw "ready".
+ *
+ * Language-free by design: steps carry a catalogue KEY, and whoever
+ * renders them looks the words up in `src/lib/i18n/post-order.ts`.
  */
+
+import type { PostOrderCopy } from "./i18n/post-order";
 
 export const ORDER_STATUSES = ["placed", "preparing", "ready", "out_for_delivery", "done"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -66,32 +71,37 @@ export function advanceLabel(to: OrderStatus): string {
   }
 }
 
+/** Which entry of `postOrderCopy(locale).steps` words a tracker step. One
+ *  status can have several wordings — "ready" is "Ready for pickup" on a
+ *  takeaway order and plain "Ready" on a dine-in one. */
+export type GuestStepLabel = keyof PostOrderCopy["steps"];
+
 export interface GuestStep {
   key: OrderStatus;
-  /** German first (the guest surface), English beneath. */
-  de: string;
-  en: string;
+  /** Catalogue key, not a word: this module stays language-free so the
+   *  tracker page, the v1 API and the app can each render it in their
+   *  own locale from `src/lib/i18n/post-order.ts`. */
+  label: GuestStepLabel;
 }
 
 /** The tracker steps a guest sees, worded per order type (mockup wording). */
 export function guestSteps(orderType: string): GuestStep[] {
   const done: GuestStep =
     orderType === "delivery"
-      ? { key: "done", de: "Geliefert", en: "Delivered" }
+      ? { key: "done", label: "delivered" }
       : orderType === "takeaway"
-        ? { key: "done", de: "Abgeholt", en: "Picked up" }
-        : { key: "done", de: "Serviert", en: "Served" };
+        ? { key: "done", label: "pickedUp" }
+        : { key: "done", label: "served" };
   const ready: GuestStep =
     orderType === "takeaway"
-      ? { key: "ready", de: "Abholbereit", en: "Ready for pickup" }
-      : { key: "ready", de: "Fertig", en: "Ready" };
+      ? { key: "ready", label: "readyForPickup" }
+      : { key: "ready", label: "ready" };
   const steps: GuestStep[] = [
-    { key: "placed", de: "Bestätigt", en: "Confirmed" },
-    { key: "preparing", de: "Zubereitung", en: "Preparing" },
+    { key: "placed", label: "confirmed" },
+    { key: "preparing", label: "preparing" },
     ready,
   ];
-  if (orderType === "delivery")
-    steps.push({ key: "out_for_delivery", de: "Unterwegs", en: "On the way" });
+  if (orderType === "delivery") steps.push({ key: "out_for_delivery", label: "onTheWay" });
   steps.push(done);
   return steps;
 }

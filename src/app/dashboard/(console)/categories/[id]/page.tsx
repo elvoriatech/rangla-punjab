@@ -4,10 +4,17 @@ import Link from "next/link";
 import { getSessionUserId } from "@/lib/auth";
 import { listCategories } from "@/lib/categories-service";
 import { listItems, type ItemRow } from "@/lib/items-service";
-import { addItemAction, deleteItemAction, updateItemAction } from "./actions";
+import {
+  addItemAction,
+  deleteItemAction,
+  saveTranslationsAction,
+  updateItemAction,
+} from "./actions";
 import { menuImageUrl } from "@/lib/menu-images";
 import { isDrinkCategory } from "@/lib/category-icons";
 import { getVenueForUser } from "@/lib/venue-service";
+import { getTranslationsForCategory } from "@/lib/translation-service";
+import { dirFor, localeEntry } from "@/lib/locales";
 import { SubmitButton } from "@/components/submit-button";
 
 const ALLERGENS = [
@@ -39,10 +46,15 @@ export default async function CategoryDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ edit?: string; saved?: string; photo?: string }>;
+  searchParams: Promise<{
+    edit?: string;
+    saved?: string;
+    photo?: string;
+    translations?: string;
+  }>;
 }): Promise<React.ReactElement> {
   const { id } = await params;
-  const { edit, saved, photo: photoRejected } = await searchParams;
+  const { edit, saved, photo: photoRejected, translations: translationFlash } = await searchParams;
   const base = `/dashboard`;
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
@@ -68,9 +80,19 @@ export default async function CategoryDetailPage({
   const halalOffered = venueResult.ok && venueResult.value.branding.halalFilter === "on";
   const halalDefault = halalOffered && !isDrinkCategory(category.name);
 
+  // Translation overlay for every language the venue has enabled beyond
+  // its default. Empty `translatable` = a single-language menu, which gets
+  // a pointer to Settings instead of a wall of inputs.
+  const translationsResult = await getTranslationsForCategory(userId, id);
+  const translations = translationsResult.ok ? translationsResult.value : null;
+  const defaultLocaleLabel = translations
+    ? (localeEntry(translations.locales.default)?.label ?? translations.locales.default)
+    : "";
+
   const addAction = addItemAction.bind(null, id);
   const deleteAction = deleteItemAction.bind(null, id);
   const updateAction = updateItemAction.bind(null, id);
+  const translationsAction = saveTranslationsAction.bind(null, id);
 
   // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
   const toLocalInput = (d: Date | null): string => {
@@ -88,7 +110,16 @@ export default async function CategoryDetailPage({
           ← All categories
         </Link>
       </div>
-      {photoRejected ? (
+      {translationFlash ? (
+        <FlashMessage
+          kind={translationFlash === "saved" ? "success" : "error"}
+          text={
+            translationFlash === "saved"
+              ? "Translations saved. Publish the menu to make them live for guests."
+              : "Translations were not saved — reload the page and try again."
+          }
+        />
+      ) : photoRejected ? (
         <FlashMessage
           kind="error"
           text={
@@ -399,6 +430,101 @@ export default async function CategoryDetailPage({
           ))
         )}
       </ol>
+
+      {/* Translations. One collapsible block per enabled language other
+          than the venue default — the default-language text lives on the
+          dish itself, up in the Items list. */}
+      <h2 id="translations" className="mt-14 font-serif text-2xl">
+        Translations
+      </h2>
+      {!translations || translations.locales.translatable.length === 0 ? (
+        <p className="mt-2 text-sm text-brand-green/70">
+          This menu is in one language.{" "}
+          <Link href={`${base}/settings`} className="underline">
+            Add a menu language in Settings
+          </Link>{" "}
+          to translate category names and dishes.
+        </p>
+      ) : (
+        <form action={translationsAction} className="mt-2 space-y-4">
+          <p className="text-sm text-brand-green/70">
+            Leave a field empty and guests reading in that language see the {defaultLocaleLabel}{" "}
+            text instead. Translations go live with the next publish.
+          </p>
+          {translations.locales.translatable.map((locale) => {
+            const meta = localeEntry(locale);
+            const dir = dirFor(locale);
+            return (
+              <details key={locale} className="border border-brand-green/20 bg-white" open>
+                <summary className="cursor-pointer px-6 py-4 font-serif text-xl">
+                  <span aria-hidden="true">{meta?.flag} </span>
+                  {meta?.label ?? locale}
+                </summary>
+                <div className="space-y-5 border-t border-brand-green/10 px-6 py-5">
+                  <label className="block">
+                    <span className="text-sm font-medium">Category name</span>
+                    <input
+                      name={`category:${locale}`}
+                      dir={dir}
+                      maxLength={120}
+                      defaultValue={translations.category.name.byLocale[locale] ?? ""}
+                      placeholder={translations.category.name.base}
+                      className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm focus:border-brand-green focus:outline-none"
+                    />
+                  </label>
+                  {translations.items.length === 0 ? (
+                    <p className="text-sm text-brand-green/60">
+                      No dishes to translate yet. Add one above.
+                    </p>
+                  ) : (
+                    translations.items.map((item) => (
+                      <fieldset
+                        key={item.id}
+                        className="border-t border-brand-green/10 pt-4 first-of-type:border-t-0 first-of-type:pt-0"
+                      >
+                        <legend className="text-xs uppercase tracking-[0.18em] text-brand-gold">
+                          {item.name.base}
+                        </legend>
+                        <div className="mt-2 space-y-3">
+                          <label className="block">
+                            <span className="text-xs font-medium">Name</span>
+                            <input
+                              name={`item:${item.id}:${locale}:name`}
+                              dir={dir}
+                              maxLength={120}
+                              defaultValue={item.name.byLocale[locale] ?? ""}
+                              placeholder={item.name.base}
+                              className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm focus:border-brand-green focus:outline-none"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium">Description</span>
+                            <textarea
+                              name={`item:${item.id}:${locale}:description`}
+                              dir={dir}
+                              maxLength={2000}
+                              rows={2}
+                              defaultValue={item.description.byLocale[locale] ?? ""}
+                              placeholder={item.description.base || "No description to translate"}
+                              className="mt-1 block w-full border border-brand-green/20 bg-white px-3 py-2 text-sm focus:border-brand-green focus:outline-none"
+                            />
+                          </label>
+                        </div>
+                      </fieldset>
+                    ))
+                  )}
+                </div>
+              </details>
+            );
+          })}
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="bg-brand-green px-5 py-3 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark"
+          >
+            Save translations
+          </SubmitButton>
+        </form>
+      )}
     </main>
   );
 }

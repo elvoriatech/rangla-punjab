@@ -9,6 +9,8 @@ import {
   statusChain,
   stepIndex,
 } from "./order-status";
+import { postOrderCopy } from "./i18n/post-order";
+import { UI_LOCALES } from "./locales";
 
 describe("order lifecycle", () => {
   it("walks the full chain per order type", () => {
@@ -52,19 +54,30 @@ describe("order lifecycle", () => {
     }
   });
 
-  it("guest steps match order type and the delivery mockup wording", () => {
+  it("guest steps carry catalogue keys, worded per order type", () => {
     const delivery = guestSteps("delivery");
-    expect(delivery.map((s) => s.de)).toEqual([
-      "Bestätigt",
-      "Zubereitung",
-      "Fertig",
-      "Unterwegs",
-      "Geliefert",
+    expect(delivery.map((s) => s.label)).toEqual([
+      "confirmed",
+      "preparing",
+      "ready",
+      "onTheWay",
+      "delivered",
     ]);
     const pickup = guestSteps("takeaway");
     expect(pickup.map((s) => s.key)).toEqual(["placed", "preparing", "ready", "done"]);
-    expect(pickup[2]!.de).toBe("Abholbereit");
-    expect(guestSteps("dine_in").at(-1)!.de).toBe("Serviert");
+    expect(pickup[2]!.label).toBe("readyForPickup");
+    expect(guestSteps("dine_in").at(-1)!.label).toBe("served");
+  });
+
+  it("every step label resolves to real copy in every UI locale", () => {
+    for (const locale of UI_LOCALES) {
+      const copy = postOrderCopy(locale);
+      for (const type of ["dine_in", "takeaway", "delivery"]) {
+        for (const step of guestSteps(type)) {
+          expect(copy.steps[step.label]).toBeTruthy();
+        }
+      }
+    }
   });
 
   it("stepIndex locates the current status in the chain", () => {

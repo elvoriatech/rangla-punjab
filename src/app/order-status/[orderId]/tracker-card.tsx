@@ -1,0 +1,167 @@
+import Link from "next/link";
+import type { CSSProperties } from "react";
+import { guestSteps, stepIndex } from "@/lib/order-status";
+import { postOrderCopy } from "@/lib/i18n/post-order";
+import { dirFor } from "@/lib/locales";
+import type { UiLocale } from "@/lib/locales";
+
+/**
+ * The tracker itself: pure render, no data access, so the page above it is
+ * just "authorize → load → resolve locale" and this can be unit-tested in
+ * all five languages without a database.
+ *
+ * Zero JS: the step rail, the ticks and the live refresh are all markup.
+ * Everything directional uses logical utilities (`start-*`, `text-start`),
+ * so the Arabic render is the same layout mirrored rather than a second
+ * stylesheet.
+ */
+export interface TrackerOrder {
+  orderNumber: number;
+  status: string;
+  orderType: string;
+  paymentStatus: string;
+  totalCents: number;
+  currency: string;
+  createdAt: Date;
+  tableNumber: string | null;
+  timezone: string;
+  items: { name: string; quantity: number; priceCents: number }[];
+}
+
+export function OrderTrackerCard({
+  order,
+  locale,
+  themeStyle,
+}: {
+  order: TrackerOrder;
+  locale: UiLocale;
+  themeStyle: CSSProperties;
+}): React.ReactElement {
+  const t = postOrderCopy(locale);
+  const steps = guestSteps(order.orderType);
+  const current = stepIndex(order.status, order.orderType);
+  const isDone = order.status === "done";
+  const money = new Intl.NumberFormat(locale, { style: "currency", currency: order.currency });
+  const time = new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: order.timezone || "Europe/Berlin",
+  });
+
+  return (
+    <main
+      style={themeStyle}
+      dir={dirFor(locale)}
+      className="flex min-h-screen flex-col items-center bg-[var(--menu-bg)] px-4 py-10 text-[var(--menu-text)]"
+    >
+      {/* meta refresh: live without JavaScript */}
+      {!isDone ? <meta httpEquiv="refresh" content="15" /> : null}
+      <div className="w-full max-w-md rounded-2xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.5)]">
+        {/* Arabic is cursive — `uppercase`/`letter-spacing` only damage it. */}
+        <p className="text-center text-xs uppercase tracking-[0.28em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+          {t.trackTitle}
+        </p>
+        <h1 className="mt-2 text-center font-serif text-3xl">
+          {t.orderHeading(String(order.orderNumber).padStart(4, "0"))}
+        </h1>
+        <p className="mt-1 text-center text-sm text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+          {time.format(order.createdAt)}
+          {order.tableNumber ? t.tableSuffix(order.tableNumber) : ""}
+        </p>
+
+        <ol className="mt-8 space-y-0">
+          {steps.map((step, i) => {
+            const reached = i <= current;
+            const isCurrent = i === current && !isDone;
+            return (
+              <li key={step.key} className="relative flex gap-4 pb-8 last:pb-0">
+                {i < steps.length - 1 ? (
+                  <span
+                    aria-hidden="true"
+                    /* Logical inset: the rail runs under the bullets on
+                       whichever side the text starts. */
+                    className="absolute start-[15px] top-8 h-[calc(100%-2rem)] w-0.5"
+                    style={{
+                      backgroundColor:
+                        reached && i < current
+                          ? "var(--menu-positive)"
+                          : "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 22%, transparent)",
+                    }}
+                  />
+                ) : null}
+                <span
+                  aria-hidden="true"
+                  className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold"
+                  style={
+                    reached
+                      ? {
+                          backgroundColor: isCurrent
+                            ? "var(--menu-surface-accent, var(--menu-accent))"
+                            : "var(--menu-positive)",
+                          borderColor: isCurrent
+                            ? "var(--menu-surface-accent, var(--menu-accent))"
+                            : "var(--menu-positive)",
+                          color: "var(--menu-surface, #fff)",
+                        }
+                      : {
+                          borderColor:
+                            "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 28%, transparent)",
+                          color: "var(--menu-surface-text-soft, var(--menu-text-soft))",
+                        }
+                  }
+                >
+                  {reached && !isCurrent ? "✓" : i + 1}
+                </span>
+                {/* One language, full size. The old build stacked a small
+                    English line under every German one — a stand-in for
+                    translation, not a design. */}
+                <span
+                  className={`pt-1 text-start text-sm font-semibold ${reached ? "" : "opacity-60"}`}
+                >
+                  {t.steps[step.label]}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="mt-8 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/6 px-4 py-3 text-sm">
+          <ul className="mb-2 space-y-1 border-b border-[var(--menu-surface-text,var(--menu-text))]/12 pb-2">
+            {order.items.map((line, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <span className="min-w-6 font-bold text-[var(--menu-surface-accent,var(--menu-accent))]">
+                  {line.quantity}×
+                </span>
+                <span className="flex-1 truncate">{line.name}</span>
+                <span className="tabular-nums text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                  {money.format((line.priceCents * line.quantity) / 100)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-between">
+            <span>{t.total}</span>
+            <span className="font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">
+              {money.format(order.totalCents / 100)}
+            </span>
+          </div>
+          <div className="mt-1 flex justify-between text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+            <span>{t.payment}</span>
+            <span>{order.paymentStatus === "paid" ? t.paidOnline : t.payAtRestaurant}</span>
+          </div>
+        </div>
+
+        {!isDone ? (
+          <p className="mt-4 text-center text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+            {t.autoRefresh}
+          </p>
+        ) : null}
+        <p className="mt-2 text-center text-xs">
+          <Link href="/" className="underline underline-offset-4">
+            {t.backToMenu}
+          </Link>
+        </p>
+      </div>
+    </main>
+  );
+}

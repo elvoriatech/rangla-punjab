@@ -4,6 +4,7 @@ import { getOrderForReceipt } from "@/lib/order-service";
 import { buildReceiptPdf } from "@/lib/receipt-pdf";
 import { readUpload } from "@/lib/image-storage";
 import { resizeImage } from "@/lib/image-resize";
+import { isLocaleCode, uiLocale } from "@/lib/locales";
 
 /** Venue logo as small PNG bytes, resized from the stored original with
  *  sharp. Any failure just means a text-only header. */
@@ -30,7 +31,7 @@ export async function GET(
   const { id } = await params;
   const url = new URL(request.url);
   const token = url.searchParams.get("token") ?? "";
-  const locale = url.searchParams.get("locale") ?? "de";
+  const localeParam = url.searchParams.get("locale");
 
   const verified = verifyReceiptToken(token);
   if (!verified || verified.orderId !== id) {
@@ -40,8 +41,11 @@ export async function GET(
   const order = await getOrderForReceipt(verified.tenantId, id);
   if (!order) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
+  // A valid `?locale=` wins; otherwise the venue's own language. Venue
+  // locales without a catalogue collapse to English inside `uiLocale`.
+  const locale = uiLocale(isLocaleCode(localeParam) ? localeParam : order.venue.defaultLocale);
   const logoPng = await fetchLogoPng(order.venue.logoKey);
-  const pdf = await buildReceiptPdf(order, ["de", "en"].includes(locale) ? locale : "de", logoPng);
+  const pdf = await buildReceiptPdf(order, locale, logoPng);
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",

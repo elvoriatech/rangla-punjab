@@ -48,9 +48,10 @@ function syncUrlAndDietLinks(catSlug: string | null): void {
   else url.searchParams.delete("cat");
   window.history.replaceState(window.history.state, "", url.toString());
   // Diet tabs are server links carrying the category — keep them honest.
-  for (const a of document.querySelectorAll<HTMLAnchorElement>(
-    'nav[aria-label="Dietary filter"] a',
-  )) {
+  // Matched on the data attribute, never the aria-label: that label is
+  // translated (menu-view renders it from the guest-copy catalogue) and a
+  // selector built on it would silently stop matching in German.
+  for (const a of document.querySelectorAll<HTMLAnchorElement>("nav[data-diet-filter] a")) {
     const u = new URL(a.href, window.location.origin);
     if (catSlug) u.searchParams.set("cat", catSlug);
     else u.searchParams.delete("cat");
@@ -79,7 +80,7 @@ export function TabLink({
   const cls =
     variant === "primary"
       ? active
-        ? `${base} rounded-2xl [border-bottom-right-radius:3px] bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] shadow-sm`
+        ? `${base} rounded-2xl [border-end-end-radius:3px] bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] shadow-sm`
         : `${base} rounded-2xl text-[var(--menu-text)] hover:text-[var(--menu-accent)]`
       : active
         ? `${base} rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/12 font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`
@@ -154,6 +155,8 @@ export function CategoryTabs({
   activeDiet,
   showIcons,
   icons,
+  navLabel,
+  allLabel,
 }: {
   categories: { id: string; name: string }[];
   /** id → URL slug, precomputed on the server. */
@@ -164,6 +167,10 @@ export function CategoryTabs({
   /** id → icon glyph, precomputed on the server (keeps the icon table out
    *  of the client bundle). */
   icons: Record<string, string>;
+  /** The two translated strings this rail renders, resolved on the server
+   *  so the guest-copy catalogue never enters the client bundle. */
+  navLabel: string;
+  allLabel: string;
 }): React.ReactElement | null {
   const current = useSyncExternalStore(
     subscribe,
@@ -191,7 +198,7 @@ export function CategoryTabs({
     };
 
   return (
-    <nav aria-label="Categories" className="-mx-1 w-full overflow-x-auto">
+    <nav aria-label={navLabel} className="-mx-1 w-full overflow-x-auto">
       <ul className="mx-auto flex w-max min-w-max items-center gap-1 px-1 text-[11px] uppercase tracking-[0.28em]">
         <li>
           <TabLink
@@ -200,7 +207,7 @@ export function CategoryTabs({
             variant="primary"
             onClick={pick(null)}
           >
-            All
+            {allLabel}
           </TabLink>
         </li>
         {categories.map((c) => (
@@ -212,7 +219,7 @@ export function CategoryTabs({
               onClick={pick(c.id)}
             >
               {showIcons ? (
-                <span aria-hidden="true" className="mr-1.5 text-sm normal-case tracking-normal">
+                <span aria-hidden="true" className="me-1.5 text-sm normal-case tracking-normal">
                   {icons[c.id]}
                 </span>
               ) : null}

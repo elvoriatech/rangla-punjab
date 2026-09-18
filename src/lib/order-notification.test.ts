@@ -65,6 +65,24 @@ describe("new-order email template", () => {
     expect(html).toContain("Paid online (PayPal) — nothing to collect.");
   });
 
+  it("follows the venue's language into Spanish and Arabic", () => {
+    expect(newOrderSubject(sample, "es")).toMatch(/^Nuevo pedido n\.º 0012 · Mesa 4 · 23,80/);
+    const es = renderToStaticMarkup(
+      NewOrderEmail({ order: sample, locale: "es", kitchenUrl: "https://x/kitchen" }),
+    );
+    expect(es).toContain("Nuevo pedido n.º 0012");
+    expect(es).toContain("Cliente");
+    expect(es).toMatch(/Aún sin pagar: cobrar 23,80/);
+    expect(es).not.toContain("Noch nicht bezahlt");
+
+    const ar = renderToStaticMarkup(
+      NewOrderEmail({ order: sample, locale: "ar", kitchenUrl: "https://x/kitchen" }),
+    );
+    expect(ar).toContain('dir="rtl"');
+    expect(ar).toContain("طلب جديد رقم 0012");
+    expect(ar).toContain("طاولة 4");
+  });
+
   it("dine-in without a table number says so rather than showing a blank", () => {
     const html = renderToStaticMarkup(
       NewOrderEmail({

@@ -1,5 +1,7 @@
 import type { ReceiptOrder } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
+import { newOrderCopy } from "@/lib/i18n/emails";
+import { dirFor, type UiLocale } from "@/lib/locales";
 
 /**
  * The owner's "new order" alert — the kitchen ticket in an inbox. Built to
@@ -8,76 +10,29 @@ import { formatPrice } from "@/lib/public-menu";
  * (items, how the guest wants it, how they're paying) and one link to the
  * kitchen board. Same plain-HTML discipline as the receipt: no images, no
  * CSS that a mail client can strip.
+ *
+ * The words live in `src/lib/i18n/emails.ts`; this file is layout only.
  */
 export interface NewOrderEmailProps {
   order: ReceiptOrder;
-  locale: "de" | "en";
+  locale: UiLocale;
   kitchenUrl: string;
 }
-
-const COPY = {
-  de: {
-    subject: (n: string, where: string, total: string) =>
-      `Neue Bestellung Nr. ${n} · ${where} · ${total}`,
-    heading: (n: string) => `Neue Bestellung Nr. ${n}`,
-    dineIn: "Im Restaurant",
-    table: (t: string) => `Tisch ${t}`,
-    noTable: "ohne Tischnummer",
-    pickup: "Abholung",
-    delivery: "Lieferung",
-    planned: "Gewünscht für",
-    asap: "so bald wie möglich",
-    guest: "Gast",
-    phone: "Telefon",
-    address: "Adresse",
-    addressNote: "Hinweis zur Adresse",
-    total: "Gesamt",
-    paidCard: "Online bezahlt (Karte) — nichts mehr kassieren.",
-    paidPaypal: "Online bezahlt (PayPal) — nichts mehr kassieren.",
-    unpaid: (total: string) => `Noch nicht bezahlt — ${total} vor Ort kassieren.`,
-    open: "Bestellung in der Küchenansicht öffnen",
-    placedAt: "Eingegangen",
-    footer:
-      "Diese Benachrichtigung geht an die Adressen unter Dashboard → Einstellungen → Bestellungen.",
-  },
-  en: {
-    subject: (n: string, where: string, total: string) => `New order #${n} · ${where} · ${total}`,
-    heading: (n: string) => `New order #${n}`,
-    dineIn: "Dine-in",
-    table: (t: string) => `Table ${t}`,
-    noTable: "no table number",
-    pickup: "Pickup",
-    delivery: "Delivery",
-    planned: "Wanted for",
-    asap: "as soon as possible",
-    guest: "Guest",
-    phone: "Phone",
-    address: "Address",
-    addressNote: "Address note",
-    total: "Total",
-    paidCard: "Paid online (card) — nothing to collect.",
-    paidPaypal: "Paid online (PayPal) — nothing to collect.",
-    unpaid: (total: string) => `Not paid yet — collect ${total} on site.`,
-    open: "Open the order on the kitchen board",
-    placedAt: "Received",
-    footer: "This alert goes to the addresses under Dashboard → Settings → Ordering.",
-  },
-} as const;
 
 function orderNo(order: ReceiptOrder): string {
   return String(order.orderNumber).padStart(4, "0");
 }
 
 /** One phrase for where the order goes: "Table 4", "Pickup", "Delivery". */
-function whereLine(order: ReceiptOrder, locale: "de" | "en"): string {
-  const t = COPY[locale];
+function whereLine(order: ReceiptOrder, locale: UiLocale): string {
+  const t = newOrderCopy(locale);
   if (order.orderType === "delivery") return t.delivery;
   if (order.orderType === "takeaway") return t.pickup;
   return order.tableNumber ? t.table(order.tableNumber) : t.dineIn;
 }
 
-export function newOrderSubject(order: ReceiptOrder, locale: "de" | "en"): string {
-  return COPY[locale].subject(
+export function newOrderSubject(order: ReceiptOrder, locale: UiLocale): string {
+  return newOrderCopy(locale).subject(
     orderNo(order),
     whereLine(order, locale),
     formatPrice(order.totalCents, order.currency, locale),
@@ -89,7 +44,7 @@ export function NewOrderEmail({
   locale,
   kitchenUrl,
 }: NewOrderEmailProps): React.ReactElement {
-  const t = COPY[locale];
+  const t = newOrderCopy(locale);
   const money = (cents: number): string => formatPrice(cents, order.currency, locale);
   const fmt = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
@@ -108,11 +63,16 @@ export function NewOrderEmail({
     ? [addr.street, [addr.zip, addr.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")
     : null;
   const cell = { padding: "6px 0", verticalAlign: "top" as const };
-  const right = { ...cell, textAlign: "right" as const, whiteSpace: "nowrap" as const };
-  const label = { ...cell, color: "#6b625a", paddingRight: 12, whiteSpace: "nowrap" as const };
+  // Amounts follow the reading direction, so an Arabic ticket mirrors
+  // rather than stranding the prices on the wrong edge.
+  const amountAlign = dirFor(locale) === "rtl" ? ("left" as const) : ("right" as const);
+  const right = { ...cell, textAlign: amountAlign, whiteSpace: "nowrap" as const };
+  // The label column's gutter is on the inner edge, which swaps in RTL.
+  const gutter = dirFor(locale) === "rtl" ? { paddingLeft: 12 } : { paddingRight: 12 };
+  const label = { ...cell, ...gutter, color: "#6b625a", whiteSpace: "nowrap" as const };
 
   return (
-    <html lang={locale}>
+    <html lang={locale} dir={dirFor(locale)}>
       <body style={{ fontFamily: "Georgia, serif", color: "#1f1a17", lineHeight: 1.5 }}>
         <p style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase" }}>
           {order.venue.name}

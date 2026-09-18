@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import { getSessionUserId } from "@/lib/auth";
 import { createItem, softDeleteItem, updateItem } from "@/lib/items-service";
 import { saveUploadedImage } from "@/lib/media-service";
+import {
+  saveCategoryTranslations,
+  type SaveCategoryTranslationsInput,
+} from "@/lib/translation-service";
 
 async function requireUser(): Promise<string> {
   const userId = await getSessionUserId();
@@ -108,6 +112,44 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
   revalidatePath("/dashboard/categories/[id]", "page");
   redirect(
     `/dashboard/categories/${categoryId}?saved=1${photoError ? `&photo=${photoError}` : ""}`,
+  );
+}
+
+/**
+ * Save every translation on the page in one go. The form is flat —
+ * `category:<locale>` and `item:<itemId>:<locale>:<name|description>` —
+ * because one Save per language would leave the owner guessing which
+ * halves made it. Unknown field names are ignored here; the locales and
+ * the item ids are re-checked against the tenant's own data in the
+ * service, which refuses the whole call rather than writing part of it.
+ */
+export async function saveTranslationsAction(categoryId: string, form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const category: Record<string, string> = {};
+  const items = new Map<string, NonNullable<SaveCategoryTranslationsInput["items"]>[number]>();
+
+  for (const [key, raw] of form.entries()) {
+    if (typeof raw !== "string") continue;
+    const parts = key.split(":");
+    if (parts[0] === "category" && parts.length === 2) {
+      category[parts[1]!] = raw;
+      continue;
+    }
+    if (parts[0] !== "item" || parts.length !== 4) continue;
+    const [, itemId, locale, field] = parts as [string, string, string, string];
+    if (field !== "name" && field !== "description") continue;
+    const entry = items.get(itemId) ?? { id: itemId, name: {}, description: {} };
+    entry[field]![locale] = raw;
+    items.set(itemId, entry);
+  }
+
+  const result = await saveCategoryTranslations(userId, categoryId, {
+    category,
+    items: [...items.values()],
+  });
+  revalidatePath("/dashboard/categories/[id]", "page");
+  redirect(
+    `/dashboard/categories/${categoryId}?translations=${result.ok ? "saved" : "error"}#translations`,
   );
 }
 

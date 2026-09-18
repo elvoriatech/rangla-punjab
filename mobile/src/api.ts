@@ -73,6 +73,11 @@ export interface ApiMenu {
     slug: string;
     currency: string;
     locale: string;
+    /** The venue's own language, and every language it publishes.
+     *  Optional: an older server sends neither, and the app then offers
+     *  its whole catalogue. */
+    defaultLocale?: string | null;
+    enabledLocales?: string[] | null;
     logoUrl: string | null;
     hours: unknown;
   };
@@ -242,8 +247,10 @@ export function payPageUrl(orderId: string, token: string, appReturnUrl?: string
   return `${BASE_URL}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}${app}`;
 }
 
-export function receiptUrl(orderId: string, token: string): string {
-  return `${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/receipt?token=${encodeURIComponent(token)}&locale=de`;
+/** The receipt PDF is rendered server-side; `locale` picks the copy (the
+ *  guest's app language, not the venue's). */
+export function receiptUrl(orderId: string, token: string, locale: string): string {
+  return `${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/receipt?token=${encodeURIComponent(token)}&locale=${encodeURIComponent(locale)}`;
 }
 
 export interface ReservationInput {

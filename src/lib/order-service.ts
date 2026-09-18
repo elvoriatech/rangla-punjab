@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer-auth";
 import { canTransition, isOrderStatus } from "./order-status";
 import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
 import { paypalAvailable } from "./paypal";
@@ -351,6 +352,28 @@ export async function placeOrder(
       },
       select: { id: true },
     });
+
+    // Back-fill the signed-in guest's profile from what they just typed,
+    // so the next checkout prefills itself. "Last used" semantics: a
+    // newer value overwrites an older one. Only ever ADDITIVE — a
+    // dine-in order carries no name, phone or address, and must not
+    // wipe the ones an earlier delivery stored. Same transaction as the
+    // order: no order, no back-fill.
+    if (customerId) {
+      const patch: CustomerProfilePatch = {};
+      if (orderType !== "dine_in") {
+        if (input.customerName?.trim()) patch.name = input.customerName;
+        if (input.customerPhone?.trim()) patch.phone = input.customerPhone;
+      }
+      if (orderType === "delivery" && input.address) patch.lastDeliveryAddress = input.address;
+      if (Object.keys(patch).length) {
+        await tx.customer.updateMany({
+          where: { id: customerId, deletedAt: null },
+          data: customerProfileUpdateData(patch),
+        });
+      }
+    }
+
     return {
       ok: true as const,
       value: {

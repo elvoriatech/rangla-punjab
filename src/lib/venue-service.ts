@@ -2,6 +2,7 @@ import { z } from "zod";
 import { asUser } from "./tenant";
 import { getActiveVenueId } from "./active-venue";
 import { MENU_THEMES, MENU_TEXTURES, MENU_BACKDROPS } from "./menu-themes";
+import { LOCALES } from "./locales";
 
 /**
  * Venue reads + writes for the owner dashboard. Same shape as the other
@@ -168,22 +169,17 @@ export const venueNameSchema = z.object({
 });
 
 /**
- * Languages a venue can enable for its public menu. Adding one here makes
- * it selectable in settings and routable at /r/{slug}/{locale}; dish-level
- * translations fall back to the default-locale text until they're entered.
+ * Languages a venue can enable for its public menu — the `{code,label}`
+ * projection of the ONE registry in `src/lib/locales.ts`. Adding a
+ * language there makes it selectable in settings and routable at
+ * /{locale}; dish-level translations fall back to the default-locale
+ * text until they're entered. Order is the registry's, and
+ * `updateVenueLocalization` normalises `enabledLocales` to it.
  */
-export const SUPPORTED_LOCALES = [
-  { code: "en", label: "English" },
-  { code: "de", label: "Deutsch" },
-  { code: "fr", label: "Français" },
-  { code: "it", label: "Italiano" },
-  { code: "es", label: "Español" },
-  { code: "nl", label: "Nederlands" },
-  { code: "pl", label: "Polski" },
-  { code: "pt", label: "Português" },
-  { code: "tr", label: "Türkçe" },
-  { code: "ar", label: "العربية" },
-] as const;
+export const SUPPORTED_LOCALES: readonly { code: string; label: string }[] = LOCALES.map((l) => ({
+  code: l.code,
+  label: l.label,
+}));
 
 /** EU-market currencies. `Intl.NumberFormat` handles the symbols. */
 export const SUPPORTED_CURRENCIES = [

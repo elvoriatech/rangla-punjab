@@ -4,7 +4,7 @@ import * as ExpoLinking from "expo-linking";
 import type { ApiTracking } from "../api";
 import { fetchOrderStatus, payPageUrl, receiptUrl } from "../api";
 import { BrandHeader } from "../components";
-import { colors, fonts, money, radius } from "../theme";
+import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
 import { useI18n } from "../i18n";
 
 /**
@@ -66,19 +66,19 @@ export function TrackScreen({
       <BrandHeader title={t.trackTitle} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <Pressable onPress={onBack} hitSlop={8}>
-          <Text style={styles.back}>{t.back}</Text>
+          <Text style={styles.back}>
+            {CHEVRON_BACK} {t.back}
+          </Text>
         </Pressable>
         {!tracking ? (
-          <Text style={styles.loading}>
-            {error ? "Verbindung fehlgeschlagen — neuer Versuch…" : "Lade Bestellung…"}
-          </Text>
+          <Text style={styles.loading}>{error ? t.retrying : t.loadingOrder}</Text>
         ) : (
           <View style={styles.card}>
             <Text style={styles.confirmed}>
               {tracking.status === "done" ? t.orderDone : t.orderConfirmed}
             </Text>
             <Text style={styles.orderNo}>
-              Bestellnummer #{String(tracking.orderNumber).padStart(4, "0")}
+              {t.orderNo} #{String(tracking.orderNumber).padStart(4, "0")}
             </Text>
             {tracking.tableNumber ? (
               <Text style={styles.meta}>
@@ -116,12 +116,19 @@ export function TrackScreen({
                       ) : null}
                     </View>
                     <View style={{ flex: 1, paddingBottom: 18 }}>
-                      <Text style={[styles.stepDe, !step.reached && { opacity: 0.5 }]}>
-                        {step.labelDe}
+                      {/* The server ships only German + English step
+                          labels. Show the one that matches the guest, and
+                          pair it with the other only for those two
+                          languages — a Spanish guest gains nothing from a
+                          German subtitle. */}
+                      <Text style={[styles.stepPrimary, !step.reached && { opacity: 0.5 }]}>
+                        {lang === "de" ? step.labelDe : step.labelEn}
                       </Text>
-                      <Text style={styles.stepEn}>
-                        {lang === "de" ? step.labelEn : step.labelDe}
-                      </Text>
+                      {lang === "de" || lang === "en" ? (
+                        <Text style={styles.stepSecondary}>
+                          {lang === "de" ? step.labelEn : step.labelDe}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 );
@@ -149,7 +156,7 @@ export function TrackScreen({
               <Text style={styles.totalValue}>{money(tracking.totalCents, tracking.currency)}</Text>
             </View>
             <Text style={styles.payState}>
-              {tracking.paymentStatus === "paid" ? "✓ Online bezahlt" : "Zahlung im Restaurant"}
+              {tracking.paymentStatus === "paid" ? t.paidOnline : t.payAtRest}
             </Text>
 
             {canPayOnline && tracking.paymentStatus !== "paid" ? (
@@ -165,7 +172,7 @@ export function TrackScreen({
               </Pressable>
             ) : null}
             <Pressable
-              onPress={() => void Linking.openURL(receiptUrl(orderId, token))}
+              onPress={() => void Linking.openURL(receiptUrl(orderId, token, lang))}
               style={styles.receiptBtn}
             >
               <Text style={styles.receiptBtnText}>{t.receiptPdf}</Text>
@@ -178,7 +185,7 @@ export function TrackScreen({
 }
 
 const styles = StyleSheet.create({
-  back: { color: colors.red, fontSize: 15, fontFamily: fonts.bodyBold, marginBottom: 10 },
+  back: { color: colors.red, fontSize: 15, ...fonts.bodyBold, marginBottom: 10 },
   loading: { color: colors.inkSoft, textAlign: "center", marginTop: 60 },
   card: {
     backgroundColor: colors.creamCard,
@@ -187,17 +194,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: 18,
   },
-  confirmed: { color: colors.ink, fontSize: 18, fontFamily: fonts.bodyHeavy, textAlign: "center" },
+  confirmed: { color: colors.ink, fontSize: 18, ...fonts.bodyHeavy, textAlign: "center" },
   orderNo: {
     color: colors.inkSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 13,
     textAlign: "center",
     marginTop: 4,
   },
   meta: {
     color: colors.inkSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 12,
     textAlign: "center",
     marginTop: 2,
@@ -215,10 +222,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.cream,
   },
-  dotText: { fontSize: 12, fontFamily: fonts.bodyHeavy, color: colors.creamCard },
+  dotText: { fontSize: 12, ...fonts.bodyHeavy, color: colors.creamCard },
   railLine: { width: 2, flex: 1, backgroundColor: colors.line, marginVertical: 2 },
-  stepDe: { color: colors.ink, fontSize: 14, fontFamily: fonts.bodyBold, paddingTop: 4 },
-  stepEn: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
+  stepPrimary: { color: colors.ink, fontSize: 14, ...fonts.bodyBold, paddingTop: 4 },
+  stepSecondary: { color: colors.inkSoft, ...fonts.body, fontSize: 11 },
   itemsBox: {
     borderTopWidth: 1,
     borderColor: colors.line,
@@ -228,9 +235,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   itemRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  itemQty: { color: colors.red, fontSize: 13, fontFamily: fonts.bodyHeavy, minWidth: 26 },
-  itemName: { color: colors.ink, fontFamily: fonts.body, fontSize: 13.5, flex: 1 },
-  itemPrice: { color: colors.inkSoft, fontSize: 13, fontFamily: fonts.bodySemi },
+  itemQty: { color: colors.red, fontSize: 13, ...fonts.bodyHeavy, minWidth: 26 },
+  itemName: { color: colors.ink, ...fonts.body, fontSize: 13.5, flex: 1 },
+  itemPrice: { color: colors.inkSoft, fontSize: 13, ...fonts.bodySemi },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -239,9 +246,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginTop: 4,
   },
-  totalLabel: { color: colors.ink, fontSize: 15, fontFamily: fonts.bodyBold },
-  totalValue: { color: colors.red, fontSize: 15, fontFamily: fonts.bodyHeavy },
-  payState: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 4 },
+  totalLabel: { color: colors.ink, fontSize: 15, ...fonts.bodyBold },
+  totalValue: { color: colors.red, fontSize: 15, ...fonts.bodyHeavy },
+  payState: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 4 },
   payBtn: {
     marginTop: 14,
     borderRadius: radius.pill,
@@ -249,7 +256,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  payBtnText: { color: colors.creamCard, fontFamily: fonts.bodyHeavy, fontSize: 13 },
+  payBtnText: { color: colors.creamCard, ...fonts.bodyHeavy, fontSize: 13 },
   receiptBtn: {
     marginTop: 14,
     borderRadius: radius.pill,
@@ -258,5 +265,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  receiptBtnText: { color: colors.red, fontFamily: fonts.bodyBold, fontSize: 13 },
+  receiptBtnText: { color: colors.red, ...fonts.bodyBold, fontSize: 13 },
 });

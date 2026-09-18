@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { allergenName } from "@/lib/allergens";
+import { menuCopy } from "@/lib/i18n/menu";
+import { uiLocale } from "@/lib/locales";
 
 /**
  * ⚠ allergen disclosure. The trigger chip sits in the dish row; the
@@ -10,24 +13,25 @@ import { createPortal } from "react-dom";
  * cut off or trapped behind neighbours. The panel is deliberately
  * theme-neutral (white card) because the portal escapes the menu-theme
  * CSS variables; a fixed light palette stays readable on every theme.
+ *
+ * The 14 EU allergen names come from `src/lib/allergens.ts` — the same
+ * vocabulary the owner dashboard and the kitchen ticket use — so a guest
+ * never reads a name this file invented on its own.
  */
-
-/** "tree_nuts" → "Tree nuts" for display. */
-function allergenLabel(id: string): string {
-  const t = id.replace(/_/g, " ");
-  return t.charAt(0).toUpperCase() + t.slice(1);
-}
-
 export function AllergenDialog({
   allergens,
   traces,
   dishName,
+  locale,
 }: {
   allergens: string[];
   traces: string[];
   dishName: string;
+  locale: string;
 }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
+  const t = menuCopy(locale);
+  const lang = uiLocale(locale);
 
   // Escape closes; page behind stays put while the dialog is up.
   useEffect(() => {
@@ -46,12 +50,14 @@ export function AllergenDialog({
 
   if (allergens.length === 0 && traces.length === 0) return null;
 
+  const names = (keys: string[]): string => keys.map((k) => allergenName(k, lang)).join(", ");
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="Allergen information"
+        title={t.allergens.info}
         aria-haspopup="dialog"
         /* Wash, not an outline, and the glyph takes surface ink: accent is
            guaranteed against a surface at 3:1, so a 15px accent ⚠ was short of
@@ -60,44 +66,42 @@ export function AllergenDialog({
         className="inline-flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-1.5 text-[15px] leading-none text-[var(--menu-surface-text,var(--menu-text))] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-text,var(--menu-text))]"
       >
         <span aria-hidden="true">⚠</span>
-        <span className="sr-only">Allergen information</span>
+        <span className="sr-only">{t.allergens.info}</span>
       </button>
       {open
         ? createPortal(
             <div
               role="dialog"
               aria-modal="true"
-              aria-label={`Allergen information — ${dishName}`}
+              aria-label={t.allergens.infoFor(dishName)}
               className="fixed inset-0 z-[100] flex items-center justify-center p-6"
             >
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={t.allergens.close}
                 onClick={() => setOpen(false)}
                 className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-[2px]"
               />
               <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-neutral-900 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)]">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-600">
-                  ⚠ Allergens
+                  ⚠ {t.allergens.heading}
                 </p>
                 <p className="mt-1 font-serif text-xl leading-snug">{dishName}</p>
                 {allergens.length > 0 ? (
                   <>
                     <p className="mt-4 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                      Contains
+                      {t.allergens.contains}
                     </p>
-                    <p className="mt-1 text-base leading-relaxed">
-                      {allergens.map(allergenLabel).join(", ")}
-                    </p>
+                    <p className="mt-1 text-base leading-relaxed">{names(allergens)}</p>
                   </>
                 ) : null}
                 {traces.length > 0 ? (
                   <>
                     <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                      May contain traces of
+                      {t.allergens.traces}
                     </p>
                     <p className="mt-1 text-base leading-relaxed text-neutral-700">
-                      {traces.map(allergenLabel).join(", ")}
+                      {names(traces)}
                     </p>
                   </>
                 ) : null}
@@ -106,7 +110,7 @@ export function AllergenDialog({
                   onClick={() => setOpen(false)}
                   className="mt-6 w-full rounded-full bg-neutral-900 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
                 >
-                  Close
+                  {t.allergens.close}
                 </button>
               </div>
             </div>,

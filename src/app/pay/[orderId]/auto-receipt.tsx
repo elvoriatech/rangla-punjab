@@ -8,7 +8,16 @@ import { useEffect, useRef } from "react";
  * mount. Browsers that refuse a non-gesture download (some iOS builds)
  * simply do nothing, which is why the visible button stays.
  */
-export function AutoReceipt({ href, filename }: { href: string; filename: string }) {
+export function AutoReceipt({
+  href,
+  filename,
+  label,
+}: {
+  href: string;
+  filename: string;
+  /** Already localised by the page — this component holds no copy. */
+  label: string;
+}) {
   const ref = useRef<HTMLAnchorElement>(null);
   useEffect(() => {
     const id = setTimeout(() => ref.current?.click(), 600);
@@ -22,7 +31,7 @@ export function AutoReceipt({ href, filename }: { href: string; filename: string
         download={filename}
         className="mt-3 inline-block text-sm text-orange-dark underline underline-offset-2"
       >
-        Beleg herunterladen (PDF)
+        {label}
       </a>
     </>
   );

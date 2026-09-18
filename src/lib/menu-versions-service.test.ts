@@ -5,8 +5,10 @@ import { signupUser } from "./auth-service";
 import { completeOnboarding, saveStep1, saveStep2, saveStep3 } from "./onboarding-service";
 import { asTenant, asUser } from "./tenant";
 import { createCategory, renameCategory } from "./categories-service";
-import { createItem } from "./items-service";
+import { createItem, updateItem } from "./items-service";
 import { getMenuStatus, publishDraft } from "./menu-versions-service";
+import { resolvePreviewContext } from "./preview-context";
+import { loadPublicMenu } from "./public-menu";
 
 describe("draft/publish workflow", () => {
   const createdUserIds: string[] = [];
@@ -37,6 +39,7 @@ describe("draft/publish workflow", () => {
 
   afterEach(async () => {
     for (const tid of createdTenantIds) {
+      await asTenant(tid, (tx) => tx.translation.deleteMany({}));
       await asTenant(tid, (tx) => tx.itemVariant.deleteMany({}));
       await asTenant(tid, (tx) => tx.item.deleteMany({}));
       await asTenant(tid, (tx) => tx.category.deleteMany({}));
@@ -154,5 +157,118 @@ describe("draft/publish workflow", () => {
     expect(publishedItem?.variants).toHaveLength(2);
     expect(publishedItem?.variants.map((v) => v.name)).toEqual(["Regular", "Truffle"]);
     expect(publishedItem?.variants.map((v) => v.priceDeltaCents)).toEqual([0, 500]);
+  });
+
+  it("publish carries dish + category translations onto the snapshot", async () => {
+    const { userId, tenantId, categoryId } = await onboardedUserWithMenu();
+    const item = await createItem(userId, {
+      categoryId,
+      name: "Risotto",
+      description: "aged parmesan, thyme",
+      priceCents: 1800,
+      variants: [{ name: "Regular", priceDeltaCents: 0 }],
+    });
+    expect(item.ok).toBe(true);
+    if (!item.ok) return;
+    const variantId = item.value.variants[0]!.id;
+
+    await asUser(userId, async (tx) => {
+      await tx.venue.updateMany({ data: { enabledLocales: ["en", "de", "es"] } });
+      const cat = { entityType: "category", entityId: categoryId };
+      const dish = { entityType: "item", entityId: item.value.id };
+      await tx.translation.createMany({
+        data: [
+          { ...cat, locale: "de", field: "name", value: "Hauptgerichte" },
+          { ...dish, locale: "de", field: "name", value: "Steinpilzrisotto" },
+          { ...cat, locale: "es", field: "name", value: "Principales" },
+          { ...dish, locale: "es", field: "name", value: "Risotto de setas" },
+          { ...dish, locale: "es", field: "description", value: "parmesano curado, tomillo" },
+          {
+            entityType: "item_variant",
+            entityId: variantId,
+            locale: "es",
+            field: "name",
+            value: "Normal",
+          },
+        ].map((r) => ({ ...r, tenantId })),
+      });
+    });
+
+    const publish = await publishDraft(userId);
+    expect(publish.ok).toBe(true);
+    if (!publish.ok) return;
+
+    // The guest-facing read goes through the PUBLISHED tree, so this only
+    // passes if the snapshot got its own translation rows.
+    const venue = await asUser(userId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { slug: true } }),
+    );
+    const ctx = await resolvePreviewContext(venue.slug, null);
+    const menu = await loadPublicMenu(ctx!, "es");
+    expect(menu?.categories[0]!.name).toBe("Principales");
+    expect(menu?.categories[0]!.items[0]!.name).toBe("Risotto de setas");
+
+    // Six source rows → six copies, one per new id. Nothing duplicated.
+    const copied = await asUser(userId, (tx) =>
+      tx.translation.findMany({
+        where: { entityId: { notIn: [categoryId, item.value.id, variantId] } },
+      }),
+    );
+    expect(copied).toHaveLength(6);
+    expect(copied.filter((r) => r.entityType === "item_variant")).toHaveLength(1);
+  });
+
+  it("re-publishing replaces translations with the edited draft's, without duplicating", async () => {
+    const { userId, tenantId, categoryId } = await onboardedUserWithMenu();
+    const item = await createItem(userId, {
+      categoryId,
+      name: "Risotto",
+      priceCents: 1800,
+      variants: [],
+    });
+    if (!item.ok) return;
+    await asUser(userId, (tx) =>
+      tx.translation.create({
+        data: {
+          tenantId,
+          entityType: "item",
+          entityId: item.value.id,
+          locale: "de",
+          field: "name",
+          value: "Risotto",
+        },
+      }),
+    );
+
+    const first = await publishDraft(userId);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    // Edit the draft's translation, then publish again.
+    await updateItem(userId, item.value.id, { name: "Steinpilzrisotto" });
+    await asUser(userId, (tx) =>
+      tx.translation.updateMany({
+        where: { entityId: item.value.id, locale: "de", field: "name" },
+        data: { value: "Steinpilzrisotto" },
+      }),
+    );
+    const second = await publishDraft(userId);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+
+    const secondItem = await asUser(userId, (tx) =>
+      tx.item.findFirstOrThrow({
+        where: { category: { menuVersionId: second.publishedVersionId } },
+      }),
+    );
+    const rows = await asUser(userId, (tx) =>
+      tx.translation.findMany({ where: { entityId: secondItem.id } }),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.value).toBe("Steinpilzrisotto");
+
+    // Each publish owns its own rows — three entities, three rows total.
+    const all = await asUser(userId, (tx) => tx.translation.findMany({}));
+    expect(all).toHaveLength(3);
   });
 });

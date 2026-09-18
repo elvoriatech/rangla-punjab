@@ -8,14 +8,194 @@ import { asUser, asTenant } from "./tenant";
  * `published`, and points `Menu.publishedVersion` at it. Future edits keep
  * going to the same draft row; each publish creates another frozen row.
  *
- * The whole snapshot lands in a single Prisma nested `create` call, which
- * Prisma wraps in one transaction — so a publish is atomic even under
- * concurrent draft edits.
+ * The whole snapshot lands in a single Prisma nested `create` call inside
+ * the caller's RLS transaction — so a publish is atomic even under
+ * concurrent draft edits. The owner's `Translation` rows are re-emitted
+ * against the copy's fresh ids in the same transaction (see
+ * `copyTranslations`), which is what keeps dish translations alive across
+ * publishes.
  */
 
 export type PublishResult =
   | { ok: true; publishedVersionId: string; publishedAt: Date }
   | { ok: false; error: "no_draft" | "empty_menu" };
+
+/**
+ * Snapshot ordering is RENUMBERED with this gap instead of carrying the
+ * source `orderIndex` verbatim. Relative order is what guests see, and
+ * renumbering guarantees every (parent, orderIndex) pair inside the copy
+ * is unique — which is what lets `pairSnapshotIds` below match a source
+ * row to its fresh copy by position, and therefore lets translations
+ * follow the snapshot.
+ */
+const SNAPSHOT_ORDER_STEP = 100;
+
+/** Everything a category needs to be deep-copied into another version. */
+const snapshotSourceSelect = {
+  id: true,
+  name: true,
+  photoMediaId: true,
+  items: {
+    // Snapshot only the *live* set the guest would see today.
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      priceCents: true,
+      offerPriceCents: true,
+      offerStartsAt: true,
+      offerEndsAt: true,
+      offerWeekly: true,
+      currency: true,
+      isAvailable: true,
+      allergens: true,
+      traces: true,
+      dietary: true,
+      spice: true,
+      flags: true,
+      photoMediaId: true,
+      variants: {
+        select: { id: true, name: true, priceDeltaCents: true },
+        orderBy: { orderIndex: "asc" },
+      },
+    },
+    orderBy: { orderIndex: "asc" },
+  },
+} satisfies Prisma.CategorySelect;
+
+/** The ids of a freshly created snapshot tree, in the same order. */
+const snapshotIdSelect = {
+  id: true,
+  items: {
+    select: { id: true, variants: { select: { id: true }, orderBy: { orderIndex: "asc" } } },
+    orderBy: { orderIndex: "asc" },
+  },
+} satisfies Prisma.CategorySelect;
+
+type SnapshotSource = Prisma.CategoryGetPayload<{ select: typeof snapshotSourceSelect }>;
+type SnapshotIds = Prisma.CategoryGetPayload<{ select: typeof snapshotIdSelect }>;
+
+/** Nested-create payload that deep-copies `categories` into a new version. */
+function snapshotCategories(tenantId: string, categories: SnapshotSource[]) {
+  return categories.map((cat, ci) => ({
+    tenantId,
+    name: cat.name,
+    orderIndex: (ci + 1) * SNAPSHOT_ORDER_STEP,
+    photoMediaId: cat.photoMediaId,
+    items: {
+      create: cat.items.map((item, ii) => ({
+        tenantId,
+        name: item.name,
+        description: item.description,
+        priceCents: item.priceCents,
+        // The offer rides the copy — forgetting this is the one
+        // silent-drop bug this design has (see docs).
+        offerPriceCents: item.offerPriceCents,
+        offerStartsAt: item.offerStartsAt,
+        offerEndsAt: item.offerEndsAt,
+        offerWeekly: item.offerWeekly ?? undefined,
+        currency: item.currency,
+        orderIndex: (ii + 1) * SNAPSHOT_ORDER_STEP,
+        isAvailable: item.isAvailable,
+        allergens: item.allergens,
+        traces: item.traces,
+        dietary: item.dietary,
+        spice: item.spice,
+        flags: item.flags as object,
+        photoMediaId: item.photoMediaId,
+        variants: {
+          create: item.variants.map((v, vi) => ({
+            tenantId,
+            name: v.name,
+            priceDeltaCents: v.priceDeltaCents,
+            orderIndex: (vi + 1) * SNAPSHOT_ORDER_STEP,
+          })),
+        },
+      })),
+    },
+  }));
+}
+
+interface IdPair {
+  entityType: "category" | "item" | "item_variant";
+  oldId: string;
+  newId: string;
+}
+
+/**
+ * Walk the source tree and the created tree in lock-step to learn which
+ * new row is the copy of which old one. Both are read back ordered by
+ * `orderIndex`, and `snapshotCategories` renumbered those indexes without
+ * ties, so position `i` on one side is position `i` on the other.
+ */
+function pairSnapshotIds(source: SnapshotSource[], created: SnapshotIds[]): IdPair[] {
+  const pairs: IdPair[] = [];
+  source.forEach((cat, ci) => {
+    const newCat = created[ci];
+    if (!newCat) return;
+    pairs.push({ entityType: "category", oldId: cat.id, newId: newCat.id });
+    cat.items.forEach((item, ii) => {
+      const newItem = newCat.items[ii];
+      if (!newItem) return;
+      pairs.push({ entityType: "item", oldId: item.id, newId: newItem.id });
+      item.variants.forEach((variant, vi) => {
+        const newVariant = newItem.variants[vi];
+        if (!newVariant) return;
+        pairs.push({ entityType: "item_variant", oldId: variant.id, newId: newVariant.id });
+      });
+    });
+  });
+  return pairs;
+}
+
+/**
+ * Re-emit the owner's dish/category translations against the snapshot's
+ * ids. A snapshot creates brand-new rows, and `Translation` points at an
+ * entity id — so without this every publish (and every draft fork) would
+ * orphan the translations and guests would silently drop back to the
+ * default language.
+ */
+async function copyTranslations(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  pairs: IdPair[],
+): Promise<void> {
+  if (pairs.length === 0) return;
+  const idsOf = (type: IdPair["entityType"]): string[] =>
+    pairs.filter((p) => p.entityType === type).map((p) => p.oldId);
+
+  const rows = await tx.translation.findMany({
+    where: {
+      OR: [
+        { entityType: "category", entityId: { in: idsOf("category") } },
+        { entityType: "item", entityId: { in: idsOf("item") } },
+        { entityType: "item_variant", entityId: { in: idsOf("item_variant") } },
+      ],
+    },
+    select: { entityType: true, entityId: true, locale: true, field: true, value: true },
+  });
+  if (rows.length === 0) return;
+
+  const newIdFor = new Map(pairs.map((p) => [`${p.entityType}:${p.oldId}`, p.newId]));
+  await tx.translation.createMany({
+    data: rows.flatMap((r) => {
+      const entityId = newIdFor.get(`${r.entityType}:${r.entityId}`);
+      return entityId
+        ? [
+            {
+              tenantId,
+              entityType: r.entityType,
+              entityId,
+              locale: r.locale,
+              field: r.field,
+              value: r.value,
+            },
+          ]
+        : [];
+    }),
+  });
+}
 
 /**
  * Guarantee the tenant's menu has a draft to edit. The draft is the
@@ -46,92 +226,29 @@ async function ensureDraftInTx(tx: Prisma.TransactionClient): Promise<{ ok: bool
       ? await tx.menuVersion.findFirst({
           where: { id: menu.publishedVersion },
           select: {
-            categories: {
-              select: {
-                name: true,
-                orderIndex: true,
-                photoMediaId: true,
-                items: {
-                  where: { deletedAt: null },
-                  select: {
-                    name: true,
-                    description: true,
-                    priceCents: true,
-                    offerPriceCents: true,
-                    offerStartsAt: true,
-                    offerEndsAt: true,
-                    offerWeekly: true,
-                    currency: true,
-                    orderIndex: true,
-                    isAvailable: true,
-                    allergens: true,
-                    traces: true,
-                    dietary: true,
-                    spice: true,
-                    flags: true,
-                    photoMediaId: true,
-                    variants: {
-                      select: { name: true, priceDeltaCents: true, orderIndex: true },
-                      orderBy: { orderIndex: "asc" },
-                    },
-                  },
-                  orderBy: { orderIndex: "asc" },
-                },
-              },
-              orderBy: { orderIndex: "asc" },
-            },
+            categories: { select: snapshotSourceSelect, orderBy: { orderIndex: "asc" } },
           },
         })
       : null;
 
-    await tx.menuVersion.create({
+    const forked = await tx.menuVersion.create({
       data: {
         tenantId: menu.tenantId,
         menuId: menu.id,
         status: "draft",
         categories: source
-          ? {
-              create: source.categories.map((cat) => ({
-                tenantId: menu.tenantId,
-                name: cat.name,
-                orderIndex: cat.orderIndex,
-                photoMediaId: cat.photoMediaId,
-                items: {
-                  create: cat.items.map((item) => ({
-                    tenantId: menu.tenantId,
-                    name: item.name,
-                    description: item.description,
-                    priceCents: item.priceCents,
-                    // The offer rides the copy — forgetting this is the one
-                    // silent-drop bug this design has (see docs).
-                    offerPriceCents: item.offerPriceCents,
-                    offerStartsAt: item.offerStartsAt,
-                    offerEndsAt: item.offerEndsAt,
-                    offerWeekly: item.offerWeekly ?? undefined,
-                    currency: item.currency,
-                    orderIndex: item.orderIndex,
-                    isAvailable: item.isAvailable,
-                    allergens: item.allergens,
-                    traces: item.traces,
-                    dietary: item.dietary,
-                    spice: item.spice,
-                    flags: item.flags as object,
-                    photoMediaId: item.photoMediaId,
-                    variants: {
-                      create: item.variants.map((v) => ({
-                        tenantId: menu.tenantId,
-                        name: v.name,
-                        priceDeltaCents: v.priceDeltaCents,
-                        orderIndex: v.orderIndex,
-                      })),
-                    },
-                  })),
-                },
-              })),
-            }
+          ? { create: snapshotCategories(menu.tenantId, source.categories) }
           : undefined,
       },
+      select: { categories: { select: snapshotIdSelect, orderBy: { orderIndex: "asc" } } },
     });
+    if (source) {
+      await copyTranslations(
+        tx,
+        menu.tenantId,
+        pairSnapshotIds(source.categories, forked.categories),
+      );
+    }
     return { ok: true };
   }
 }
@@ -154,42 +271,7 @@ export async function publishDraft(userId: string): Promise<PublishResult> {
         id: true,
         tenantId: true,
         menuId: true,
-        categories: {
-          select: {
-            name: true,
-            orderIndex: true,
-            photoMediaId: true,
-            items: {
-              // Include soft-deleted-out items — snapshot only the *live*
-              // set the guest would see today.
-              where: { deletedAt: null },
-              select: {
-                name: true,
-                description: true,
-                priceCents: true,
-                offerPriceCents: true,
-                offerStartsAt: true,
-                offerEndsAt: true,
-                offerWeekly: true,
-                currency: true,
-                orderIndex: true,
-                isAvailable: true,
-                allergens: true,
-                traces: true,
-                dietary: true,
-                spice: true,
-                flags: true,
-                photoMediaId: true,
-                variants: {
-                  select: { name: true, priceDeltaCents: true, orderIndex: true },
-                  orderBy: { orderIndex: "asc" },
-                },
-              },
-              orderBy: { orderIndex: "asc" },
-            },
-          },
-          orderBy: { orderIndex: "asc" },
-        },
+        categories: { select: snapshotSourceSelect, orderBy: { orderIndex: "asc" } },
       },
     });
     if (!draft) return { ok: false, error: "no_draft" };
@@ -202,46 +284,19 @@ export async function publishDraft(userId: string): Promise<PublishResult> {
         menuId: draft.menuId,
         status: "published",
         publishedAt,
-        categories: {
-          create: draft.categories.map((cat) => ({
-            tenantId: draft.tenantId,
-            name: cat.name,
-            orderIndex: cat.orderIndex,
-            photoMediaId: cat.photoMediaId,
-            items: {
-              create: cat.items.map((item) => ({
-                tenantId: draft.tenantId,
-                name: item.name,
-                description: item.description,
-                priceCents: item.priceCents,
-                offerPriceCents: item.offerPriceCents,
-                offerStartsAt: item.offerStartsAt,
-                offerEndsAt: item.offerEndsAt,
-                offerWeekly: item.offerWeekly ?? undefined,
-                currency: item.currency,
-                orderIndex: item.orderIndex,
-                isAvailable: item.isAvailable,
-                allergens: item.allergens,
-                traces: item.traces,
-                dietary: item.dietary,
-                spice: item.spice,
-                flags: item.flags as object,
-                photoMediaId: item.photoMediaId,
-                variants: {
-                  create: item.variants.map((v) => ({
-                    tenantId: draft.tenantId,
-                    name: v.name,
-                    priceDeltaCents: v.priceDeltaCents,
-                    orderIndex: v.orderIndex,
-                  })),
-                },
-              })),
-            },
-          })),
-        },
+        categories: { create: snapshotCategories(draft.tenantId, draft.categories) },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        categories: { select: snapshotIdSelect, orderBy: { orderIndex: "asc" } },
+      },
     });
+
+    await copyTranslations(
+      tx,
+      draft.tenantId,
+      pairSnapshotIds(draft.categories, published.categories),
+    );
 
     // Point the menu at the fresh published version. Old published versions
     // stay on the row for history/rollback until an explicit cleanup task.

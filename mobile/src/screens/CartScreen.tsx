@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -14,10 +14,11 @@ import {
 import type { ApiMenu, OrderType, PlacedOrder } from "../api";
 import { placeOrder } from "../api";
 import { useCart } from "../cart";
-import { useAuth } from "../auth";
+import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { useI18n } from "../i18n";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, PrimaryButton, QtyStepper } from "../components";
+import { GoogleButton } from "../google-button";
 import { colors, fonts, money, radius } from "../theme";
 
 /**
@@ -77,12 +78,48 @@ export function CartScreen({
   const grandTotal = cart.totalCents + deliveryFee;
   const belowMinimum =
     orderType === "delivery" && areaMin > 0 && cart.totalCents > 0 && cart.totalCents < areaMin;
+  // Signed-in guests don't retype what the server already knows. Only
+  // EMPTY fields are seeded, and only from the profile — anything the
+  // guest typed wins, on every re-render and on a later sign-in.
+  const customer = auth.customer;
+  useEffect(() => {
+    if (!customer) return;
+    const keep =
+      (next: string | null | undefined) =>
+      (current: string): string =>
+        current || (next ?? "");
+    setName(keep(customer.name));
+    setPhone(keep(customer.phone));
+    setEmail(keep(customer.email));
+    const saved = customer.lastDeliveryAddress;
+    if (!saved) return;
+    setStreet(keep(saved.street));
+    setNote(keep(saved.note));
+    setZip((current) => {
+      if (current) return current;
+      const savedZip = saved.zip ?? "";
+      // With fixed delivery areas the ZIP is a pick, not free text: a
+      // remembered postcode the venue no longer serves must not land in
+      // the field and buy an outside_delivery_area rejection.
+      if (!savedZip || (areas.length > 0 && !areas.some((a) => a.zip === savedZip))) return current;
+      return savedZip;
+    });
+  }, [customer, areas]);
+
   const needsContact = orderType !== "dine_in";
   const missing =
     cart.lines.length === 0 ||
     (needsContact && (!name.trim() || !phone.trim())) ||
     (orderType === "delivery" &&
       (!street.trim() || zip.trim().length < 3 || (areas.length > 0 && !area) || belowMinimum));
+
+  // Same contract as the account screen: native one-tap where the build
+  // supports it, the browser device flow everywhere else.
+  async function startGoogle(): Promise<void> {
+    if (auth.busyProvider) return;
+    const outcome = await auth.loginWithGoogle();
+    if (outcome === "unavailable") await auth.login("google");
+  }
 
   async function submit(): Promise<void> {
     if (busy) return; // double-tap guard: one in-flight order at a time
@@ -150,7 +187,7 @@ export function CartScreen({
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}>
           {cart.lines.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={{ fontFamily: fonts.body, fontSize: 40 }}>🛒</Text>
+              <Text style={{ ...fonts.body, fontSize: 40 }}>🛒</Text>
               <Text style={styles.emptyTitle}>{t.cartEmpty}</Text>
               <Text style={styles.emptySub}>{t.cartEmptySub}</Text>
             </View>
@@ -181,7 +218,7 @@ export function CartScreen({
                     onPress={() => setOrderType(t.key)}
                     style={[styles.typeChip, orderType === t.key && styles.typeChipActive]}
                   >
-                    <Text style={{ fontFamily: fonts.body, fontSize: 18 }}>{t.emoji}</Text>
+                    <Text style={{ ...fonts.body, fontSize: 18 }}>{t.emoji}</Text>
                     <Text
                       style={[styles.typeChipText, orderType === t.key && { color: colors.red }]}
                     >
@@ -242,7 +279,7 @@ export function CartScreen({
                                         styles.modalOptionText,
                                         selected && {
                                           color: colors.red,
-                                          fontFamily: fonts.bodyHeavy,
+                                          ...fonts.bodyHeavy,
                                         },
                                       ]}
                                     >
@@ -256,6 +293,19 @@ export function CartScreen({
                           </View>
                         </Pressable>
                       </Modal>
+                    </View>
+                  ) : null}
+                  {/* Signed out: one tap fills name, phone, email and
+                      the last delivery address. Signed in, it's gone. */}
+                  {!auth.customer && auth.googleAvailable ? (
+                    <View style={styles.signInNudge}>
+                      <Text style={styles.fieldLabel}>{t.signInToPrefill}</Text>
+                      <GoogleButton
+                        compact
+                        label={t.continueWithGoogle}
+                        onPress={() => void startGoogle()}
+                        busy={auth.busyProvider === GOOGLE_NATIVE}
+                      />
                     </View>
                   ) : null}
                   <Field
@@ -296,7 +346,7 @@ export function CartScreen({
                        locality field beside it fills itself from the pick. */
                     <View style={{ flexDirection: "row", gap: 8 }}>
                       <View style={{ gap: 4, width: 132 }}>
-                        <Text style={styles.fieldLabel}>PLZ</Text>
+                        <Text style={styles.fieldLabel}>{t.zipLabel}</Text>
                         <Pressable style={styles.dropdown} onPress={() => setZipOpen(true)}>
                           <Text style={styles.dropdownValue}>{zip || "—"}</Text>
                           <Text style={styles.dropdownChevron}>▾</Text>
@@ -324,7 +374,7 @@ export function CartScreen({
                       >
                         <Pressable style={styles.modalBackdrop} onPress={() => setZipOpen(false)}>
                           <View style={styles.modalSheet}>
-                            <Text style={styles.modalTitle}>PLZ</Text>
+                            <Text style={styles.modalTitle}>{t.zipLabel}</Text>
                             <ScrollView style={{ maxHeight: 380 }}>
                               {areas.map((a) => {
                                 const selected = zip === a.zip;
@@ -345,7 +395,7 @@ export function CartScreen({
                                         styles.modalOptionText,
                                         selected && {
                                           color: colors.red,
-                                          fontFamily: fonts.bodyHeavy,
+                                          ...fonts.bodyHeavy,
                                         },
                                       ]}
                                     >
@@ -363,7 +413,7 @@ export function CartScreen({
                     </View>
                   ) : (
                     <Field
-                      label="PLZ"
+                      label={t.zipLabel}
                       value={zip}
                       onChange={setZip}
                       placeholder="56068"
@@ -463,8 +513,8 @@ function Row({
 
 const styles = StyleSheet.create({
   empty: { alignItems: "center", gap: 6, paddingVertical: 60 },
-  emptyTitle: { color: colors.ink, fontSize: 17, fontFamily: fonts.bodyBold },
-  emptySub: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
+  emptyTitle: { color: colors.ink, fontSize: 17, ...fonts.bodyBold },
+  emptySub: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
   line: {
     flexDirection: "row",
     alignItems: "center",
@@ -476,8 +526,8 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   linePhoto: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.line },
-  lineName: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },
-  linePrice: { color: colors.red, fontFamily: fonts.bodyBold, fontSize: 13, marginTop: 2 },
+  lineName: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
+  linePrice: { color: colors.red, ...fonts.bodyBold, fontSize: 13, marginTop: 2 },
   typeRow: { flexDirection: "row", gap: 8, marginTop: 8 },
   typeChip: {
     flex: 1,
@@ -501,7 +551,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  dropdownValue: { color: colors.ink, fontFamily: fonts.body, fontSize: 15 },
+  dropdownValue: { color: colors.ink, ...fonts.body, fontSize: 15 },
   dropdownChevron: { color: colors.inkSoft, fontSize: 14 },
   modalBackdrop: {
     flex: 1,
@@ -517,7 +567,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: colors.inkSoft,
-    fontFamily: fonts.bodySemi,
+    ...fonts.bodySemi,
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: 1,
@@ -533,9 +583,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   modalOptionActive: { backgroundColor: "#fdeee6" },
-  modalOptionText: { color: colors.ink, fontFamily: fonts.body, fontSize: 15 },
-  typeChipText: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bodyBold },
-  fieldLabel: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bodySemi },
+  modalOptionText: { color: colors.ink, ...fonts.body, fontSize: 15 },
+  typeChipText: { color: colors.inkSoft, fontSize: 12, ...fonts.bodyBold },
+  signInNudge: { gap: 6, marginTop: 2, marginBottom: 2 },
+  fieldLabel: { color: colors.inkSoft, fontSize: 12, ...fonts.bodySemi },
   input: {
     backgroundColor: colors.creamCard,
     borderWidth: 1,
@@ -544,7 +595,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: colors.ink,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 15,
   },
   totalBox: {
@@ -556,15 +607,15 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 6,
   },
-  rowLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14 },
-  rowValue: { color: colors.ink, fontSize: 14, fontFamily: fonts.bodySemi },
-  rowBold: { fontFamily: fonts.bodyHeavy, fontSize: 16, color: colors.ink },
-  zipInfo: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 2 },
-  minWarn: { color: colors.danger, fontSize: 12, fontFamily: fonts.bodySemi },
-  error: { color: colors.danger, fontFamily: fonts.body, fontSize: 13, textAlign: "center" },
+  rowLabel: { color: colors.inkSoft, ...fonts.body, fontSize: 14 },
+  rowValue: { color: colors.ink, fontSize: 14, ...fonts.bodySemi },
+  rowBold: { ...fonts.bodyHeavy, fontSize: 16, color: colors.ink },
+  zipInfo: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 2 },
+  minWarn: { color: colors.danger, fontSize: 12, ...fonts.bodySemi },
+  error: { color: colors.danger, ...fonts.body, fontSize: 13, textAlign: "center" },
   payNote: {
     color: colors.inkSoft,
-    fontFamily: fonts.body,
+    ...fonts.body,
     fontSize: 12,
     textAlign: "center",
     marginTop: 4,

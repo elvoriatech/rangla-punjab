@@ -4,6 +4,7 @@ import { captureException } from "./observability";
 import { parseOrderingConfig } from "./ordering-config";
 import { getOrderForReceipt } from "./order-service";
 import { siteUrl } from "./site-url";
+import { uiLocale } from "./locales";
 import { asTenant } from "./tenant";
 import { NewOrderEmail, newOrderSubject } from "@/emails/new-order-email";
 
@@ -31,7 +32,8 @@ export async function sendNewOrderNotification(
     if (!order) return { sent: 0, reason: "not_found" };
     if (recipients.length === 0) return { sent: 0, reason: "no_recipients" };
 
-    const locale = order.venue.defaultLocale.startsWith("de") ? "de" : "en";
+    // The owner reads this one, so it follows the venue's own language.
+    const locale = uiLocale(order.venue.defaultLocale);
     const kitchenUrl = `${siteUrl()}/kitchen`;
     const subject = newOrderSubject(order, locale);
     const results = await Promise.allSettled(

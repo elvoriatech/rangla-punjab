@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Cormorant_Garamond } from "next/font/google";
 import { headers } from "next/headers";
 import { publicMenuDefaultLocale } from "@/lib/public-menu-lang";
+import { dirFor, isLocaleCode } from "@/lib/locales";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { BRAND } from "@/lib/brand";
@@ -45,11 +46,6 @@ export const metadata: Metadata = {
   },
 };
 
-// Locales the middleware+layout can flip `<html lang>` to. Mirrors the
-// selectable list in venue settings (src/lib/venue-service.ts); unknown
-// values fall back to `en`. Language codes must be BCP-47.
-const SUPPORTED_LOCALES = ["en", "de", "fr", "it", "es", "nl", "pl", "pt", "tr", "ar"] as const;
-
 /**
  * Derives the html lang from the pathname the middleware injected.
  * The locale route `/{locale}` uses the explicit locale; the locale-less
@@ -61,14 +57,14 @@ const SUPPORTED_LOCALES = ["en", "de", "fr", "it", "es", "nl", "pl", "pt", "tr",
 async function resolveHtmlLang(): Promise<string> {
   const pathname = (await headers()).get("x-pathname") ?? "";
   const seg = pathname.match(/^\/([^/?]+)/)?.[1];
-  if (seg && (SUPPORTED_LOCALES as readonly string[]).includes(seg)) {
+  if (seg && isLocaleCode(seg)) {
     return seg;
   }
   // Root menu ("/") → the restaurant's default language.
   if (pathname === "/" || pathname === "") {
     try {
       const venueDefault = await publicMenuDefaultLocale(await getRestaurantSlug());
-      if (venueDefault && (SUPPORTED_LOCALES as readonly string[]).includes(venueDefault)) {
+      if (venueDefault && isLocaleCode(venueDefault)) {
         return venueDefault;
       }
     } catch {
@@ -98,9 +94,16 @@ export default async function RootLayout({
     // lang can differ from a fresh server document. React keeps the
     // correct server value; this silences the unavoidable attribute diff
     // on this one element only (same pattern next-themes uses).
+    //
+    // `dir` rides along with `lang`: it is the whole of RTL support on
+    // the web side, and it must be an attribute on <html> (not a class)
+    // so the browser mirrors scrollbars, text selection and the logical
+    // Tailwind utilities (ms-/me-/ps-/pe-/start-/end-) the guest
+    // surfaces use.
     <html
       suppressHydrationWarning
       lang={lang}
+      dir={dirFor(lang)}
       data-theme={appTheme !== "default" ? appTheme : undefined}
       className={`${geistSans.variable} ${cormorant.variable} h-full antialiased`}
     >

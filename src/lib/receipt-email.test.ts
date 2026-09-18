@@ -51,6 +51,59 @@ describe("receipt email template", () => {
     expect(html).toContain('href="https://x/r.pdf"');
   });
 
+  it("renders Spanish, Italian and Arabic receipts end to end", () => {
+    const cases = [
+      {
+        locale: "es" as const,
+        subject: "Tu pedido n.º 0012 en Rangla Punjab",
+        vat: "IVA 19 % (incluido)",
+        paid: "Pagado online (tarjeta).",
+      },
+      {
+        locale: "it" as const,
+        subject: "Il tuo ordine n. 0012 da Rangla Punjab",
+        vat: "IVA 19% (inclusa)",
+        paid: "Pagato online (carta).",
+      },
+      {
+        locale: "ar" as const,
+        subject: "طلبك رقم 0012 لدى Rangla Punjab",
+        vat: "ضريبة القيمة المضافة 19% (مشمولة)",
+        paid: "مدفوع عبر الإنترنت (بطاقة).",
+      },
+    ];
+    for (const c of cases) {
+      expect(receiptSubject(sample, c.locale)).toBe(c.subject);
+      const html = renderToStaticMarkup(
+        ReceiptEmail({
+          order: sample,
+          locale: c.locale,
+          receiptUrl: "https://x/r.pdf",
+          trackUrl: "https://x/t",
+        }),
+      );
+      expect(html).toContain(c.vat);
+      expect(html).toContain(c.paid);
+      expect(html).toContain(`lang="${c.locale}"`);
+      // German is the venue's language, not the guest's — it must not leak
+      // into a receipt that was asked for in another one.
+      expect(html).not.toContain("Vielen Dank");
+    }
+  });
+
+  it("marks the Arabic receipt right-to-left so mail clients lay it out correctly", () => {
+    const html = renderToStaticMarkup(
+      ReceiptEmail({
+        order: sample,
+        locale: "ar",
+        receiptUrl: "https://x/r.pdf",
+        trackUrl: "https://x/t",
+      }),
+    );
+    expect(html).toContain('dir="rtl"');
+    expect(html).toContain("text-align:left"); // amounts mirror with the text
+  });
+
   it("renders English copy when asked", () => {
     const html = renderToStaticMarkup(
       ReceiptEmail({
