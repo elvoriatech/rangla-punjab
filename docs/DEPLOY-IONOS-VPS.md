@@ -123,10 +123,24 @@ nano prod.env   # or vim
 | `DB_OWNER_PASSWORD` | your generated password |
 | `SESSION_SECRET` | openssl output |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | platform `/admin` login |
-| `OWNER_EMAIL` / `OWNER_PASSWORD` | restaurant `/dashboard` login |
+| `OWNER_EMAIL` / `OWNER_PASSWORD` | restaurant `/dashboard` login — applied on the **first** seed only; to change them later run `./deploy/deploy.sh owner` (see below) |
 | `EMAIL_TRANSPORT` | `resend` |
 | `RESEND_API_KEY` | `re_…` |
 | `EMAIL_FROM` | verified domain on Resend |
+
+**Owner login says "doesn't match our records":** the restaurant seed creates
+the owner account once, when the venue is first provisioned, and no-ops on
+every later release. Editing `OWNER_EMAIL` / `OWNER_PASSWORD` in `prod.env`
+afterwards therefore changes nothing by itself. Apply them to the existing
+account with:
+
+```bash
+cd /var/www/rangla-punjab   # wherever the checkout lives
+./deploy/deploy.sh owner
+```
+
+It prints the previous email, sets the new email + password, marks the email
+verified and signs out any old sessions. Safe to re-run.
 
 **Stripe:** either fill `STRIPE_*` here **or** leave placeholders and set keys later in **`/admin/settings`** (encrypted in DB). You still need `SESSION_SECRET` for that.
 

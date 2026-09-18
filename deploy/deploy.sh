@@ -8,6 +8,9 @@
 #                                restaurant (idempotent — safe to re-run)
 #   ./deploy/deploy.sh release   build → migrate → seed → up  (normal path;
 #                                every deploy comes up with a default menu)
+#   ./deploy/deploy.sh owner     make the restaurant owner's /dashboard login
+#                                match OWNER_EMAIL / OWNER_PASSWORD in prod.env
+#                                (seed only creates it once; this resets it)
 #
 # Requires: prod.env next to the repo root (copy deploy/prod.env.template).
 set -euo pipefail
@@ -78,6 +81,13 @@ case "${1:-}" in
     APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
       pnpm exec tsx scripts/seed-restaurant.ts
     ;;
+  owner)
+    [ -n "${OWNER_EMAIL:-}" ] && [ -n "${OWNER_PASSWORD:-}" ] || {
+      echo "set OWNER_EMAIL and OWNER_PASSWORD in prod.env first"; exit 1; }
+    DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+    APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+      pnpm exec tsx scripts/set-owner-login.ts
+    ;;
   release)
     "$0" build
     "$0" migrate
@@ -86,6 +96,6 @@ case "${1:-}" in
     echo "Released. Now run the smoke test — docs/DEPLOY.md §9."
     ;;
   *)
-    echo "usage: $0 {build|migrate|up|seed|release}"; exit 1
+    echo "usage: $0 {build|migrate|up|seed|owner|release}"; exit 1
     ;;
 esac
