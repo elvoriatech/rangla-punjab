@@ -72,6 +72,37 @@ describe("setOwnerLogin", () => {
     expect((await loginUser(email, password)).ok).toBe(true);
   });
 
+  it("clears a stray platform-admin flag on the owner when another admin exists", async () => {
+    const { slug, tenantId } = await provisioned();
+    const ownerUserId = (
+      await asTenant(tenantId, (tx) =>
+        tx.membership.findFirstOrThrow({ where: { role: "owner" }, select: { userId: true } }),
+      )
+    ).userId;
+    await ownerDb.user.update({ where: { id: ownerUserId }, data: { isPlatformAdmin: true } });
+
+    // No other admin → flag must be left alone (would lock everyone out of /admin).
+    // The local DB may already hold a seeded admin, so assert relative to that.
+    const others = await ownerDb.user.count({
+      where: { isPlatformAdmin: true, deletedAt: null, NOT: { id: ownerUserId } },
+    });
+    const email = `demote-${randomUUID()}@rangla.example`;
+    const result = await setOwnerLogin(ownerDb, { slug, email, password: "Owner@Rangla-Fresh1" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const after = await ownerDb.user.findUniqueOrThrow({
+      where: { id: ownerUserId },
+      select: { isPlatformAdmin: true },
+    });
+    if (others > 0) {
+      expect(result.demotedFromPlatformAdmin).toBe(true);
+      expect(after.isPlatformAdmin).toBe(false);
+    } else {
+      expect(result.stillPlatformAdmin).toBe(true);
+      expect(after.isPlatformAdmin).toBe(true);
+    }
+  });
+
   it("refuses to take an email that belongs to someone else", async () => {
     const { slug } = await provisioned();
     const takenEmail = `taken-${randomUUID()}@ex.com`;

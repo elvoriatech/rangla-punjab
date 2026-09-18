@@ -22,6 +22,12 @@ import { hashPassword } from "../src/lib/password";
  *
  * Outstanding sessions for that user are invalidated (sessions_valid_from),
  * exactly like the in-app password reset does.
+ *
+ * It also takes the platform-admin flag OFF the owner account, provided
+ * another platform admin exists. /login sends platform admins to /admin
+ * before it ever looks for their restaurant, so an owner that was once
+ * seeded as ADMIN_EMAIL keeps landing on the console and never sees
+ * /dashboard. The two roles are meant to be separate accounts (README §4).
  */
 
 export interface SetOwnerLoginInput {
@@ -31,7 +37,16 @@ export interface SetOwnerLoginInput {
 }
 
 export type SetOwnerLoginResult =
-  | { ok: true; userId: string; previousEmail: string; email: string }
+  | {
+      ok: true;
+      userId: string;
+      previousEmail: string;
+      email: string;
+      /** The account had isPlatformAdmin and we cleared it. */
+      demotedFromPlatformAdmin: boolean;
+      /** It had the flag but is the ONLY admin, so we left it alone. */
+      stillPlatformAdmin: boolean;
+    }
   | {
       ok: false;
       error: "venue_not_found" | "owner_not_found" | "email_taken" | "weak_password";
@@ -54,7 +69,7 @@ export async function setOwnerLogin(
   const membership = await prisma.membership.findFirst({
     where: { tenantId: venue.tenantId, role: "owner" },
     orderBy: { createdAt: "asc" },
-    select: { userId: true, user: { select: { email: true } } },
+    select: { userId: true, user: { select: { email: true, isPlatformAdmin: true } } },
   });
   if (!membership) return { ok: false, error: "owner_not_found" };
 
@@ -66,6 +81,15 @@ export async function setOwnerLogin(
   });
   if (clash) return { ok: false, error: "email_taken", detail: `user ${clash.id}` };
 
+  // Demote only if someone else can still reach /admin afterwards.
+  let demote = false;
+  if (membership.user.isPlatformAdmin) {
+    const otherAdmins = await prisma.user.count({
+      where: { isPlatformAdmin: true, deletedAt: null, NOT: { id: membership.userId } },
+    });
+    demote = otherAdmins > 0;
+  }
+
   const passwordHash = await hashPassword(input.password);
   const now = new Date();
   await prisma.user.update({
@@ -76,6 +100,7 @@ export async function setOwnerLogin(
       emailVerifiedAt: now,
       deletedAt: null,
       sessionsValidFrom: now,
+      ...(demote ? { isPlatformAdmin: false } : {}),
     },
   });
   return {
@@ -83,6 +108,8 @@ export async function setOwnerLogin(
     userId: membership.userId,
     previousEmail: membership.user.email,
     email,
+    demotedFromPlatformAdmin: demote,
+    stillPlatformAdmin: membership.user.isPlatformAdmin && !demote,
   };
 }
 
@@ -110,6 +137,15 @@ async function main(): Promise<void> {
     process.stdout.write(
       `✓ owner login for /r/${slug}: ${result.email}${changed} — password reset, old sessions signed out\n`,
     );
+    if (result.demotedFromPlatformAdmin) {
+      process.stdout.write(
+        `  also removed the platform-admin flag from this account, so /login now opens /dashboard (use ADMIN_EMAIL for /admin)\n`,
+      );
+    } else if (result.stillPlatformAdmin) {
+      process.stdout.write(
+        `  ! this account is the ONLY platform admin, so it keeps landing on /admin — open /dashboard directly, or set ADMIN_EMAIL to a different address and redeploy, then re-run this\n`,
+      );
+    }
   } finally {
     await prisma.$disconnect();
   }
