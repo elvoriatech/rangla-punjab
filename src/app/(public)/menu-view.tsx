@@ -24,6 +24,7 @@ import { AddToOrderButton } from "./order/add-button";
 import { CartDrawer } from "./order/cart-lazy";
 import { AllergenDialog } from "./allergen-dialog";
 import { DishDescription } from "./dish-description";
+import { CategoryLink, CategoryTabs as CategoryTabsClient, TabLink } from "./category-tabs";
 
 /**
  * Public menu render — theme_one aesthetic (deep chocolate + gold),
@@ -263,15 +264,24 @@ export function MenuView({
             ) : (
               <div className={theme.layout === "editorial" ? "space-y-20" : "space-y-24"}>
                 {menu.categories.map((cat, catIndex) => (
-                  <Section
+                  /* Every category is in the DOM; the tabs filter by toggling
+                     `hidden` (client-side, instant). A ?cat= deep link arrives
+                     pre-filtered from the server, so no-JS readers and search
+                     engines see the same single category they asked for. */
+                  <div
                     key={cat.id}
-                    cat={cat}
-                    catIndex={catIndex}
-                    locale={locale}
-                    slug={menu.venue.slug}
-                    ordering={ordering}
-                    showIcons={showIcons}
-                  />
+                    data-category-id={cat.id}
+                    hidden={activeCategoryId ? cat.id !== activeCategoryId : undefined}
+                  >
+                    <Section
+                      cat={cat}
+                      catIndex={catIndex}
+                      locale={locale}
+                      slug={menu.venue.slug}
+                      ordering={ordering}
+                      showIcons={showIcons}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -1656,6 +1666,10 @@ function SideRail({
   // over ANY artwork/gradient; the active category is the app's red
   // bubble with the sharp bottom-right corner.
   const linkBase = "block rounded-xl px-3.5 py-2 text-[13px] leading-snug transition-colors";
+  const railActive =
+    "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]";
+  const railIdle =
+    "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]";
   return (
     <aside className="hidden lg:block">
       <nav
@@ -1664,28 +1678,26 @@ function SideRail({
       >
         <ul className="space-y-0.5">
           <li>
-            <Link
+            <CategoryLink
+              id={null}
+              slug={null}
               href={`/${activeDiet ? `?diet=${activeDiet}` : ""}`}
-              prefetch={false}
-              className={`${linkBase} ${
-                active === null
-                  ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
-                  : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
-              }`}
+              initialActive={active}
+              activeClass={`${linkBase} ${railActive}`}
+              idleClass={`${linkBase} ${railIdle}`}
             >
               All
-            </Link>
+            </CategoryLink>
           </li>
           {categories.map((c) => (
             <li key={c.id}>
-              <Link
+              <CategoryLink
+                id={c.id}
+                slug={slugOf.get(c.id) ?? c.id}
                 href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
-                prefetch={false}
-                className={`${linkBase} ${
-                  active === c.id
-                    ? "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-bottom-right-radius:3px]"
-                    : "text-[var(--menu-surface-text,var(--menu-text))]/80 hover:bg-[var(--menu-surface-accent,var(--menu-accent))]/10 hover:text-[var(--menu-surface-accent,var(--menu-accent))]"
-                }`}
+                initialActive={active}
+                activeClass={`${linkBase} ${railActive}`}
+                idleClass={`${linkBase} ${railIdle}`}
               >
                 {showIcons ? (
                   <span aria-hidden="true" className="mr-1.5 text-sm normal-case tracking-normal">
@@ -1693,7 +1705,7 @@ function SideRail({
                   </span>
                 ) : null}
                 {c.name}
-              </Link>
+              </CategoryLink>
             </li>
           ))}
         </ul>
@@ -1713,39 +1725,16 @@ function CategoryTabs({
   activeDiet: string | null;
   showIcons: boolean;
 }): React.ReactElement | null {
-  if (categories.length < 2) return null;
-  const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
   const slugOf = categorySlugs(categories);
   return (
-    <nav aria-label="Categories" className="-mx-1 w-full overflow-x-auto">
-      <ul className="mx-auto flex w-max min-w-max items-center gap-1 px-1 text-[11px] uppercase tracking-[0.28em]">
-        <li>
-          <TabLink
-            href={`/${activeDiet ? `?diet=${activeDiet}` : ""}`}
-            active={active === null}
-            variant="primary"
-          >
-            All
-          </TabLink>
-        </li>
-        {categories.map((c) => (
-          <li key={c.id}>
-            <TabLink
-              href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
-              active={active === c.id}
-              variant="primary"
-            >
-              {showIcons ? (
-                <span aria-hidden="true" className="mr-1.5 text-sm normal-case tracking-normal">
-                  {categoryIcon(c.name)}
-                </span>
-              ) : null}
-              {c.name}
-            </TabLink>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <CategoryTabsClient
+      categories={categories}
+      slugs={Object.fromEntries(categories.map((c) => [c.id, slugOf.get(c.id) ?? c.id]))}
+      icons={Object.fromEntries(categories.map((c) => [c.id, categoryIcon(c.name)]))}
+      active={active}
+      activeDiet={activeDiet}
+      showIcons={showIcons}
+    />
   );
 }
 
@@ -1791,46 +1780,6 @@ function DietTabs({
         ))}
       </ul>
     </nav>
-  );
-}
-
-function TabLink({
-  href,
-  active,
-  variant,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  variant: "primary" | "secondary";
-  children: React.ReactNode;
-}): React.ReactElement {
-  // Squared tabs (no `rounded-*`) — restaurant-menu convention: text
-  // with an underline for the active state, subtle background for the
-  // hover state. Primary = category rail (bigger, more prominent).
-  // Secondary = diet rail (smaller, quieter).
-  // The app's navigation language: the active tab is a filled bubble
-  // whose bottom-right corner sweeps to a near-point; inactive tabs are
-  // plain text. Diet tabs stay quieter (soft tinted pill).
-  const base = "inline-flex items-center px-4 py-2 transition-all duration-200";
-  const cls =
-    variant === "primary"
-      ? active
-        ? `${base} rounded-2xl [border-bottom-right-radius:3px] bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] shadow-sm`
-        : `${base} rounded-2xl text-[var(--menu-text)] hover:text-[var(--menu-accent)]`
-      : active
-        ? `${base} rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))]/12 font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`
-        : `${base} rounded-full text-[var(--menu-surface-text,var(--menu-text))] hover:text-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-1.5`;
-  // next/link: with JS this is an in-place RSC transition — no full-page
-  // reload, the sticky rails never flash, and the browser scrolls to the
-  // top so the newly filtered list is immediately visible below them.
-  // Without JS it degrades to the same plain anchor as before.
-  // prefetch={false}: 16 category tabs × viewport prefetch would hammer
-  // the server for filters most guests never tap.
-  return (
-    <Link href={href} prefetch={false} aria-current={active ? "page" : undefined} className={cls}>
-      {children}
-    </Link>
   );
 }
 

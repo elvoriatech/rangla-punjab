@@ -10,12 +10,7 @@ import { getOperatorSettings } from "@/lib/operator-settings";
 import { currentOpenState, currentTodaySlotTimes } from "@/lib/opening-hours";
 import { loadPublicMenu, siteUrl } from "@/lib/public-menu";
 import { getRestaurantSlug } from "@/lib/restaurant";
-import {
-  filterMenuByCategory,
-  filterMenuByDiet,
-  parseDietFilter,
-  resolveCategoryParam,
-} from "@/lib/dietary-filter";
+import { filterMenuByDiet, parseDietFilter, resolveCategoryParam } from "@/lib/dietary-filter";
 import { MenuView } from "./menu-view";
 
 /**
@@ -117,17 +112,11 @@ export default async function PublicMenuPage({
 
   const diets = parseDietFilter(diet);
   const activeCategoryId = resolveCategoryParam(menu, cat);
-  // Category FIRST, then diet. The other order silently breaks the tabs:
-  // filterMenuByDiet drops categories it empties, so a category with no
-  // matching dishes is gone by the time filterMenuByCategory looks for it —
-  // and that function treats "no match" as a stale bookmark and returns the
-  // whole menu. Picking vegan and then tapping a meat-only category showed
-  // the entire vegan menu instead of an empty category.
-  // `activeCategoryId` is resolved against the UNFILTERED menu above, so
-  // the category always matches here and the diet pass can legitimately
-  // empty it — which is what renders the "no dishes match" empty state.
-  const catFiltered = filterMenuByCategory(menu, activeCategoryId);
-  const filtered = filterMenuByDiet(catFiltered, diets);
+  // Category filtering moved to the client (category-tabs.tsx): the page
+  // always carries every category and the active one is expressed by the
+  // `hidden` attribute on the others, so tapping a tab is instant. The
+  // diet filter stays server-side (it changes which dishes exist).
+  const filtered = filterMenuByDiet(menu, diets);
   // Keep the *unfiltered* category list around so the tabs render every
   // category even when the guest has narrowed the view to one.
   return (
