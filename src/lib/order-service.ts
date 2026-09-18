@@ -57,6 +57,18 @@ export const placeOrderSchema = z
     tableNumber: z.string().trim().max(20).optional(),
     customerName: z.string().trim().max(80).optional(),
     customerPhone: z.string().trim().max(30).optional(),
+    /** Optional, any order type: the receipt is emailed here. "" = none. */
+    customerEmail: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+      z.string().trim().email().max(120).optional(),
+    ),
+    /**
+     * How the guest said they will pay, so the server knows whether the
+     * receipt email goes out now (cash) or once the online payment
+     * settles (card / paypal — sent from markOrderPaid). Not stored; an
+     * absent value means cash.
+     */
+    intendedPayment: z.enum(["cash", "card", "paypal"]).optional(),
     address: z
       .object({
         street: z.string().trim().min(3).max(120),
@@ -303,6 +315,7 @@ export async function placeOrder(
         tableNumber: orderType === "dine_in" ? input.tableNumber || null : null,
         customerName: orderType === "dine_in" ? null : input.customerName || null,
         customerPhone: orderType === "dine_in" ? null : input.customerPhone || null,
+        customerEmail: input.customerEmail?.toLowerCase() || null,
         deliveryAddress: orderType === "delivery" && input.address ? input.address : undefined,
         requestedFor,
         totalCents,
@@ -363,11 +376,13 @@ export interface ReceiptOrder extends OrderFulfilment {
   id: string;
   orderNumber: number;
   tableNumber: string | null;
+  customerEmail: string | null;
   paymentStatus: string;
+  paymentProvider: string | null;
   totalCents: number;
   currency: string;
   createdAt: Date;
-  venue: { name: string; slug: string; logoKey: string | null };
+  venue: { name: string; slug: string; logoKey: string | null; defaultLocale: string };
   items: { name: string; priceCents: number; quantity: number }[];
 }
 
@@ -386,13 +401,15 @@ export async function getOrderForReceipt(
         orderType: true,
         customerName: true,
         customerPhone: true,
+        customerEmail: true,
         requestedFor: true,
         deliveryAddress: true,
         paymentStatus: true,
+        paymentProvider: true,
         totalCents: true,
         currency: true,
         createdAt: true,
-        venue: { select: { name: true, slug: true, branding: true } },
+        venue: { select: { name: true, slug: true, branding: true, defaultLocale: true } },
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
@@ -408,6 +425,7 @@ export async function getOrderForReceipt(
         name: order.venue.name,
         slug: order.venue.slug,
         logoKey: typeof branding?.logoKey === "string" ? branding.logoKey : null,
+        defaultLocale: order.venue.defaultLocale,
       },
     };
   });

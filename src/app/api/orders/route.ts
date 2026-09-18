@@ -71,6 +71,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   // first response was lost). 200 rather than 201 so the distinction is
   // visible in logs and to the client, but the body is identical — the
   // client must be able to carry on exactly as if it had just placed it.
+  // Cash (or unspecified) → the receipt is mailed now. Card / PayPal →
+  // markOrderPaid mails it once the payment settles, so the guest never
+  // gets a "pay at the restaurant" receipt for an order they are about to
+  // pay online. Replays already mailed on the first attempt.
+  if (!result.value.replayed && (orderInput.intendedPayment ?? "cash") === "cash") {
+    const { sendReceiptEmailForOrder } = await import("@/lib/receipt-email");
+    void sendReceiptEmailForOrder(context.tenantId, result.value.orderId);
+  }
+
   log.info(result.value.replayed ? "order.replayed" : "order.placed", {
     venueId: context.venueId,
     orderId: result.value.orderId,

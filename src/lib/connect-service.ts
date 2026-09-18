@@ -236,5 +236,15 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
     });
     if (updated.count > 0) log.info("payment.settled", { orderId, tenantId });
     return updated.count > 0;
+  }).then(async (settled) => {
+    // The receipt email for an online order goes out when the money has
+    // actually moved — never from the placement step. Fire-and-forget:
+    // a mail failure must not turn a successful webhook into a 500.
+    // Dynamic import keeps order-service ↔ connect-service acyclic.
+    if (settled) {
+      const { sendReceiptEmailForOrder } = await import("./receipt-email");
+      void sendReceiptEmailForOrder(tenantId, orderId);
+    }
+    return settled;
   });
 }

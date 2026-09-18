@@ -9,6 +9,7 @@ import {
   getOrderStats,
   listRecentOrders,
   markOrderDone,
+  placeOrderSchema,
 } from "./order-service";
 import { signReceiptToken, verifyReceiptToken } from "./receipt-token";
 import { buildReceiptPdf } from "./receipt-pdf";
@@ -138,6 +139,37 @@ describe("order-service (guest self-ordering)", () => {
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.value.orderNumber).toBe(2);
+  });
+
+  it("keeps an optional receipt email (lower-cased) and rejects a malformed one", async () => {
+    const fx = await fixtureVenue();
+    const placed = await placeOrder(fx, {
+      items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+      customerEmail: "Guest.Example@Ex.COM",
+    });
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const row = await asTenant(fx.tenantId, (tx) =>
+      tx.order.findFirstOrThrow({
+        where: { id: placed.value.orderId },
+        select: { customerEmail: true },
+      }),
+    );
+    expect(row.customerEmail).toBe("guest.example@ex.com");
+
+    // Blank means "no email" — the form always sends the field.
+    const blank = await placeOrder(fx, {
+      items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+      customerEmail: "",
+    });
+    expect(blank.ok).toBe(true);
+
+    expect(
+      placeOrderSchema.safeParse({
+        items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+        customerEmail: "not-an-email",
+      }).success,
+    ).toBe(false);
   });
 
   it("gives every simultaneous order its own number instead of 500ing", async () => {

@@ -491,6 +491,8 @@ model Order {
   orderType     String  @default("dine_in") @map("order_type")
   customerName  String? @map("customer_name")
   customerPhone String? @map("customer_phone")
+  /// Optional: where the receipt email goes. Any order type.
+  customerEmail String? @map("customer_email")
   // {street, zip, city, note} for delivery orders.
   deliveryAddress Json? @map("delivery_address")
   // none = pay at restaurant; pending/paid/failed = online payment.

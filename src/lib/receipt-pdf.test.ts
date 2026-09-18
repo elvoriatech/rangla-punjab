@@ -16,11 +16,18 @@ const baseOrder: ReceiptOrder = {
   customerPhone: "+49 151 2345678",
   requestedFor: null,
   deliveryAddress: null,
+  customerEmail: null,
   paymentStatus: "unpaid",
+  paymentProvider: null,
   totalCents: 1990,
   currency: "eur",
   createdAt: new Date("2026-07-25T20:00:00Z"),
-  venue: { name: "Rangla Punjab · Konstanz", slug: "rangla-punjab", logoKey: null },
+  venue: {
+    name: "Rangla Punjab · Konstanz",
+    slug: "rangla-punjab",
+    logoKey: null,
+    defaultLocale: "de",
+  },
   items: [{ name: "Shahi Tofu", priceCents: 990, quantity: 2 }],
 };
 

@@ -238,6 +238,13 @@ jobs:
       # the same commit, so that budget — and `total`, which carries it — is
       # pinned above the CI figure rather than the local one.
       #
+      # 2026-09-18 (later): the same page measured 210,502 in CI on a commit
+      # that touched no image — 502 bytes over the 210,000 budget, purely
+      # from which lazy photos the audit happened to fetch. By this file's own
+      # rule a timing-dependent number cannot be an `error`, so images are
+      # now `warn` at 260,000 and `total` (which carries them) is 640,000.
+      # Script/stylesheet/font stay `error` at their deterministic budgets.
+      #
       # Tighten them when the render-delay work lands — LCP is currently ~3.5s,
       # dominated by main-thread work rather than by loading.
 

@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/public-menu";
 import { PayButton } from "./pay-button";
 import { PayPalButton } from "./paypal-button";
 import { paypalAvailable } from "@/lib/paypal";
+import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 
 /**
  * Local payment page. With the FAKE provider this is where the guest
@@ -36,6 +37,7 @@ export default async function PayPage({
 
   const money = (cents: number): string => formatPrice(cents, order.currency, "de");
   const paid = order.paymentStatus === "paid";
+  const vatCents = vatFromGross(order.totalCents);
   // P2-4: site kill switch — no new payments while paused (a settled order
   // still shows its paid state below).
   const { siteActive } = await getOperatorSettings();
@@ -44,7 +46,7 @@ export default async function PayPage({
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center bg-cream px-6 py-16 text-ink">
       <p className="text-xs uppercase tracking-[0.28em] text-gold-dark">{order.venue.name}</p>
       <h1 className="mt-2 font-serif text-3xl leading-tight">
-        Order #{String(order.orderNumber).padStart(4, "0")}
+        Bestellung Nr. {String(order.orderNumber).padStart(4, "0")}
       </h1>
 
       <ul className="mt-6 divide-y divide-ink/10 border border-ink/15 bg-card">
@@ -56,17 +58,28 @@ export default async function PayPage({
             <span className="tabular-nums">{money(item.priceCents * item.quantity)}</span>
           </li>
         ))}
+        {/* German gross pricing: VAT is contained in the total, shown as a
+            split so the page doubles as the guest's receipt. */}
+        <li className="flex items-baseline justify-between gap-3 px-4 pt-2.5 text-xs text-muted">
+          <span>Netto</span>
+          <span className="tabular-nums">{money(order.totalCents - vatCents)}</span>
+        </li>
+        <li className="flex items-baseline justify-between gap-3 px-4 pb-1 text-xs text-muted">
+          <span>MwSt. {VAT_RATE_LABEL} % (enthalten)</span>
+          <span className="tabular-nums">{money(vatCents)}</span>
+        </li>
         <li className="flex items-baseline justify-between gap-3 px-4 py-3 text-sm font-semibold">
-          <span className="uppercase tracking-[0.16em]">Total</span>
+          <span className="uppercase tracking-[0.16em]">Gesamt</span>
           <span className="tabular-nums">{money(order.totalCents)}</span>
         </li>
       </ul>
 
       {paid ? (
         <div className="mt-6 border border-[#3f7030]/40 bg-[#3f7030]/10 px-4 py-4 text-center">
-          <p className="font-serif text-2xl text-[#3f7030]">Paid ✓</p>
+          <p className="font-serif text-2xl text-[#3f7030]">Bezahlt ✓</p>
           <p className="mt-1 text-sm text-muted">
-            Show this screen at the restaurant if asked — the kitchen sees the order as paid.
+            Zeigen Sie diesen Bildschirm bei Bedarf im Restaurant vor — die Küche sieht die
+            Bestellung als bezahlt.
           </p>
           {appReturnUrl ? (
             <a
@@ -80,15 +93,16 @@ export default async function PayPage({
               href={`/`}
               className="mt-4 inline-block text-sm text-orange-dark underline underline-offset-2"
             >
-              Back to the menu
+              Zurück zur Speisekarte
             </a>
           )}
         </div>
       ) : !siteActive ? (
         <div className="mt-6 border border-ink/15 bg-card px-4 py-4 text-center">
-          <p className="font-serif text-2xl">Ordering paused</p>
+          <p className="font-serif text-2xl">Bestellungen pausiert</p>
           <p className="mt-1 text-sm text-muted">
-            Online payments are paused right now. Please pay at the restaurant, or try again later.
+            Online-Zahlungen sind gerade pausiert. Bitte zahlen Sie im Restaurant oder versuchen Sie
+            es später erneut.
           </p>
         </div>
       ) : (
@@ -106,7 +120,8 @@ export default async function PayPage({
           ) : null}
           {!ref && !paypalAvailable() ? (
             <p className="mt-6 text-sm text-muted">
-              This payment link is incomplete — start again from your order confirmation.
+              Dieser Zahlungslink ist unvollständig — bitte starten Sie erneut über Ihre
+              Bestellbestätigung.
             </p>
           ) : null}
         </>

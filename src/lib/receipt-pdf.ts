@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatPrice } from "./public-menu";
-import { vatFromGross } from "./report-service";
+import { VAT_RATE_LABEL, vatFromGross } from "./vat";
 import type { ReceiptOrder } from "./order-service";
 
 /**
@@ -61,6 +61,49 @@ export async function buildReceiptPdf(
   const logo = logoPng ? await doc.embedPng(logoPng).catch(() => null) : null;
 
   const price = (cents: number): string => formatPrice(cents, order.currency, locale);
+  // Guest-facing copy in the guest's language. Labels stay ≤ LABEL_CHARS.
+  const t =
+    locale === "de"
+      ? {
+          type: "Art",
+          delivery: "Lieferung",
+          pickup: "Abholung",
+          planned: "Geplant",
+          name: "Name",
+          phone: "Telefon",
+          address: "Adresse",
+          note: "Hinweis",
+          table: "Tisch",
+          order: "Bestellung Nr.",
+          paidOnline: "ONLINE BEZAHLT",
+          net: "Netto",
+          vat: `MwSt. ${VAT_RATE_LABEL} % (enthalten)`,
+          total: "GESAMT",
+          vatNote: `Gesamtbetrag inkl. ${VAT_RATE_LABEL} % MwSt.`,
+          unpaid: ["Die Zahlung erfolgt im", "Restaurant - dies ist", "keine Rechnung."],
+          paid: ["Online bezahlt - vielen Dank."],
+          thanks: "Vielen Dank & bis bald!",
+        }
+      : {
+          type: "Type",
+          delivery: "Delivery",
+          pickup: "Pickup",
+          planned: "Planned",
+          name: "Name",
+          phone: "Phone",
+          address: "Address",
+          note: "Note",
+          table: "Table",
+          order: "Order #",
+          paidOnline: "PAID ONLINE",
+          net: "Net",
+          vat: `VAT ${VAT_RATE_LABEL}% (incl.)`,
+          total: "TOTAL",
+          vatNote: `Total includes ${VAT_RATE_LABEL}% VAT.`,
+          unpaid: ["Payment is settled at the", "restaurant - this is not", "a tax invoice."],
+          paid: ["Paid online - thank you."],
+          thanks: "Thank you & see you soon!",
+        };
   // Courier is fixed-width: usable chars per line at 8.5pt across 198.8pt.
   const charW = mono.widthOfTextAtSize("0", FONT_SIZE);
   const cols = Math.floor((WIDTH - 2 * MARGIN) / charW);
@@ -98,24 +141,24 @@ export async function buildReceiptPdf(
   const fRows: FulfilmentRow[] = [];
   if (order.orderType === "takeaway" || order.orderType === "delivery") {
     fRows.push({
-      label: "Type",
-      values: [order.orderType === "delivery" ? "Delivery" : "Pickup"],
+      label: t.type,
+      values: [order.orderType === "delivery" ? t.delivery : t.pickup],
     });
-    if (scheduled) fRows.push({ label: "Planned", values: [scheduled] });
-    if (order.customerName) fRows.push({ label: "Name", values: wrap(order.customerName) });
+    if (scheduled) fRows.push({ label: t.planned, values: [scheduled] });
+    if (order.customerName) fRows.push({ label: t.name, values: wrap(order.customerName) });
     if (order.customerPhone)
-      fRows.push({ label: "Phone", values: [safe(order.customerPhone)], icon: true });
+      fRows.push({ label: t.phone, values: [safe(order.customerPhone)], icon: true });
     if (order.orderType === "delivery" && order.deliveryAddress) {
       const a = order.deliveryAddress;
       const addr: string[] = [];
       if (a.street) addr.push(...wrap(a.street));
       const cityLine = `${a.zip ?? ""} ${a.city ?? ""}`.trim();
       if (cityLine) addr.push(...wrap(cityLine));
-      if (addr.length > 0) fRows.push({ label: "Address", values: addr });
-      if (a.note) fRows.push({ label: "Note", values: wrap(a.note) });
+      if (addr.length > 0) fRows.push({ label: t.address, values: addr });
+      if (a.note) fRows.push({ label: t.note, values: wrap(a.note) });
     }
   } else if (order.tableNumber) {
-    fRows.push({ label: "Table", values: [order.tableNumber] });
+    fRows.push({ label: t.table, values: [order.tableNumber] });
   }
   const fulfilmentLineCount = fRows.reduce((n, r) => n + r.values.length, 0);
 
@@ -192,7 +235,7 @@ export async function buildReceiptPdf(
   y -= LINE / 2;
   rule();
   spread(
-    `Order #${String(order.orderNumber).padStart(4, "0")}`,
+    `${t.order} ${String(order.orderNumber).padStart(4, "0")}`,
     new Intl.DateTimeFormat(locale, {
       dateStyle: "short",
       timeStyle: "short",
@@ -200,7 +243,7 @@ export async function buildReceiptPdf(
     }).format(order.createdAt),
   );
   fRows.forEach(fulfilmentRow);
-  if (order.paymentStatus === "paid") left("PAID ONLINE");
+  if (order.paymentStatus === "paid") left(t.paidOnline);
   rule();
 
   // Lines: "NNx Name.....   price" — wrapped names indent under the first.
@@ -217,17 +260,15 @@ export async function buildReceiptPdf(
   // net/VAT split so the receipt doubles as a tax-transparent record.
   const vatCents = vatFromGross(order.totalCents);
   const netCents = order.totalCents - vatCents;
-  spread("Net", price(netCents));
-  spread("VAT 19% (incl.)", price(vatCents));
-  spread("TOTAL", price(order.totalCents), monoBold, 10);
+  spread(t.net, price(netCents));
+  spread(t.vat, price(vatCents));
+  spread(t.total, price(order.totalCents), monoBold, 10);
   rule();
   y -= LINE / 2;
-  center("Total includes 19% VAT.");
-  center("Payment is settled at the");
-  center("restaurant - this is not");
-  center("a tax invoice.");
+  center(t.vatNote);
+  for (const line of order.paymentStatus === "paid" ? t.paid : t.unpaid) center(line);
   y -= LINE / 2;
-  center("Thank you & see you soon!", monoBold);
+  center(t.thanks, monoBold);
 
   return doc.save();
 }

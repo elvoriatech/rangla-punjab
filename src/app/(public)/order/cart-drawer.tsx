@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MessagePopup } from "@/components/message-popup";
+import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 import {
   EMPTY_CART,
   cartCount,
@@ -175,6 +176,8 @@ const ROW_DELETE_BTN =
 
 /** Order-type chips. `relative`/`overflow-hidden` host the selected indicator
  *  bar and `pb-2.5` reserves its room, so selecting never shifts the label. */
+type PayMethod = "cash" | "card" | "paypal";
+
 const CHIP_BASE =
   "relative overflow-hidden rounded-lg px-2 pt-2 pb-2.5 text-center text-xs transition " +
   FOCUS_RING;
@@ -279,6 +282,12 @@ export function CartDrawer({
   const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  // Optional, any order type: the receipt (with VAT split) is emailed here.
+  const [customerEmail, setCustomerEmail] = useState("");
+  // How the guest pays, chosen up front so a single tap places the order
+  // AND opens the payment — no second "now pay" screen. Cash is always
+  // available; card/PayPal only when the restaurant can take them.
+  const [payMethod, setPayMethod] = useState<PayMethod>("cash");
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
   const [note, setNote] = useState("");
@@ -322,6 +331,37 @@ export function CartDrawer({
 
   if (count === 0 && !placed) return null;
 
+  /** Open the hosted payment page for a placed order. Resolves (without
+   *  navigating) when the payment could not be started, so the caller can
+   *  fall back to the confirmation screen. */
+  async function startPayment(
+    order: PlacedOrder,
+    method: Exclude<PayMethod, "cash">,
+  ): Promise<void> {
+    setPayStarting(true);
+    try {
+      const path = method === "paypal" ? "pay/paypal" : "pay";
+      const res = await fetch(`/api/orders/${order.orderId}/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: order.receiptToken }),
+      });
+      const body = (await res.json().catch(() => null)) as { url?: string } | null;
+      if (res.ok && body?.url) {
+        location.href = body.url;
+        return; // keep the button busy while the page unloads
+      }
+      setError(
+        method === "paypal"
+          ? "PayPal couldn't be opened — your order is saved; try the PayPal button below or pay at the restaurant."
+          : "Card payment couldn't be opened — your order is saved; try the button below or pay at the restaurant.",
+      );
+    } catch {
+      setError("No connection — your order is saved; try paying again below.");
+    }
+    setPayStarting(false);
+  }
+
   async function submitOrder(): Promise<void> {
     setPlacing(true);
     setError(null);
@@ -333,6 +373,8 @@ export function CartDrawer({
         tableNumber: orderType === "dine_in" ? tableNumber.trim() || undefined : undefined,
         customerName: orderType === "dine_in" ? undefined : customerName.trim(),
         customerPhone: orderType === "dine_in" ? undefined : customerPhone.trim(),
+        customerEmail: customerEmail.trim() || undefined,
+        intendedPayment: payMethod,
         address:
           orderType === "delivery"
             ? {
@@ -390,6 +432,10 @@ export function CartDrawer({
       setPlaced(value);
       clearCart(slug);
       setOpen(true);
+      // Card / PayPal: go straight to the payment page. If that hop fails
+      // the confirmation screen below still offers the pay buttons, so
+      // the order is never stranded.
+      if (payMethod !== "cash") await startPayment(value, payMethod);
     } catch {
       setError("No connection — check your network and try again.");
     } finally {
@@ -482,31 +528,19 @@ export function CartDrawer({
                 {/* Ink, not accent: 14px semibold, same 3.28:1 reason. */}
                 <span className="font-semibold text-[var(--menu-surface-text,var(--menu-text))]">
                   {money(placed.totalCents)}
-                </span>
-                , payable at the restaurant.
+                </span>{" "}
+                (incl. {VAT_RATE_LABEL}% VAT {money(vatFromGross(placed.totalCents))})
+                {payMethod === "cash" ? ", payable at the restaurant." : "."}
+                {customerEmail.trim()
+                  ? ` We'll email your receipt to ${customerEmail.trim()}${payMethod === "cash" ? "" : " once the payment is confirmed"}.`
+                  : ""}
               </p>
+              {error ? <MessagePopup kind="error" text={error} /> : null}
               {onlinePayment && placed ? (
                 <button
                   type="button"
                   disabled={payStarting}
-                  onClick={async () => {
-                    setPayStarting(true);
-                    try {
-                      const res = await fetch(`/api/orders/${placed.orderId}/pay`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ token: placed.receiptToken }),
-                      });
-                      const body = (await res.json()) as { url?: string };
-                      if (res.ok && body.url) {
-                        location.href = body.url;
-                        return;
-                      }
-                      setPayStarting(false);
-                    } catch {
-                      setPayStarting(false);
-                    }
-                  }}
+                  onClick={() => void startPayment(placed, "card")}
                   className={CTA_PAY}
                 >
                   {payStarting ? "Opening payment…" : `Pay online · ${money(placed.totalCents)}`}
@@ -516,24 +550,7 @@ export function CartDrawer({
                 <button
                   type="button"
                   disabled={payStarting}
-                  onClick={async () => {
-                    setPayStarting(true);
-                    try {
-                      const res = await fetch(`/api/orders/${placed.orderId}/pay/paypal`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ token: placed.receiptToken }),
-                      });
-                      const body = (await res.json()) as { url?: string };
-                      if (res.ok && body.url) {
-                        location.href = body.url;
-                        return;
-                      }
-                      setPayStarting(false);
-                    } catch {
-                      setPayStarting(false);
-                    }
-                  }}
+                  onClick={() => void startPayment(placed, "paypal")}
                   /* DELIBERATE EXCEPTION to everything above: PayPal's brand
                      guidelines mandate this yellow/navy button, so it is the
                      only hard-coded hex in the file and the only four-sided
@@ -646,6 +663,9 @@ export function CartDrawer({
                   {money(total)}
                 </span>
               </div>
+              <p className="mt-1 text-right text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                incl. {VAT_RATE_LABEL}% VAT (MwSt.) {money(vatFromGross(total))}
+              </p>
 
               {/* Cart actions: empty the whole order, or hop back to the
                   menu to add more — both icon + label, no-JS-safe. */}
@@ -700,6 +720,61 @@ export function CartDrawer({
                       ) : null}
                     </button>
                   ))}
+                </div>
+              ) : null}
+
+              {onlinePayment || paypalPayment ? (
+                <div className="mt-4">
+                  <p className={"text-xs uppercase tracking-[0.18em] " + FIELD_LABEL}>Payment</p>
+                  <div
+                    role="radiogroup"
+                    aria-label="Payment method"
+                    className={
+                      onlinePayment && paypalPayment
+                        ? "mt-2 grid grid-cols-3 gap-2"
+                        : "mt-2 grid grid-cols-2 gap-2"
+                    }
+                  >
+                    {(
+                      [
+                        {
+                          id: "cash" as const,
+                          icon: "💶",
+                          label:
+                            orderType === "delivery"
+                              ? "Cash to driver"
+                              : orderType === "takeaway"
+                                ? "Pay at pickup"
+                                : "Pay at table",
+                          show: true,
+                        },
+                        { id: "card" as const, icon: "💳", label: "Card", show: onlinePayment },
+                        { id: "paypal" as const, icon: "🅿️", label: "PayPal", show: paypalPayment },
+                      ] as const
+                    )
+                      .filter((o) => o.show)
+                      .map((o) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={payMethod === o.id}
+                          onClick={() => setPayMethod(o.id)}
+                          className={payMethod === o.id ? CHIP_ON : CHIP_IDLE}
+                        >
+                          <span aria-hidden="true" className="block text-base">
+                            {o.icon}
+                          </span>
+                          {o.label}
+                          {payMethod === o.id ? (
+                            <span
+                              aria-hidden="true"
+                              className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
+                            />
+                          ) : null}
+                        </button>
+                      ))}
+                  </div>
                 </div>
               ) : null}
 
@@ -763,6 +838,19 @@ export function CartDrawer({
                   ) : null}
                 </div>
               )}
+              <label className="mt-3 block text-sm">
+                <span className={FIELD_LABEL}>Email (optional) — we&apos;ll send your receipt</span>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={customerEmail}
+                  maxLength={120}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={FIELD}
+                />
+              </label>
 
               {orderType === "delivery" ? (
                 <div className="mt-3 space-y-3">
@@ -863,11 +951,19 @@ export function CartDrawer({
 
               <button
                 type="button"
-                disabled={placing || count === 0 || detailsMissing || belowMinimum}
+                disabled={placing || payStarting || count === 0 || detailsMissing || belowMinimum}
                 onClick={() => void submitOrder()}
                 className={"mt-4 " + CTA_PRIMARY}
               >
-                {placing ? "Placing…" : `Place order · ${money(total)}`}
+                {placing || payStarting
+                  ? payMethod === "cash"
+                    ? "Placing…"
+                    : "Opening payment…"
+                  : payMethod === "card"
+                    ? `Pay by card · ${money(total)}`
+                    : payMethod === "paypal"
+                      ? `Pay with PayPal · ${money(total)}`
+                      : `Place order · ${money(total)}`}
               </button>
               {belowMinimum ? (
                 <p className="mt-2 text-center text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
@@ -875,11 +971,13 @@ export function CartDrawer({
                 </p>
               ) : (
                 <p className="mt-2 text-center text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                  {orderType === "delivery"
-                    ? "No payment online — you pay the driver."
-                    : orderType === "takeaway"
-                      ? "No payment online — you pay at pickup."
-                      : "No payment now — you pay at the restaurant."}
+                  {payMethod !== "cash"
+                    ? "We save your order, then open secure payment. Nothing is charged until you confirm there."
+                    : orderType === "delivery"
+                      ? "No payment online — you pay the driver."
+                      : orderType === "takeaway"
+                        ? "No payment online — you pay at pickup."
+                        : "No payment now — you pay at the restaurant."}
                 </p>
               )}
             </>

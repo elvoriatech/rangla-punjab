@@ -15,13 +15,8 @@ import { asUser } from "./tenant";
  * computed in one place below.
  */
 
-export const VAT_RATE_BPS = 1900;
-
-/** VAT contained in a gross amount at the statutory rate. */
-export function vatFromGross(grossCents: number): number {
-  const net = Math.round((grossCents * 10_000) / (10_000 + VAT_RATE_BPS));
-  return grossCents - net;
-}
+import { vatFromGross } from "./vat";
+export { VAT_RATE_BPS, vatFromGross } from "./vat";
 
 export type ReportGranularity = "daily" | "weekly" | "monthly";
 
