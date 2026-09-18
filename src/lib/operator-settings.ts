@@ -64,7 +64,12 @@ export interface OperatorSettings {
 }
 
 export const DEFAULT_OPERATOR_SETTINGS: OperatorSettings = {
-  feeMode: "percentage",
+  // Single-restaurant build: the restaurant charges on its OWN Stripe /
+  // PayPal account and keeps 100%. "upfront" is what switches Dashboard →
+  // Payments to the own-keys form and routes checkout through those keys;
+  // "percentage" (the old SaaS default) would demand a Stripe Connect
+  // onboarding nobody in this deployment can complete.
+  feeMode: "upfront",
   feeBp: 500,
   feeMinCents: 2000,
   siteActive: true,
@@ -118,7 +123,11 @@ export const getOperatorSettings = cache(async (): Promise<OperatorSettings> => 
   });
   if (!row) return DEFAULT_OPERATOR_SETTINGS;
   return {
-    feeMode: row.feeMode,
+    // Pinned, not read: a row saved by an older build may still say
+    // "percentage", and /admin/settings has pinned this to "upfront" since
+    // the single-restaurant cut. Honouring a stale value would hide the
+    // own-keys form and send guests into a Connect flow that cannot work.
+    feeMode: "upfront",
     feeBp: row.feeBp,
     feeMinCents: row.feeMinCents,
     siteActive: row.siteActive,

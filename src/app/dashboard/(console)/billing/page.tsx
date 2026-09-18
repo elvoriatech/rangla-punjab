@@ -144,6 +144,19 @@ export default async function BillingPage({
                 />
                 Enable — accept online payments with these keys
               </label>
+              <p className="text-xs text-brand-green/60">
+                Both values come from your Stripe Dashboard. The secret key is under{" "}
+                <span className="font-medium">Developers → API keys</span> (use the live{" "}
+                <code className="text-brand-green">sk_live_…</code> key for real payments, a{" "}
+                <code className="text-brand-green">sk_test_…</code> key to try it out). For the
+                signing secret, go to{" "}
+                <span className="font-medium">Developers → Webhooks → Add endpoint</span>, enter{" "}
+                <code className="text-brand-green">{`${siteUrl()}/api/stripe/own-webhook`}</code>,
+                select the event <span className="font-medium">checkout.session.completed</span>,
+                then copy the endpoint&apos;s signing secret (
+                <code className="text-brand-green">whsec_…</code>). The webhook is what marks an
+                order as paid, so without it orders stay pending even after the card is charged.
+              </p>
               <SubmitButton
                 pendingLabel="Saving…"
                 className="bg-brand-green px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark disabled:opacity-70"
