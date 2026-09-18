@@ -59,9 +59,15 @@ export function MobileNav({
           </span>
         )}
 
-        <p className="min-w-0 flex-1 truncate font-serif text-lg italic text-[var(--menu-text)]">
+        <Link
+          href="/"
+          target="_blank"
+          rel="noopener"
+          title="Open the public menu"
+          className="min-w-0 flex-1 truncate font-serif text-lg italic text-[var(--menu-text)] hover:underline"
+        >
           {venueName}
-        </p>
+        </Link>
 
         <form action={logoutAction}>
           <SubmitButton

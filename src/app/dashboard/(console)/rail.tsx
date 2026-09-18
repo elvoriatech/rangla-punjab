@@ -126,7 +126,9 @@ export function DashboardRail({
         >
           {collapsed ? (
             <>
-              <RailLogo logoUrl={logoUrl} venueName={venueName} />
+              <Link href="/" target="_blank" rel="noopener" title="Open the public menu">
+                <RailLogo logoUrl={logoUrl} venueName={venueName} />
+              </Link>
               <button
                 type="button"
                 onClick={toggle}
@@ -143,9 +145,17 @@ export function DashboardRail({
                 <p className="truncate text-[10px] uppercase tracking-[0.34em] text-[var(--menu-accent)]">
                   {BRAND.name}
                 </p>
-                <p className="min-w-0 truncate font-serif text-xl italic leading-tight text-[var(--menu-text)]">
+                {/* The venue name doubles as "view my menu": the public
+                    page opens in a new tab so the console stays put. */}
+                <Link
+                  href="/"
+                  target="_blank"
+                  rel="noopener"
+                  title="Open the public menu"
+                  className="block min-w-0 truncate font-serif text-xl italic leading-tight text-[var(--menu-text)] hover:underline focus-visible:underline"
+                >
                   {venueName}
-                </p>
+                </Link>
               </div>
               <button
                 type="button"

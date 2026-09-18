@@ -13,6 +13,7 @@ import {
   setupPaymentsAction,
 } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
+import { SaveChangesButton } from "@/components/save-changes-button";
 
 /**
  * `/dashboard/billing` — online-payment payouts (Stripe Connect or
@@ -172,12 +173,12 @@ export default async function BillingPage({
                 <code className="text-brand-green">whsec_…</code>). The webhook is what marks an
                 order as paid, so without it orders stay pending even after the card is charged.
               </p>
-              <SubmitButton
+              <SaveChangesButton
                 pendingLabel="Saving…"
                 className="bg-brand-green px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark disabled:opacity-70"
               >
                 Save payment keys
-              </SubmitButton>
+              </SaveChangesButton>
             </form>
           </>
         ) : null}
@@ -378,12 +379,12 @@ export default async function BillingPage({
             ID PayPal shows above. Without it, an order only settles when the guest comes back to
             this site after paying; with it, PayPal confirms the payment even if they close the tab.
           </p>
-          <SubmitButton
+          <SaveChangesButton
             pendingLabel="Saving…"
             className="bg-brand-green px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark disabled:opacity-70"
           >
             Save PayPal settings
-          </SubmitButton>
+          </SaveChangesButton>
         </form>
       </section>
     </main>

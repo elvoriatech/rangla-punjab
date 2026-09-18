@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { useFormStatus } from "react-dom";
 
 /**
@@ -13,12 +14,15 @@ export function SubmitButton({
   pendingLabel = "Working…",
   className,
   disabled = false,
+  ref,
   ...rest
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   className?: string;
   disabled?: boolean;
+  /** React 19: plain prop, no forwardRef needed. */
+  ref?: Ref<HTMLButtonElement>;
 } & Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
   "type" | "disabled" | "className" | "children"
@@ -26,6 +30,7 @@ export function SubmitButton({
   const { pending } = useFormStatus();
   return (
     <button
+      ref={ref}
       type="submit"
       disabled={pending || disabled}
       className={className}
