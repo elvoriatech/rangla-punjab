@@ -66,6 +66,7 @@ case "${1:-}" in
     # tree may be root-owned from an earlier manual clone, and a failed
     # write here must never abort a release.
     DOZZLE_PASS="${DOZZLE_PASSWORD:-${ADMIN_PASSWORD:-}}"
+    DOZZLE_RECREATE=0
     if [ -n "${DOZZLE_PASSWORD_SHA256:-}" ] && [ -z "${DOZZLE_PASSWORD:-}" ]; then
       echo "! DOZZLE_PASSWORD_SHA256 is no longer used (Dozzle v11 needs bcrypt) — set DOZZLE_PASSWORD instead; using ADMIN_PASSWORD for now"
     fi
@@ -78,10 +79,18 @@ case "${1:-}" in
            --name "${DOZZLE_USER}" --email "logs@${APP_DOMAIN:-localhost}" \
            --password "${DOZZLE_PASS}" "${DOZZLE_USER}" > "${DOZZLE_USERS_FILE}.tmp" 2>/dev/null \
          && [ -s "${DOZZLE_USERS_FILE}.tmp" ]; then
-        mv "${DOZZLE_USERS_FILE}.tmp" "${DOZZLE_USERS_FILE}"
+        # Same single-file bind-mount trap as the Caddyfile: `mv` would give
+        # the file a new inode and the running container would keep the old
+        # one. Write in place (same inode) and, if the content changed,
+        # recreate the container so it re-reads the file at start.
+        OLD_SUM="$(sha256sum "${DOZZLE_USERS_FILE}" 2>/dev/null | cut -d' ' -f1 || true)"
+        cat "${DOZZLE_USERS_FILE}.tmp" > "${DOZZLE_USERS_FILE}"
+        rm -f "${DOZZLE_USERS_FILE}.tmp"
         chmod 600 "${DOZZLE_USERS_FILE}"
+        NEW_SUM="$(sha256sum "${DOZZLE_USERS_FILE}" | cut -d' ' -f1)"
         export DOZZLE_USERS_FILE
         export COMPOSE_PROFILES="${COMPOSE_PROFILES:+${COMPOSE_PROFILES},}logs"
+        [ "${OLD_SUM}" != "${NEW_SUM}" ] && DOZZLE_RECREATE=1
         echo "→ dozzle login: ${DOZZLE_USER} (users file ${DOZZLE_USERS_FILE})"
       else
         rm -f "${DOZZLE_USERS_FILE}.tmp"
@@ -89,6 +98,10 @@ case "${1:-}" in
       fi
     fi
     "${COMPOSE[@]}" up -d
+    if [ "${DOZZLE_RECREATE:-0}" = "1" ]; then
+      echo "→ dozzle users changed — recreating dozzle"
+      "${COMPOSE[@]}" up -d --force-recreate --no-deps dozzle
+    fi
     # The Caddyfile is a bind mount: a changed route (e.g. /logs) is on disk
     # but Caddy keeps serving the config it loaded at start until told.
     # Graceful reload, zero downtime; harmless when nothing changed.
