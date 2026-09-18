@@ -56,6 +56,7 @@ export function CartScreen({
   const [zipOpen, setZipOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
   const [note, setNote] = useState("");
@@ -96,6 +97,8 @@ export function CartScreen({
         tableNumber: orderType === "dine_in" && tableNumber.trim() ? tableNumber.trim() : undefined,
         customerName: needsContact ? name.trim() : undefined,
         customerPhone: needsContact ? phone.trim() : undefined,
+        customerEmail: email.trim() || undefined,
+        intendedPayment: "cash",
         address:
           orderType === "delivery"
             ? {
@@ -270,6 +273,14 @@ export function CartScreen({
                   />
                 </>
               )}
+              <Field
+                label={t.receiptEmail}
+                value={email}
+                onChange={setEmail}
+                placeholder="name@example.com"
+                keyboardType="email-address"
+                hint={t.receiptEmailHint}
+              />
               {orderType === "delivery" ? (
                 <>
                   <Field
@@ -403,13 +414,16 @@ function Field({
   onChange,
   placeholder,
   keyboardType,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-  keyboardType?: "phone-pad" | "number-pad";
+  keyboardType?: "phone-pad" | "number-pad" | "email-address";
+  hint?: string;
 }): React.ReactElement {
+  const isEmail = keyboardType === "email-address";
   return (
     <View style={{ gap: 4 }}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -419,8 +433,13 @@ function Field({
         placeholder={placeholder}
         placeholderTextColor={colors.inkSoft}
         keyboardType={keyboardType}
+        autoCapitalize={isEmail ? "none" : undefined}
+        autoCorrect={isEmail ? false : undefined}
+        autoComplete={isEmail ? "email" : undefined}
+        textContentType={isEmail ? "emailAddress" : undefined}
         style={styles.input}
       />
+      {hint ? <Text style={[styles.fieldLabel, { textTransform: "none" }]}>{hint}</Text> : null}
     </View>
   );
 }

@@ -115,6 +115,12 @@ export interface PlaceOrderInput {
   tableNumber?: string;
   customerName?: string;
   customerPhone?: string;
+  /** Optional, any order type: the receipt (with VAT split) is emailed here. */
+  customerEmail?: string;
+  /** Tells the server when to mail the receipt: now (cash) or once an
+   *  online payment settles. The app places first and offers online
+   *  payment afterwards, so it sends "cash". */
+  intendedPayment?: "cash" | "card" | "paypal";
   address?: { street: string; zip: string; city?: string; note?: string };
 }
 export interface PlacedOrder {

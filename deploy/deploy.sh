@@ -62,6 +62,12 @@ case "${1:-}" in
     # prod.env we materialise its users file (gitignored) and switch the
     # `logs` compose profile on. Password hash, never the password:
     #   printf '%s' 'the-password' | shasum -a 256 | cut -d' ' -f1
+    # Default login = the /admin credentials (user "admin", ADMIN_PASSWORD),
+    # so the logs UI is on from the first deploy; DOZZLE_* override it.
+    if [ -z "${DOZZLE_PASSWORD_SHA256:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+      DOZZLE_PASSWORD_SHA256="$(printf '%s' "${ADMIN_PASSWORD}" | sha256sum | cut -d' ' -f1)"
+      DOZZLE_USER="${DOZZLE_USER:-admin}"
+    fi
     if [ -n "${DOZZLE_PASSWORD_SHA256:-}" ]; then
       DOZZLE_USER="${DOZZLE_USER:-owner}"
       cat > deploy/dozzle-users.yml <<DOZZLE_USERS
@@ -75,6 +81,11 @@ DOZZLE_USERS
       export COMPOSE_PROFILES="${COMPOSE_PROFILES:+${COMPOSE_PROFILES},}logs"
     fi
     "${COMPOSE[@]}" up -d
+    # The Caddyfile is a bind mount: a changed route (e.g. /logs) is on disk
+    # but Caddy keeps serving the config it loaded at start until told.
+    # Graceful reload, zero downtime; harmless when nothing changed.
+    "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null \
+      || echo "! caddy reload skipped (container not running yet?)"
     "${COMPOSE[@]}" ps
     # Report what is now serving, read from the running container rather than
     # from the checkout — those disagree exactly when it matters, e.g. after a
