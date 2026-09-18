@@ -2,6 +2,7 @@ import { z } from "zod";
 import { canTransition, isOrderStatus } from "./order-status";
 import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
 import { paypalAvailable } from "./paypal";
+import { stripeDirectChargeAvailable } from "./stripe";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
 import { resolveTenantAccess } from "./plan-state";
@@ -676,18 +677,30 @@ export async function getPublicVenueAccess(
           status: true,
           deletedAt: true,
           stripeChargesEnabled: true,
+          stripeOwnEnabled: true,
+          stripeOwnSecretEnc: true,
+          paypalOwnEnabled: true,
+          paypalClientIdEnc: true,
+          paypalSecretEnc: true,
         },
       }),
       tx.venue.findFirstOrThrow({ where: { id: venueId }, select: { ordering: true } }),
     ]);
     const access = resolveTenantAccess(tenant);
+    // Single-restaurant build: card payment is offered whenever SOME Stripe
+    // account can take a direct charge — keys pasted in Dashboard →
+    // Payments, the deployment's STRIPE_* keys, or (legacy) a Connect
+    // account with charges enabled. Same for PayPal with its own keys or
+    // the PAYPAL_* env pair. Only a fake provider in production is hidden.
+    const ownStripe = tenant.stripeOwnEnabled && Boolean(tenant.stripeOwnSecretEnc);
+    const ownPayPal =
+      tenant.paypalOwnEnabled && Boolean(tenant.paypalClientIdEnc && tenant.paypalSecretEnc);
     return {
       menuVisible: access.menuVisible,
       modes: effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering)),
-      // P2-3: online payment no longer requires a subscription — only that
-      // the restaurant's connected account has charges enabled.
-      onlinePayment: tenant.stripeChargesEnabled,
-      paypalPayment: paypalAvailable(),
+      onlinePayment:
+        tenant.stripeChargesEnabled || ownStripe || (await stripeDirectChargeAvailable(false)),
+      paypalPayment: paypalAvailable(ownPayPal),
     };
   });
 }
