@@ -3,14 +3,18 @@ import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BRAND } from "@/lib/brand";
+import { menuThemeStyle } from "@/lib/menu-themes";
+import { uploadedImageUrl } from "@/lib/menu-images";
+import { getRestaurantIdentity } from "@/lib/restaurant";
 import { getSessionUserId } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { venueAdminBase } from "@/lib/venue-service";
 import { loginAction } from "./actions";
 
-export const metadata: Metadata = {
-  title: `Log in — ${BRAND.name}`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const identity = await getRestaurantIdentity();
+  return { title: `Log in — ${identity?.name ?? BRAND.name}` };
+}
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid: "Please enter a valid email address and password.",
@@ -19,9 +23,16 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 /**
- * Split-screen login: the brand world on the left (espresso panel,
- * serif thesis, three proof points), the form on the right. The left
- * pane disappears below lg — phones get a compact brand header instead.
+ * Split-screen login: the restaurant's own world on the left, the form on
+ * the right. The left pane disappears below lg — phones get a compact
+ * header carrying the same logo and name.
+ *
+ * This is ONE restaurant's staff door, not a product sign-up, so the panel
+ * wears the venue's published menu theme (same vars the guest menu renders
+ * with) and talks about their kitchen rather than pitching the software.
+ * Falls back to BRAND + the default theme before the venue is seeded —
+ * an unseeded deploy must still let the owner log in and fix it.
+ *
  * Form mechanics unchanged: plain POST server action, no client JS.
  */
 export default async function LoginPage({
@@ -37,6 +48,21 @@ export default async function LoginPage({
     redirect((await venueAdminBase(userId)) ?? "/dashboard");
   }
 
+  const identity = await getRestaurantIdentity();
+  const displayName = identity?.name ?? BRAND.name;
+  const logoSrc = identity?.logoKey
+    ? uploadedImageUrl(identity.logoKey, 96)
+    : "/brand/icon-192.png";
+  // The guest menu's palette, reused verbatim — these vars are the ones
+  // menu-themes-contrast.test.ts guards, so text on them stays readable
+  // whichever theme the owner picked.
+  const themeStyle = menuThemeStyle(
+    identity?.theme,
+    identity?.texture,
+    identity?.backdrop,
+    identity?.headingColor,
+  );
+
   const { error, reset } = await searchParams;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.invalid) : null;
   const noticeMessage = reset ? "Password updated — log in with your new password." : null;
@@ -46,40 +72,48 @@ export default async function LoginPage({
       {/* Brand pane — the thesis, not a decoration. */}
       <aside
         aria-hidden="true"
-        className="relative hidden w-[44%] flex-col justify-between overflow-hidden bg-brand-espresso p-12 text-brand-warm-cream lg:flex"
+        style={themeStyle}
+        className="relative hidden w-[44%] flex-col justify-between overflow-hidden bg-[var(--menu-bg)] p-12 text-[var(--menu-text)] lg:flex"
       >
-        {/* Quiet jali-style lattice, drawn inline so nothing loads. */}
+        {/* Jali-style lattice in the theme's own accent. Drawn with gradients
+            rather than an inline SVG so it picks up the CSS variable — a data
+            URI cannot read one, which is why the old panel stayed gold on
+            every theme. */}
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          className="pointer-events-none absolute inset-0 opacity-[0.10]"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ecdcb6' stroke-width='1'%3E%3Cpath d='M36 6 66 36 36 66 6 36Z'/%3E%3Ccircle cx='36' cy='36' r='12'/%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundImage:
+              "repeating-linear-gradient(45deg, var(--menu-accent) 0 1px, transparent 1px 22px)," +
+              "repeating-linear-gradient(-45deg, var(--menu-accent) 0 1px, transparent 1px 22px)",
           }}
         />
         <div className="relative">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/icon-192.png" alt="" className="h-11 w-11 rounded-xl" />
-            <span className="text-sm uppercase tracking-[0.34em] text-gold">{BRAND.name}</span>
+            <img src={logoSrc} alt="" className="h-11 w-11 rounded-xl object-cover" />
+            <span className="text-sm uppercase tracking-[0.34em] text-[var(--menu-accent)]">
+              {displayName}
+            </span>
           </div>
           <h2 className="mt-14 max-w-md font-serif text-[2.6rem] font-medium leading-[1.15]">
-            The menu your guests scan, read&nbsp;— and order from.
+            Your menu, your kitchen, your tables.
           </h2>
-          <p className="mt-4 max-w-sm text-sm leading-relaxed text-brand-warm-cream/70">
-            One QR code on the table. Menus in ten languages, orders straight to your kitchen,
-            receipts on the guest&apos;s phone.
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-[var(--menu-text-soft)]">
+            Change a dish, correct a price, take the evening&apos;s orders — everything{" "}
+            {displayName} runs from is behind this door.
           </p>
         </div>
 
-        <ul className="relative space-y-4 text-sm text-brand-warm-cream/85">
+        <ul className="relative space-y-4 text-sm text-[var(--menu-text)]/85">
           {(
             [
-              ["🍽", "Guests order from the table — no app, no sign-up"],
-              ["🖥", "Kitchen display rings the moment an order lands"],
-              ["🧾", "Publish a price change in seconds, everywhere at once"],
+              ["🍽", "Edit dishes, prices and photos — live the moment you publish"],
+              ["🖥", "Orders arrive here as guests send them from the table"],
+              ["🗓", "Reservations and opening hours, on the same screen"],
             ] as const
           ).map(([icon, text]) => (
             <li key={text} className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gold/40 text-[13px]">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--menu-accent)]/40 text-[13px]">
                 {icon}
               </span>
               <span className="pt-1">{text}</span>
@@ -87,8 +121,8 @@ export default async function LoginPage({
           ))}
         </ul>
 
-        <p className="relative text-[11px] uppercase tracking-[0.3em] text-brand-warm-cream/40">
-          EU-hosted · GDPR-first · Made for restaurants
+        <p className="relative text-[11px] uppercase tracking-[0.3em] text-[var(--menu-text-soft)]/70">
+          Staff access · {displayName}
         </p>
       </aside>
 
@@ -98,14 +132,16 @@ export default async function LoginPage({
           {/* Compact brand header for screens without the left pane. */}
           <div className="mb-10 flex items-center gap-3 lg:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/icon-192.png" alt="" className="h-10 w-10 rounded-lg" />
-            <span className="text-xs uppercase tracking-[0.34em] text-gold-dark">{BRAND.name}</span>
+            <img src={logoSrc} alt="" className="h-10 w-10 rounded-lg object-cover" />
+            <span className="text-xs uppercase tracking-[0.34em] text-gold-dark">
+              {displayName}
+            </span>
           </div>
 
           <p className="text-xs uppercase tracking-[0.28em] text-gold-dark">Welcome back</p>
           <h1 className="mt-2 font-serif text-4xl leading-tight">Log in</h1>
           <p className="mt-2 text-sm text-muted">
-            Manage your menu, publish changes, and watch orders come in.
+            Sign in to manage {displayName} — menu, orders and reservations.
           </p>
 
           {noticeMessage ? <FlashMessage kind="success" text={noticeMessage} /> : null}
