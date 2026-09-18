@@ -1,0 +1,71 @@
+{
+  "$generated": "pnpm brand:mobile — generated file, do not edit by hand",
+  "venue": {
+    "name": "Rangla Punjab",
+    "slug": "rangla-punjab",
+    "themeId": "rangla-royal",
+    "logoKey": "cmt4bi0850000kusbfsqelvlj/uploads/26d9f2e7-af09-454f-a6fe-34cf620bf475",
+    "bannerKey": "cmt4bi0850000kusbfsqelvlj/uploads/4dcc09d0-24d7-41b2-886f-d789ef2ab6dd",
+    "backdropId": "ivory-minaret"
+  },
+  "colors": {
+    "red": "#8f1a1a",
+    "redDark": "#701414",
+    "cream": "#fdf4e0",
+    "creamCard": "#fef9ee",
+    "gold": "#8b6914",
+    "goldSoft": "#e8c15c",
+    "ink": "#360a0a",
+    "inkSoft": "#7a5d5d",
+    "line": "#e1d3c2",
+    "onRed": "#fdf3dd",
+    "positive": "#397e4c",
+    "danger": "#a4231b"
+  },
+  "scrim": "rgba(112, 20, 20, 0.78)",
+  "assets": {
+    "icon": "./assets/generated/icon.png",
+    "hero": "./assets/generated/hero.jpg",
+    "adaptiveForeground": "./assets/generated/adaptive-foreground.png",
+    "adaptiveBackground": "./assets/generated/adaptive-background.png",
+    "adaptiveMonochrome": "./assets/generated/adaptive-monochrome.png",
+    "splash": "./assets/generated/splash.png",
+    "favicon": "./assets/generated/favicon.png",
+    "logo": "./assets/generated/logo.png"
+  },
+  "expo": {
+    "name": "Rangla Punjab",
+    "slug": "rangla-punjab",
+    "scheme": "ranglapunjab",
+    "version": "1.0.0",
+    "icon": "./assets/generated/icon.png",
+    "backgroundColor": "#8f1a1a",
+    "splash": {
+      "image": "./assets/generated/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#8f1a1a"
+    },
+    "ios": {
+      "bundleIdentifier": "com.elvoria.ranglapunjab"
+    },
+    "android": {
+      "package": "com.elvoria.ranglapunjab",
+      "adaptiveIcon": {
+        "backgroundColor": "#8f1a1a",
+        "foregroundImage": "./assets/generated/adaptive-foreground.png",
+        "backgroundImage": "./assets/generated/adaptive-background.png",
+        "monochromeImage": "./assets/generated/adaptive-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/generated/favicon.png"
+    },
+    "extra": {
+      "brand": {
+        "venueSlug": "rangla-punjab",
+        "venueName": "Rangla Punjab",
+        "themeId": "rangla-royal"
+      }
+    }
+  }
+}

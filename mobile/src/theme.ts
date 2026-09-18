@@ -1,22 +1,14 @@
 /**
- * Rangla Punjab brand — values lifted from the approved mobile mockup:
- * deep Punjabi red, warm cream, antique gold, espresso ink on cream.
- * One source of truth for every screen; no other hex belongs in the app.
+ * The app's brand tokens. The palette itself is DERIVED from the venue's menu
+ * theme and written to `brand.generated.ts` by `pnpm brand:mobile` — the same
+ * deep red, warm cream, antique gold and espresso ink as the approved mockup
+ * when the venue runs the "rangla-royal" theme, and a coherent, AA-checked
+ * equivalent for any other venue the app is built for.
+ *
+ * One source of truth for every screen; no other hex belongs in the app, and
+ * nothing brand-shaped should be hand-edited here.
  */
-export const colors = {
-  red: "#9d1c1c",
-  redDark: "#7d1414",
-  cream: "#faf3e3",
-  creamCard: "#fffaf0",
-  gold: "#c9a227",
-  goldSoft: "#e8c15c",
-  ink: "#35200f",
-  inkSoft: "#6f5b45",
-  line: "#e6d9bd",
-  onRed: "#fdf3dd",
-  positive: "#1f6b3a",
-  danger: "#b3261e",
-} as const;
+export { colors, brand, logo, hero, scrim } from "./brand.generated";
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 

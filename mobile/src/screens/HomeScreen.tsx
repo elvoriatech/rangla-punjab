@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
-import { colors, fonts, radius } from "../theme";
+import { colors, fonts, hero, radius, scrim } from "../theme";
 import { useI18n } from "../i18n";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
 import { DishSheet } from "../dish-sheet";
@@ -49,13 +49,21 @@ function HeroCarousel({ text }: { text: string }): React.ReactElement {
 
   return (
     <ImageBackground
-      source={require("../../assets/artwork.jpg")}
+      source={hero}
       style={styles.hero}
-      imageStyle={{ borderRadius: radius.lg }}
+      // Explicit cover: without it the generated artwork drives the hero's
+      // intrinsic width, stretching the carousel slides past the screen.
+      resizeMode="cover"
+      imageStyle={{ borderRadius: radius.lg, width: "100%", height: "100%" }}
       onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
     >
+      {/* The artwork is the venue's own now, so its brightness is unknown at
+          build time — the generated scrim is what keeps the headline legible
+          over a pale backdrop as well as a dark one. */}
+      <View style={styles.heroScrim} pointerEvents="none" />
       <ScrollView
         ref={scroller}
+        style={styles.heroScroll}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -175,6 +183,10 @@ export function HomeScreen({
 
 const styles = StyleSheet.create({
   hero: { height: 160, borderRadius: radius.lg, overflow: "hidden" },
+  heroScrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: scrim },
+  // The scrim is an absolutely-positioned sibling, so the slides need to be
+  // lifted above it explicitly — paint order alone doesn't settle it.
+  heroScroll: { zIndex: 1 },
   heroSlide: {
     flexDirection: "row",
     alignItems: "center",
@@ -187,6 +199,7 @@ const styles = StyleSheet.create({
   heroDish: { width: 136, height: 124 },
   heroDots: {
     position: "absolute",
+    zIndex: 2,
     bottom: 8,
     left: 0,
     right: 0,

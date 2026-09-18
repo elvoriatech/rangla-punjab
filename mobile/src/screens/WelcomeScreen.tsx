@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useI18n } from "../i18n";
-import { colors, fonts, radius } from "../theme";
+import { brand, colors, fonts, hero, logo, radius, scrim } from "../theme";
 
 /**
  * The launch screen — the mockup's red Willkommen page, element for
@@ -47,12 +47,20 @@ export function WelcomeScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   return (
-    <ImageBackground source={require("../../assets/artwork.jpg")} style={styles.bg}>
+    <ImageBackground
+      source={hero}
+      style={styles.bg}
+      resizeMode="cover"
+      // The artwork is venue-generated, so its pixel size is unknown here;
+      // pinning the inner image to the container keeps it a background instead
+      // of letting its intrinsic width define the layout.
+      imageStyle={{ width: "100%", height: "100%" }}
+    >
       <View style={styles.scrim}>
         <View style={styles.logoRing}>
-          <Image source={require("../../assets/chef.png")} style={styles.logo} />
+          <Image source={logo} style={styles.logo} />
         </View>
-        <Text style={styles.brand}>Rangla Punjab</Text>
+        <Text style={styles.brand}>{brand.name}</Text>
         <View style={styles.ruleRow}>
           <View style={styles.rule} />
           <Text style={styles.sub}>{t.restaurant}</Text>
@@ -139,7 +147,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
-    backgroundColor: "rgba(110, 14, 14, 0.45)",
+    backgroundColor: scrim,
   },
   logoRing: {
     width: 122,

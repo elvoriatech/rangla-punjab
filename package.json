@@ -25,7 +25,8 @@
     "test:lhci": "lhci autorun",
     "worker": "tsx src/workers/menu-import.ts",
     "check:bundle": "tsx scripts/check-guest-bundle.ts",
-    "purge:test-tenants": "tsx --env-file=.env scripts/purge-test-tenants.ts"
+    "purge:test-tenants": "tsx --env-file=.env scripts/purge-test-tenants.ts",
+    "brand:mobile": "tsx --env-file=.env scripts/brand-mobile.ts"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",

@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, fonts, money, radius } from "./theme";
+import { colors, fonts, logo, money, radius } from "./theme";
 import { useI18n } from "./i18n";
 import type { ApiItem } from "./api";
 
@@ -14,7 +14,7 @@ export function BrandHeader({
 }): React.ReactElement {
   return (
     <View style={styles.header}>
-      <Image source={require("../assets/chef.png")} style={styles.headerLogo} />
+      <Image source={logo} style={styles.headerLogo} />
       <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>{title}</Text>
         {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}

@@ -15,7 +15,7 @@ import type { ApiMenu } from "../api";
 import { BASE_URL } from "../api";
 import { useAuth, type AccountOrder } from "../auth";
 import { useI18n, type Lang } from "../i18n";
-import { colors, fonts, money, radius } from "../theme";
+import { colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
 /**
  * Konto / Account — language, sign-in (Google · Microsoft/Hotmail · local
@@ -95,9 +95,14 @@ export function AccountScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <ImageBackground source={require("../../assets/artwork.jpg")} style={styles.hero}>
+      <ImageBackground
+        source={hero}
+        style={styles.hero}
+        resizeMode="cover"
+        imageStyle={{ width: "100%", height: "100%" }}
+      >
         <View style={styles.heroOverlay}>
-          <Image source={require("../../assets/rangla-logo.png")} style={styles.logo} />
+          <Image source={logo} style={styles.logo} />
           <Text style={styles.name}>{menu.venue.name}</Text>
         </View>
       </ImageBackground>
@@ -276,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    backgroundColor: "rgba(90, 10, 10, 0.35)",
+    backgroundColor: scrim,
   },
   logo: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.cream },
   name: {

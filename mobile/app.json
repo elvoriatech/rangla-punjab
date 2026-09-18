@@ -1,33 +1,24 @@
 {
   "expo": {
-    "name": "Rangla Punjab",
-    "slug": "rangla-punjab",
-    "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/rangla-logo.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "backgroundColor": "#9d1c1c",
-    "splash": {
-      "image": "./assets/rangla-logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#9d1c1c"
-    },
     "plugins": ["expo-font"],
-    "scheme": "ranglapunjab"
+    "extra": {
+      "brand": {
+        "venueSlug": "rangla-punjab",
+        "venueName": "Rangla Punjab",
+        "themeId": "rangla-royal"
+      },
+      "eas": {
+        "projectId": "dd669a2b-f955-43a5-bfce-a5d77106b00b"
+      }
+    },
+    "owner": "zahoor1989"
   }
 }
