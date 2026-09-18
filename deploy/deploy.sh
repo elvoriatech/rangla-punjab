@@ -92,8 +92,12 @@ DOZZLE_USERS
     # The Caddyfile is a bind mount: a changed route (e.g. /logs) is on disk
     # but Caddy keeps serving the config it loaded at start until told.
     # Graceful reload, zero downtime; harmless when nothing changed.
-    "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null \
-      || echo "! caddy reload skipped (container not running yet?)"
+    if "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile; then
+      echo "→ caddy reloaded"
+    else
+      echo "! caddy reload failed — recreating caddy so the new Caddyfile is served"
+      "${COMPOSE[@]}" up -d --force-recreate --no-deps caddy
+    fi
     "${COMPOSE[@]}" ps
     # Report what is now serving, read from the running container rather than
     # from the checkout — those disagree exactly when it matters, e.g. after a

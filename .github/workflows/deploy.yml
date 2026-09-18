@@ -119,6 +119,10 @@ jobs:
 
             echo "→ container status"
             docker compose -f deploy/docker-compose.prod.yml --env-file prod.env ps
+            # Sidecars have no other window into their startup: print the
+            # logs UI's tail so a crash-loop is diagnosable from this run.
+            echo "→ dozzle (last 20 lines)"
+            docker compose -f deploy/docker-compose.prod.yml --env-file prod.env --profile logs logs --tail=20 dozzle 2>&1 || true
 
             echo "→ waiting for the app to answer"
             # Probe INSIDE the container, not on the host. The app service
