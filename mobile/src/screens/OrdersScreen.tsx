@@ -165,11 +165,14 @@ export function OrdersScreen({
                         </View>
                       ) : null}
                     </View>
-                    <Text style={styles.meta}>
-                      {dateFmt(order.placedAt)} · {typeLabel[order.orderType] ?? order.orderType}
-                    </Text>
+                    {/* Date · type on the left, the amount on the right. */}
+                    <View style={styles.metaRow}>
+                      <Text style={styles.meta} numberOfLines={1}>
+                        {dateFmt(order.placedAt)} · {typeLabel[order.orderType] ?? order.orderType}
+                      </Text>
+                      <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
                   <Text style={styles.chev}>{CHEVRON_FORWARD}</Text>
                 </View>
               </Pressable>
@@ -198,10 +201,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  cardTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  cardTop: { flexDirection: "row", alignItems: "center", gap: 8 },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 10,
+  },
   numberRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   number: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy },
-  meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 3 },
+  meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, flexShrink: 1 },
   total: { color: colors.red, fontSize: 16, ...fonts.bodyHeavy },
   chev: { color: colors.inkSoft, ...fonts.body, fontSize: 22, marginStart: 2 },
   pill: {
