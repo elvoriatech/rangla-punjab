@@ -12,6 +12,7 @@ import { checkRateLimit, GOOGLE_LOOKUP_IP } from "@/lib/rate-limit";
 import { searchPlaces } from "@/lib/google-rating";
 import {
   refreshVenueGoogleRating,
+  updateVenueContact,
   updateVenueGoogleManualRating,
   updateVenueGooglePlaceId,
   updateVenueGoogleRatingEnabled,
@@ -163,6 +164,29 @@ export async function saveLoyaltyAction(form: FormData): Promise<void> {
     voucherExpiryMonths: whole(form.get("loyaltyExpiryMonths")),
   });
   return finish(userId, result.ok, "loyalty");
+}
+
+/**
+ * The restaurant's own numbers — landline, mobile, WhatsApp.
+ *
+ * All three post together because they are one card, and an empty box is
+ * the clear: deleting the text and pressing save is what an owner means by
+ * "take that number off the menu". A box that holds something which is not
+ * a phone number is refused BY NAME (`contact_mobile`), so the banner can
+ * say which of the three to look at — silently dropping it would leave the
+ * owner believing a number is published when it is not.
+ *
+ * `finish(ok: true)` purges the CDN: these numbers are on every cached copy
+ * of the public menu.
+ */
+export async function saveContactAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateVenueContact(userId, {
+    landline: String(form.get("landline") ?? ""),
+    mobile: String(form.get("mobile") ?? ""),
+    whatsapp: String(form.get("whatsapp") ?? ""),
+  });
+  return finish(userId, result.ok, result.ok ? "contact" : `contact_${result.field ?? "invalid"}`);
 }
 
 /** P7-14 — the venue's Google Place ID. Blank clears it, which turns the

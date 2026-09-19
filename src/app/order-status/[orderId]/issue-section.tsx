@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 import { dirFor } from "@/lib/locales";
 import type { UiLocale } from "@/lib/locales";
+import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 
 /**
  * "Report a problem" under the tracker: one thread per order, guest on one
@@ -101,7 +102,8 @@ export function IssueSection({
    *  is no refresh, so the box is simply open. */
   liveTracking?: boolean;
 }): React.ReactElement | null {
-  const t = postOrderCopy(locale).issue;
+  const copy = postOrderCopy(locale);
+  const t = copy.issue;
   const thread = state.issue;
   const banner = resultBanner(t, result);
 
@@ -246,6 +248,7 @@ export function IssueSection({
             {hiddenFields}
             <label htmlFor="issue-body" className="block text-start text-sm font-semibold">
               {thread ? t.replyLabel : t.bodyLabel}
+              <RequiredMark label={copy.required.mark} />
             </label>
             <textarea
               id="issue-body"
@@ -273,6 +276,12 @@ export function IssueSection({
             >
               {t.photoHint}
             </span>
+            {/* The message is the only required field here — the photo
+                is optional — so one star and one legend. */}
+            <RequiredLegend
+              label={copy.required.legend}
+              className="mt-3 text-start text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+            />
             <button type="submit" className={buttonClass}>
               {thread ? t.replySend : t.send}
             </button>

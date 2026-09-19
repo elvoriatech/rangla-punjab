@@ -332,6 +332,46 @@ EXPO_PUBLIC_API_URL=https://rangla-punjab-restaurant.de \
   npx expo run:ios --device 00008101-00120C411AD8001E --configuration Release --no-bundler
 ```
 
+⛔ **Touched `app.json` / `app.config.js`? Prebuild first.** `expo run:ios`
+does **not** re-run prebuild when `mobile/ios` already exists, so anything a
+config plugin writes into the native project — permission strings, `scheme://`,
+icons, a new native module's settings — silently never reaches the phone. Run
+this before `expo run:ios` after **any** change to plugins, `infoPlist`
+entries, permissions, scheme, icons, or after adding a native module that
+ships a config plugin:
+
+```bash
+cd mobile
+npx expo prebuild -p ios --no-install       # --no-install keeps the cached Pods
+grep -n UsageDescription ios/RanglaPunjab/Info.plist
+```
+
+The `grep` is the proof: every permission the app asks for must have a
+non-empty string there. This bit us once already — the camera killed the app
+on launch because `expo-image-picker`'s plugin was in `app.json` but
+`NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription` were missing
+from the generated plist; iOS terminates the process rather than showing the
+prompt. Two harmless side effects: `mobile/ios` is git-ignored so the
+regenerated project never shows up in a diff, and prebuild rewrites the
+`ios` / `android` scripts in `mobile/package.json` to `expo run:*` — leave it.
+**EAS builds (local or cloud, Android or iOS) prebuild from scratch every
+time, so they always pick plugin changes up on their own.**
+
+That prebuild also costs you the build on a **free personal Apple team**: the
+`expo-notifications` config plugin writes `aps-environment` into
+`ios/RanglaPunjab/RanglaPunjab.entitlements`, and a personal team cannot sign
+the Push Notifications capability, so `expo run:ios` dies with "Provisioning
+Profile … does not support the Push Notifications capability". Strip the
+entitlement after every prebuild, before building locally:
+
+```bash
+plutil -remove aps-environment ios/RanglaPunjab/RanglaPunjab.entitlements
+```
+
+Push simply stays inactive on that install — which it is anyway without an
+APNs key — and EAS builds sign with the paid team, so they keep the
+entitlement untouched.
+
 - `--configuration Release` embeds the JS bundle, so the phone runs the app
   without Metro. Drop `--no-bundler` and use `Debug` only when you want live
   reload from this Mac.

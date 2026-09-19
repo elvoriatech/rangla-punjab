@@ -257,6 +257,11 @@ model Venue {
   // Owner-side loyalty switches (src/lib/loyalty-config.ts); {} = defaults,
   // and the default is OFF, so an untouched venue shows guests nothing.
   loyalty             Json        @default("{}")
+  // The restaurant's own phone numbers (src/lib/contact-config.ts):
+  // `{ landline, mobile, whatsapp }`, each an E.164 string or null, and
+  // {} = none published. Stored normalised so the display string and the
+  // `tel:` / `wa.me` links are derived, never typed twice.
+  contact             Json        @default("{}")
   // Google rating + review link (P7-14, src/lib/google-rating.ts). The
   // Place ID is the owner's own setting; `google_rating` is a CACHE of what
   // the Places API last answered — `{ rating, count, fetchedAt }`, refreshed

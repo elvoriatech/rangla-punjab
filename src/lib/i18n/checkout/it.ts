@@ -49,6 +49,8 @@ const it: CheckoutCopy = {
 
   timeNow: "Subito",
   timeScheduled: "Programmato",
+  closedPreorderNote: "Ora siamo chiusi: puoi preordinare per più tardi oggi.",
+  closedDineIn: "Ordinare al tavolo è possibile solo durante gli orari di apertura.",
   timeEarlier: "Prima",
   timeLater: "Dopo",
 
@@ -106,12 +108,16 @@ const it: CheckoutCopy = {
   errBelowMinimum: (min) => `La consegna parte da ${min}: aggiungi qualcosa.`,
   errInvalidTime:
     "Quell'orario è appena passato o è fuori dall'orario di apertura: scegline un altro.",
+  errVenueClosed: "Abbiamo appena chiuso: scegli un orario più tardi oggi oppure riprova domani.",
   errGeneric: "L'ordine non è andato a buon fine. Riprova.",
   errNoConnection: "Nessuna connessione: controlla la rete e riprova.",
 
   add: "+ Aggiungi",
   added: "Aggiunto ✓",
   addAria: (name) => `Aggiungi ${name} all'ordine`,
+
+  requiredMark: "(obbligatorio)",
+  requiredLegend: "* campo obbligatorio",
 };
 
 export default it;

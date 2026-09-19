@@ -27,6 +27,7 @@ import { MAX_ITEM_PHOTO_BYTES } from "./staff";
 import type { PickedPhoto } from "./photo";
 import { askPhotoSource, pickPhoto, shrinkPhoto } from "./photo";
 import { localeTag, useI18n } from "./i18n";
+import { FieldLabel, RequiredLegend } from "./components";
 import { colors, fonts, money, radius } from "./theme";
 import { SHEET_MAX } from "./layout";
 
@@ -553,6 +554,9 @@ function StaffItemForm({
             </View>
 
             <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
+              {/* `save` refuses an empty name and an unparseable price;
+                  everything else on this sheet may be left as it is. */}
+              <RequiredLegend />
               {/* The dish's picture, first — it is the thing a guest
                   looks at before any of the words. Saved on its own
                   route the moment it is picked, so it never waits
@@ -622,7 +626,7 @@ function StaffItemForm({
                   device the owner actually has in their hand, so they
                   are edited in place. */}
               <View style={{ gap: 4 }}>
-                <Text style={styles.label}>{t.staffItemName}</Text>
+                <FieldLabel label={t.staffItemName} required style={styles.label} />
                 <TextInput
                   value={name}
                   onChangeText={(next) => {
@@ -664,7 +668,7 @@ function StaffItemForm({
               </View>
 
               <View style={{ gap: 4 }}>
-                <Text style={styles.label}>{t.staffPrice}</Text>
+                <FieldLabel label={t.staffPrice} required style={styles.label} />
                 <TextInput
                   value={price}
                   onChangeText={(next) => {

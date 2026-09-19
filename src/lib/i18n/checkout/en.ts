@@ -75,6 +75,10 @@ const en = {
      own slot list (P7-13). */
   timeNow: "Now",
   timeScheduled: "Scheduled",
+  /* Closed right now: ASAP is off, and the only order a guest can still
+     place is one scheduled into a later open slot today. */
+  closedPreorderNote: "We're closed right now — you can pre-order for later today.",
+  closedDineIn: "Ordering at the table is only possible during opening hours.",
   timeEarlier: "Earlier",
   timeLater: "Later",
 
@@ -140,6 +144,7 @@ const en = {
   errOutsideArea: "Sorry, that address is outside the delivery area.",
   errBelowMinimum: (min: string) => `Delivery starts at ${min} — add a little more.`,
   errInvalidTime: "That time just passed or is outside opening hours — pick another.",
+  errVenueClosed: "We've just closed — pick a later time today, or try again tomorrow.",
   errGeneric: "The order didn't go through. Please try again.",
   errNoConnection: "No connection — check your network and try again.",
 
@@ -147,6 +152,10 @@ const en = {
   add: "+ Add",
   added: "Added ✓",
   addAria: (name: string) => `Add ${name} to order`,
+
+  /* Required-field convention (one mark, one legend per form). */
+  requiredMark: "(required)",
+  requiredLegend: "* required field",
 };
 
 export type CheckoutCopy = typeof en;

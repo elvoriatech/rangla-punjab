@@ -155,6 +155,76 @@ describe("public menu loader", () => {
     expect(discounted[0]!.offer!.basePriceCents).toBe(800);
   });
 
+  it("carries the venue's phone numbers, ready to dial, or null when there are none", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+
+    // Every venue until its owner fills the contact card in.
+    expect((await loadPublicMenu(context!))?.venue.contact ?? null).toBeNull();
+
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: { contact: { landline: "+497531123456", whatsapp: "+491701234567" } },
+      }),
+    );
+    // Number, display string and href all come off the loader, so no
+    // surface builds a `tel:` or a `wa.me` link for itself.
+    expect((await loadPublicMenu(context!))?.venue.contact).toEqual({
+      landline: {
+        number: "+497531123456",
+        display: "+49 7531 123456",
+        href: "tel:+497531123456",
+      },
+      mobile: null,
+      whatsapp: {
+        number: "+491701234567",
+        display: "+49 1701 234567",
+        href: "https://wa.me/491701234567",
+      },
+    });
+
+    // A hand-edited row that is not a phone number reads as no number,
+    // never as a link that dials nothing.
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({ data: { contact: { landline: "call us" } } }),
+    );
+    expect((await loadPublicMenu(context!))?.venue.contact ?? null).toBeNull();
+  });
+
+  it("tells the checkout whether an ASAP order is still possible", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const { compileWeekly, WEEKDAYS } = await import("./opening-hours");
+    const context = await resolvePreviewContext(venueSlug, null);
+
+    // Hours never configured: "we don't know" must not switch a venue's
+    // own ordering off, so "Now" stays on offer.
+    expect((await loadPublicMenu(context!))?.ordering?.acceptsAsapNow).toBe(true);
+
+    // Open around the clock — close === open is an overnight window that
+    // never shuts, so this asserts nothing about the wall clock.
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          hours: compileWeekly({ slots: [{ open: "00:00", close: "00:00" }], closedDays: [] }),
+        },
+      }),
+    );
+    const open = await loadPublicMenu(context!);
+    expect(open?.venue.openNow).toBe(true);
+    expect(open?.ordering?.acceptsAsapNow).toBe(true);
+
+    // Closed every day of the week: the client hides "Now", and
+    // `placeOrder` refuses one anyway (`venue_closed`).
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: { hours: compileWeekly({ slots: [], closedDays: [...WEEKDAYS] }) },
+      }),
+    );
+    const shut = await loadPublicMenu(context!);
+    expect(shut?.venue.openNow).toBe(false);
+    expect(shut?.ordering?.acceptsAsapNow).toBe(false);
+  });
+
   it("carries the venue's Google rating, or null when there is none (P7-14)", async () => {
     const { userId, venueSlug } = await seedPublishedMenu();
     const context = await resolvePreviewContext(venueSlug, null);

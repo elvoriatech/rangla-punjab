@@ -119,6 +119,10 @@ const en = {
     errorRateLimited: "Too many requests — please try again in a moment.",
     errorInvalidTime: "That time just became unavailable — please pick another slot.",
     errorGeneric: "Something went wrong — please try again or call us.",
+    /** The required-field convention (`src/components/required-mark.tsx`):
+     *  the star's spoken form, and the line that explains it once per form. */
+    requiredMark: "(required)",
+    requiredLegend: "* required field",
   },
   emptyStates: {
     noDishesInSection: "No dishes in this section.",
@@ -132,6 +136,20 @@ const en = {
   footer: {
     poweredBy: (brand: string): string => `Powered by ${brand} · Digital Menus`,
     acceptedPayments: "Accepted payments",
+  },
+  /** The restaurant's own numbers, in the footer. Rendered only for the
+   *  slots the owner has actually filled in, so none of these labels ever
+   *  appears next to an empty link. */
+  contact: {
+    /** Heading of the footer row, and the group's accessible name. */
+    title: "Contact us",
+    landline: "Call landline",
+    mobile: "Call mobile",
+    whatsapp: "WhatsApp",
+    /** Accessible name of a call link: "Call landline +49 7531 123456". */
+    callAria: (label: string, number: string): string => `${label} ${number}`,
+    /** WhatsApp leaves the site, so its link says so out loud. */
+    whatsappAria: (number: string): string => `Message ${number} on WhatsApp (opens WhatsApp)`,
   },
   hero: {
     welcomeAria: "Welcome",
@@ -236,6 +254,8 @@ const de: MenuCopy = {
     errorRateLimited: "Zu viele Anfragen — bitte versuchen Sie es gleich noch einmal.",
     errorInvalidTime: "Diese Uhrzeit ist gerade vergeben — bitte wählen Sie eine andere.",
     errorGeneric: "Etwas ist schiefgelaufen — bitte versuchen Sie es erneut oder rufen Sie uns an.",
+    requiredMark: "(Pflichtfeld)",
+    requiredLegend: "* Pflichtfeld",
   },
   emptyStates: {
     noDishesInSection: "In diesem Bereich sind noch keine Gerichte.",
@@ -251,6 +271,14 @@ const de: MenuCopy = {
   footer: {
     poweredBy: (brand) => `Bereitgestellt von ${brand} · Digitale Speisekarten`,
     acceptedPayments: "Akzeptierte Zahlungsmittel",
+  },
+  contact: {
+    title: "Kontakt",
+    landline: "Festnetz anrufen",
+    mobile: "Mobil anrufen",
+    whatsapp: "WhatsApp",
+    callAria: (label, number) => `${label}: ${number}`,
+    whatsappAria: (number) => `${number} über WhatsApp anschreiben (öffnet WhatsApp)`,
   },
   hero: {
     welcomeAria: "Willkommen",
@@ -354,6 +382,8 @@ const es: MenuCopy = {
     errorRateLimited: "Demasiadas solicitudes: inténtelo de nuevo en un momento.",
     errorInvalidTime: "Esa hora acaba de ocuparse: elija otra franja.",
     errorGeneric: "Algo ha salido mal: inténtelo de nuevo o llámenos.",
+    requiredMark: "(obligatorio)",
+    requiredLegend: "* campo obligatorio",
   },
   emptyStates: {
     noDishesInSection: "No hay platos en esta sección.",
@@ -369,6 +399,14 @@ const es: MenuCopy = {
   footer: {
     poweredBy: (brand) => `Con tecnología de ${brand} · Cartas digitales`,
     acceptedPayments: "Pagos aceptados",
+  },
+  contact: {
+    title: "Contacto",
+    landline: "Llamar al fijo",
+    mobile: "Llamar al móvil",
+    whatsapp: "WhatsApp",
+    callAria: (label, number) => `${label}: ${number}`,
+    whatsappAria: (number) => `Escribir al ${number} por WhatsApp (abre WhatsApp)`,
   },
   hero: {
     welcomeAria: "Bienvenida",
@@ -472,6 +510,8 @@ const it: MenuCopy = {
     errorRateLimited: "Troppe richieste: riprovate tra un istante.",
     errorInvalidTime: "Quell'orario non è più disponibile: scegliete un altro slot.",
     errorGeneric: "Qualcosa è andato storto: riprovate o chiamateci.",
+    requiredMark: "(obbligatorio)",
+    requiredLegend: "* campo obbligatorio",
   },
   emptyStates: {
     noDishesInSection: "Nessun piatto in questa sezione.",
@@ -487,6 +527,14 @@ const it: MenuCopy = {
   footer: {
     poweredBy: (brand) => `Servizio offerto da ${brand} · Menu digitali`,
     acceptedPayments: "Pagamenti accettati",
+  },
+  contact: {
+    title: "Contatti",
+    landline: "Chiama il fisso",
+    mobile: "Chiama il cellulare",
+    whatsapp: "WhatsApp",
+    callAria: (label, number) => `${label}: ${number}`,
+    whatsappAria: (number) => `Scrivi al ${number} su WhatsApp (apre WhatsApp)`,
   },
   hero: {
     welcomeAria: "Benvenuti",
@@ -603,6 +651,8 @@ const ar: MenuCopy = {
     errorRateLimited: "طلبات كثيرة — يرجى المحاولة بعد قليل.",
     errorInvalidTime: "لم يعد هذا الموعد متاحاً — يرجى اختيار موعد آخر.",
     errorGeneric: "حدث خطأ ما — يرجى المحاولة مجدداً أو الاتصال بنا.",
+    requiredMark: "(حقل مطلوب)",
+    requiredLegend: "* حقل مطلوب",
   },
   emptyStates: {
     noDishesInSection: "لا توجد أطباق في هذا القسم.",
@@ -617,6 +667,14 @@ const ar: MenuCopy = {
   footer: {
     poweredBy: (brand) => `مُقدَّم من ${brand} · قوائم طعام رقمية`,
     acceptedPayments: "طرق الدفع المقبولة",
+  },
+  contact: {
+    title: "تواصلوا معنا",
+    landline: "اتصال بالهاتف الأرضي",
+    mobile: "اتصال بالجوال",
+    whatsapp: "واتساب",
+    callAria: (label, number) => `${label}: ${number}`,
+    whatsappAria: (number) => `مراسلة ${number} عبر واتساب (يفتح واتساب)`,
   },
   hero: {
     welcomeAria: "ترحيب",

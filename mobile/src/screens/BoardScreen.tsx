@@ -48,8 +48,9 @@ import { fill, localeTag, useI18n } from "../i18n";
  *  - The SERVER owns the lifecycle. A card carries exactly ONE status
  *    button: the next step of `allowedNext`, so a venue that grows "out
  *    for delivery" (or drops it) needs no release here. Cancelling is
- *    not a step in that chain — it lives in the opened card as a quiet
- *    text action, never as a second button beside the one the pass taps.
+ *    not a step in that chain — it shares the opened card's last line
+ *    with printing as a quiet text action, never as a second button
+ *    beside the one the pass taps.
  *  - A 409 is not an error the owner caused: someone else already moved
  *    that order on. Say so quietly and re-read the board.
  *  - Never go blank. Offline keeps the last list under a "Reconnecting…"
@@ -596,6 +597,15 @@ export function BoardScreen({
       }
     : { gap: layout.gap };
 
+  /**
+   * The card's own width, whatever the column count — and the one point
+   * below which the foot row stops being a row: a step button plus two
+   * text actions need roughly 300 pt of card to sit side by side, so
+   * under that the button takes the line and the text actions wrap.
+   */
+  const cardOuter = layout.cardWidth ?? layout.width - 2 * layout.pad;
+  const tightFoot = cardOuter < 300;
+
   function renderCard(order: StaffOrder, closed: boolean): React.ReactElement {
     const lit = fresh.includes(order.id);
     const expanded = expandedIds.has(order.id);
@@ -809,41 +819,42 @@ export function BoardScreen({
               </Text>
             ) : null}
 
-            {nextTo || busy ? (
-              // The whole step row: the one button this card offers, and
-              // the spinner for whichever transition is in flight (a
-              // cancel from below included).
-              <View style={styles.actions}>
-                {busy ? <ActivityIndicator color={colors.red} /> : null}
-                {nextTo ? (
-                  <Pressable
-                    onPress={() => onAction(order, nextTo)}
-                    disabled={busy}
-                    accessibilityRole="button"
-                    accessibilityLabel={statusShort[nextTo] ?? nextTo}
-                    accessibilityState={{ disabled: busy }}
-                    style={({ pressed }) => [styles.action, (busy || pressed) && { opacity: 0.6 }]}
-                  >
-                    <View style={[styles.actionIcon, styles.actionIconPrimary]}>
-                      <Ionicons
-                        name={ACTION_ICONS[nextTo] ?? "arrow-forward-outline"}
-                        size={20}
-                        color={colors.onRed}
-                      />
-                    </View>
-                    <Text style={styles.actionCaption} numberOfLines={2}>
-                      {statusShort[nextTo] ?? nextTo}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* The foot of the opened card: printing and cancelling.
-                Neither is the next step, so neither is a button — both
-                are quiet text actions, and cancelling keeps its own
-                confirm. */}
-            <View style={styles.footActions}>
+            {/* The foot of the opened card, on ONE line: the single step
+                button on the reading edge taking whatever width is left,
+                then printing and cancelling as compact text actions on
+                the far edge. Neither of those is the next step, so
+                neither is a button — and cancelling keeps its own
+                confirm. `row` + start/end padding mirror themselves in
+                an RTL layout, so there is nothing to flip by hand. */}
+            <View style={[styles.footRow, tightFoot && styles.footRowWrap]}>
+              {nextTo ? (
+                <Pressable
+                  onPress={() => onAction(order, nextTo)}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel={statusShort[nextTo] ?? nextTo}
+                  accessibilityState={{ disabled: busy }}
+                  style={({ pressed }) => [
+                    styles.stepAction,
+                    // Narrow card: the step button keeps the whole first
+                    // line and the text actions wrap under it.
+                    tightFoot && styles.stepActionWide,
+                    (busy || pressed) && { opacity: 0.6 },
+                  ]}
+                >
+                  <Ionicons
+                    name={ACTION_ICONS[nextTo] ?? "arrow-forward-outline"}
+                    size={18}
+                    color={colors.onRed}
+                  />
+                  <Text style={styles.stepActionText} numberOfLines={1}>
+                    {statusShort[nextTo] ?? nextTo}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {/* The spinner for whichever transition is in flight — a
+                  cancel from this same row included. */}
+              {busy ? <ActivityIndicator color={colors.red} /> : null}
               <Text
                 onPress={printing ? undefined : () => void printOne(order)}
                 suppressHighlighting
@@ -851,8 +862,9 @@ export function BoardScreen({
                 accessibilityLabel={fill(t.boardPrintTicket, { number })}
                 accessibilityState={{ disabled: printing }}
                 style={[styles.printAction, printing && { opacity: 0.5 }]}
+                numberOfLines={1}
               >
-                {`🖨  ${printing ? t.boardPrinting : t.boardPrint}`}
+                {`🖨 ${t.boardPrint}`}
               </Text>
               {cancelTo ? (
                 <Text
@@ -862,6 +874,7 @@ export function BoardScreen({
                   accessibilityLabel={t.boardCancelAction}
                   accessibilityState={{ disabled: busy }}
                   style={[styles.cancelAction, busy && { opacity: 0.5 }]}
+                  numberOfLines={2}
                 >
                   {t.boardCancelAction}
                 </Text>
@@ -1105,43 +1118,53 @@ const styles = StyleSheet.create({
   },
   dirChipText: { color: colors.ink, ...fonts.bodyBold, fontSize: 12.5 },
   contactNote: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5 },
-  // Compact, icon-first, and pushed to the END of the card: one step
-  // button (plus the spinner while it is in flight), not a row of slabs
-  // competing with the order itself.
-  actions: {
+  /**
+   * The opened card's last line: step button, print, cancel — one row.
+   * `justifyContent: flex-end` is what keeps print and cancel on the far
+   * edge on a closed order, where there is no step button to grow into
+   * the space. Wrapping is opt-in (`footRowWrap`) rather than automatic,
+   * so a tablet column never breaks the line by accident.
+   */
+  footRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "flex-end",
-    flexWrap: "wrap",
-    gap: 12,
+    gap: 6,
     marginTop: 2,
   },
-  action: { alignItems: "center", gap: 3, width: 62 },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionIconPrimary: { backgroundColor: colors.red, borderColor: colors.red },
-  actionCaption: { color: colors.red, ...fonts.bodyBold, fontSize: 10, textAlign: "center" },
-  /** Printing and cancelling share the card's last line — printing on
-   *  the reading edge because it is the one used every service. */
-  footActions: {
+  footRowWrap: { flexWrap: "wrap" },
+  /**
+   * The one step this card offers: icon + label on a single 44 pt pill
+   * that starts at the reading edge and eats the leftover width, so it
+   * stays the obvious target without becoming a slab.
+   */
+  stepAction: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 8,
+    justifyContent: "center",
+    gap: 6,
+    flexGrow: 1,
+    flexShrink: 1,
+    // Enough for the longest short status in any locale; below this the
+    // text actions give ground instead.
+    minWidth: 104,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.red,
   },
+  /** Narrow card: the button owns the first line on its own. */
+  stepActionWide: { flexBasis: "100%" },
+  stepActionText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 13, flexShrink: 1 },
+  // 20 pt of line plus 12 pt above and below is exactly the 44 pt floor
+  // WCAG 2.5.5 asks for, with no box drawn around it.
   printAction: {
     color: colors.ink,
     ...fonts.bodyBold,
     fontSize: 12.5,
-    paddingVertical: 10,
-    paddingEnd: 12,
+    lineHeight: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
   // Reachable, never prominent: no border, no fill, nothing that reads
   // as a second button — but a real target, not a 12px trap.
@@ -1149,10 +1172,11 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     ...fonts.bodySemi,
     fontSize: 12.5,
+    lineHeight: 20,
     textDecorationLine: "underline",
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    paddingEnd: 12,
+    flexShrink: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
   cardNote: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
   // Money the venue still owes a guest: loud enough to be acted on, and

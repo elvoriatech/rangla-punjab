@@ -22,6 +22,7 @@ import type { StaffIssue } from "./staff";
 import { fetchStaffIssue, replyStaffIssue, resolveStaffIssue } from "./staff";
 import { useAuth } from "./auth";
 import { fill, localeTag, useI18n } from "./i18n";
+import { FieldLabel, RequiredLegend } from "./components";
 import { colors, fonts, radius } from "./theme";
 
 /**
@@ -480,9 +481,20 @@ export function IssueSheet({
                         </Pressable>
                       </View>
                     ) : null}
+                    {/* The message is the one thing the Send button
+                        actually insists on — the photo is optional. */}
+                    <View style={styles.composeLabelRow}>
+                      <FieldLabel
+                        label={t.issueMessageLabel}
+                        required
+                        style={styles.composeLabel}
+                      />
+                      <RequiredLegend />
+                    </View>
                     <TextInput
                       value={draft}
                       onChangeText={setDraft}
+                      accessibilityLabel={t.issueMessageLabel}
                       multiline
                       maxLength={BODY_MAX}
                       editable={!busy}
@@ -662,6 +674,14 @@ const styles = StyleSheet.create({
   note: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5, lineHeight: 18 },
   error: { color: colors.danger, ...fonts.bodySemi, fontSize: 12.5, lineHeight: 18 },
   composer: { gap: 8 },
+  composeLabelRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 4,
+  },
+  composeLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
   input: {
     minHeight: 76,
     maxHeight: 140,

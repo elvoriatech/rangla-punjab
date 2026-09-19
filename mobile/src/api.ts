@@ -63,6 +63,17 @@ export interface ApiOrdering {
   /** Later-today "HH:MM" pickup/delivery slots inside opening hours,
    *  server-built. Absent/empty = ASAP only (older servers don't send it). */
   requestSlots?: string[];
+  /**
+   * May an order be placed for RIGHT NOW? False while the venue is shut:
+   * the server refuses an ASAP or dine-in order with
+   * `409 venue_closed`, but still takes a scheduled pickup or delivery
+   * into a later open slot today.
+   *
+   * Absent on a server that predates the flag, which `fetchMenu`
+   * normalises to `true` — an older server has no closed state to
+   * report, and hiding "Now" on its say-so would stop every order.
+   */
+  acceptsAsapNow?: boolean;
   /** Table reservations offered? Absent on older servers ⇒ hide the UI. */
   reservations?: boolean;
   /** Bookable date → times, enumerated by the server from opening hours,
@@ -112,6 +123,13 @@ export interface ApiMenu {
      * off entirely.
      */
     openNow?: boolean | null;
+    /**
+     * How a guest can reach the restaurant by phone (landline, mobile,
+     * WhatsApp). Null — and absent on any server that predates the
+     * feature, or whose owner has filled none of the three in — means no
+     * contact card anywhere in the app.
+     */
+    contact?: ApiVenueContact | null;
   };
   ordering: ApiOrdering;
   categories: ApiCategory[];
@@ -170,12 +188,20 @@ export async function fetchMenu(locale?: string): Promise<ApiMenu> {
   }));
   return {
     ...menu,
+    ordering: {
+      ...menu.ordering,
+      // Anything that is not an explicit `false` means "accepting" —
+      // the same posture as `openNow`, inverted, because this one
+      // decides whether a basket can be sent at all.
+      acceptsAsapNow: menu.ordering?.acceptsAsapNow !== false,
+    },
     venue: {
       ...menu.venue,
       logoUrl: rebaseUrl(menu.venue.logoUrl),
       // Anything that is not an actual boolean is "nobody said", not
       // "closed" — the pill hides rather than inventing a verdict.
       openNow: typeof menu.venue.openNow === "boolean" ? menu.venue.openNow : null,
+      contact: asVenueContact(menu.venue.contact),
     },
     categories,
     offerCount: offerCountOf(menu.offerCount, categories),
@@ -205,6 +231,89 @@ function asRating(raw: unknown): ApiRating | null {
   // and the server is not the place to be handed an app scheme from.
   if (!/^https?:\/\//i.test(reviewUrl)) return null;
   return { value, count, reviewUrl };
+}
+
+/**
+ * One way to phone the restaurant.
+ *
+ * The server owns all three strings: `number` is E.164, `display` is the
+ * same number grouped for reading, and `href` is what a tap opens —
+ * `tel:+49…` for a phone, `https://wa.me/49…` for WhatsApp. The app
+ * formats none of it and dials nothing it built itself.
+ */
+export interface ApiContactEntry {
+  number: string;
+  display: string;
+  href: string;
+}
+
+/** The venue's phone book. Any of the three may be absent — an owner who
+ *  fills in only a mobile gets exactly one row on the Account screen. */
+export interface ApiVenueContact {
+  landline: ApiContactEntry | null;
+  mobile: ApiContactEntry | null;
+  whatsapp: ApiContactEntry | null;
+}
+
+/** The digits of a phone number, which is what `wa.me` wants. */
+function digitsOf(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+/**
+ * One contact entry, read as defensively as everything else here.
+ *
+ * A row with no number is no row. `display` falls back to the number
+ * itself, and a missing or unusable `href` is REBUILT rather than
+ * dropped: `tel:` from the E.164 number, `https://wa.me/<digits>` for
+ * WhatsApp — both of which are exactly what the server would have sent.
+ * What is never honoured is an arbitrary scheme: this string goes
+ * straight to `Linking.openURL`, so only `tel:` and http(s) survive.
+ */
+function asContactEntry(raw: unknown, kind: "phone" | "whatsapp"): ApiContactEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as Record<string, unknown>;
+  const number = typeof c.number === "string" ? c.number.trim() : "";
+  if (!digitsOf(number)) return null;
+  const display = typeof c.display === "string" && c.display.trim() ? c.display.trim() : number;
+  const href = typeof c.href === "string" ? c.href.trim() : "";
+  const usable = kind === "whatsapp" ? /^https?:\/\//i.test(href) : /^tel:/i.test(href);
+  return {
+    number,
+    display,
+    href: usable
+      ? href
+      : kind === "whatsapp"
+        ? `https://wa.me/${digitsOf(number)}`
+        : `tel:${number}`,
+  };
+}
+
+/** The whole phone book, or null when not one of the three is usable —
+ *  which is the single test every contact surface makes. */
+export function asVenueContact(raw: unknown): ApiVenueContact | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as Record<string, unknown>;
+  const contact: ApiVenueContact = {
+    landline: asContactEntry(c.landline, "phone"),
+    mobile: asContactEntry(c.mobile, "phone"),
+    whatsapp: asContactEntry(c.whatsapp, "whatsapp"),
+  };
+  return contact.landline || contact.mobile || contact.whatsapp ? contact : null;
+}
+
+/** Every entry the venue actually published, in the order a guest reads
+ *  them. Empty means: no contact card. */
+export function contactEntries(
+  contact: ApiVenueContact | null | undefined,
+): { key: keyof ApiVenueContact; entry: ApiContactEntry }[] {
+  if (!contact) return [];
+  const order: (keyof ApiVenueContact)[] = ["landline", "mobile", "whatsapp"];
+  return order
+    .map((key) => ({ key, entry: contact[key] }))
+    .filter(
+      (row): row is { key: keyof ApiVenueContact; entry: ApiContactEntry } => row.entry !== null,
+    );
 }
 
 /** The server's own count when it sends one, else the offers visible in

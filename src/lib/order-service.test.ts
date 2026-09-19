@@ -699,6 +699,94 @@ describe("order-service (guest self-ordering)", () => {
     }
   });
 
+  it("takes no ASAP or dine-in order while closed, but still books a later slot", async () => {
+    const fx = await fixtureVenue();
+    const { compileWeekly, WEEKDAYS } = await import("./opening-hours");
+    const hourIn = (zone: string): number =>
+      Number(
+        new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", hour12: false })
+          .formatToParts(new Date())
+          .find((p) => p.type === "hour")!.value,
+      );
+    // The "closed now, open later today" case needs a venue clock with
+    // room on both sides of it (a couple of hours behind for the passed
+    // slot, a couple ahead for the future one) and no midnight wrap. One
+    // of these six offsets always sits in that window, so the case runs
+    // every time instead of being skipped whenever CI runs late.
+    const tz =
+      [
+        "Europe/Berlin",
+        "America/New_York",
+        "Asia/Tokyo",
+        "Pacific/Honolulu",
+        "Asia/Kolkata",
+        "Pacific/Kiritimati",
+      ].find((zone) => hourIn(zone) >= 2 && hourIn(zone) <= 20) ?? "Europe/Berlin";
+    const setHours = async (hours: ReturnType<typeof compileWeekly>): Promise<void> => {
+      await asTenant(fx.tenantId, async (tx) => {
+        await tx.venue.update({
+          where: { id: fx.venueId },
+          data: { timezone: tz, hours },
+        });
+      });
+    };
+    const takeaway = {
+      orderType: "takeaway" as const,
+      customerName: "A",
+      customerPhone: "1",
+      items: [{ itemId: fx.itemIds.pakora, quantity: 1 }],
+    };
+    const dineIn = { items: [{ itemId: fx.itemIds.pakora, quantity: 1 }], tableNumber: "4" };
+
+    // Hours never configured: "we don't know" must never lock a venue out
+    // of its own ordering.
+    expect((await placeOrder(fx, takeaway)).ok).toBe(true);
+    expect((await placeOrder(fx, dineIn)).ok).toBe(true);
+
+    // Closed every day of the week: nothing ASAP, and dine-in never —
+    // there is no "later" for a locked front door.
+    await setHours(compileWeekly({ slots: [], closedDays: [...WEEKDAYS] }));
+    expect(await placeOrder(fx, takeaway)).toEqual({ ok: false, error: "venue_closed" });
+    expect(await placeOrder(fx, dineIn)).toEqual({ ok: false, error: "venue_closed" });
+
+    // Open around the clock (close === open is an overnight window that
+    // never shuts), so ASAP is back — no clock arithmetic to go stale.
+    await setHours(compileWeekly({ slots: [{ open: "00:00", close: "00:00" }], closedDays: [] }));
+    expect((await placeOrder(fx, takeaway)).ok).toBe(true);
+    expect((await placeOrder(fx, dineIn)).ok).toBe(true);
+
+    // Closed NOW but open again later today: the pickup order scheduled
+    // into that window is exactly what a closed venue may still accept.
+    const nowH = hourIn(tz);
+    if (nowH >= 2 && nowH <= 20) {
+      const opensAt = `${String(nowH + 2).padStart(2, "0")}:00`;
+      await setHours(
+        compileWeekly({
+          slots: [{ open: opensAt, close: `${String(nowH + 3).padStart(2, "0")}:00` }],
+          closedDays: [],
+        }),
+      );
+      expect(await placeOrder(fx, takeaway)).toEqual({ ok: false, error: "venue_closed" });
+      expect(await placeOrder(fx, { ...dineIn, requestedTime: opensAt })).toEqual({
+        ok: false,
+        error: "venue_closed",
+      });
+
+      const scheduled = await placeOrder(fx, { ...takeaway, requestedTime: opensAt });
+      if (!scheduled.ok) throw new Error(`scheduled order refused: ${scheduled.error}`);
+      const receipt = await getOrderForReceipt(fx.tenantId, scheduled.value.orderId);
+      expect(receipt!.requestedFor!.getTime()).toBeGreaterThan(Date.now());
+
+      // …while a slot that has already passed stays `invalid_time`: the
+      // closed-venue rule never swallows the "that time is gone" answer.
+      const passed = await placeOrder(fx, {
+        ...takeaway,
+        requestedTime: `${String(nowH - 2).padStart(2, "0")}:00`,
+      });
+      expect(passed).toEqual({ ok: false, error: "invalid_time" });
+    }
+  });
+
   it("builds a PDF receipt with the standard skeleton", async () => {
     const fx = await fixtureVenue();
     const placedOrder = await placeOrder(fx, {

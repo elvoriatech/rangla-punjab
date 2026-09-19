@@ -353,6 +353,10 @@ export function MenuView({
     onlinePayment: Boolean(onlinePayment),
     paypalPayment: Boolean(paypalPayment),
   });
+  // The restaurant's own numbers for the footer row. Already projected by
+  // the loader — number, display string and `tel:` / `wa.me` href — so the
+  // page renders links rather than deriving them a second time.
+  const contact = menu.venue.contact ?? null;
   const showIcons = menu.venue.branding.categoryIcons === "icons";
   // Owner-chosen category navigation for LARGE screens: "side" renders a
   // sticky left rail and drops the top-bar tabs on lg+. Phones always
@@ -575,6 +579,47 @@ export function MenuView({
               t={t}
             />
           </div>
+          {/* The restaurant's own numbers. Plain anchors — `tel:` dials,
+              `wa.me` opens WhatsApp — so the whole row works with JS off,
+              which is the contract for every public page. Absent entirely
+              until an owner publishes a number, and each slot renders only
+              when it holds one. */}
+          {contact ? (
+            <nav
+              aria-label={t.contact.title}
+              className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-[var(--menu-surface-text,var(--menu-text))]/85 sm:w-auto sm:justify-start"
+            >
+              {contact.landline ? (
+                <a
+                  href={contact.landline.href}
+                  aria-label={t.contact.callAria(t.contact.landline, contact.landline.display)}
+                  className="underline underline-offset-4 hover:no-underline"
+                >
+                  {t.contact.landline}: {contact.landline.display}
+                </a>
+              ) : null}
+              {contact.mobile ? (
+                <a
+                  href={contact.mobile.href}
+                  aria-label={t.contact.callAria(t.contact.mobile, contact.mobile.display)}
+                  className="underline underline-offset-4 hover:no-underline"
+                >
+                  {t.contact.mobile}: {contact.mobile.display}
+                </a>
+              ) : null}
+              {contact.whatsapp ? (
+                <a
+                  href={contact.whatsapp.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={t.contact.whatsappAria(contact.whatsapp.display)}
+                  className="underline underline-offset-4 hover:no-underline"
+                >
+                  {t.contact.whatsapp}: {contact.whatsapp.display}
+                </a>
+              ) : null}
+            </nav>
+          ) : null}
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-baseline sm:justify-between">
             {/* Footer = ON the surface: page-ink (--menu-text-soft) was
                 1.8:1 against dark-red surfaces — surface ink instead. */}
@@ -599,6 +644,10 @@ export function MenuView({
           locale={locale}
           modes={modes}
           requestSlots={requestSlots ?? []}
+          /* Closed right now → no "Now" chip, a later slot preselected,
+             and dine-in off. Absent reads as "no opinion" = true, so a
+             venue with no opening hours keeps ordering exactly as it is. */
+          acceptsAsapNow={menu.ordering?.acceptsAsapNow ?? true}
           onlinePayment={Boolean(onlinePayment)}
           paypalPayment={Boolean(paypalPayment)}
           loyalty={

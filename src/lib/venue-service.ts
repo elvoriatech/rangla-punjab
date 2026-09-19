@@ -664,6 +664,83 @@ export async function updateVenueLoyalty(userId: string, input: unknown): Promis
 }
 
 /* ------------------------------------------------------------------ */
+/* Contact numbers                                                     */
+/* ------------------------------------------------------------------ */
+
+import {
+  CONTACT_FIELDS,
+  normalizePhone,
+  parseContactConfig,
+  type ContactConfig,
+  type ContactField,
+} from "./contact-config";
+
+/** Like `ServiceResult`, plus WHICH number was refused — the settings card
+ *  puts the message under that input, and the staff PATCH returns it as
+ *  `field`, so neither has to guess from a bare "invalid". */
+export type ContactResult<T = undefined> =
+  { ok: true; value: T } | { ok: false; error: "no_venue" | "invalid"; field?: ContactField };
+
+/** What the owner has published, raw — E.164 strings or null. The dashboard
+ *  card and the app both draw their inputs from this, so a saved number
+ *  comes back in the same spelling it was stored in. */
+export async function getVenueContact(userId: string): Promise<ContactResult<ContactConfig>> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { contact: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    return { ok: true as const, value: parseContactConfig(venue.contact) };
+  });
+}
+
+/**
+ * Save the restaurant's numbers.
+ *
+ * PARTIAL by design: a key that is absent from `input` leaves that number
+ * exactly as it was, which is what lets the app's card patch one field and
+ * the dashboard's form post all three through the same call.
+ *
+ * An empty (or whitespace-only) string is the CLEAR — that is how an owner
+ * removes a number from a form: they delete the text in the box and press
+ * save. A non-empty value that is not a phone number is a refusal naming
+ * the field, never a silently dropped number: an owner who mistypes their
+ * mobile must not find the slot quietly empty a week later.
+ *
+ * Nothing is written until every field validates, so a form carrying a good
+ * landline and a broken mobile changes neither.
+ */
+export async function updateVenueContact(
+  userId: string,
+  input: Partial<Record<ContactField, string | null>>,
+): Promise<ContactResult> {
+  const patch: Partial<Record<ContactField, string | null>> = {};
+  for (const field of CONTACT_FIELDS) {
+    const raw = input[field];
+    if (raw === undefined) continue;
+    if (raw === null || (typeof raw === "string" && raw.trim() === "")) {
+      patch[field] = null;
+      continue;
+    }
+    const e164 = normalizePhone(raw);
+    if (e164 === null) return { ok: false, error: "invalid", field };
+    patch[field] = e164;
+  }
+
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true, contact: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    const next = { ...parseContactConfig(venue.contact), ...patch };
+    await tx.venue.update({ where: { id: venue.id }, data: { contact: next } });
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Opening hours (P8)                                                  */
 /* ------------------------------------------------------------------ */
 

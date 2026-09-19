@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { OpeningHours } from "@/lib/opening-hours";
 import { reservableDates, slotTimesForDate } from "@/lib/opening-hours";
+import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 
 /**
  * Every string this dialog says, resolved for the guest's language by the
@@ -40,6 +41,10 @@ export interface ReserveLabels {
   errorRateLimited: string;
   errorInvalidTime: string;
   errorGeneric: string;
+  /** Required-field convention: the star's spoken form, and the line that
+   *  explains it once per form (`src/components/required-mark.tsx`). */
+  requiredMark: string;
+  requiredLegend: string;
 }
 
 /**
@@ -284,7 +289,10 @@ export function ReserveDialog({
               <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block">
-                    <span className={FIELD_LABEL}>{labels.date}</span>
+                    <span className={FIELD_LABEL}>
+                      {labels.date}
+                      <RequiredMark label={labels.requiredMark} />
+                    </span>
                     <select
                       required
                       value={date}
@@ -305,7 +313,10 @@ export function ReserveDialog({
                     </select>
                   </label>
                   <label className="block">
-                    <span className={FIELD_LABEL}>{labels.time}</span>
+                    <span className={FIELD_LABEL}>
+                      {labels.time}
+                      <RequiredMark label={labels.requiredMark} />
+                    </span>
                     <select
                       required
                       value={time}
@@ -360,7 +371,10 @@ export function ReserveDialog({
                 </div>
 
                 <label className="block">
-                  <span className={FIELD_LABEL}>{labels.name}</span>
+                  <span className={FIELD_LABEL}>
+                    {labels.name}
+                    <RequiredMark label={labels.requiredMark} />
+                  </span>
                   <input
                     type="text"
                     required
@@ -373,7 +387,10 @@ export function ReserveDialog({
                   />
                 </label>
                 <label className="block">
-                  <span className={FIELD_LABEL}>{labels.phone}</span>
+                  <span className={FIELD_LABEL}>
+                    {labels.phone}
+                    <RequiredMark label={labels.requiredMark} />
+                  </span>
                   <input
                     type="tel"
                     required
@@ -406,6 +423,10 @@ export function ReserveDialog({
                     {error}
                   </p>
                 ) : null}
+
+                {/* One legend for the form: date, time, name and phone all
+                    carry the star above. */}
+                <RequiredLegend label={labels.requiredLegend} className={`text-xs ${INK_SOFT}`} />
 
                 <button type="submit" disabled={busy || !date || !time} className={CTA}>
                   {busy ? labels.sending : labels.submit}

@@ -5,6 +5,7 @@ import { getSessionUserId } from "@/lib/auth";
 import {
   getLoyaltySettings,
   getOrderingSettings,
+  getVenueContact,
   getVenueGoogle,
   getVenueHours,
   getVenueForUser,
@@ -24,6 +25,7 @@ import {
   removeBannerAction,
   removeLogoAction,
   saveBannerAction,
+  saveContactAction,
   saveGoogleAction,
   saveGoogleManualRatingAction,
   saveGoogleRatingEnabledAction,
@@ -37,6 +39,7 @@ import {
   saveVenueNameAction,
 } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
+import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 
 /**
  * Venue settings: name, logo, currency, and menu languages. Every form is
@@ -81,6 +84,27 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   halal: {
     saved: "Saved. The Halal filter and badge now match your choice on the public menu.",
     error: "Couldn't save the Halal setting — try again.",
+  },
+  // Contact numbers. One success line, and a refusal per box — an owner
+  // who mistyped one number needs to know WHICH one, not that "something"
+  // was wrong with a card holding three.
+  contact: {
+    saved: "Contact details saved. Guests can call or message you straight from the menu.",
+  },
+  contact_landline: {
+    error:
+      "That landline doesn't look like a phone number. Use digits only — 07531 123456 or +49 7531 123456 — or empty the box to hide it.",
+  },
+  contact_mobile: {
+    error:
+      "That mobile doesn't look like a phone number. Use digits only — 0170 1234567 or +49 170 1234567 — or empty the box to hide it.",
+  },
+  contact_whatsapp: {
+    error:
+      "That WhatsApp number doesn't look like a phone number. Use the number as it is registered with WhatsApp, or empty the box to hide it.",
+  },
+  contact_invalid: {
+    error: "Couldn't save your contact details — check the three numbers and try again.",
   },
   google: {
     saved:
@@ -200,6 +224,10 @@ export default async function SettingsPage({
   const loyalty = loyaltyResult.ok ? loyaltyResult.value : null;
   const googleResult = await getVenueGoogle(userId);
   const google = googleResult.ok ? googleResult.value : null;
+  const contactResult = await getVenueContact(userId);
+  // Raw E.164 in the boxes, not the grouped display string: what the owner
+  // sees is what is stored, so saving an untouched form is a no-op.
+  const contact = contactResult.ok ? contactResult.value : null;
   // Same fixed dashboard locale + zone as the overview's timestamps: this
   // console is English and runs the restaurant's clock, not the browser's.
   const googleRefreshedLabel = google?.rating
@@ -235,7 +263,10 @@ export default async function SettingsPage({
       {/* Name */}
       <form action={saveVenueNameAction} className="mt-10 border border-ink/15 bg-card px-6 py-5">
         <label className="block text-sm">
-          <span className="font-medium">Restaurant name</span>
+          <span className="font-medium">
+            Restaurant name
+            <RequiredMark />
+          </span>
           <input
             type="text"
             name="name"
@@ -248,6 +279,7 @@ export default async function SettingsPage({
         <p className="mt-2 text-xs text-muted">
           Shown at the top of your public menu and inside this dashboard.
         </p>
+        <RequiredLegend />
         <SubmitButton
           pendingLabel="Saving…"
           className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
@@ -278,13 +310,20 @@ export default async function SettingsPage({
               best. JPEG, PNG, or WebP up to 10&nbsp;MB.
             </p>
             <form action={saveLogoAction} className="mt-3">
-              <input
-                type="file"
-                name="logo"
-                required
-                accept="image/jpeg,image/png,image/webp"
-                className="block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
-              />
+              <label className="block text-sm">
+                <span className="font-medium">
+                  Image file
+                  <RequiredMark />
+                </span>
+                <input
+                  type="file"
+                  name="logo"
+                  required
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
+                />
+              </label>
+              <RequiredLegend className="mt-1 text-xs text-muted" />
               <SubmitButton
                 pendingLabel="Uploading…"
                 className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
@@ -333,13 +372,20 @@ export default async function SettingsPage({
               <em>centre</em>, since phones show the middle part only.
             </p>
             <form action={saveBannerAction} className="mt-3">
-              <input
-                type="file"
-                name="banner"
-                required
-                accept="image/jpeg,image/png,image/webp"
-                className="block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
-              />
+              <label className="block text-sm">
+                <span className="font-medium">
+                  Image file
+                  <RequiredMark />
+                </span>
+                <input
+                  type="file"
+                  name="banner"
+                  required
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
+                />
+              </label>
+              <RequiredLegend className="mt-1 text-xs text-muted" />
               <SubmitButton
                 pendingLabel="Uploading…"
                 className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
@@ -360,6 +406,67 @@ export default async function SettingsPage({
           </div>
         </div>
       </section>
+
+      {/* Contact numbers. One form, three boxes: they are one decision
+          ("how can a guest reach us?") and posting them together means an
+          owner who fixes a typo in one never has to re-enter the others. */}
+      <form action={saveContactAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
+        <p className="text-sm font-medium">Contact</p>
+        <p className="mt-1 text-xs text-muted">
+          Guests see these on their account page and in the app; leave a field empty to hide it.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <label className="block text-sm">
+            <span className="font-medium">Landline</span>
+            <input
+              type="tel"
+              name="landline"
+              inputMode="tel"
+              autoComplete="off"
+              maxLength={32}
+              defaultValue={contact?.landline ?? ""}
+              placeholder="07531 123456"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Mobile</span>
+            <input
+              type="tel"
+              name="mobile"
+              inputMode="tel"
+              autoComplete="off"
+              maxLength={32}
+              defaultValue={contact?.mobile ?? ""}
+              placeholder="0170 1234567"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">WhatsApp</span>
+            <input
+              type="tel"
+              name="whatsapp"
+              inputMode="tel"
+              autoComplete="off"
+              maxLength={32}
+              defaultValue={contact?.whatsapp ?? ""}
+              placeholder="0170 1234567"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          A German number can be typed either way — 07531 123456 or +49 7531 123456. Numbers are
+          saved in international form so calling and WhatsApp work from abroad too.
+        </p>
+        <SubmitButton
+          pendingLabel="Saving…"
+          className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+        >
+          Save contact
+        </SubmitButton>
+      </form>
 
       {/* Google rating + review link (P7-14). A <section> of sibling
           forms rather than one form: the search, the save, each result's

@@ -126,4 +126,38 @@ describe("POST /api/orders → owner push", () => {
     expect(sent[0]?.body).toContain("Dine-in");
     expect(sent[0]?.body).toContain("26.00");
   });
+
+  it("answers 409 venue_closed once the venue's hours say it is shut", async () => {
+    const { compileWeekly, WEEKDAYS } = await import("@/lib/opening-hours");
+    await asTenant(tenantId, (tx) =>
+      tx.venue.updateMany({
+        data: { hours: compileWeekly({ slots: [], closedDays: [...WEEKDAYS] }) },
+      }),
+    );
+    try {
+      const res = await POST(
+        new NextRequest("http://localhost:3000/api/orders", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            // A fresh IP: the rate limiter counts per connection and the
+            // test above already spent one order on its own.
+            "x-forwarded-for": `10.15.${Math.floor(Math.random() * 250)}.7`,
+            "x-customer-token": "not-a-real-guest-token",
+          },
+          body: JSON.stringify({
+            slug,
+            orderType: "dine_in",
+            tableNumber: "5",
+            items: [{ itemId, quantity: 1 }],
+          }),
+        }),
+      );
+      // 409, not 400: the body was fine — the restaurant closed.
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "venue_closed" });
+    } finally {
+      await asTenant(tenantId, (tx) => tx.venue.updateMany({ data: { hours: {} } }));
+    }
+  });
 });

@@ -8,7 +8,7 @@ import { stripeDirectChargeAvailable } from "./stripe";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
 import { resolveTenantAccess } from "./plan-state";
-import { openState, todayLocalTimeToDate } from "./opening-hours";
+import { currentOpenState, openState, todayLocalTimeToDate } from "./opening-hours";
 import { parseOpeningHours } from "./opening-hours-schema";
 import { parseLoyaltyConfig } from "./loyalty-config";
 import { attachVoucherToOrder, claimArmedVoucher } from "./loyalty-service";
@@ -167,7 +167,8 @@ export type PlaceOrderResult =
         | "type_not_available"
         | "outside_delivery_area"
         | "below_delivery_minimum"
-        | "invalid_time";
+        | "invalid_time"
+        | "venue_closed";
     };
 
 export async function placeOrder(
@@ -211,14 +212,31 @@ export async function placeOrder(
     if (!orderTypeAllowed(mode, orderType)) {
       return { ok: false, error: "type_not_available" as const };
     }
+    // A closed restaurant cannot cook. The ONE thing it can still take is
+    // a pickup/delivery order booked into a window that opens later today
+    // — the kitchen will be there by then. Everything else (an ASAP order,
+    // and any dine-in, which has no "later" at all: the door is locked) is
+    // refused outright rather than landing on a printer nobody is reading.
+    //
+    // Unconfigured hours mean "the owner never told us", and that must
+    // never lock a venue out of its own ordering: only a venue that has
+    // actually saved hours can be closed by this rule.
+    const hours = parseOpeningHours(venue.hours);
+    const scheduled = Boolean(input.requestedTime) && orderType !== "dine_in";
+    if (hours.configured && !scheduled) {
+      const nowState = currentOpenState(hours, venue.timezone);
+      if (nowState.configured && !nowState.open) {
+        return { ok: false, error: "venue_closed" as const };
+      }
+    }
+
     // Requested fulfilment time: venue-local HH:MM for today, only for
     // pickup/delivery, never in the past, and inside opening hours when
     // the venue has them configured. Client offers only valid slots; a
     // forged or stale time hits this wall.
     let requestedFor: Date | null = null;
-    if (input.requestedTime && orderType !== "dine_in") {
-      const hours = parseOpeningHours(venue.hours);
-      const at = todayLocalTimeToDate(venue.timezone, input.requestedTime, new Date(), hours);
+    if (scheduled) {
+      const at = todayLocalTimeToDate(venue.timezone, input.requestedTime!, new Date(), hours);
       if (!at) return { ok: false, error: "invalid_time" as const };
       if (hours.configured) {
         const state = openState(hours, venue.timezone, at);

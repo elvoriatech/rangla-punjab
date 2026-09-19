@@ -6,6 +6,7 @@ import { asTenant, asUser } from "./tenant";
 import { __fakeRating } from "./google-rating";
 import {
   getMenuCounts,
+  getVenueContact,
   getVenueForUser,
   getVenueGoogle,
   refreshVenueGoogleRating,
@@ -13,6 +14,7 @@ import {
   updateVenueGoogleRatingEnabled,
   updateVenueGooglePlaceId,
   updateVenueAppearance,
+  updateVenueContact,
   updateVenueLocalization,
   updateVenueLogo,
   updateVenueName,
@@ -351,5 +353,78 @@ describe("venue-service (owner dashboard)", () => {
     expect(card.value.rating).toMatchObject({ rating: 4.7, count: 440 });
     expect(card.value.manual).toMatchObject({ rating: 3.1, count: 7 });
     __fakeRating().reset();
+  });
+  /* ---------------- contact numbers ---------------- */
+
+  it("a fresh venue publishes no numbers at all", async () => {
+    const { userId } = await signupWithVenue();
+    const r = await getVenueContact(userId);
+    if (!r.ok) throw new Error("no venue");
+    expect(r.value).toEqual({ landline: null, mobile: null, whatsapp: null });
+  });
+
+  it("updateVenueContact stores E.164, whatever the owner typed", async () => {
+    const { userId } = await signupWithVenue();
+    expect(
+      (
+        await updateVenueContact(userId, {
+          landline: "07531 123456",
+          mobile: "+49 170 / 1234567",
+          whatsapp: "0049 170 1234567",
+        })
+      ).ok,
+    ).toBe(true);
+
+    const saved = await getVenueContact(userId);
+    if (!saved.ok) throw new Error("no venue");
+    expect(saved.value).toEqual({
+      landline: "+497531123456",
+      mobile: "+491701234567",
+      whatsapp: "+491701234567",
+    });
+  });
+
+  it("a patch touches only the fields it carries, and an empty box clears one", async () => {
+    const { userId } = await signupWithVenue();
+    await updateVenueContact(userId, {
+      landline: "07531 123456",
+      mobile: "0170 1234567",
+      whatsapp: "0170 1234567",
+    });
+
+    // Absent keys survive; an empty string is the clear.
+    expect((await updateVenueContact(userId, { mobile: "0170 7654321" })).ok).toBe(true);
+    expect((await updateVenueContact(userId, { whatsapp: "  " })).ok).toBe(true);
+
+    const after = await getVenueContact(userId);
+    if (!after.ok) throw new Error("no venue");
+    expect(after.value).toEqual({
+      landline: "+497531123456",
+      mobile: "+491707654321",
+      whatsapp: null,
+    });
+
+    // Explicit null is the same clear, from a JSON client rather than a form.
+    expect((await updateVenueContact(userId, { landline: null })).ok).toBe(true);
+    const cleared = await getVenueContact(userId);
+    if (!cleared.ok) throw new Error("no venue");
+    expect(cleared.value.landline).toBeNull();
+  });
+
+  it("names the bad number and writes none of the patch", async () => {
+    const { userId } = await signupWithVenue();
+    await updateVenueContact(userId, { landline: "07531 123456" });
+
+    const bad = await updateVenueContact(userId, {
+      landline: "07531 999999",
+      mobile: "ring the bell",
+    });
+    expect(bad).toEqual({ ok: false, error: "invalid", field: "mobile" });
+
+    // The good half of a refused patch never lands.
+    const after = await getVenueContact(userId);
+    if (!after.ok) throw new Error("no venue");
+    expect(after.value.landline).toBe("+497531123456");
+    expect(after.value.mobile).toBeNull();
   });
 });

@@ -138,6 +138,13 @@ const en = {
      food is still coming: asking for a review before the guest has eaten
      is asking them to rate a promise. `newTab` is read by screen readers
      only, because this is the one link on the page that leaves it. */
+  /* The required-field convention (`src/components/required-mark.tsx`):
+     the star's spoken form, and the one line that explains it per form. */
+  required: {
+    mark: "(required)",
+    legend: "* required field",
+  },
+
   review: {
     title: "How was it?",
     cta: "Rate us on Google ★",
@@ -145,6 +152,18 @@ const en = {
     /** The account page's order row, where the label sits beside
      *  "Track" and "Receipt" and has to stay short. */
     short: "Rate on Google",
+  },
+
+  /* The restaurant's own numbers on the account page. The card is absent
+     entirely when the owner has published none, so no line here ever has
+     to say "no phone number". */
+  contact: {
+    title: "Contact the restaurant",
+    intro: "Questions about an order, or a table for tonight? Reach us directly.",
+    landline: "Call landline",
+    mobile: "Call mobile",
+    whatsapp: "WhatsApp",
+    whatsappAria: (number: string): string => `Message ${number} on WhatsApp (opens WhatsApp)`,
   },
 
   /* Guest password reset (P7-15): the "forgot" form, the page the emailed
@@ -289,11 +308,25 @@ const de: PostOrderCopy = {
   cancelledBody:
     "Das Restaurant hat diese Bestellung storniert — es wird nichts zubereitet. Falls Sie bereits bezahlt haben, erstattet Ihnen das Restaurant den Betrag. Rufen Sie bei Fragen einfach an.",
 
+  required: {
+    mark: "(Pflichtfeld)",
+    legend: "* Pflichtfeld",
+  },
+
   review: {
     title: "Wie war es?",
     cta: "Bewerten Sie uns bei Google ★",
     newTab: "öffnet Google in einem neuen Tab",
     short: "Bei Google bewerten",
+  },
+
+  contact: {
+    title: "Restaurant kontaktieren",
+    intro: "Fragen zu einer Bestellung oder ein Tisch für heute Abend? Melden Sie sich direkt.",
+    landline: "Festnetz anrufen",
+    mobile: "Mobil anrufen",
+    whatsapp: "WhatsApp",
+    whatsappAria: (number) => `${number} über WhatsApp anschreiben (öffnet WhatsApp)`,
   },
 
   password: {
@@ -432,11 +465,25 @@ const es: PostOrderCopy = {
   cancelledBody:
     "El restaurante ha cancelado este pedido, así que no se preparará nada. Si ya habías pagado, el restaurante te devolverá el importe. Llámales si tienes cualquier duda.",
 
+  required: {
+    mark: "(obligatorio)",
+    legend: "* campo obligatorio",
+  },
+
   review: {
     title: "¿Qué tal ha ido?",
     cta: "Valóranos en Google ★",
     newTab: "abre Google en una pestaña nueva",
     short: "Valorar en Google",
+  },
+
+  contact: {
+    title: "Contactar con el restaurante",
+    intro: "¿Dudas sobre un pedido o una mesa para esta noche? Escríbenos o llámanos.",
+    landline: "Llamar al fijo",
+    mobile: "Llamar al móvil",
+    whatsapp: "WhatsApp",
+    whatsappAria: (number) => `Escribir al ${number} por WhatsApp (abre WhatsApp)`,
   },
 
   password: {
@@ -572,11 +619,25 @@ const it: PostOrderCopy = {
   cancelledBody:
     "Il ristorante ha annullato questo ordine: non verrà preparato nulla. Se avevi già pagato, il ristorante ti rimborserà. Chiamali se qualcosa non ti è chiaro.",
 
+  required: {
+    mark: "(obbligatorio)",
+    legend: "* campo obbligatorio",
+  },
+
   review: {
     title: "Com'è andata?",
     cta: "Valutaci su Google ★",
     newTab: "apre Google in una nuova scheda",
     short: "Valuta su Google",
+  },
+
+  contact: {
+    title: "Contatta il ristorante",
+    intro: "Domande su un ordine o un tavolo per stasera? Scrivici o chiamaci.",
+    landline: "Chiama il fisso",
+    mobile: "Chiama il cellulare",
+    whatsapp: "WhatsApp",
+    whatsappAria: (number) => `Scrivi al ${number} su WhatsApp (apre WhatsApp)`,
   },
 
   password: {
@@ -710,11 +771,25 @@ const ar: PostOrderCopy = {
   cancelledBody:
     "ألغى المطعم هذا الطلب، ولن يتم تحضير أي شيء. إذا كنت قد دفعت بالفعل، فسيردّ لك المطعم المبلغ. اتصل بهم إذا كان لديك أي استفسار.",
 
+  required: {
+    mark: "(حقل مطلوب)",
+    legend: "* حقل مطلوب",
+  },
+
   review: {
     title: "كيف كانت تجربتك؟",
     cta: "قيّمنا على Google ★",
     newTab: "يفتح Google في تبويب جديد",
     short: "التقييم على Google",
+  },
+
+  contact: {
+    title: "تواصلوا مع المطعم",
+    intro: "لديكم سؤال عن طلب أو تريدون طاولة الليلة؟ تواصلوا معنا مباشرةً.",
+    landline: "اتصال بالهاتف الأرضي",
+    mobile: "اتصال بالجوال",
+    whatsapp: "واتساب",
+    whatsappAria: (number) => `مراسلة ${number} عبر واتساب (يفتح واتساب)`,
   },
 
   password: {

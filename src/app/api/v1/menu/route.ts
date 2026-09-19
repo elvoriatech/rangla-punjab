@@ -103,6 +103,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // of the payload, so it can lag opening time by up to five
           // minutes; accepted, the app re-fetches on foreground.
           openNow: menu.venue.openNow,
+          // The restaurant's own numbers: `{ landline, mobile, whatsapp }`,
+          // each `{ number, display, href }` or null, and the whole object
+          // explicitly null — never absent — when the owner has published
+          // none. The hrefs are built server-side (`tel:` keeps the plus,
+          // `wa.me` drops it) so the app links out with one `Linking.openURL`
+          // and never re-derives a rule it could get subtly wrong.
+          contact: menu.venue.contact ?? null,
         },
         ordering: {
           dineIn: access.modes.dineIn,
@@ -117,6 +124,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // Later-today "HH:MM" pickup/delivery slots inside opening hours
           // (same generator as the web drawer). Empty = ASAP only.
           requestSlots: currentTodaySlotTimes(menu.venue.hours, menu.venue.timezone),
+          // May the guest still order "Now"? False while the venue is
+          // closed — the cart must then hide "Now" and offer only the
+          // `requestSlots` above, because an ASAP (or any dine-in) order
+          // placed now is refused server-side with `venue_closed`. True
+          // for a venue that never configured hours: "we don't know" must
+          // not switch its ordering off. Cached for 300 s with the rest of
+          // the payload, so it can lag opening time by up to five minutes;
+          // the server is the authority either way.
+          acceptsAsapNow: menu.ordering?.acceptsAsapNow ?? true,
           // Table reservations. The SERVER enumerates the bookable
           // date→times grid so the app offers exactly what the reservation
           // endpoint accepts — no opening-hours maths duplicated in RN.

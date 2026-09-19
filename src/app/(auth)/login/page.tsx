@@ -10,6 +10,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { venueAdminBase } from "@/lib/venue-service";
 import { loginAction } from "./actions";
+import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 
 export async function generateMetadata(): Promise<Metadata> {
   const identity = await getRestaurantIdentity();
@@ -172,7 +173,10 @@ export default async function LoginPage({
 
           <form action={loginAction} className="mt-8 flex flex-col gap-5">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">Email</span>
+              <span className="font-medium">
+                Email
+                <RequiredMark />
+              </span>
               <input
                 type="email"
                 name="email"
@@ -185,7 +189,10 @@ export default async function LoginPage({
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="flex items-baseline justify-between">
-                <span className="font-medium">Password</span>
+                <span className="font-medium">
+                  Password
+                  <RequiredMark />
+                </span>
                 <Link
                   href="/reset"
                   className="text-xs text-muted underline underline-offset-2 hover:text-ink"
@@ -202,6 +209,7 @@ export default async function LoginPage({
                 className="border border-ink/25 bg-white px-3.5 py-2.5 text-base outline-none transition-colors focus:border-gold-dark focus:ring-2 focus:ring-gold/30"
               />
             </label>
+            <RequiredLegend className="text-xs text-muted" />
             <button
               type="submit"
               className="mt-2 bg-orange px-4 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] text-card shadow-[0_10px_24px_-12px_rgba(194,90,34,0.65)] transition hover:bg-orange-dark active:scale-[0.985]"

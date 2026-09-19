@@ -32,7 +32,7 @@ import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
 import { armedVoucher, discountFor, useLoyalty } from "../loyalty";
 import { rememberOrder } from "../orders-store";
-import { BrandHeader, PrimaryButton, QtyStepper } from "../components";
+import { BrandHeader, FieldLabel, PrimaryButton, QtyStepper, RequiredLegend } from "../components";
 import { GoogleButton } from "../google-button";
 import { colors, fonts, money, radius } from "../theme";
 
@@ -298,6 +298,28 @@ export function CartScreen({
   };
 
   /**
+   * Is the kitchen taking orders for RIGHT NOW?
+   *
+   * The SERVER's verdict (`ordering.acceptsAsapNow`), never re-derived
+   * from the opening hours on this payload: a phone two timezones away
+   * must not be the thing that decides the place is shut. False means
+   * `/api/orders` answers `409 venue_closed` to an ASAP or a dine-in
+   * order — but still takes a PRE-ORDER into a later slot today, which
+   * is why the time picker survives and only "Now" goes away.
+   */
+  const asapOk = menu.ordering.acceptsAsapNow !== false;
+  // Closed, and nothing else to choose: "Now" is gone, so put the guest
+  // on the first slot rather than leaving them on a dead option.
+  useEffect(() => {
+    if (!asapOk && orderType !== "dine_in" && !scheduled && slots[0]) {
+      setRequestedTime(slots[0]);
+    }
+  }, [asapOk, orderType, scheduled, slots]);
+  /** Nothing this basket can be turned into while the venue is shut:
+   *  a table order, or a pickup/delivery with no later slot to take. */
+  const closedBlocked = !asapOk && (orderType === "dine_in" || !scheduled);
+
+  /**
    * Is there a delivery address to SHOW rather than ask for?
    *
    * The test is the SIGNED-IN PROFILE's saved address, never "the fields
@@ -335,6 +357,7 @@ export function CartScreen({
   const needsContact = orderType !== "dine_in";
   const missing =
     cart.lines.length === 0 ||
+    closedBlocked ||
     (needsContact && (!name.trim() || !phone.trim())) ||
     (orderType === "delivery" &&
       (!street.trim() || zip.trim().length < 3 || (areas.length > 0 && !area) || belowMinimum));
@@ -396,6 +419,7 @@ export function CartScreen({
       setPlacing(null); // nothing was created: back to the editable cart
       const messages: Record<string, string> = {
         ordering_paused: t.orderingPaused,
+        venue_closed: t.orderVenueClosed,
         outside_delivery_area: t.outsideArea,
         below_delivery_minimum: t.belowMin,
         unknown_items: t.menuChanged,
@@ -639,6 +663,24 @@ export function CartScreen({
                 ))}
               </View>
 
+              {/* Closed: say so once, in the words that fit the choice
+                  the guest has just made — a table order cannot happen
+                  at all, a pickup or delivery becomes a pre-order. */}
+              {!asapOk ? (
+                <Text style={styles.closedNote}>
+                  {orderType === "dine_in"
+                    ? t.orderClosedDineIn
+                    : slots.length > 0
+                      ? t.orderClosedNow
+                      : t.orderClosedNoSlots}
+                </Text>
+              ) : null}
+
+              {/* Dine-in asks for nothing mandatory (the table number is
+                  optional), so the legend appears only with the form
+                  that actually has required fields. */}
+              {needsContact ? <RequiredLegend /> : null}
+
               {orderType === "dine_in" ? (
                 <Field
                   label={t.tableOptional}
@@ -658,11 +700,17 @@ export function CartScreen({
                         {orderType === "delivery" ? t.timeDelivery : t.timePickup}
                       </Text>
                       <View style={styles.radioRow}>
-                        <RadioChip
-                          label={t.timeNow}
-                          selected={!scheduled}
-                          onPress={() => setRequestedTime("")}
-                        />
+                        {/* "Now" is not offered while the venue is shut —
+                            the server would refuse it with a 409, and an
+                            option that cannot be taken is worse than no
+                            option at all. */}
+                        {asapOk ? (
+                          <RadioChip
+                            label={t.timeNow}
+                            selected={!scheduled}
+                            onPress={() => setRequestedTime("")}
+                          />
+                        ) : null}
                         <RadioChip
                           label={t.timeScheduled}
                           selected={scheduled}
@@ -710,6 +758,7 @@ export function CartScreen({
                     value={name}
                     onChange={setName}
                     placeholder={t.namePlaceholder}
+                    required
                   />
                   <Field
                     label={t.phone}
@@ -717,6 +766,7 @@ export function CartScreen({
                     onChange={setPhone}
                     placeholder="+49 …"
                     keyboardType="phone-pad"
+                    required
                   />
                 </>
               )}
@@ -766,6 +816,7 @@ export function CartScreen({
                       setStreet(v);
                     }}
                     placeholder="Bahnhofstraße 15"
+                    required
                   />
                   {areas.length > 0 ? (
                     /* Fixed delivery-area list: the guest PICKS a saved ZIP
@@ -774,7 +825,7 @@ export function CartScreen({
                        locality field beside it fills itself from the pick. */
                     <View style={{ flexDirection: "row", gap: 8 }}>
                       <View style={{ gap: 4, width: 132 }}>
-                        <Text style={styles.fieldLabel}>{t.zipLabel}</Text>
+                        <FieldLabel label={t.zipLabel} required style={styles.fieldLabel} />
                         <Pressable style={styles.dropdown} onPress={() => setZipOpen(true)}>
                           <Text style={styles.dropdownValue}>{zip || "—"}</Text>
                           <Text style={styles.dropdownChevron}>▾</Text>
@@ -850,6 +901,7 @@ export function CartScreen({
                       }}
                       placeholder="56068"
                       keyboardType="number-pad"
+                      required
                     />
                   )}
                   <Field
@@ -1019,6 +1071,7 @@ function Field({
   placeholder,
   keyboardType,
   hint,
+  required = false,
 }: {
   label: string;
   value: string;
@@ -1026,11 +1079,14 @@ function Field({
   placeholder?: string;
   keyboardType?: "phone-pad" | "number-pad" | "email-address";
   hint?: string;
+  /** Marked with an asterisk — and it is set ONLY where `missing` above
+   *  actually blocks the order on this field. */
+  required?: boolean;
 }): React.ReactElement {
   const isEmail = keyboardType === "email-address";
   return (
     <View style={{ gap: 4 }}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <FieldLabel label={label} required={required} style={styles.fieldLabel} />
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -1417,6 +1473,21 @@ const styles = StyleSheet.create({
   zipInfo: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 2 },
   minWarn: { color: colors.danger, fontSize: 12, ...fonts.bodySemi },
   error: { color: colors.danger, ...fonts.body, fontSize: 13, textAlign: "center" },
+  /** "We're closed right now" — a statement of fact about the kitchen,
+   *  not a failure the guest caused, so it reads in the brand red rather
+   *  than the danger red the order errors use. */
+  closedNote: {
+    color: colors.red,
+    ...fonts.bodySemi,
+    fontSize: 13,
+    lineHeight: 18,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   payNote: {
     color: colors.inkSoft,
     ...fonts.body,

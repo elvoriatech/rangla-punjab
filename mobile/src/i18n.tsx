@@ -246,6 +246,11 @@ const en = {
   payFailedNote: "Payment failed — please try again.",
   orderFailed: "Order failed — please try again.",
   orderingPaused: "Ordering is paused right now — please try again later.",
+  /* Closed right now: ASAP is off, pre-ordering for later today is not. */
+  orderClosedNow: "We're closed right now — you can pre-order for later today.",
+  orderClosedNoSlots: "We're closed right now, and there are no more times left today.",
+  orderClosedDineIn: "Ordering at the table is only possible during opening hours.",
+  orderVenueClosed: "The kitchen is closed right now — this order wasn't placed.",
   outsideArea: "Sorry, we don't deliver to this postcode.",
   belowMin: "The minimum order value hasn't been reached yet.",
   menuChanged: "The menu was updated — please review your cart.",
@@ -417,6 +422,7 @@ const en = {
   issuePhotoOpen: "Open photo",
   issueSend: "Send",
   issueSending: "Sending…",
+  issueMessageLabel: "Your message",
   issueYou: "You",
   issueGuest: "Guest",
   issueRestaurantLabel: "Restaurant",
@@ -578,6 +584,28 @@ const en = {
   hoursTimezone: "Times are in {zone}.",
   hoursHint:
     "Guests see these on the menu, and the app uses them to show whether you're open. For a lunch break use both slots; times past midnight (17:00–02:00) are fine.",
+
+  /* Contact details — the owner's editor, and the guest's card. */
+  ownerContact: "Contact",
+  contactOwnerTitle: "Contact details",
+  contactOwnerHint: "Guests see these on their Account screen; leave empty to hide.",
+  contactOwnerLandline: "Landline",
+  contactOwnerMobile: "Mobile",
+  contactOwnerWhatsapp: "WhatsApp",
+  contactOwnerNumberHint: "With or without the country code — we tidy it up for you.",
+  contactOwnerSave: "Save contact details",
+  contactOwnerSaving: "Saving…",
+  contactOwnerSaved: "Contact details saved.",
+  contactOwnerSaveFailed: "Couldn't save the contact details.",
+  contactOwnerBad: "Check {field}: that doesn't look like a phone number.",
+  contactTitle: "Contact the restaurant",
+  contactCallLandline: "Call landline",
+  contactCallMobile: "Call mobile",
+  contactWhatsapp: "WhatsApp",
+
+  /* Required fields, marked the same way on every form. */
+  fieldRequired: "required",
+  fieldRequiredLegend: "* required",
 
   /* Printing kitchen tickets (owner). */
   boardPrint: "Print",
@@ -790,6 +818,11 @@ const de: Strings = {
   payFailedNote: "Zahlung fehlgeschlagen — bitte erneut versuchen.",
   orderFailed: "Bestellung fehlgeschlagen — bitte erneut versuchen.",
   orderingPaused: "Bestellungen sind gerade pausiert — bitte versuche es später.",
+  /* Gerade geschlossen: sofort geht nicht, vorbestellen schon. */
+  orderClosedNow: "Wir haben gerade geschlossen – du kannst für später heute vorbestellen.",
+  orderClosedNoSlots: "Wir haben gerade geschlossen, und für heute gibt es keine Zeiten mehr.",
+  orderClosedDineIn: "Am Tisch bestellen geht nur während der Öffnungszeiten.",
+  orderVenueClosed: "Die Küche ist gerade geschlossen – die Bestellung wurde nicht aufgegeben.",
   outsideArea: "Leider liefern wir nicht in diese PLZ.",
   belowMin: "Der Mindestbestellwert ist noch nicht erreicht.",
   menuChanged: "Die Karte wurde aktualisiert — bitte Warenkorb prüfen.",
@@ -959,6 +992,7 @@ const de: Strings = {
   issuePhotoOpen: "Foto öffnen",
   issueSend: "Senden",
   issueSending: "Wird gesendet …",
+  issueMessageLabel: "Ihre Nachricht",
   issueYou: "Sie",
   issueGuest: "Gast",
   issueRestaurantLabel: "Restaurant",
@@ -1114,6 +1148,28 @@ const de: Strings = {
   hoursTimezone: "Zeiten in {zone}.",
   hoursHint:
     "Gäste sehen sie auf der Karte, und die App zeigt damit an, ob geöffnet ist. Für eine Mittagspause beide Zeiten nutzen; über Mitternacht (17:00–02:00) ist in Ordnung.",
+
+  /* Kontaktdaten – der Editor des Inhabers und die Karte für Gäste. */
+  ownerContact: "Kontakt",
+  contactOwnerTitle: "Kontaktdaten",
+  contactOwnerHint: "Gäste sehen sie auf ihrer Konto-Seite; leer lassen blendet sie aus.",
+  contactOwnerLandline: "Festnetz",
+  contactOwnerMobile: "Mobil",
+  contactOwnerWhatsapp: "WhatsApp",
+  contactOwnerNumberHint: "Mit oder ohne Ländervorwahl – wir bringen sie in Form.",
+  contactOwnerSave: "Kontaktdaten speichern",
+  contactOwnerSaving: "Wird gespeichert…",
+  contactOwnerSaved: "Kontaktdaten gespeichert.",
+  contactOwnerSaveFailed: "Die Kontaktdaten konnten nicht gespeichert werden.",
+  contactOwnerBad: "Prüfe {field}: Das sieht nicht nach einer Telefonnummer aus.",
+  contactTitle: "Restaurant kontaktieren",
+  contactCallLandline: "Festnetz anrufen",
+  contactCallMobile: "Handy anrufen",
+  contactWhatsapp: "WhatsApp",
+
+  /* Pflichtfelder, auf jedem Formular gleich gekennzeichnet. */
+  fieldRequired: "Pflichtfeld",
+  fieldRequiredLegend: "* Pflichtfeld",
 
   /* Küchenbons drucken (Inhaber). */
   boardPrint: "Drucken",
@@ -1325,6 +1381,11 @@ const it: Strings = {
   payFailedNote: "Pagamento non riuscito — riprova.",
   orderFailed: "Ordine non riuscito — riprova.",
   orderingPaused: "Gli ordini sono sospesi al momento — riprova più tardi.",
+  /* Chiusi adesso: niente ordini immediati, ma il preordine resta. */
+  orderClosedNow: "Al momento siamo chiusi: puoi preordinare per più tardi oggi.",
+  orderClosedNoSlots: "Al momento siamo chiusi e per oggi non ci sono più orari disponibili.",
+  orderClosedDineIn: "Ordinare al tavolo è possibile solo durante gli orari di apertura.",
+  orderVenueClosed: "La cucina è chiusa in questo momento: l'ordine non è stato inviato.",
   outsideArea: "Purtroppo non consegniamo a questo CAP.",
   belowMin: "L'ordine minimo non è ancora stato raggiunto.",
   menuChanged: "Il menù è stato aggiornato — controlla il carrello.",
@@ -1494,6 +1555,7 @@ const it: Strings = {
   issuePhotoOpen: "Apri la foto",
   issueSend: "Invia",
   issueSending: "Invio…",
+  issueMessageLabel: "Il tuo messaggio",
   issueYou: "Tu",
   issueGuest: "Cliente",
   issueRestaurantLabel: "Ristorante",
@@ -1648,6 +1710,28 @@ const it: Strings = {
   hoursTimezone: "Orari nel fuso {zone}.",
   hoursHint:
     "I clienti li vedono sul menù e l'app li usa per dire se sei aperto. Per la pausa pranzo usa entrambe le fasce; oltre la mezzanotte (17:00–02:00) va benissimo.",
+
+  /* Contatti — l'editor del titolare e la scheda per i clienti. */
+  ownerContact: "Contatti",
+  contactOwnerTitle: "Contatti",
+  contactOwnerHint: "I clienti li vedono nella schermata Account; lascia vuoto per nasconderli.",
+  contactOwnerLandline: "Telefono fisso",
+  contactOwnerMobile: "Cellulare",
+  contactOwnerWhatsapp: "WhatsApp",
+  contactOwnerNumberHint: "Con o senza prefisso internazionale: ci pensiamo noi a sistemarlo.",
+  contactOwnerSave: "Salva i contatti",
+  contactOwnerSaving: "Salvataggio…",
+  contactOwnerSaved: "Contatti salvati.",
+  contactOwnerSaveFailed: "Non è stato possibile salvare i contatti.",
+  contactOwnerBad: "Controlla {field}: non sembra un numero di telefono.",
+  contactTitle: "Contatta il ristorante",
+  contactCallLandline: "Chiama il fisso",
+  contactCallMobile: "Chiama il cellulare",
+  contactWhatsapp: "WhatsApp",
+
+  /* Campi obbligatori, segnati allo stesso modo su ogni modulo. */
+  fieldRequired: "obbligatorio",
+  fieldRequiredLegend: "* obbligatorio",
 
   /* Stampa delle comande (titolare). */
   boardPrint: "Stampa",
@@ -1860,6 +1944,11 @@ const es: Strings = {
   payFailedNote: "No se ha podido completar el pago — inténtalo de nuevo.",
   orderFailed: "No se ha podido realizar el pedido — inténtalo de nuevo.",
   orderingPaused: "Los pedidos están pausados ahora mismo — inténtalo más tarde.",
+  /* Cerrado ahora: nada inmediato, pero sí por adelantado. */
+  orderClosedNow: "Ahora mismo estamos cerrados: puedes pedir por adelantado para hoy más tarde.",
+  orderClosedNoSlots: "Ahora mismo estamos cerrados y hoy ya no quedan horas disponibles.",
+  orderClosedDineIn: "Pedir en la mesa solo es posible durante el horario de apertura.",
+  orderVenueClosed: "La cocina está cerrada en este momento: el pedido no se ha realizado.",
   outsideArea: "Lo sentimos, no repartimos en este código postal.",
   belowMin: "Aún no se ha alcanzado el pedido mínimo.",
   menuChanged: "La carta se ha actualizado — revisa tu cesta.",
@@ -2029,6 +2118,7 @@ const es: Strings = {
   issuePhotoOpen: "Abrir la foto",
   issueSend: "Enviar",
   issueSending: "Enviando…",
+  issueMessageLabel: "Tu mensaje",
   issueYou: "Tú",
   issueGuest: "Cliente",
   issueRestaurantLabel: "Restaurante",
@@ -2181,6 +2271,28 @@ const es: Strings = {
   hoursTimezone: "Horas en {zone}.",
   hoursHint:
     "Los clientes lo ven en la carta y la app lo usa para indicar si estás abierto. Para la pausa del mediodía usa los dos turnos; pasada la medianoche (17:00–02:00) no hay problema.",
+
+  /* Datos de contacto: el editor del propietario y la tarjeta del cliente. */
+  ownerContact: "Contacto",
+  contactOwnerTitle: "Datos de contacto",
+  contactOwnerHint: "Los clientes los ven en su pantalla de Cuenta; déjalo vacío para ocultarlo.",
+  contactOwnerLandline: "Teléfono fijo",
+  contactOwnerMobile: "Móvil",
+  contactOwnerWhatsapp: "WhatsApp",
+  contactOwnerNumberHint: "Con o sin prefijo del país: nosotros lo ponemos en orden.",
+  contactOwnerSave: "Guardar los datos de contacto",
+  contactOwnerSaving: "Guardando…",
+  contactOwnerSaved: "Datos de contacto guardados.",
+  contactOwnerSaveFailed: "No se han podido guardar los datos de contacto.",
+  contactOwnerBad: "Revisa {field}: no parece un número de teléfono.",
+  contactTitle: "Contactar con el restaurante",
+  contactCallLandline: "Llamar al fijo",
+  contactCallMobile: "Llamar al móvil",
+  contactWhatsapp: "WhatsApp",
+
+  /* Campos obligatorios, marcados igual en todos los formularios. */
+  fieldRequired: "obligatorio",
+  fieldRequiredLegend: "* obligatorio",
 
   /* Imprimir tickets de cocina (propietario). */
   boardPrint: "Imprimir",
@@ -2392,6 +2504,11 @@ const ar: Strings = {
   payFailedNote: "تعذّر إتمام الدفع — يُرجى المحاولة مرة أخرى.",
   orderFailed: "تعذّر إرسال الطلب — يُرجى المحاولة مرة أخرى.",
   orderingPaused: "الطلبات متوقفة مؤقتاً — يُرجى المحاولة لاحقاً.",
+  /* مغلق الآن: لا طلب فوري، لكن الطلب المسبق متاح. */
+  orderClosedNow: "نحن مغلقون الآن — يمكنك الطلب المسبق لوقت لاحق اليوم.",
+  orderClosedNoSlots: "نحن مغلقون الآن ولم تعد هناك أوقات متاحة اليوم.",
+  orderClosedDineIn: "الطلب على الطاولة متاح خلال ساعات العمل فقط.",
+  orderVenueClosed: "المطبخ مغلق الآن — لم يتم إرسال الطلب.",
   outsideArea: "للأسف لا نوصّل إلى هذا الرمز البريدي.",
   belowMin: "لم يتم بلوغ الحد الأدنى للطلب بعد.",
   menuChanged: "تم تحديث القائمة — يُرجى مراجعة سلتك.",
@@ -2560,6 +2677,7 @@ const ar: Strings = {
   issuePhotoOpen: "فتح الصورة",
   issueSend: "إرسال",
   issueSending: "جارٍ الإرسال…",
+  issueMessageLabel: "رسالتك",
   issueYou: "أنت",
   issueGuest: "ضيف",
   issueRestaurantLabel: "المطعم",
@@ -2706,6 +2824,28 @@ const ar: Strings = {
   hoursTimezone: "الأوقات بتوقيت {zone}.",
   hoursHint:
     "يراها الضيوف في القائمة، ويستخدمها التطبيق لبيان ما إذا كنت مفتوحاً. لاستراحة الغداء استخدم الفترتين؛ وما بعد منتصف الليل (17:00–02:00) مقبول.",
+
+  /* بيانات الاتصال — محرر المالك وبطاقة الضيف. */
+  ownerContact: "الاتصال",
+  contactOwnerTitle: "بيانات الاتصال",
+  contactOwnerHint: "يراها الضيوف في صفحة الحساب؛ اتركها فارغة لإخفائها.",
+  contactOwnerLandline: "الهاتف الأرضي",
+  contactOwnerMobile: "الجوّال",
+  contactOwnerWhatsapp: "واتساب",
+  contactOwnerNumberHint: "مع رمز الدولة أو بدونه — سنضبط الصيغة نيابة عنك.",
+  contactOwnerSave: "حفظ بيانات الاتصال",
+  contactOwnerSaving: "جارٍ الحفظ…",
+  contactOwnerSaved: "تم حفظ بيانات الاتصال.",
+  contactOwnerSaveFailed: "تعذّر حفظ بيانات الاتصال.",
+  contactOwnerBad: "تحقّق من {field}: لا يبدو هذا رقم هاتف.",
+  contactTitle: "تواصل مع المطعم",
+  contactCallLandline: "اتصل بالهاتف الأرضي",
+  contactCallMobile: "اتصل بالجوّال",
+  contactWhatsapp: "واتساب",
+
+  /* الحقول المطلوبة، بعلامة واحدة في كل النماذج. */
+  fieldRequired: "مطلوب",
+  fieldRequiredLegend: "* مطلوب",
 
   /* طباعة بونات المطبخ (المالك). */
   boardPrint: "طباعة",

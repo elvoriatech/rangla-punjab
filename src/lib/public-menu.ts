@@ -5,6 +5,7 @@ import { effectiveItemPrice } from "./offer-pricing";
 import { currentOpenState } from "./opening-hours";
 import { parseOpeningHours } from "./opening-hours-schema";
 import { publicRating, scheduleVenueRatingRefresh, type PublicRating } from "./google-rating";
+import { parseContactConfig, publicContact, type PublicContact } from "./contact-config";
 import type { PreviewContext } from "./preview-context";
 
 /**
@@ -77,6 +78,16 @@ export interface PublicMenu {
      * also renders the full `hours` beside it.
      */
     openNow: boolean;
+    /**
+     * The restaurant's own phone numbers, ready to render: each slot
+     * carries the E.164 number, a grouped display string and the `tel:` /
+     * `wa.me` link built from it. Null when the owner has published none —
+     * which is every venue until its owner fills the Settings card in.
+     *
+     * Optional so a hand-built fixture needn't carry it; every surface
+     * treats absent and null identically: no contact row at all.
+     */
+    contact?: PublicContact | null;
     branding: {
       primaryColor?: string;
       logoKey?: string | null;
@@ -101,6 +112,23 @@ export interface PublicMenu {
    *  tree, so a diet filter never changes it — surfaces that also narrow
    *  the menu re-derive from the items they actually render. */
   offerCount: number;
+  /**
+   * Ordering facts that depend on the venue rather than the basket.
+   *
+   * `acceptsAsapNow` answers the one question the checkout has to ask
+   * before it offers "Now": is the kitchen open at this moment (or has
+   * the owner never configured hours, in which case we never lock them
+   * out of their own ordering)? While it is false the client must hide
+   * "Now" and offer only the later-today slots — and `placeOrder`
+   * refuses an ASAP or dine-in order anyway (`venue_closed`), so a stale
+   * cached payload can annoy but never book food nobody will cook.
+   *
+   * Optional so a hand-built fixture needn't carry it; absent reads as
+   * "no opinion", which every surface must treat as `true`.
+   */
+  ordering?: {
+    acceptsAsapNow: boolean;
+  };
   /** The venue's Google rating + review link (P7-14), or null — which is
    *  what a venue whose owner has neither saved a Place ID nor typed a
    *  rating by hand always gets. `reviewUrl` is null when the number came
@@ -160,6 +188,7 @@ export async function loadPublicMenu(
         currency: true,
         timezone: true,
         hours: true,
+        contact: true,
         branding: true,
         googlePlaceId: true,
         googleRating: true,
@@ -276,6 +305,10 @@ export async function loadPublicMenu(
         // Unconfigured hours mean "we don't know", which the dot must
         // show as closed rather than promise as open.
         openNow: state.configured && state.open,
+        // Derived once, here: the `tel:` / `wa.me` links and the grouped
+        // display string are the same on the web footer, the account page
+        // and in the app, so no surface builds them for itself.
+        contact: publicContact(parseContactConfig(venue.contact)),
         branding,
       },
       locale: effectiveLocale,
@@ -285,6 +318,10 @@ export async function loadPublicMenu(
         (n, c) => n + c.items.filter((i) => i.offer != null).length,
         0,
       ),
+      // Same `state` the dot is drawn from, asked the other way round:
+      // "closed" hides the "Now" option, "no hours configured" leaves it
+      // exactly where it was.
+      ordering: { acceptsAsapNow: !state.configured || state.open },
       rating,
     };
   });

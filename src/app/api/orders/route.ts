@@ -63,7 +63,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const result = await placeOrder(context, orderInput, { customerId });
   if (!result.ok) {
-    const status = result.error === "unknown_items" || result.error === "not_published" ? 409 : 400;
+    // 409 for the three "the world moved on since you loaded the page"
+    // refusals — the request was well-formed, the venue's state changed
+    // (an item vanished, the menu was unpublished, the kitchen closed).
+    // 400 stays for a body the client got wrong.
+    const status =
+      result.error === "unknown_items" ||
+      result.error === "not_published" ||
+      result.error === "venue_closed"
+        ? 409
+        : 400;
     return withCors(NextResponse.json({ error: result.error }, { status }));
   }
 

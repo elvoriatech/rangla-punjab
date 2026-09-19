@@ -38,6 +38,7 @@ import { LoyaltyStaffScreen } from "./src/screens/LoyaltyStaffScreen";
 import { IssuesScreen } from "./src/screens/IssuesScreen";
 import { RatingOwnerScreen } from "./src/screens/RatingOwnerScreen";
 import { HoursOwnerScreen } from "./src/screens/HoursOwnerScreen";
+import { ContactOwnerScreen } from "./src/screens/ContactOwnerScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { OwnerMenuSheet } from "./src/owner-menu";
 
@@ -55,7 +56,7 @@ import { OwnerMenuSheet } from "./src/owner-menu";
  * never both — `auth.staff` is the whole switch.
  */
 
-/** "loyalty", "issues", "rating" and "hours" have no tab button: they
+/** "loyalty", "issues", "rating", "hours" and "contact" have no tab button: they
  *  are reached from the owner's burger and carry their own back arrow,
  *  like the tracking view. */
 type Tab =
@@ -68,10 +69,11 @@ type Tab =
   | "issues"
   | "rating"
   | "hours"
+  | "contact"
   | "info";
 
 /** The owner-only views, which a guest device must never be left on. */
-const OWNER_ONLY: readonly Tab[] = ["board", "loyalty", "issues", "rating", "hours"];
+const OWNER_ONLY: readonly Tab[] = ["board", "loyalty", "issues", "rating", "hours", "contact"];
 interface TrackTarget {
   orderId: string;
   token: string;
@@ -388,6 +390,12 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
+        {tab === "contact" && restaurant ? (
+          <ContactOwnerScreen
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
         {tab === "info" ? (
           <AccountScreen
             menu={menu}
@@ -473,6 +481,7 @@ function Shell(): React.ReactElement {
           }}
           onRating={() => setTab("rating")}
           onHours={() => setTab("hours")}
+          onContact={() => setTab("contact")}
           openIssues={openIssues}
         />
       ) : null}

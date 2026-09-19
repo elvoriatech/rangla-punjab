@@ -8,12 +8,59 @@ import {
   Text,
   View,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
 import type { ApiItem, ApiRating } from "./api";
+
+/**
+ * A form field's label, with the asterisk when the field is REQUIRED.
+ *
+ * The mark is the same everywhere — guest forms, owner forms, sheets —
+ * because "which of these must I fill in" is a question a person should
+ * only have to learn the answer to once. Colour is never the only
+ * signal: the asterisk is a visible glyph, and the accessibility label
+ * says the word, so a screen reader announces "Phone, required" rather
+ * than reading a star out of context.
+ *
+ * `style` takes the HOST screen's own label style (each screen sizes its
+ * labels differently); the asterisk keeps its accent regardless.
+ */
+export function FieldLabel({
+  label,
+  required = false,
+  style,
+}: {
+  label: string;
+  required?: boolean;
+  style?: StyleProp<TextStyle>;
+}): React.ReactElement {
+  const { t } = useI18n();
+  return (
+    <Text style={style} accessibilityLabel={required ? `${label}, ${t.fieldRequired}` : label}>
+      {label}
+      {required ? (
+        <Text
+          style={styles.requiredMark}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        >
+          {" *"}
+        </Text>
+      ) : null}
+    </Text>
+  );
+}
+
+/** The one line that explains the asterisks. Shown once per form that
+ *  has at least one required field, never on a form without any. */
+export function RequiredLegend({ style }: { style?: StyleProp<TextStyle> }): React.ReactElement {
+  const { t } = useI18n();
+  return <Text style={[styles.requiredLegend, style]}>{t.fieldRequiredLegend}</Text>;
+}
 
 /**
  * Red screen header with the brand mark — the mockup's top bar.
@@ -470,6 +517,11 @@ const HEADER_CONTENT_HEIGHT = 52;
 const HEADER_SLOT = 44;
 
 const styles = StyleSheet.create({
+  /** The asterisk on a required field, and the line that explains it.
+   *  Brand red on cream clears AA at this size, and the glyph itself —
+   *  not the colour — is what carries the meaning. */
+  requiredMark: { color: colors.red, ...fonts.bodyHeavy },
+  requiredLegend: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The red slab. It owns the padding and the colour so the rows
    *  inside it are pure layout — and so the status line, when it is
    *  there, sits inside the same red rather than under it. */

@@ -11,6 +11,7 @@ import type { CheckoutCopy } from "@/lib/i18n/checkout/en";
 import { loadCheckoutCopy } from "@/lib/i18n/checkout/load";
 import { dirFor, uiLocale } from "@/lib/locales";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
+import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 import {
   EMPTY_CART,
   cartCount,
@@ -388,6 +389,7 @@ export function CartDrawer({
   locale,
   modes,
   requestSlots = [],
+  acceptsAsapNow = true,
   onlinePayment,
   paypalPayment = false,
   loyalty,
@@ -399,6 +401,19 @@ export function CartDrawer({
   /** Venue-local "HH:MM" times selectable for later today (server-built
    *  from opening hours). Empty = ASAP-only. */
   requestSlots?: string[];
+  /**
+   * May the guest still order "Now"? False while the venue is CLOSED: the
+   * "Now" chip disappears, a later-today slot is preselected, and dine-in
+   * cannot be ordered at all — there is nobody in the room to bring it.
+   *
+   * Defaults to true so a caller that has not been taught about it (or a
+   * venue with no opening hours configured) behaves exactly as before:
+   * "we don't know" must never switch a restaurant's ordering off. The
+   * server refuses an ASAP or dine-in order while closed regardless
+   * (`venue_closed`), so a stale cached page can annoy but never book
+   * food nobody will cook.
+   */
+  acceptsAsapNow?: boolean;
   onlinePayment: boolean;
   paypalPayment?: boolean;
   /** Loyalty, round one: absent or disabled = the drawer says nothing
@@ -594,8 +609,23 @@ export function CartDrawer({
    * what the submit payload consults, so a time the server no longer
    * offers can never be sent.
    */
-  const slotIndex = requestSlots.indexOf(requestedTime);
-  const scheduled = requestedTime !== "" && slotIndex >= 0;
+  /**
+   * The time the order is actually FOR. Normally whatever the guest
+   * picked; while the venue is closed, "Now" is not on offer, so an empty
+   * (or stale) choice reads as the first later-today slot instead —
+   * derived rather than written back by an effect, so a slot list that
+   * changes under the guest can never leave the sheet holding a time the
+   * server no longer sells.
+   */
+  const effectiveTime =
+    acceptsAsapNow || requestSlots.includes(requestedTime)
+      ? requestedTime
+      : (requestSlots[0] ?? "");
+  const slotIndex = requestSlots.indexOf(effectiveTime);
+  const scheduled = effectiveTime !== "" && slotIndex >= 0;
+  /** Closed and dine-in: not a choice the guest can make. Nobody is in
+   *  the room, so the button says so instead of failing on submit. */
+  const dineInClosed = !acceptsAsapNow && orderType === "dine_in";
 
   const count = cartCount(lines);
   const itemsTotal = cartTotalCents(lines);
@@ -639,7 +669,15 @@ export function CartDrawer({
   const busy = placing || payStarting;
   /** Nothing may be placed or paid: no items, missing details, under the
    *  delivery minimum, or a payment already running. */
-  const payBlocked = busy || count === 0 || detailsMissing || belowMinimum;
+  const payBlocked =
+    busy ||
+    count === 0 ||
+    detailsMissing ||
+    belowMinimum ||
+    dineInClosed ||
+    // Closed with no later slot left today: there is no time this order
+    // could be for, so there is nothing to place.
+    (!acceptsAsapNow && orderType !== "dine_in" && !scheduled);
 
   // Nothing to show: empty cart, or the locale's copy hasn't landed yet.
   if (copy === null || (count === 0 && !placed)) return null;
@@ -716,7 +754,7 @@ export function CartDrawer({
       const payload = {
         slug,
         orderType,
-        requestedTime: orderType !== "dine_in" && scheduled ? requestedTime : undefined,
+        requestedTime: orderType !== "dine_in" && scheduled ? effectiveTime : undefined,
         tableNumber: orderType === "dine_in" ? tableNumber.trim() || undefined : undefined,
         customerName: orderType === "dine_in" ? undefined : customerName.trim(),
         customerPhone: orderType === "dine_in" ? undefined : customerPhone.trim(),
@@ -769,7 +807,9 @@ export function CartDrawer({
                     ? t.errBelowMinimum(money(areaMin))
                     : body?.error === "invalid_time"
                       ? t.errInvalidTime
-                      : t.errGeneric,
+                      : body?.error === "venue_closed"
+                        ? t.errVenueClosed
+                        : t.errGeneric,
         );
         return null;
       }
@@ -1100,6 +1140,17 @@ export function CartDrawer({
                 </div>
               ) : null}
 
+              {dineInClosed ? (
+                /* Closed: ordering at a table nobody is standing at is not
+                   a thing the guest can do, and the place-order button is
+                   disabled to match. */
+                <p
+                  role="status"
+                  className="mt-3 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+                >
+                  {t.closedDineIn}
+                </p>
+              ) : null}
               {orderType === "dine_in" ? (
                 <label className="mt-3 block text-sm">
                   <span className={FIELD_LABEL}>{t.tableNumber}</span>
@@ -1115,7 +1166,10 @@ export function CartDrawer({
               ) : (
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-sm">
-                    <span className={FIELD_LABEL}>{t.yourName}</span>
+                    <span className={FIELD_LABEL}>
+                      {t.yourName}
+                      <RequiredMark label={t.requiredMark} />
+                    </span>
                     <input
                       type="text"
                       value={customerName}
@@ -1126,7 +1180,10 @@ export function CartDrawer({
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className={FIELD_LABEL}>{t.phone}</span>
+                    <span className={FIELD_LABEL}>
+                      {t.phone}
+                      <RequiredMark label={t.requiredMark} />
+                    </span>
                     <input
                       type="tel"
                       value={customerPhone}
@@ -1151,23 +1208,29 @@ export function CartDrawer({
                       <div
                         role="radiogroup"
                         aria-label={orderType === "delivery" ? t.deliveryTime : t.pickupTime}
-                        className="mt-1 grid grid-cols-2 gap-2"
+                        className={`mt-1 grid gap-2 ${acceptsAsapNow ? "grid-cols-2" : "grid-cols-1"}`}
                       >
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={!scheduled}
-                          onClick={() => setRequestedTime("")}
-                          className={!scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
-                        >
-                          {t.timeNow}
-                          {!scheduled ? (
-                            <span
-                              aria-hidden="true"
-                              className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
-                            />
-                          ) : null}
-                        </button>
+                        {/* "Now" exists only while the kitchen is open.
+                            Hidden rather than disabled: a dead chip invites
+                            a tap and explains nothing, while the note below
+                            says what IS possible. */}
+                        {acceptsAsapNow ? (
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={!scheduled}
+                            onClick={() => setRequestedTime("")}
+                            className={!scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
+                          >
+                            {t.timeNow}
+                            {!scheduled ? (
+                              <span
+                                aria-hidden="true"
+                                className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
+                              />
+                            ) : null}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           role="radio"
@@ -1203,7 +1266,7 @@ export function CartDrawer({
                             aria-live="polite"
                             className="flex-1 text-center text-base font-semibold tabular-nums"
                           >
-                            {requestedTime}
+                            {effectiveTime}
                           </span>
                           <button
                             type="button"
@@ -1222,6 +1285,18 @@ export function CartDrawer({
                       )}
                     </div>
                   ) : null}
+                  {/* One line whenever the venue is shut: it is the only
+                      thing that explains why "Now" is not there — and,
+                      when no later slot is left today either, why the
+                      place-order button will not move. */}
+                  {acceptsAsapNow ? null : (
+                    <p
+                      role="status"
+                      className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))] sm:col-span-2"
+                    >
+                      {t.closedPreorderNote}
+                    </p>
+                  )}
                 </div>
               )}
               <label className="mt-3 block text-sm">
@@ -1278,7 +1353,10 @@ export function CartDrawer({
                   ) : (
                     <>
                       <label className="block text-sm">
-                        <span className={FIELD_LABEL}>{t.street}</span>
+                        <span className={FIELD_LABEL}>
+                          {t.street}
+                          <RequiredMark label={t.requiredMark} />
+                        </span>
                         <input
                           type="text"
                           value={street}
@@ -1291,7 +1369,10 @@ export function CartDrawer({
                       {modes.deliveryAreas.length > 0 ? (
                         <div className="grid grid-cols-[minmax(0,130px)_1fr] gap-3">
                           <label className="block text-sm">
-                            <span className={FIELD_LABEL}>{t.zip}</span>
+                            <span className={FIELD_LABEL}>
+                              {t.zip}
+                              <RequiredMark label={t.requiredMark} />
+                            </span>
                             {/* The restaurant delivers to a fixed ZIP list, so
                             the guest PICKS their area instead of typing —
                             "do you deliver here?" answers itself. */}
@@ -1328,7 +1409,10 @@ export function CartDrawer({
                         </div>
                       ) : (
                         <label className="block max-w-[150px] text-sm">
-                          <span className={FIELD_LABEL}>{t.zip}</span>
+                          <span className={FIELD_LABEL}>
+                            {t.zip}
+                            <RequiredMark label={t.requiredMark} />
+                          </span>
                           <input
                             type="text"
                             value={zip}
@@ -1375,6 +1459,16 @@ export function CartDrawer({
                   ) : null}
                 </div>
               ) : null}
+
+              {/* One legend for the whole details block. Dine-in has no
+                  required field at all — the table number is optional —
+                  so it gets no star and no line to explain one. */}
+              {orderType === "dine_in" ? null : (
+                <RequiredLegend
+                  label={t.requiredLegend}
+                  className="mt-3 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+                />
+              )}
 
               {error ? <MessagePopup kind="error" text={error} /> : null}
 

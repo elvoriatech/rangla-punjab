@@ -6,6 +6,7 @@ import { postOrderCopy } from "@/lib/i18n/post-order";
 import { dirFor } from "@/lib/locales";
 import { accountLocale } from "../locale";
 import { requestCustomerResetAction } from "./actions";
+import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 
 /**
  * "Forgot your password?" — one email field and a server action. No
@@ -31,7 +32,8 @@ export default async function ForgotPasswordPage({
 }): Promise<React.ReactElement> {
   const { sent, error, locale: localeParam, app: appParam } = await searchParams;
   const locale = await accountLocale(localeParam);
-  const t = postOrderCopy(locale).password;
+  const copy = postOrderCopy(locale);
+  const t = copy.password;
   const app = sanitizeAppReturnUrl(appParam);
   const errorText = error ? (error === "invalid" ? t.errors.invalid : t.errors.failed) : null;
   const accountHref = `/account?locale=${locale}${app ? `&app=${encodeURIComponent(app)}` : ""}`;
@@ -67,6 +69,7 @@ export default async function ForgotPasswordPage({
         <label className="block text-sm">
           <span className="text-xs uppercase tracking-[0.14em] rtl:normal-case rtl:tracking-normal text-muted">
             {t.emailLabel}
+            <RequiredMark label={copy.required.mark} />
           </span>
           <input
             type="email"
@@ -77,6 +80,7 @@ export default async function ForgotPasswordPage({
             className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2.5 text-base outline-none focus:border-ink focus-visible:ring-2 focus-visible:ring-gold/40"
           />
         </label>
+        <RequiredLegend label={copy.required.legend} className="text-xs text-muted" />
         <button
           type="submit"
           className="w-full bg-ink px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] rtl:normal-case rtl:tracking-normal text-card hover:opacity-90"

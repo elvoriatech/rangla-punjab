@@ -1157,6 +1157,71 @@ export async function searchStaffRatingPlaces(
 }
 
 /* ------------------------------------------------------------------ *
+ * Contact details — the phone book a guest sees on their Account screen.
+ *
+ * Three raw numbers, and the SERVER normalises them: "0 7531 123456"
+ * comes back as "+49…", an empty string clears the row. The app sends
+ * what the owner typed and re-reads whatever the server made of it —
+ * exactly like the rating's manual numbers, and for the same reason
+ * (a phone-number grammar belongs in one place, not in two clients).
+ * ------------------------------------------------------------------ */
+
+/** Which of the three a message is about. */
+export type StaffContactField = "landline" | "mobile" | "whatsapp";
+
+export const CONTACT_FIELDS: readonly StaffContactField[] = ["landline", "mobile", "whatsapp"];
+
+/** Each number in the server's own storage form (E.164), or null when
+ *  the owner has not filled that row in. */
+export interface StaffContact {
+  landline: string | null;
+  mobile: string | null;
+  whatsapp: string | null;
+}
+
+export function isStaffContactField(value: unknown): value is StaffContactField {
+  return typeof value === "string" && (CONTACT_FIELDS as readonly string[]).includes(value);
+}
+
+export function asStaffContact(raw: unknown): StaffContact {
+  const c = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    landline: nullableStr(c.landline),
+    mobile: nullableStr(c.mobile),
+    whatsapp: nullableStr(c.whatsapp),
+  };
+}
+
+export async function fetchStaffContact(token: string): Promise<StaffResult<StaffContact>> {
+  const res = await staffFetch(token, "/api/v1/staff/contact");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: asStaffContact(res.body.contact) };
+}
+
+/**
+ * Save the numbers. PARTIAL: only the keys present travel, so a screen
+ * that only touched the mobile leaves the other two alone, and an empty
+ * string is the server's own "clear this one".
+ *
+ * A 400 names the offending row in `field` ("landline"), which the
+ * screen puts under that input rather than at the top.
+ */
+export async function updateStaffContact(
+  token: string,
+  patch: Partial<Record<StaffContactField, string>>,
+): Promise<StaffResult<StaffContact>> {
+  const res = await staffFetch(token, "/api/v1/staff/contact", { method: "PATCH", body: patch });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) {
+    const error = failure(res.status);
+    const field = res.body ? nullableStr(res.body.field) : null;
+    return field ? { ok: false, error, field } : { ok: false, error };
+  }
+  return { ok: true, data: asStaffContact(res.body.contact) };
+}
+
+/* ------------------------------------------------------------------ *
  * Opening hours — the week the venue is actually open.
  *
  * The server owns the clock: `timezone` is the VENUE's zone (not this

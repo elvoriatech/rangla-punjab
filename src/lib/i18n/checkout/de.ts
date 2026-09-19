@@ -49,6 +49,8 @@ const de: CheckoutCopy = {
 
   timeNow: "Sofort",
   timeScheduled: "Geplant",
+  closedPreorderNote: "Wir haben gerade geschlossen — Sie können für später heute vorbestellen.",
+  closedDineIn: "Bestellen am Tisch ist nur während der Öffnungszeiten möglich.",
   timeEarlier: "Früher",
   timeLater: "Später",
 
@@ -109,12 +111,17 @@ const de: CheckoutCopy = {
   errBelowMinimum: (min) => `Lieferung ab ${min} — bitte legen Sie noch etwas dazu.`,
   errInvalidTime:
     "Diese Zeit ist gerade vorbei oder liegt außerhalb der Öffnungszeiten — bitte wählen Sie eine andere.",
+  errVenueClosed:
+    "Wir haben gerade geschlossen — wählen Sie eine spätere Zeit heute oder versuchen Sie es morgen.",
   errGeneric: "Die Bestellung ist nicht durchgegangen. Bitte versuchen Sie es erneut.",
   errNoConnection: "Keine Verbindung — bitte prüfen Sie Ihr Netzwerk und versuchen Sie es erneut.",
 
   add: "+ Hinzufügen",
   added: "Hinzugefügt ✓",
   addAria: (name) => `${name} zur Bestellung hinzufügen`,
+
+  requiredMark: "(Pflichtfeld)",
+  requiredLegend: "* Pflichtfeld",
 };
 
 export default de;

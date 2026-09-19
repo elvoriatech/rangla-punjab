@@ -1,0 +1,29 @@
+-- Reach the restaurant: one landline, one mobile, one WhatsApp number.
+--
+-- A guest looking at a menu on their phone has exactly one question the
+-- menu itself cannot answer — "can I just ring them?" — and until now the
+-- only number in the product was the one a reservation confirmation asks
+-- the guest for. This column is the other direction: the restaurant's own
+-- numbers, typed once by the owner in Settings (or from the app) and
+-- rendered as tap-to-call / WhatsApp links wherever a guest already is.
+--
+-- `{ landline, mobile, whatsapp }` — each an E.164 string or null, exactly
+-- as `src/lib/contact-config.ts` writes it. JSONB rather than three TEXT
+-- columns because the three are only ever read and written together, and
+-- because the next number a restaurant wants to publish (a second branch,
+-- a Signal handle, a catering line) is then an app-level change instead of
+-- another ALTER on the venues table.
+--
+-- Numbers are stored NORMALISED (`+4975311234 56` → `+497531123456`): the
+-- display string and the `tel:` / `wa.me` hrefs are derived on read, so a
+-- venue never stores three spellings of the same number and no surface has
+-- to guess how the owner typed it.
+--
+-- NOT NULL DEFAULT '{}' like `venues.loyalty`: the empty object parses to
+-- "all three absent", which every surface already renders as nothing at
+-- all. So every existing venue keeps showing guests exactly what it shows
+-- today until its owner fills the card in.
+--
+-- No RLS work: `venues` has tenant isolation enabled, forced and policed
+-- since P1-2, and adding a column does not touch its policies or grants.
+ALTER TABLE "venues" ADD COLUMN "contact" JSONB NOT NULL DEFAULT '{}';

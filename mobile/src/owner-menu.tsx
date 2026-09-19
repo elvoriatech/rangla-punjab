@@ -24,6 +24,7 @@ export function OwnerMenuSheet({
   onIssues,
   onRating,
   onHours,
+  onContact,
   openIssues = 0,
 }: {
   visible: boolean;
@@ -36,6 +37,8 @@ export function OwnerMenuSheet({
   onRating: () => void;
   /** The week the kitchen is open. */
   onHours: () => void;
+  /** The numbers a guest can phone the restaurant on. */
+  onContact: () => void;
   /** Unresolved complaints; 0 hides the badge entirely. */
   openIssues?: number;
 }): React.ReactElement {
@@ -91,6 +94,7 @@ export function OwnerMenuSheet({
           />
           <Row icon="star-outline" label={t.ownerRating} onPress={() => go(onRating)} />
           <Row icon="time-outline" label={t.ownerHours} onPress={() => go(onHours)} />
+          <Row icon="call-outline" label={t.ownerContact} onPress={() => go(onContact)} />
           <View style={styles.rule} />
           <Row icon="log-out-outline" label={t.signOutStaff} danger onPress={confirmSignOut} />
         </Pressable>

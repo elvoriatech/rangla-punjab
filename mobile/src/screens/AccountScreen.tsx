@@ -13,8 +13,8 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { ApiLoyaltyEntry, ApiMenu } from "../api";
-import { BASE_URL, requestPasswordReset } from "../api";
+import type { ApiContactEntry, ApiLoyaltyEntry, ApiMenu, ApiVenueContact } from "../api";
+import { BASE_URL, contactEntries, requestPasswordReset } from "../api";
 import { appReturnUrl, GOOGLE_NATIVE, RESET_STATUS, useAuth, type AccountOrder } from "../auth";
 import { GoogleButton } from "../google-button";
 import { fill, LANGS, localeTag, useI18n } from "../i18n";
@@ -28,7 +28,7 @@ import {
   useLoyalty,
 } from "../loyalty";
 import { ReservationsCard } from "../reservations";
-import { OutlineButton, PrimaryButton } from "../components";
+import { FieldLabel, OutlineButton, PrimaryButton, RequiredLegend } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
 /**
@@ -100,6 +100,36 @@ export function AccountScreen({
     { closed?: boolean; slots?: { open?: string; close?: string }[] } | undefined
   >;
   const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  // The venue's phone book, already parsed and filtered by `api.ts`:
+  // an empty list is the whole test for "no contact card".
+  const contacts = contactEntries(menu.venue.contact);
+  const contactLabel: Record<keyof ApiVenueContact, string> = {
+    landline: t.contactCallLandline,
+    mobile: t.contactCallMobile,
+    whatsapp: t.contactWhatsapp,
+  };
+  // `href` is the SERVER's (`tel:+49…`), never one the app assembled.
+  const openTel = (entry: ApiContactEntry): Promise<void> =>
+    Linking.openURL(entry.href).catch(() => {});
+  /**
+   * WhatsApp, with the one fallback that matters: a device without the
+   * app installed can refuse the link, and `https://wa.me/<number>`
+   * opens WhatsApp Web (or the store page) in the browser instead. That
+   * is the same URL the server sends, so the fallback is a retry on a
+   * device that is sure to take it rather than a second guess.
+   */
+  const openWhatsapp = async (entry: ApiContactEntry): Promise<void> => {
+    const web = `https://wa.me/${entry.number.replace(/\D/g, "")}`;
+    const can = await Linking.canOpenURL(entry.href).catch(() => false);
+    if (can) {
+      const opened = await Linking.openURL(entry.href).then(
+        () => true,
+        () => false,
+      );
+      if (opened) return;
+    }
+    await Linking.openURL(web).catch(() => {});
+  };
   const tag = localeTag(lang);
   const dt = (iso: string): string => {
     const d = new Date(iso);
@@ -367,23 +397,29 @@ export function AccountScreen({
                 ))}
 
               <Text style={[styles.mutedText, { textAlign: "center" }]}>{t.orWithEmail}</Text>
+              {/* Both fields are checked before anything is sent
+                  (`submitEmailAuth`), so both carry the mark — and the
+                  labels replace the placeholders they used to repeat. */}
+              <RequiredLegend style={{ marginBottom: 6 }} />
+              <FieldLabel label={t.email} required style={styles.authLabel} />
               <TextInput
                 value={authEmail}
                 onChangeText={setAuthEmail}
-                placeholder={t.email}
                 placeholderTextColor={colors.inkSoft}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
+                accessibilityLabel={t.email}
                 style={styles.authInput}
               />
+              <FieldLabel label={t.passwordMin} required style={styles.authLabel} />
               <TextInput
                 value={authPassword}
                 onChangeText={setAuthPassword}
-                placeholder={t.passwordMin}
                 placeholderTextColor={colors.inkSoft}
                 secureTextEntry
                 autoCapitalize="none"
+                accessibilityLabel={t.passwordMin}
                 style={styles.authInput}
               />
               {/* Under the password field, where the guest is when they
@@ -420,10 +456,10 @@ export function AccountScreen({
                     <>
                       <Text style={styles.forgotTitle}>{t.forgotTitle}</Text>
                       <Text style={styles.forgotIntro}>{t.forgotIntro}</Text>
+                      <FieldLabel label={t.email} required style={styles.authLabel} />
                       <TextInput
                         value={forgotEmail}
                         onChangeText={setForgotEmail}
-                        placeholder={t.email}
                         placeholderTextColor={colors.inkSoft}
                         keyboardType="email-address"
                         autoCapitalize="none"
@@ -581,6 +617,25 @@ export function AccountScreen({
             itself away when there is nothing to show. */}
         {!staff ? <ReservationsCard token={auth.token} /> : null}
 
+        {/* Contact — the one card that is about the RESTAURANT rather
+            than about this device, so it shows whether or not anybody is
+            signed in. It renders itself away when the owner has filled
+            in none of the three numbers. */}
+        {contacts.length > 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t.contactTitle}</Text>
+            {contacts.map(({ key, entry }) => (
+              <ContactRow
+                key={key}
+                icon={key === "whatsapp" ? "logo-whatsapp" : "call-outline"}
+                label={contactLabel[key]}
+                entry={entry}
+                onPress={() => void (key === "whatsapp" ? openWhatsapp(entry) : openTel(entry))}
+              />
+            ))}
+          </View>
+        ) : null}
+
         {/* Hours */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t.hours}</Text>
@@ -633,6 +688,37 @@ export function AccountScreen({
         onChanged={reloadLoyalty}
       />
     </View>
+  );
+}
+
+/** One way to reach the restaurant: what the tap does, then the number
+ *  itself. Both are in the accessibility label, so a screen reader
+ *  announces "Call landline, plus 49 7531 …" rather than just an icon. */
+function ContactRow({
+  icon,
+  label,
+  entry,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  entry: ApiContactEntry;
+  onPress: () => void;
+}): React.ReactElement {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} · ${entry.display}`}
+      style={({ pressed }) => [styles.contactRow, pressed && { opacity: 0.6 }]}
+    >
+      <Ionicons name={icon} size={18} color={colors.red} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.contactLabel}>{label}</Text>
+        <Text style={styles.contactNumber}>{entry.display}</Text>
+      </View>
+      <Text style={{ color: colors.inkSoft, ...fonts.body, fontSize: 18 }}>{CHEVRON_FORWARD}</Text>
+    </Pressable>
   );
 }
 
@@ -714,6 +800,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
   },
   loginBtnOutlineText: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 13 },
+  authLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12, marginBottom: 4 },
   authInput: {
     backgroundColor: colors.creamCard,
     borderWidth: 1,
@@ -807,6 +894,18 @@ const styles = StyleSheet.create({
   hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   hoursDay: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
   hoursTime: { color: colors.ink, fontSize: 13, ...fonts.bodySemi },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    // A phone number is tapped with a thumb, often in a hurry.
+    minHeight: 48,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderColor: colors.line,
+  },
+  contactLabel: { color: colors.ink, fontSize: 14, ...fonts.bodySemi },
+  contactNumber: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginTop: 1 },
   linkRow: {
     flexDirection: "row",
     justifyContent: "space-between",

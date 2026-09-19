@@ -13,8 +13,10 @@ import { getLoyaltySummary } from "@/lib/loyalty-service";
 import { listCustomerReservations } from "@/lib/reservation-service";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 import { reviewPromptFor, trackedReviewUrl } from "@/lib/google-rating";
+import { parseContactConfig, publicContact } from "@/lib/contact-config";
 import { dirFor, isLocaleCode, uiLocale } from "@/lib/locales";
 import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } from "./actions";
+import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 
 /**
  * Mein Konto — the guest account page. Signed out: the provider buttons
@@ -110,6 +112,7 @@ export default async function AccountPage({
           where: { id: context.venueId },
           select: {
             defaultLocale: true,
+            contact: true,
             googlePlaceId: true,
             googleRating: true,
             googleRatingManual: true,
@@ -123,6 +126,10 @@ export default async function AccountPage({
   );
   const t = postOrderCopy(locale);
   const rateLabel = t.review.short;
+  // The restaurant's own numbers. Null — and the card is absent — until an
+  // owner fills the Settings card in, and shown signed IN or OUT: "how do I
+  // ring them?" is not a question that waits for a login.
+  const contact = publicContact(parseContactConfig(venueRow?.contact));
   // The reset pages keep the app's deep link alive across the round trip,
   // so a guest who started in the app lands back in it. Allow-listed here
   // for the same reason it is everywhere else: it ends up in an href.
@@ -217,7 +224,10 @@ export default async function AccountPage({
           </p>
           <form className="space-y-3 border border-ink/15 bg-card px-5 py-4">
             <label className="block text-sm">
-              <span className="text-xs uppercase tracking-[0.14em] text-muted">E-Mail</span>
+              <span className="text-xs uppercase tracking-[0.14em] text-muted">
+                E-Mail
+                <RequiredMark label={t.required.mark} />
+              </span>
               <input
                 type="email"
                 name="email"
@@ -229,6 +239,7 @@ export default async function AccountPage({
             <label className="block text-sm">
               <span className="text-xs uppercase tracking-[0.14em] text-muted">
                 Passwort (min. 8 Zeichen)
+                <RequiredMark label={t.required.mark} />
               </span>
               <input
                 type="password"
@@ -263,6 +274,7 @@ export default async function AccountPage({
                 className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
               />
             </label>
+            <RequiredLegend label={t.required.legend} className="text-xs text-muted" />
             <div className="flex gap-3 pt-1">
               <button
                 type="submit"
@@ -510,6 +522,50 @@ export default async function AccountPage({
           )}
         </section>
       )}
+
+      {/* Contact the restaurant. Plain anchors, no JS: `tel:` dials and
+          `wa.me` opens WhatsApp (or its web client on a desktop). Each
+          link carries the number as its visible text as well as its label,
+          so a guest on a device that cannot dial can still read it out. */}
+      {contact ? (
+        <section
+          aria-label={t.contact.title}
+          dir={dirFor(locale)}
+          className="mt-10 border border-ink/15 bg-card px-5 py-4"
+        >
+          <h2 className="font-serif text-2xl">{t.contact.title}</h2>
+          <p className="mt-1 text-sm text-muted">{t.contact.intro}</p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {contact.landline ? (
+              <li>
+                <a className="underline underline-offset-2" href={contact.landline.href}>
+                  {t.contact.landline}: {contact.landline.display}
+                </a>
+              </li>
+            ) : null}
+            {contact.mobile ? (
+              <li>
+                <a className="underline underline-offset-2" href={contact.mobile.href}>
+                  {t.contact.mobile}: {contact.mobile.display}
+                </a>
+              </li>
+            ) : null}
+            {contact.whatsapp ? (
+              <li>
+                <a
+                  className="underline underline-offset-2"
+                  href={contact.whatsapp.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={t.contact.whatsappAria(contact.whatsapp.display)}
+                >
+                  {t.contact.whatsapp}: {contact.whatsapp.display}
+                </a>
+              </li>
+            ) : null}
+          </ul>
+        </section>
+      ) : null}
 
       <p className="mt-10 text-sm">
         <Link href="/" className="underline underline-offset-2">

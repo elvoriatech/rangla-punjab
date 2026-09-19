@@ -86,6 +86,12 @@ async function fixture(): Promise<Fixture> {
   return { tenantId: s.tenantId, slug, userId: s.userId };
 }
 
+interface Entry {
+  number: string;
+  display: string;
+  href: string;
+}
+
 interface MenuPayload {
   ok: boolean;
   venue: {
@@ -94,7 +100,13 @@ interface MenuPayload {
     enabledLocales: string[];
     openNow: boolean;
     hours: { configured: boolean };
+    contact: {
+      landline: Entry | null;
+      mobile: Entry | null;
+      whatsapp: Entry | null;
+    } | null;
   };
+  ordering: { acceptsAsapNow: boolean; requestSlots: string[] };
   offerCount: number;
   rating: { value: number; count: number; reviewUrl: string } | null;
   categories: { items: { name: string }[] }[];
@@ -169,6 +181,36 @@ describe("GET /api/v1/menu — ?locale", () => {
     expect((await read(fx.slug)).offerCount).toBe(1);
   });
 
+  it("sends the restaurant's numbers with their links, or an explicit null", async () => {
+    const fx = await fixture();
+    // Always present, like `rating`: the app tests `venue.contact` and
+    // nothing else, so "absent" must never be a third state.
+    const before = await read(fx.slug);
+    expect(before.venue).toHaveProperty("contact");
+    expect(before.venue.contact).toBeNull();
+
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({
+        data: { contact: { mobile: "+491701234567", whatsapp: "+491701234567" } },
+      }),
+    );
+    // `tel:` keeps the plus, `wa.me` drops it — both built here so the
+    // app opens a URL rather than re-deriving either rule.
+    expect((await read(fx.slug)).venue.contact).toEqual({
+      landline: null,
+      mobile: {
+        number: "+491701234567",
+        display: "+49 1701 234567",
+        href: "tel:+491701234567",
+      },
+      whatsapp: {
+        number: "+491701234567",
+        display: "+49 1701 234567",
+        href: "https://wa.me/491701234567",
+      },
+    });
+  });
+
   it("sends the Google rating, and an explicit null when there is none (P7-14)", async () => {
     const fx = await fixture();
     // The field is always present: the app tests `rating` and nothing
@@ -222,6 +264,10 @@ describe("GET /api/v1/menu — ?locale", () => {
     const unset = await read(fx.slug);
     expect(unset.venue.hours.configured).toBe(false);
     expect(unset.venue.openNow).toBe(false);
+    // …but the dot and the cart read the same state differently: with no
+    // hours saved the venue is not "closed for business", so the app must
+    // keep offering "Now".
+    expect(unset.ordering.acceptsAsapNow).toBe(true);
 
     // Open round the clock: `close === open` is the schema's overnight
     // window, so this holds whenever the suite happens to run.
@@ -235,7 +281,9 @@ describe("GET /api/v1/menu — ?locale", () => {
       ),
     };
     await asTenant(fx.tenantId, (tx) => tx.venue.updateMany({ data: { hours: allDay } }));
-    expect((await read(fx.slug)).venue.openNow).toBe(true);
+    const round = await read(fx.slug);
+    expect(round.venue.openNow).toBe(true);
+    expect(round.ordering.acceptsAsapNow).toBe(true);
 
     // Configured and shut every day — the other half of the dot.
     const shut = {
@@ -250,6 +298,10 @@ describe("GET /api/v1/menu — ?locale", () => {
     await asTenant(fx.tenantId, (tx) => tx.venue.updateMany({ data: { hours: shut } }));
     const closed = await read(fx.slug);
     expect(closed.venue.openNow).toBe(false);
+    // Shut means the cart must hide "Now": an ASAP order placed here is
+    // refused server-side with `venue_closed`.
+    expect(closed.ordering.acceptsAsapNow).toBe(false);
+    expect(closed.ordering.requestSlots).toEqual([]);
     // The hours themselves still ride along — the app draws the table
     // next to the dot and must not have to ask twice.
     expect(closed.venue.hours.configured).toBe(true);

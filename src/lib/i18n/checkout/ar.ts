@@ -51,6 +51,8 @@ const ar: CheckoutCopy = {
 
   timeNow: "الآن",
   timeScheduled: "مجدول",
+  closedPreorderNote: "نحن مغلقون حالياً — يمكنكم الطلب مسبقاً لوقت لاحق اليوم.",
+  closedDineIn: "الطلب على الطاولة متاح خلال ساعات العمل فقط.",
   timeEarlier: "أبكر",
   timeLater: "لاحقاً",
 
@@ -104,12 +106,16 @@ const ar: CheckoutCopy = {
   errOutsideArea: "عذرًا، هذا العنوان خارج منطقة التوصيل.",
   errBelowMinimum: (min) => `يبدأ التوصيل من ${min} — أضف المزيد قليلًا.`,
   errInvalidTime: "هذا الوقت انقضى للتو أو خارج ساعات العمل — اختر وقتًا آخر.",
+  errVenueClosed: "لقد أغلقنا للتو — اختاروا وقتاً لاحقاً اليوم أو حاولوا غداً.",
   errGeneric: "لم يكتمل الطلب. يُرجى المحاولة مرة أخرى.",
   errNoConnection: "لا يوجد اتصال — تحقق من الشبكة وحاول مرة أخرى.",
 
   add: "+ إضافة",
   added: "تمت الإضافة ✓",
   addAria: (name) => `إضافة ${name} إلى الطلب`,
+
+  requiredMark: "(حقل مطلوب)",
+  requiredLegend: "* حقل مطلوب",
 };
 
 export default ar;

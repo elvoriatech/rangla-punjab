@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { QtyStepper } from "./components";
+import { FieldLabel, QtyStepper, RequiredLegend } from "./components";
 import Svg, { Circle, Path } from "react-native-svg";
 import type { ApiMenu } from "./api";
 import { createReservation } from "./api";
@@ -166,6 +166,7 @@ export function ReserveSheet({
             ) : (
               <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
                 <Text style={styles.lead}>{t.reserveLead}</Text>
+                <RequiredLegend />
 
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   <Picker
@@ -173,6 +174,7 @@ export function ReserveSheet({
                     value={date ? dateLabel(date) : "—"}
                     onPress={() => setPicker("date")}
                     style={{ flex: 1 }}
+                    required
                   />
                   <Picker
                     label={t.resTime}
@@ -180,6 +182,7 @@ export function ReserveSheet({
                     onPress={() => date && setPicker("time")}
                     dim={!date}
                     style={{ flex: 1 }}
+                    required
                   />
                 </View>
                 {/* Party size: plus / minus, one tap per guest (1–20, the
@@ -202,6 +205,7 @@ export function ReserveSheet({
                   value={name}
                   onChange={setName}
                   placeholder={t.namePlaceholder}
+                  required
                 />
                 <Field
                   label={t.phone}
@@ -209,6 +213,7 @@ export function ReserveSheet({
                   onChange={setPhone}
                   placeholder="+49 …"
                   keyboardType="phone-pad"
+                  required
                 />
                 <Field
                   label={t.resNote}
@@ -269,16 +274,18 @@ function Picker({
   onPress,
   dim,
   style,
+  required = false,
 }: {
   label: string;
   value: string;
   onPress: () => void;
   dim?: boolean;
   style?: object;
+  required?: boolean;
 }): React.ReactElement {
   return (
     <View style={[{ gap: 4 }, style]}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <FieldLabel label={label} required={required} style={styles.fieldLabel} />
       <Pressable style={[styles.dropdown, dim && { opacity: 0.5 }]} onPress={onPress}>
         <Text style={styles.dropdownValue} numberOfLines={1}>
           {value}
@@ -295,16 +302,19 @@ function Field({
   onChange,
   placeholder,
   keyboardType,
+  required = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   keyboardType?: "phone-pad";
+  /** Set only where `missing` above blocks the request on this field. */
+  required?: boolean;
 }): React.ReactElement {
   return (
     <View style={{ gap: 4 }}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <FieldLabel label={label} required={required} style={styles.fieldLabel} />
       <TextInput
         value={value}
         onChangeText={onChange}

@@ -13,7 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth";
 import type { StaffHoursDay, StaffHoursSlot, StaffHoursWeek } from "../staff";
 import { HOURS_DAYS, fetchStaffHours, updateStaffHours } from "../staff";
-import { BrandHeader, OutlineButton, PrimaryButton } from "../components";
+import {
+  BrandHeader,
+  FieldLabel,
+  OutlineButton,
+  PrimaryButton,
+  RequiredLegend,
+} from "../components";
 import { fill, useI18n } from "../i18n";
 import { useLayout } from "../layout";
 import { colors, fonts, radius } from "../theme";
@@ -295,6 +301,10 @@ export function HoursOwnerScreen({
                 <Text style={styles.hint}>{fill(t.hoursTimezone, { zone: timezone })}</Text>
               ) : null}
               <Text style={styles.hint}>{t.hoursHint}</Text>
+              {/* `dayIsValid` refuses a slot with only one end filled in,
+                  so both times on an OPEN day carry the mark; a closed
+                  day has no slots at all. */}
+              <RequiredLegend />
             </View>
 
             {HOURS_DAYS.map((day) => {
@@ -427,7 +437,7 @@ function TimeField({
 }): React.ReactElement {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <FieldLabel label={label} required style={styles.fieldLabel} />
       <Pressable
         onPress={onPress}
         accessibilityRole="button"

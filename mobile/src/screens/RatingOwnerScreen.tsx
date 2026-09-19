@@ -21,7 +21,13 @@ import {
   searchStaffRatingPlaces,
   updateStaffRating,
 } from "../staff";
-import { BrandHeader, OutlineButton, PrimaryButton } from "../components";
+import {
+  BrandHeader,
+  FieldLabel,
+  OutlineButton,
+  PrimaryButton,
+  RequiredLegend,
+} from "../components";
 import { fill, localeTag, useI18n } from "../i18n";
 import { useLayout } from "../layout";
 import { colors, fonts, radius } from "../theme";
@@ -475,13 +481,16 @@ export function RatingOwnerScreen({
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>{t.ratingOwnerManualTitle}</Text>
                 <Text style={styles.hint}>{t.ratingOwnerManualHint}</Text>
+                {/* Both numbers are refused by `saveManual` when empty;
+                    the Place ID above is optional, so it carries no mark. */}
+                <RequiredLegend />
                 {rating.effective?.source === "fetched" ? (
                   <Text style={styles.warn}>{t.ratingOwnerManualBeaten}</Text>
                 ) : null}
 
                 <View style={styles.fieldRow}>
                   <View style={styles.field}>
-                    <Text style={styles.label}>{t.ratingOwnerValue}</Text>
+                    <FieldLabel label={t.ratingOwnerValue} required style={styles.label} />
                     <TextInput
                       value={value}
                       onChangeText={(next) => {
@@ -499,7 +508,7 @@ export function RatingOwnerScreen({
                     <Text style={styles.hint}>{t.ratingOwnerValueHint}</Text>
                   </View>
                   <View style={styles.field}>
-                    <Text style={styles.label}>{t.ratingOwnerCount}</Text>
+                    <FieldLabel label={t.ratingOwnerCount} required style={styles.label} />
                     <TextInput
                       value={count}
                       onChangeText={(next) => {
