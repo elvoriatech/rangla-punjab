@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer-auth";
-import { canTransition, isOrderStatus } from "./order-status";
+import { TERMINAL_STATUSES, canTransition, isOrderStatus } from "./order-status";
 import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
 import { paypalAvailable } from "./paypal";
 import { stripeDirectChargeAvailable } from "./stripe";
@@ -614,9 +614,12 @@ export async function listRecentOrders(
   limit = 50,
   options: RecentOrdersOptions = {},
 ): Promise<KitchenOrder[]> {
+  // Both terminals close an order: a cancelled one belongs to the
+  // archive, not to the board the kitchen is cooking from.
+  const closed = [...TERMINAL_STATUSES];
   const where: Prisma.OrderWhereInput = {};
-  if (options.scope === "open") where.status = { not: "done" };
-  else if (options.scope === "closed") where.status = "done";
+  if (options.scope === "open") where.status = { notIn: closed };
+  else if (options.scope === "closed") where.status = { in: closed };
   if (options.updatedSince) where.updatedAt = { gte: options.updatedSince };
 
   const rows = await asUser(userId, (tx) =>
@@ -706,14 +709,17 @@ export async function markOrderDone(userId: string, orderId: string): Promise<{ 
 /**
  * Statuses that give earned loyalty points back.
  *
- * `cancelled` is NOT part of the forward-only lifecycle today (see
- * `order-status.ts`: placed → preparing → ready → [out_for_delivery] →
- * done), so `advanceOrderStatus` refuses it before this set is ever
- * consulted. It is declared here anyway so that adding a cancel
- * transition is a one-line change to `ORDER_STATUSES` rather than someone
- * remembering, months later, that a money path also owes the guest their
- * points back. `reverseOrderCredit` is a public, tested entry point in
- * the meantime.
+ * Live since P7-17: `cancelled` is reachable from every open status, and
+ * calling an order off has to undo what placing it moved — the redeemed
+ * voucher goes back on the account and any points already credited are
+ * reversed. `reverseOrderCredit` owns both halves and is idempotent, so
+ * a double cancel (two staff, one tap each) costs nothing.
+ *
+ * The reverse ordering cannot happen: `done` is terminal, so nothing
+ * that was credited BY THE KITCHEN ticking it off can later be
+ * cancelled. An order paid online is credited earlier, by
+ * `markOrderPaid`, while it is still open — that one really can be
+ * cancelled, and its ledger line is what the reversal above undoes.
  */
 const REVERSING_STATUSES: ReadonlySet<string> = new Set(["cancelled"]);
 export async function advanceOrderStatus(

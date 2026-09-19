@@ -173,8 +173,10 @@ describe("/api/v1/staff/*", () => {
       issueStatus: null,
       issueId: null,
     });
-    // dine-in never walks the courier leg.
-    expect(order?.allowedNext).toEqual(["preparing", "ready", "done"]);
+    // dine-in never walks the courier leg, and "cancel" rides along on
+    // every open order — the app draws one button per entry, so this is
+    // the only thing that puts a cancel button on the board.
+    expect(order?.allowedNext).toEqual(["preparing", "ready", "done", "cancelled"]);
     expect(order?.items).toEqual([{ name: "Dal", quantity: 2, priceCents: 1200 }]);
     expect(typeof order?.orderNumber).toBe("number");
     expect(new Date(order!.createdAt).getTime()).toBeGreaterThan(0);
@@ -191,7 +193,7 @@ describe("/api/v1/staff/*", () => {
     expect(ok.status).toBe(200);
     const body = (await ok.json()) as OrdersBody;
     expect(body.order).toMatchObject({ id: orderId, status: "preparing" });
-    expect(body.order?.allowedNext).toEqual(["ready", "done"]);
+    expect(body.order?.allowedNext).toEqual(["ready", "done", "cancelled"]);
 
     const row = await asTenant(tenantId, (tx) =>
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { status: true } }),
@@ -267,13 +269,46 @@ describe("/api/v1/staff/*", () => {
     expect(done?.allowedNext).toEqual([]);
   });
 
+  it("cancels an open order and leaves it with nowhere to go", async () => {
+    const orderId = await placeDineIn("13");
+
+    const res = await STATUS(
+      request(`/api/v1/staff/orders/${orderId}/status`, staffToken, { to: "cancelled" }),
+      { params: Promise.resolve({ id: orderId }) },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as OrdersBody;
+    expect(body.order).toMatchObject({ id: orderId, status: "cancelled" });
+    // Terminal: the app draws no buttons at all on a cancelled card.
+    expect(body.order?.allowedNext).toEqual([]);
+
+    const row = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { status: true } }),
+    );
+    expect(row.status).toBe("cancelled");
+
+    // Cancelled stays ON the board (the history is what staff check) but
+    // is closed, so nothing may reopen it.
+    const board1 = await board();
+    expect(board1.orders?.map((o) => o.id)).toContain(orderId);
+    for (const to of ["preparing", "done", "cancelled"]) {
+      const again = await STATUS(
+        request(`/api/v1/staff/orders/${orderId}/status`, staffToken, { to }),
+        { params: Promise.resolve({ id: orderId }) },
+      );
+      expect(again.status, `${to} must not reopen a cancelled order`).toBe(409);
+    }
+  });
+
   it("counts the three numbers the app badges", async () => {
+    // "Open" is everything not terminal — a cancelled order owes the
+    // kitchen no work, exactly like a finished one.
     const open = await asTenant(tenantId, (tx) =>
-      tx.order.count({ where: { status: { not: "done" } } }),
+      tx.order.count({ where: { status: { notIn: ["done", "cancelled"] } } }),
     );
     await asTenant(tenantId, async (tx) => {
       await tx.order.updateMany({
-        where: { status: { not: "done" } },
+        where: { status: { notIn: ["done", "cancelled"] } },
         data: { paymentStatus: "pending" },
       });
       await tx.reservation.create({

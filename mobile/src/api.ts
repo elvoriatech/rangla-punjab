@@ -104,6 +104,17 @@ export interface ApiMenu {
   };
   ordering: ApiOrdering;
   categories: ApiCategory[];
+  /**
+   * How many items currently carry an ACTIVE offer (P7-12) — the server
+   * decides "active" against its own clock and timezone, so this is not
+   * something the app may recompute at will.
+   *
+   * Optional: a server that predates P7-12 sends nothing, and `fetchMenu`
+   * then falls back to counting the items in THIS payload that came with
+   * an `offer` — the same definition, just resolved one step later. Every
+   * offers surface hides itself while the count is 0.
+   */
+  offerCount?: number;
   /** Absent on an older server ⇒ no rewards UI anywhere. */
   loyalty?: ApiLoyaltyConfig;
 }
@@ -121,15 +132,41 @@ export async function fetchMenu(locale?: string): Promise<ApiMenu> {
   const res = await fetch(`${BASE_URL}/api/v1/menu${qs}`);
   if (!res.ok) throw new Error(`menu ${res.status}`);
   const menu = (await res.json()) as ApiMenu;
+  const categories = menu.categories.map((c) => ({
+    ...c,
+    photoUrl: rebaseUrl(c.photoUrl),
+    items: c.items.map((i) => ({ ...i, photoUrl: rebaseUrl(i.photoUrl) })),
+  }));
   return {
     ...menu,
     venue: { ...menu.venue, logoUrl: rebaseUrl(menu.venue.logoUrl) },
-    categories: menu.categories.map((c) => ({
-      ...c,
-      photoUrl: rebaseUrl(c.photoUrl),
-      items: c.items.map((i) => ({ ...i, photoUrl: rebaseUrl(i.photoUrl) })),
-    })),
+    categories,
+    offerCount: offerCountOf(menu.offerCount, categories),
   };
+}
+
+/** The server's own count when it sends one, else the offers visible in
+ *  this payload. Never NaN and never negative, so `> 0` is the whole
+ *  test every offers surface makes. */
+function offerCountOf(raw: unknown, categories: ApiCategory[]): number {
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.max(0, Math.trunc(raw));
+  return categories.reduce((n, c) => n + c.items.filter((i) => i.offer).length, 0);
+}
+
+/**
+ * The id the OFFERS destination answers to. Deliberately the same
+ * sentinel the website gives its synthetic first section
+ * (`data-category-id="__offers"`), so "the offers tab" means one thing
+ * across both clients. It is never a real category id — the server's are
+ * cuids.
+ */
+export const OFFERS_CATEGORY_ID = "__offers";
+
+/** Every item in the menu that is on offer right now, in menu order —
+ *  the "Offers" destination's contents (P7-12). Items keep their real
+ *  category, so adding one to the basket is unchanged. */
+export function offerItems(menu: ApiMenu): ApiItem[] {
+  return menu.categories.flatMap((c) => c.items.filter((i) => i.offer));
 }
 
 export type OrderType = "dine_in" | "takeaway" | "delivery";
@@ -418,8 +455,7 @@ function asIssueMessage(raw: unknown): ApiIssueMessage | null {
     body: typeof m.body === "string" ? m.body : "",
     // Dev/CI serves photos off our own origin, which an Android emulator
     // reaches on 10.0.2.2 — same rebase as every other image URL.
-    photoUrl:
-      typeof m.photoUrl === "string" && m.photoUrl ? rebaseUrl(m.photoUrl) : null,
+    photoUrl: typeof m.photoUrl === "string" && m.photoUrl ? rebaseUrl(m.photoUrl) : null,
     createdAt: typeof m.createdAt === "string" ? m.createdAt : "",
   };
 }
@@ -679,6 +715,40 @@ export function payPageUrl(orderId: string, token: string, appReturnUrl?: string
 
 /** The receipt PDF is rendered server-side; `locale` picks the copy (the
  *  guest's app language, not the venue's). */
+/* ── Guest password reset (P7-15) ────────────────────────────────────────
+ *
+ * One call from the app: "send whoever owns this address a link". The
+ * route answers 200 whether or not an account exists — deliberately, so
+ * the app can never be used to find out who has one — which is why there
+ * is nothing to report back beyond "the request got through".
+ *
+ * The reset itself happens on the WEB page the emailed link opens; that
+ * page hands the browser back to `appReturnUrl` when it is one of ours,
+ * which is how the app learns the password changed.
+ */
+export async function requestPasswordReset(
+  email: string,
+  opts: { locale?: string; appReturnUrl?: string | null } = {},
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/auth/customer/reset/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        ...(opts.locale ? { locale: opts.locale } : {}),
+        ...(opts.appReturnUrl ? { appReturnUrl: opts.appReturnUrl } : {}),
+      }),
+    });
+    // Anything but a clean 2xx (rate limit, malformed address, a server
+    // that predates the route) is worth offering a retry for — the
+    // neutral "check your email" would otherwise be a lie.
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export function receiptUrl(orderId: string, token: string, locale: string): string {
   return `${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/receipt?token=${encodeURIComponent(token)}&locale=${encodeURIComponent(locale)}`;
 }

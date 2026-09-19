@@ -6,6 +6,7 @@ import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
 import { advanceOrderAction } from "../dashboard/(console)/orders/actions";
 import { advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { AutoRefresh } from "../dashboard/(console)/orders/auto-refresh";
 import { FullscreenButton } from "./fullscreen-button";
 import { NewOrderChime } from "./new-order-chime";
@@ -184,27 +185,44 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                       </li>
                     ))}
                   </ul>
-                  {/* mt-auto pins the advance button to the card's bottom edge
-                      so it sits at the same height on every card in the row. */}
-                  <form action={advanceOrderAction} className="mt-auto pt-5">
-                    <input type="hidden" name="orderId" value={order.id} />
-                    <input
-                      type="hidden"
-                      name="to"
-                      value={nextStatus(order.status, order.orderType) ?? "done"}
-                    />
-                    <button
-                      type="submit"
-                      className="w-full rounded-md bg-white/90 py-3 text-sm font-bold uppercase tracking-[0.18em] text-[#14100c] transition-colors hover:bg-white"
-                    >
-                      {advanceLabel(nextStatus(order.status, order.orderType) ?? "done")}
-                      {order.status !== "placed" ? (
-                        <span className="ml-2 font-normal normal-case text-[#14100c]/60">
-                          (now: {order.status.replaceAll("_", " ")})
-                        </span>
-                      ) : null}
-                    </button>
-                  </form>
+                  {/* mt-auto pins the action row to the card's bottom edge so
+                      it sits at the same height on every card in the row. */}
+                  <div className="mt-auto flex items-stretch gap-2 pt-5">
+                    <form action={advanceOrderAction} className="flex-1">
+                      <input type="hidden" name="orderId" value={order.id} />
+                      <input
+                        type="hidden"
+                        name="to"
+                        value={nextStatus(order.status, order.orderType) ?? "done"}
+                      />
+                      <button
+                        type="submit"
+                        className="w-full rounded-md bg-white/90 py-3 text-sm font-bold uppercase tracking-[0.18em] text-[#14100c] transition-colors hover:bg-white"
+                      >
+                        {advanceLabel(nextStatus(order.status, order.orderType) ?? "done")}
+                        {order.status !== "placed" ? (
+                          <span className="ml-2 font-normal normal-case text-[#14100c]/60">
+                            (now: {order.status.replaceAll("_", " ")})
+                          </span>
+                        ) : null}
+                      </button>
+                    </form>
+                    {/* Destructive, so: outlined not filled, narrow not wide,
+                        and behind a confirm. On a wall tablet the advance
+                        button is hit at a glance — this one must not be. */}
+                    <form action={advanceOrderAction} className="shrink-0">
+                      <input type="hidden" name="orderId" value={order.id} />
+                      <input type="hidden" name="to" value="cancelled" />
+                      <ConfirmSubmit
+                        message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
+                        pendingLabel="…"
+                        title="Cancel this order"
+                        className="h-full rounded-md border border-white/25 px-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/60 transition-colors hover:border-red-400/70 hover:text-red-300"
+                      >
+                        {advanceLabel("cancelled")}
+                      </ConfirmSubmit>
+                    </form>
+                  </div>
                 </li>
               );
             })}

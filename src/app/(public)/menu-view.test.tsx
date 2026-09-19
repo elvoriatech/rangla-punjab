@@ -32,6 +32,7 @@ const fixture: PublicMenu = {
   },
   locale: "en-GB",
   isPreview: false,
+  offerCount: 0,
   categories: [
     {
       id: "c1",
@@ -343,6 +344,96 @@ describe("MenuView", () => {
     const empty: PublicMenu = { ...fixture, categories: [] };
     const html = renderToStaticMarkup(<MenuView menu={empty} activeDiets={new Set(["halal"])} />);
     expect(html).toContain("No dishes match every diet");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Offers as a destination (P7-12)                                     */
+/* ------------------------------------------------------------------ */
+
+/** The fixture plus a second category holding one discounted dish. */
+function withOffer(): PublicMenu {
+  const menu = structuredClone(fixture);
+  menu.offerCount = 1;
+  menu.categories.push({
+    id: "c2",
+    name: "Starters",
+    items: [
+      {
+        ...structuredClone(fixture.categories[0]!.items[0]!),
+        id: "i2",
+        name: "Burrata",
+        description: null,
+        priceCents: 900,
+        offer: { basePriceCents: 1400, endsAt: null },
+        variants: [],
+      },
+    ],
+  });
+  return menu;
+}
+
+const ALL_CATS = (menu: PublicMenu): { id: string; name: string }[] =>
+  menu.categories.map((c) => ({ id: c.id, name: c.name }));
+
+describe("MenuView offers destination", () => {
+  it("leads with a synthetic Offers section and an Offers tab", () => {
+    const menu = withOffer();
+    const html = renderToStaticMarkup(<MenuView menu={menu} allCategories={ALL_CATS(menu)} />);
+    // The section exists, is first, and is addressable by the rail.
+    expect(html).toContain('data-category-id="__offers"');
+    expect(html.indexOf('data-category-id="__offers"')).toBeLessThan(
+      html.indexOf('data-category-id="c1"'),
+    );
+    expect(html).toContain("Offers");
+    expect(html).toContain("1 dish on offer");
+    // The tab is an ordinary server link, ahead of the real categories.
+    expect(html).toMatch(/href="\/\?cat=offers"/);
+    expect(html.indexOf('href="/?cat=offers"')).toBeLessThan(html.indexOf('href="/?cat=mains"'));
+    // The dish is listed twice — once under Offers, once in its own
+    // category — but each copy carries its own heading id, so no
+    // aria-labelledby ever resolves to two elements.
+    expect(html.match(/>Burrata</g)?.length).toBe(2);
+    expect(html.match(/id="offer-item-i2"/g)?.length).toBe(1);
+    expect(html.match(/id="item-i2"/g)?.length).toBe(1);
+  });
+
+  it("renders nothing about offers when no dish has one", () => {
+    const html = renderToStaticMarkup(
+      <MenuView menu={fixture} allCategories={ALL_CATS(fixture)} />,
+    );
+    expect(html).not.toContain("__offers");
+    expect(html).not.toContain("cat=offers");
+    expect(html).not.toContain("dish on offer");
+  });
+
+  it("?cat=offers filters to the offers section on the server (no JS needed)", () => {
+    const menu = withOffer();
+    const html = renderToStaticMarkup(
+      <MenuView menu={menu} allCategories={ALL_CATS(menu)} activeCategoryId="__offers" />,
+    );
+    // Real categories arrive hidden; the offers section does not.
+    expect(html).toMatch(/data-category-id="c1" hidden/);
+    expect(html).toMatch(/data-category-id="c2" hidden/);
+    expect(html).not.toMatch(/data-category-id="__offers" hidden/);
+    // The diet tabs keep the destination in their hrefs.
+    expect(html).toContain('href="/?cat=offers&amp;diet=vegan"');
+  });
+
+  it("degrades a stale ?cat=offers to the whole menu when nothing is on offer", () => {
+    const html = renderToStaticMarkup(
+      <MenuView menu={fixture} allCategories={ALL_CATS(fixture)} activeCategoryId="__offers" />,
+    );
+    expect(html).not.toMatch(/data-category-id="c1" hidden/);
+    expect(html).toContain("Wild mushroom risotto");
+  });
+
+  it("translates the destination — German says Angebote", () => {
+    const menu = { ...withOffer(), locale: "de" };
+    const html = renderToStaticMarkup(<MenuView menu={menu} allCategories={ALL_CATS(menu)} />);
+    expect(html).toContain("Angebote");
+    expect(html).toContain("1 Gericht im Angebot");
+    expect(html).not.toContain(">Offers<");
   });
 });
 

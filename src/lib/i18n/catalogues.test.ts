@@ -3,6 +3,7 @@ import { UI_LOCALES } from "@/lib/locales";
 import { CHECKOUT_COPY, checkoutCopy } from "./checkout";
 import { POST_ORDER_COPY, postOrderCopy } from "./post-order";
 import {
+  GUEST_RESET_COPY,
   NEW_ISSUE_COPY,
   NEW_ORDER_COPY,
   RECEIPT_COPY,
@@ -68,6 +69,7 @@ const NAMESPACES = {
   newOrder: NEW_ORDER_COPY,
   newIssue: NEW_ISSUE_COPY,
   reward: REWARD_COPY,
+  guestReset: GUEST_RESET_COPY,
   pdf: PDF_COPY,
 } as const;
 

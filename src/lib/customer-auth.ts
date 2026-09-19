@@ -592,3 +592,40 @@ export async function revokeCustomerToken(tenantId: string, token: string): Prom
     }),
   );
 }
+
+/**
+ * Kill every live session of ONE customer — web cookie, phone, tablet,
+ * the lot. This is what a password reset owes the guest: whoever knew the
+ * old password (and may be the reason it is being reset) must not keep a
+ * signed-in device.
+ *
+ * The `tx` flavour exists because the reset path already runs inside
+ * `asTenant`'s transaction and must revoke in the SAME transaction as the
+ * password write — a half-applied reset that changed the hash but left
+ * the attacker's token alive is the one outcome worth ruling out.
+ */
+export function revokeCustomerTokensIn(
+  tx: Parameters<Parameters<typeof asTenant>[1]>[0],
+  customerId: string,
+): Promise<{ count: number }> {
+  return tx.customerToken.updateMany({
+    where: { customerId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+}
+
+/** Stand-alone twin of {@link revokeCustomerTokensIn}. */
+export async function revokeAllCustomerTokens(
+  tenantId: string,
+  customerId: string,
+): Promise<number> {
+  const result = await asTenant(tenantId, (tx) => revokeCustomerTokensIn(tx, customerId));
+  return result.count;
+}
+
+/** The provider string every email/password guest account carries. */
+export const CUSTOMER_PASSWORD_PROVIDER = PASSWORD_PROVIDER;
+
+/** Minimum length of a guest password — the register route's policy, and
+ *  the one the reset flow has to keep (a reset must never be a downgrade). */
+export const CUSTOMER_PASSWORD_MIN_LENGTH = 8;

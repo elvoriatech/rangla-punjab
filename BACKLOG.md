@@ -245,19 +245,35 @@ Next, in this order (decisions already taken in brackets):
 - [ ] (P7-11) Push notifications to the owner's phone for new orders (and later issues):
   expo-notifications, `POST /api/v1/staff/devices`, send on order placement/settlement.
   ⛔ needs-human: Apple push key, Firebase project.
-- [ ] (P7-12) Offers as a destination: "Angebote" tab on the web menu; app Offers screen +
+- [x] (P7-12) Offers as a destination: "Angebote" tab on the web menu; app Offers screen +
   Home card + Menu-tab badge while any offer is live; all hidden when none.
+  Note: `PublicMenu.offerCount` (+ `/api/v1/menu`); web renders a synthetic first section
+  `data-category-id="__offers"` and an Offers tab first in every rail, `?cat=offers` works
+  without JS; app: Offers chip first in the Menu rail (flat list of offer dishes), Home
+  offers card, Menu-tab badge. Everything disappears when no offer is active.
 - [ ] (P7-13) Checkout in the style of the owner's mockup: address card with "Ändern",
   Sofort / Geplant radio with a ± time stepper (web + app), payment list with brand marks
   incl. Apple Pay / Google Pay as direct platform-pay buttons. [Keep Card as a row unless
   the owner says otherwise.] ⛔ Apple Pay merchant setup; Google Pay production approval.
 - [ ] (P7-14) Google rating + review link (Places API, Place ID, daily cache, link to
   write-a-review). ⛔ needs-human: API key, Place ID, billing.
-- [ ] (P7-15) Guest password reset (forgot → email → reset page; app link opens it in-app).
+- [x] (P7-15) Guest password reset (forgot → email → reset page; app link opens it in-app).
+  Note: `customer_password_reset_tokens` (hashed, 60 min, single use, password accounts
+  only, neutral 200 on request); `POST /api/auth/customer/reset/request` + `/reset/{token}`;
+  zero-JS pages `/account/forgot` and `/account/reset/{token}`; success revokes every live
+  guest session; with `?app=` the reset page hands back to the app via
+  `/auth/app-return?to=…&status=reset`. App: "Forgot password?" panel on Account, reset
+  return shows "Password changed — sign in again".
 - [ ] (P7-16) Ship only the active locale's guest-copy catalogue to the browser and lower the
   Lighthouse script budget back to 260 kB (raised to 275 kB in 7167674). Task chip exists.
-- [ ] (P7-17) "cancelled" order status in the kitchen lifecycle (loyalty reversal + voucher
+- [x] (P7-17) "cancelled" order status in the kitchen lifecycle (loyalty reversal + voucher
   restore are already wired to it).
+  Note: terminal, out-of-band status reachable from any non-terminal step; never suggested
+  by `nextStatus`; `orders_status_check` widened by migration. Dashboard/kitchen get a
+  de-emphasised Cancel with a confirm (posts without JS), the Board a destructive confirm;
+  guest tracker/app show a cancelled banner and stop refreshing. **Decision: no automatic
+  refund** — a cancelled online-paid order shows "refund it in Stripe / PayPal"; note that
+  `report-service.ts` still counts it as revenue until refunded (follow-up if wanted).
 
 Human-gated, unchanged: live Stripe keys (P6-3), legal `TODO: legal review` markers before
 the stores' privacy-policy link, Google OAuth iOS/Android client ids for native one-tap.

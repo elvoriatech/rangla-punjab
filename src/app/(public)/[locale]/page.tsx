@@ -7,7 +7,7 @@ import { resolvePreviewContext } from "@/lib/preview-context";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { currentOpenState, currentTodaySlotTimes } from "@/lib/opening-hours";
-import { loadPublicMenu, siteUrl } from "@/lib/public-menu";
+import { loadPublicMenu, resolvePublicCategoryParam, siteUrl } from "@/lib/public-menu";
 import { filterMenuByDiet, parseDietFilter } from "@/lib/dietary-filter";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { MenuView } from "../menu-view";
@@ -84,11 +84,11 @@ export default async function LocalisedPublicMenuPage({
   searchParams,
 }: {
   params: Promise<Params>;
-  searchParams: Promise<{ preview?: string; diet?: string | string[] }>;
+  searchParams: Promise<{ preview?: string; diet?: string | string[]; cat?: string | string[] }>;
 }): Promise<React.ReactElement> {
   const { locale } = await params;
   const slug = await getRestaurantSlug();
-  const { preview, diet } = await searchParams;
+  const { preview, diet, cat } = await searchParams;
 
   const loaded = await getMenuForRequest(slug, preview ?? null, locale);
   if (!loaded) notFound();
@@ -103,11 +103,16 @@ export default async function LocalisedPublicMenuPage({
   if (!access.menuVisible) notFound();
   const { siteActive } = await getOperatorSettings();
   const diets = parseDietFilter(diet);
+  // Same server-side `?cat=` handling as the default-locale page, so a
+  // deep link (`/de?cat=offers`) filters without JavaScript here too.
+  const activeCategoryId = resolvePublicCategoryParam(menu, cat);
   const filtered = filterMenuByDiet(menu, diets);
   return (
     <MenuView
       menu={filtered}
       activeDiets={diets}
+      activeCategoryId={activeCategoryId}
+      allCategories={menu.categories.map((c) => ({ id: c.id, name: c.name }))}
       orderingModes={access.modes}
       onlinePayment={access.onlinePayment}
       loyalty={access.loyalty}

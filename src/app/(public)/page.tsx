@@ -8,9 +8,9 @@ import { resolvePreviewContext } from "@/lib/preview-context";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { currentOpenState, currentTodaySlotTimes } from "@/lib/opening-hours";
-import { loadPublicMenu, siteUrl } from "@/lib/public-menu";
+import { loadPublicMenu, resolvePublicCategoryParam, siteUrl } from "@/lib/public-menu";
 import { getRestaurantSlug } from "@/lib/restaurant";
-import { filterMenuByDiet, parseDietFilter, resolveCategoryParam } from "@/lib/dietary-filter";
+import { filterMenuByDiet, parseDietFilter } from "@/lib/dietary-filter";
 import { MenuView } from "./menu-view";
 import { menuCopy } from "@/lib/i18n/menu";
 
@@ -116,7 +116,9 @@ export default async function PublicMenuPage({
   const { siteActive } = await getOperatorSettings();
 
   const diets = parseDietFilter(diet);
-  const activeCategoryId = resolveCategoryParam(menu, cat);
+  // `?cat=` also carries the synthetic Offers destination (P7-12), so the
+  // tab works as a plain server-filtered link without JavaScript.
+  const activeCategoryId = resolvePublicCategoryParam(menu, cat);
   // Category filtering moved to the client (category-tabs.tsx): the page
   // always carries every category and the active one is expressed by the
   // `hidden` attribute on the others, so tapping a tab is instant. The

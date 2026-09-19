@@ -1,5 +1,6 @@
 import { readDb } from "./db";
 import { asTenantRead } from "./tenant";
+import { resolveCategoryParam } from "./dietary-filter";
 import { effectiveItemPrice } from "./offer-pricing";
 import { parseOpeningHours } from "./opening-hours";
 import type { PreviewContext } from "./preview-context";
@@ -80,6 +81,42 @@ export interface PublicMenu {
   locale: string;
   isPreview: boolean;
   categories: PublicCategory[];
+  /** How many items carry an ACTIVE offer at load time (P7-12). Drives the
+   *  synthetic "Offers" destination on the web rail and the app's offers
+   *  card; 0 means offers render nowhere at all. Counted on the UNFILTERED
+   *  tree, so a diet filter never changes it — surfaces that also narrow
+   *  the menu re-derive from the items they actually render. */
+  offerCount: number;
+}
+
+/** The synthetic category the "Offers" destination renders as. Never a real
+ *  category id (those are uuids), so it cannot collide. */
+export const OFFERS_CATEGORY_ID = "__offers";
+/** What `?cat=` carries for that destination. */
+export const OFFERS_CATEGORY_SLUG = "offers";
+
+/**
+ * Resolve `?cat=` for the public page, including the synthetic Offers
+ * destination. A REAL category always wins the slug — `?cat=offers` only
+ * selects the offers section when no category answers to it, and only
+ * while the menu actually has a live offer, so a stale link degrades to
+ * the whole menu instead of an empty page.
+ */
+export function resolvePublicCategoryParam(
+  menu: PublicMenu,
+  raw: string | string[] | undefined,
+): string | null {
+  const real = resolveCategoryParam(menu, raw);
+  if (real) return real;
+  const first = (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase();
+  return first === OFFERS_CATEGORY_SLUG && menu.offerCount > 0 ? OFFERS_CATEGORY_ID : null;
+}
+
+/** Every item with an active offer, in menu order. Derived from whatever
+ *  tree it is handed — pass the diet-filtered menu on the public page so
+ *  the section lists exactly the dishes that page shows. */
+export function offerItems(menu: PublicMenu): PublicItem[] {
+  return menu.categories.flatMap((c) => c.items).filter((i) => i.offer != null);
 }
 
 export async function loadPublicMenu(
@@ -204,6 +241,10 @@ export async function loadPublicMenu(
       locale: effectiveLocale,
       isPreview: context.mode === "preview",
       categories: localisedCategories,
+      offerCount: localisedCategories.reduce(
+        (n, c) => n + c.items.filter((i) => i.offer != null).length,
+        0,
+      ),
     };
   });
 }

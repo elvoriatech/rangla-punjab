@@ -4,13 +4,14 @@ import { getSessionUserId } from "@/lib/auth";
 import { resolveActiveTenantId } from "@/lib/tenant";
 import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
 import { fulfilmentLines } from "@/lib/ordering-config";
-import { listRecentOrders } from "@/lib/order-service";
+import { listRecentOrders, VOUCHER_PROVIDER } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
 import { advanceOrderAction } from "./actions";
-import { advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
+import { advanceLabel, isCancelledStatus, isOpenStatus, nextStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
 import { NewOrderChime } from "../../../kitchen/new-order-chime";
 import { AutoPrint } from "./auto-print";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
 
 /**
@@ -75,10 +76,28 @@ function statusCompact(status: string): string {
       return "🔔 ready";
     case "out_for_delivery":
       return "🛵 out";
+    case "cancelled":
+      return "Cancelled";
     default:
       return status.replaceAll("_", " ");
   }
 }
+
+/** Cancelled + already paid online: there is no automatic refund (P7-17
+ *  decision), so the one thing the owner must be told is that the money
+ *  is still sitting with the provider and only they can send it back. */
+function needsManualRefund(order: {
+  status: string;
+  paymentStatus: string;
+  paymentProvider: string | null;
+}): boolean {
+  // A reward-settled order took no money, and `reverseOrderCredit` already
+  // put the voucher back on the guest's account — nothing to refund.
+  if (order.paymentProvider === VOUCHER_PROVIDER) return false;
+  return isCancelledStatus(order.status) && order.paymentStatus === "paid";
+}
+
+const REFUND_WARNING = "Paid online — refund it in your Stripe / PayPal dashboard";
 
 /** How the guest pays: "Paid · Card"/"Paid · PayPal" once settled online,
  *  "Paid · Reward" when a loyalty voucher covered the whole bill, "Cash"
@@ -275,6 +294,22 @@ export default async function OrdersPage({
                   >
                     🖨 Print
                   </a>
+                  {/* Cancel sits BEFORE the advance button and carries none
+                      of its weight: same server action, opposite intent, so
+                      it must never be the thing a thumb lands on by
+                      accident. The dialog names the order number. */}
+                  <form action={advanceOrderAction} className="shrink-0">
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <input type="hidden" name="to" value="cancelled" />
+                    <ConfirmSubmit
+                      message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
+                      pendingLabel="Cancelling…"
+                      title="Cancel this order"
+                      className="whitespace-nowrap border border-ink/20 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-muted hover:border-[#b3261e]/60 hover:text-[#b3261e]"
+                    >
+                      Cancel
+                    </ConfirmSubmit>
+                  </form>
                   {nextStatus(order.status, order.orderType) ? (
                     <form action={advanceOrderAction} className="shrink-0">
                       <input type="hidden" name="orderId" value={order.id} />
@@ -320,6 +355,11 @@ export default async function OrdersPage({
                   >
                     {paymentBadge(order)}
                   </span>
+                  {isCancelledStatus(order.status) ? (
+                    <span className="ms-2 whitespace-nowrap rounded-full border border-ink/20 bg-ink/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted">
+                      {statusCompact(order.status)}
+                    </span>
+                  ) : null}
                   {issues.get(order.id) ? (
                     <IssuePill
                       orderId={order.id}
@@ -366,6 +406,14 @@ export default async function OrdersPage({
                     Print
                   </a>
                 </span>
+                {/* Its own row rather than another badge: this is the only
+                    line on the screen that asks the owner to go and DO
+                    something in a different system. */}
+                {needsManualRefund(order) ? (
+                  <span className="col-span-full text-xs font-medium text-[#b3261e]">
+                    ⚠ {REFUND_WARNING}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

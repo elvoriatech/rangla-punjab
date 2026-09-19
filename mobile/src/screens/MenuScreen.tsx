@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import type { ApiMenu, ApiItem } from "../api";
+import { OFFERS_CATEGORY_ID, offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffItem, StaffItemPatch, StaffMenuCategory } from "../staff";
 import { fetchStaffMenu, updateStaffItem } from "../staff";
@@ -21,6 +22,12 @@ import { useI18n } from "../i18n";
 
 /**
  * Kategorien — chip rail + dish list, the mockup's category browser.
+ *
+ * The rail's FIRST chip is "Angebote" whenever the venue has any live
+ * offer — a destination, not a filter the guest has to assemble: the
+ * dishes keep their real category (so the basket is unaffected), they
+ * are simply gathered under one tab the way the website gathers them
+ * under one section (P7-12). With no live offer there is no chip.
  *
  * In RESTAURANT MODE the same screen becomes the menu's editor: the rows
  * come from `/staff/menu` (the owner's working copy, offers and all) and
@@ -152,7 +159,21 @@ export function MenuScreen({
   const categories: { id: string; name: string }[] = staffMode
     ? (staffCategories ?? [])
     : menu.categories;
-  const active = categories.find((c) => c.id === activeId) ?? null;
+  // The offers destination is a synthetic category: same id the website
+  // uses for its synthetic first section, so the two stay describable in
+  // one sentence. It exists only while the venue has live offers — and a
+  // stale selection (the last offer ended while the tab was open) falls
+  // back to "all" rather than showing an empty screen.
+  const offerCount = menu.offerCount ?? 0;
+  const guestOffers = offerItems(menu);
+  const staffOffers = (staffCategories ?? []).flatMap((c) => c.items.filter((i) => i.offerActive));
+  const offers = staffMode ? staffOffers : guestOffers;
+  const hasOffers = staffMode ? staffOffers.length > 0 : offerCount > 0;
+  const offersActive = activeId === OFFERS_CATEGORY_ID && hasOffers;
+  const active = offersActive ? null : (categories.find((c) => c.id === activeId) ?? null);
+  /** "All" is the default; the offers tab is its own thing, so neither
+   *  may look selected while the other is. */
+  const allActive = activeId === null || (activeId === OFFERS_CATEGORY_ID && !hasOffers);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -166,13 +187,24 @@ export function MenuScreen({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 14, paddingHorizontal: 16 }}
         >
-          <Chip label={t.all} active={activeId === null} onPress={() => setActiveId(null)} />
+          {/* First in the rail, ahead of "All" — an offer is the reason
+              a guest opens the menu at all, and it stops existing the
+              moment the venue's last offer ends. */}
+          {hasOffers ? (
+            <Chip
+              label={t.offersTab}
+              icon="🔥"
+              active={offersActive}
+              onPress={() => setActiveId(OFFERS_CATEGORY_ID)}
+            />
+          ) : null}
+          <Chip label={t.all} active={allActive} onPress={() => setActiveId(null)} />
           {staffMode
             ? (staffCategories ?? []).map((cat) => (
                 <Chip
                   key={cat.id}
                   label={cat.name}
-                  active={cat.id === activeId}
+                  active={!offersActive && cat.id === activeId}
                   onPress={() => setActiveId(cat.id)}
                 />
               ))
@@ -182,7 +214,7 @@ export function MenuScreen({
                   label={cat.name}
                   photoUrl={cat.photoUrl}
                   icon={cat.icon}
-                  active={cat.id === activeId}
+                  active={!offersActive && cat.id === activeId}
                   onPress={() => setActiveId(cat.id)}
                 />
               ))}
@@ -198,35 +230,55 @@ export function MenuScreen({
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 10 }}>
         {staffPending ? <ActivityIndicator color={colors.red} style={{ marginTop: 28 }} /> : null}
-        {staffPending
-          ? null
-          : staffMode
-            ? (staffCategories ?? [])
-                .filter((c) => active === null || c.id === active.id)
-                .map((cat) => (
-                  <View key={cat.id} style={{ gap: 10 }}>
-                    {activeId === null ? <Text style={styles.catHeading}>{cat.name}</Text> : null}
-                    {cat.items.map((item) => (
-                      <StaffDishRow
-                        key={item.id}
-                        item={item}
-                        busy={busyId === item.id}
-                        onEdit={setEditing}
-                        onToggle={(target, next) => void toggleAvailable(target, next)}
-                      />
-                    ))}
-                  </View>
-                ))
-            : menu.categories
-                .filter((c) => active === null || c.id === active.id)
-                .map((cat) => (
-                  <View key={cat.id} style={{ gap: 10 }}>
-                    {activeId === null ? <Text style={styles.catHeading}>{cat.name}</Text> : null}
-                    {cat.items.map((item) => (
-                      <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
-                    ))}
-                  </View>
+        {staffPending ? null : offersActive ? (
+          // One flat list: offers cut ACROSS categories, so grouping them
+          // by the category they happen to live in would undo the point.
+          offers.length === 0 ? (
+            <Text style={styles.liveHint}>{t.offersEmpty}</Text>
+          ) : staffMode ? (
+            (offers as StaffItem[]).map((item) => (
+              <StaffDishRow
+                key={item.id}
+                item={item}
+                busy={busyId === item.id}
+                onEdit={setEditing}
+                onToggle={(target, next) => void toggleAvailable(target, next)}
+              />
+            ))
+          ) : (
+            (offers as ApiItem[]).map((item) => (
+              <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
+            ))
+          )
+        ) : staffMode ? (
+          (staffCategories ?? [])
+            .filter((c) => active === null || c.id === active.id)
+            .map((cat) => (
+              <View key={cat.id} style={{ gap: 10 }}>
+                {allActive ? <Text style={styles.catHeading}>{cat.name}</Text> : null}
+                {cat.items.map((item) => (
+                  <StaffDishRow
+                    key={item.id}
+                    item={item}
+                    busy={busyId === item.id}
+                    onEdit={setEditing}
+                    onToggle={(target, next) => void toggleAvailable(target, next)}
+                  />
                 ))}
+              </View>
+            ))
+        ) : (
+          menu.categories
+            .filter((c) => active === null || c.id === active.id)
+            .map((cat) => (
+              <View key={cat.id} style={{ gap: 10 }}>
+                {allActive ? <Text style={styles.catHeading}>{cat.name}</Text> : null}
+                {cat.items.map((item) => (
+                  <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
+                ))}
+              </View>
+            ))
+        )}
       </ScrollView>
 
       {staffMode ? (

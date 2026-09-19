@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import type { ApiMenu, ApiItem } from "../api";
+import { offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffOrdering } from "../staff";
 import { fetchStaffOrdering, updateStaffOrdering } from "../staff";
@@ -95,6 +96,7 @@ export function HomeScreen({
   menu,
   onAdd,
   onOpenCategory,
+  onOpenOffers,
   onBrowseAll,
   onStartOrder,
   onOpenAccount,
@@ -104,6 +106,8 @@ export function HomeScreen({
   menu: ApiMenu;
   onAdd: (item: ApiItem) => void;
   onOpenCategory: (categoryId: string) => void;
+  /** Opens the Menu tab with the Offers chip already chosen (P7-12). */
+  onOpenOffers: () => void;
   onBrowseAll: () => void;
   onStartOrder: (type: "takeaway" | "delivery") => void;
   /** Switches to the Account tab, where the Rewards card lives. */
@@ -126,6 +130,14 @@ export function HomeScreen({
     .flatMap((c) => c.items)
     .filter((i) => i.isAvailable)
     .slice(0, 6);
+  // The venue's live offers, as a destination rather than something to
+  // be found by scrolling. Nothing about offers renders while the count
+  // is 0 — no card, no empty state (P7-12).
+  const offerCount = menu.offerCount ?? 0;
+  const offerNames = offerItems(menu)
+    .slice(0, 3)
+    .map((i) => i.name)
+    .join(" · ");
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader title={menu.venue.name} subtitle={t.restaurant} onMenu={onOpenOwnerMenu} />
@@ -182,6 +194,35 @@ export function HomeScreen({
                 })}
               </Text>
               <Text style={styles.rewardCta}>{t.rewardsBannerCta}</Text>
+            </View>
+            <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
+          </Pressable>
+        ) : null}
+
+        {/* Offers, between the hero and the categories: the one part of
+            the menu with a reason to be looked at today. */}
+        {offerCount > 0 && !restaurant ? (
+          <Pressable
+            style={styles.offersCard}
+            onPress={onOpenOffers}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.offersCardTitle} — ${
+              offerCount === 1 ? t.offersCardCountOne : fill(t.offersCardCount, { n: offerCount })
+            }`}
+          >
+            <Text style={styles.offersEmoji}>🔥</Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.offersTitle}>
+                {t.offersCardTitle} ·{" "}
+                {offerCount === 1
+                  ? t.offersCardCountOne
+                  : fill(t.offersCardCount, { n: offerCount })}
+              </Text>
+              {offerNames ? (
+                <Text style={styles.offersNames} numberOfLines={1}>
+                  {offerNames}
+                </Text>
+              ) : null}
             </View>
             <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
           </Pressable>
@@ -438,6 +479,23 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   rewardEmoji: { ...fonts.body, fontSize: 24 },
+  // Reads as a sibling of the reward banner but in the brand red, not
+  // gold: a reward is the guest's own, an offer is the house's.
+  offersCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1.5,
+    borderColor: colors.red,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  offersEmoji: { ...fonts.body, fontSize: 24 },
+  offersTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
+  offersNames: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   rewardTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   rewardCta: { color: colors.gold, ...fonts.bodyBold, fontSize: 12 },
   modeEmoji: { ...fonts.body, fontSize: 26 },

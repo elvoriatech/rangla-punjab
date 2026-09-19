@@ -2,6 +2,7 @@
  * Order lifecycle — the single authority every surface reads.
  *
  * placed → preparing → ready → (out_for_delivery, delivery only) → done
+ *                    ↘ cancelled (out of band, from any open status)
  *
  * One pure module decides what a valid transition is, what the staff
  * button says next, and which steps the guest tracker renders — the
@@ -12,17 +13,43 @@
  * in one tap) but never backwards — "un-cooking" an order would lie to
  * a guest who already saw "ready".
  *
+ * `cancelled` is the one status OFF the chain. It is reachable from every
+ * open status and leads nowhere, so it can never be modelled as a step:
+ * `statusChain` never contains it, `nextStatus` never returns it, and
+ * `stepIndex` answers -1 — the tracker draws a cancelled banner instead
+ * of a rail rather than pretending the order walked to a fifth step.
+ *
  * Language-free by design: steps carry a catalogue KEY, and whoever
  * renders them looks the words up in `src/lib/i18n/post-order.ts`.
  */
 
 import type { PostOrderCopy } from "./i18n/post-order";
 
-export const ORDER_STATUSES = ["placed", "preparing", "ready", "out_for_delivery", "done"] as const;
+export const ORDER_STATUSES = [
+  "placed",
+  "preparing",
+  "ready",
+  "out_for_delivery",
+  "done",
+  "cancelled",
+] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+/**
+ * The two ends of an order's life. Nothing leaves either of them, and
+ * every "is the kitchen still working on this?" question — the board's
+ * open/closed split, the dashboard's two lists, the staff summary count
+ * — reads this set rather than comparing against `"done"` by hand.
+ */
+export const TERMINAL_STATUSES: readonly OrderStatus[] = ["done", "cancelled"];
 
 export function isOrderStatus(value: string): value is OrderStatus {
   return (ORDER_STATUSES as readonly string[]).includes(value);
+}
+
+/** The order was called off. Terminal, and off the guest's step rail. */
+export function isCancelledStatus(status: string): boolean {
+  return status === "cancelled";
 }
 
 /** The chain an order of this type walks. Delivery inserts the courier leg. */
@@ -37,6 +64,14 @@ export function canTransition(from: string, to: string, orderType: string): bool
   if (!isOrderStatus(from) || !isOrderStatus(to)) return false;
   const chain = statusChain(orderType);
   const a = chain.indexOf(from as OrderStatus);
+  // Cancelling is out of band: it is not a step further along the chain,
+  // so it is offered from anywhere the order is still open — including
+  // the courier leg, where the driver turns back — and from nowhere else.
+  // A cancelled or finished order stays that way; reopening one would
+  // hand back food, points and money that have all already moved.
+  if (to === "cancelled") return a !== -1 && !TERMINAL_STATUSES.includes(from);
+  // Leaving `cancelled` needs no special case: it is not on the chain, so
+  // `a` is -1 and the guard below already refuses every destination.
   const b = chain.indexOf(to as OrderStatus);
   if (a === -1 || b === -1) return false; // e.g. out_for_delivery on a dine-in order
   return b > a;
@@ -50,9 +85,10 @@ export function nextStatus(current: string, orderType: string): OrderStatus | nu
   return chain[i + 1]!;
 }
 
-/** Anything not terminal is open — the kitchen still owes it work. */
+/** Anything not terminal is open — the kitchen still owes it work. A
+ *  cancelled order owes nothing, so it is closed exactly like a done one. */
 export function isOpenStatus(status: string): boolean {
-  return status !== "done";
+  return !(TERMINAL_STATUSES as readonly string[]).includes(status);
 }
 
 /** Staff-facing label for the button that advances an order TO `to`. */
@@ -66,6 +102,8 @@ export function advanceLabel(to: OrderStatus): string {
       return "Out for delivery";
     case "done":
       return "Done";
+    case "cancelled":
+      return "Cancel";
     default:
       return to;
   }
@@ -106,7 +144,9 @@ export function guestSteps(orderType: string): GuestStep[] {
   return steps;
 }
 
-/** Index of the current status within the guest chain (-1 for unknown). */
+/** Index of the current status within the guest chain (-1 for unknown,
+ *  and for `cancelled`, which is off the chain by design — a caller that
+ *  gets -1 renders a cancelled state instead of the rail). */
 export function stepIndex(status: string, orderType: string): number {
   return statusChain(orderType).indexOf(status as OrderStatus);
 }

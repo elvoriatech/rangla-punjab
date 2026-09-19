@@ -14,8 +14,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ApiLoyaltyEntry, ApiMenu } from "../api";
-import { BASE_URL } from "../api";
-import { GOOGLE_NATIVE, useAuth, type AccountOrder } from "../auth";
+import { BASE_URL, requestPasswordReset } from "../api";
+import { appReturnUrl, GOOGLE_NATIVE, RESET_STATUS, useAuth, type AccountOrder } from "../auth";
 import { GoogleButton } from "../google-button";
 import { fill, LANGS, localeTag, useI18n } from "../i18n";
 import {
@@ -61,6 +61,14 @@ export function AccountScreen({
   const [authPassword, setAuthPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  /** The forgotten-password panel (P7-15): closed, asking for the
+   *  address, or done. It is deliberately inline rather than an
+   *  `Alert.prompt` — that one is iOS-only, and a guest on Android must
+   *  be able to correct the address the form guessed for them. */
+  const [forgot, setForgot] = useState<"closed" | "form" | "sent">("closed");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
   // Refetched on mount (the tab shell rebuilds this screen every time
   // the tab is opened, so that is also "on focus") and after arming.
   const { loyalty, reload: reloadLoyalty } = useLoyalty(menu.loyalty?.enabled);
@@ -166,6 +174,36 @@ export function AccountScreen({
       return;
     }
     setAuthError(t.authFailed);
+  }
+
+  /**
+   * Ask the server to mail a reset link. The answer is the same whether
+   * or not that address has an account (no enumeration), so "sent" here
+   * means the REQUEST got through — never that an account exists.
+   *
+   * `appReturnUrl(RESET_STATUS)` is this app's own deep link with the
+   * outcome already on it: the web reset page carries it back untouched,
+   * and `AuthProvider` reads the status off the URL that reopens the app.
+   */
+  async function submitForgot(): Promise<void> {
+    if (forgotBusy) return;
+    const email = forgotEmail.trim();
+    if (!email.includes("@")) {
+      setForgotError(t.forgotBadEmail);
+      return;
+    }
+    setForgotBusy(true);
+    setForgotError(null);
+    const ok = await requestPasswordReset(email, {
+      locale: lang,
+      appReturnUrl: appReturnUrl(RESET_STATUS),
+    });
+    setForgotBusy(false);
+    if (!ok) {
+      setForgotError(t.forgotFailed);
+      return;
+    }
+    setForgot("sent");
   }
 
   async function submitEmailAuth(mode: "login" | "register"): Promise<void> {
@@ -348,6 +386,80 @@ export function AccountScreen({
                 autoCapitalize="none"
                 style={styles.authInput}
               />
+              {/* Under the password field, where the guest is when they
+                  realise they don't have it. */}
+              {forgot === "closed" ? (
+                <Pressable
+                  onPress={() => {
+                    setForgotEmail(authEmail.trim());
+                    setForgotError(null);
+                    setForgot("form");
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.forgotLinkBox, pressed && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.forgotLink}>{t.forgotPassword}</Text>
+                </Pressable>
+              ) : (
+                <View style={styles.forgotPanel}>
+                  {forgot === "sent" ? (
+                    <>
+                      <Text style={styles.forgotTitle}>{t.forgotSentTitle}</Text>
+                      <Text style={styles.forgotIntro}>{t.forgotSentBody}</Text>
+                      <Pressable
+                        onPress={() => setForgot("closed")}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [pressed && { opacity: 0.6 }]}
+                      >
+                        <Text style={styles.forgotLink}>{t.back}</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.forgotTitle}>{t.forgotTitle}</Text>
+                      <Text style={styles.forgotIntro}>{t.forgotIntro}</Text>
+                      <TextInput
+                        value={forgotEmail}
+                        onChangeText={setForgotEmail}
+                        placeholder={t.email}
+                        placeholderTextColor={colors.inkSoft}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        accessibilityLabel={t.email}
+                        style={styles.authInput}
+                      />
+                      {forgotError ? <Text style={styles.authError}>{forgotError}</Text> : null}
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <Pressable
+                          onPress={() => void submitForgot()}
+                          disabled={forgotBusy}
+                          accessibilityRole="button"
+                          style={[styles.loginBtn, { flex: 1 }, forgotBusy && { opacity: 0.6 }]}
+                        >
+                          <Text style={styles.loginBtnText}>
+                            {forgotBusy ? t.forgotSending : t.forgotSend}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setForgot("closed")}
+                          disabled={forgotBusy}
+                          accessibilityRole="button"
+                          style={[
+                            styles.loginBtnOutline,
+                            { flex: 1 },
+                            forgotBusy && { opacity: 0.6 },
+                          ]}
+                        >
+                          <Text style={styles.loginBtnOutlineText}>{t.signInCancel}</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  )}
+                </View>
+              )}
               {authError ? <Text style={styles.authError}>{authError}</Text> : null}
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Pressable
@@ -621,6 +733,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 6,
   },
+  // Quiet by design: the way out of a forgotten password should be
+  // findable without competing with the sign-in button beside it.
+  forgotLinkBox: { alignSelf: "flex-start", paddingVertical: 4, marginBottom: 6 },
+  forgotLink: { color: colors.red, ...fonts.bodyBold, fontSize: 12.5 },
+  forgotPanel: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    backgroundColor: colors.cream,
+    padding: 12,
+    gap: 6,
+    marginBottom: 8,
+  },
+  forgotTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
+  forgotIntro: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, lineHeight: 18 },
   orderRow: {
     flexDirection: "row",
     alignItems: "center",

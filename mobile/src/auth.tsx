@@ -1,8 +1,17 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Platform } from "react-native";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Alert, Platform } from "react-native";
 import * as ExpoLinking from "expo-linking";
 import { BASE_URL } from "./api";
 import { openReturningPage } from "./browser";
+import { useI18n } from "./i18n";
 import { staffLogout } from "./staff";
 import {
   clearStaffToken,
@@ -31,7 +40,13 @@ import {
  *     page of the flow hands the browser straight back to the app
  *     instead of leaving the guest on the website.
  *
- * Plus email/password against the app's own account endpoints.
+ * Plus email/password against the app's own account endpoints, and the
+ * **forgotten-password** round trip (P7-15): the app asks the server to
+ * mail a link, the guest sets the new password on the web page that link
+ * opens, and that page hands the browser back to `APP_RETURN_URL`. The
+ * app watches for exactly that return (see `RESET_STATUS` below) because
+ * the reset revokes every live token of that customer — so the session
+ * this device is holding, if any, is already dead.
  *
  * **Restaurant mode.** The owner signs in through the SAME email/password
  * form the guests use — there is no separate screen, and a signed-out app
@@ -42,6 +57,21 @@ import {
  * tablet, never both), and the staff token lives in its own secure-store
  * slot so neither sign-out can strand the other.
  */
+
+/**
+ * Where a web page that the app sent the guest out to is meant to land
+ * them again. The path is shared with the browser sign-in flow; what
+ * distinguishes one trip from another is the query the app itself puts
+ * on the URL, which the web side carries back untouched (it treats the
+ * whole thing as one opaque allow-listed deep link).
+ */
+export function appReturnUrl(status?: string): string {
+  return ExpoLinking.createURL("auth-return", status ? { queryParams: { status } } : undefined);
+}
+
+/** The `?status=` value that means "this guest just changed their
+ *  password on the web". */
+export const RESET_STATUS = "reset";
 
 export interface DeliveryAddress {
   street?: string | null;
@@ -194,6 +224,7 @@ function decodeStaffSession(raw: string | null): StaffSession | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactElement {
+  const { t } = useI18n();
   const [token, setToken] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
   const [staffToken, setStaffToken] = useState<string | null>(null);
@@ -220,6 +251,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       setStaff({ name: session.name, email: session.email });
     });
   }, []);
+
+  /**
+   * Coming back from the web with `?status=reset` (P7-15).
+   *
+   * The reset revoked every token that customer had, so whatever this
+   * device is holding is already refused by the server — dropping it
+   * here just means the guest sees the sign-in form instead of a screen
+   * that 401s a second later.
+   *
+   * `useURL` covers both shapes of arrival: a cold start FROM the link,
+   * and a link that foregrounds an app already running. Each URL is
+   * acted on once — the hook re-serves the same value on re-renders (and
+   * on a language change, which re-runs this effect).
+   */
+  const returnedUrl = ExpoLinking.useURL();
+  const handledUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (!returnedUrl || handledUrl.current === returnedUrl) return;
+    handledUrl.current = returnedUrl;
+    let status: unknown;
+    try {
+      status = ExpoLinking.parse(returnedUrl).queryParams?.status;
+    } catch {
+      return; // Not a URL we can read — it is not ours either.
+    }
+    if (status !== RESET_STATUS) return;
+    setToken(null);
+    setCustomer(null);
+    void clearToken();
+    Alert.alert(t.resetDoneTitle, t.resetDoneBody);
+  }, [returnedUrl, t]);
 
   // Validate the stored token + load the profile whenever it changes.
   useEffect(() => {
@@ -283,7 +345,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         // Where the browser must end up. The server parks it WITH the
         // device code (never in the OAuth state) and the sign-in callback
         // bounces to it; `openAuthSessionAsync` then closes the tab on it.
-        const returnUrl = ExpoLinking.createURL("auth-return");
+        const returnUrl = appReturnUrl();
         const res = await fetch(`${BASE_URL}/api/v1/auth/device`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -16,6 +16,7 @@ const fixture: PublicMenu = {
   },
   locale: "en",
   isPreview: false,
+  offerCount: 0,
   categories: [
     {
       id: "c1",

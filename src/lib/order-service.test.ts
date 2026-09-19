@@ -4,6 +4,7 @@ import { prisma } from "./db";
 import { signupUser } from "./auth-service";
 import { asTenant } from "./tenant";
 import {
+  advanceOrderStatus,
   placeOrder,
   getOrderForReceipt,
   getOrderStats,
@@ -11,6 +12,8 @@ import {
   markOrderDone,
   placeOrderSchema,
 } from "./order-service";
+import { signInCustomer } from "./customer-auth";
+import { creditOrderIfEligible, getLoyaltySummary, setVoucherArmed } from "./loyalty-service";
 import { signReceiptToken, verifyReceiptToken } from "./receipt-token";
 import { buildReceiptPdf } from "./receipt-pdf";
 
@@ -710,5 +713,167 @@ describe("order-service (guest self-ordering)", () => {
     // %PDF magic + a plausible size for a one-page receipt.
     expect(Buffer.from(pdf.slice(0, 5)).toString("ascii")).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(1000);
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* Cancelling (P7-17)                                                */
+  /* ---------------------------------------------------------------- */
+
+  /** A venue whose loyalty scheme pays out after ONE qualifying order, so
+   *  a test can get to an armed voucher in three lines. */
+  async function loyaltyFixture(): Promise<{
+    userId: string;
+    tenantId: string;
+    venueId: string;
+    publishedVersionId: string;
+    itemId: string;
+    customerId: string;
+  }> {
+    const s = await signupUser({
+      email: `cancel-${randomUUID()}@ex.com`,
+      password: "S3cureP4ssPhrase!",
+      tenantName: "Cancel Test",
+    });
+    if (!s.ok) throw new Error("signup failed");
+    createdUserIds.push(s.userId);
+    createdTenantIds.push(s.tenantId);
+
+    return asTenant(s.tenantId, async (tx) => {
+      await tx.tenant.updateMany({ data: { plan: "scale" } });
+      const venue = await tx.venue.create({
+        data: {
+          tenantId: s.tenantId,
+          name: "Cancel Venue",
+          slug: `cancel-${randomUUID().slice(0, 8)}`,
+          currency: "EUR",
+          loyalty: {
+            enabled: true,
+            minOrderCents: 2000,
+            pointsPerOrder: 5,
+            rewardPoints: 5,
+            rewardValueCents: 2000,
+            voucherExpiryMonths: 0,
+          },
+        },
+        select: { id: true },
+      });
+      const menu = await tx.menu.create({
+        data: { tenantId: s.tenantId, venueId: venue.id, name: "Main", isDefault: true },
+        select: { id: true },
+      });
+      const version = await tx.menuVersion.create({
+        data: {
+          tenantId: s.tenantId,
+          menuId: menu.id,
+          status: "published",
+          publishedAt: new Date(),
+        },
+        select: { id: true },
+      });
+      await tx.menu.update({ where: { id: menu.id }, data: { publishedVersion: version.id } });
+      const category = await tx.category.create({
+        data: { tenantId: s.tenantId, menuVersionId: version.id, name: "Mains", orderIndex: 0 },
+        select: { id: true },
+      });
+      const item = await tx.item.create({
+        data: {
+          tenantId: s.tenantId,
+          categoryId: category.id,
+          name: "Biryani",
+          priceCents: 1245,
+          orderIndex: 0,
+        },
+        select: { id: true },
+      });
+      const signedIn = await signInCustomer(s.tenantId, "dev", {
+        sub: `dev:${randomUUID()}@ex.com`,
+        email: `guest-${randomUUID().slice(0, 8)}@ex.com`,
+        name: "Guest",
+      });
+      return {
+        userId: s.userId,
+        tenantId: s.tenantId,
+        venueId: venue.id,
+        publishedVersionId: version.id,
+        itemId: item.id,
+        customerId: signedIn.customerId,
+      };
+    });
+  }
+
+  it("cancels an open order and gives the redeemed voucher back", async () => {
+    const fx = await loyaltyFixture();
+    const place = async (redeemVoucher = false): Promise<string> => {
+      const result = await placeOrder(
+        fx,
+        {
+          orderType: "dine_in",
+          tableNumber: "3",
+          items: [{ itemId: fx.itemId, quantity: 2 }],
+          ...(redeemVoucher ? { redeemVoucher: true } : {}),
+        },
+        { customerId: fx.customerId },
+      );
+      if (!result.ok) throw new Error(`order failed: ${result.error}`);
+      return result.value.orderId;
+    };
+
+    // Earn a voucher on one order, arm it the way the app's Rewards card
+    // does, then spend it on the next.
+    await creditOrderIfEligible(fx.tenantId, await place());
+    const earned = (await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]!;
+    expect(await setVoucherArmed(fx.tenantId, fx.customerId, earned.id, true)).toMatchObject({
+      ok: true,
+    });
+    const orderId = await place(true);
+    expect(
+      (await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers.find(
+        (v) => v.id === earned.id,
+      ),
+    ).toMatchObject({ status: "redeemed" });
+
+    // placed → cancelled, straight past the chain.
+    expect(await advanceOrderStatus(fx.userId, orderId, "cancelled")).toEqual({ ok: true });
+    const row = await asTenant(fx.tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { status: true } }),
+    );
+    expect(row.status).toBe("cancelled");
+
+    // The restore is fire-and-forget (a loyalty hiccup must never block
+    // the kitchen board), so poll for it rather than racing it.
+    let restored = false;
+    for (let attempt = 0; attempt < 40 && !restored; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
+      restored = summary.vouchers.find((v) => v.id === earned.id)?.status === "available";
+    }
+    expect(restored, "the redeemed voucher never came back to the account").toBe(true);
+
+    // Terminal: nothing reopens it, and a second cancel finds nothing to
+    // move (so it cannot restore the voucher a second time either).
+    expect(await advanceOrderStatus(fx.userId, orderId, "cancelled")).toEqual({ ok: false });
+    expect(await advanceOrderStatus(fx.userId, orderId, "preparing")).toEqual({ ok: false });
+    expect(await advanceOrderStatus(fx.userId, orderId, "done")).toEqual({ ok: false });
+  });
+
+  it("drops a cancelled order off the open board and into the archive", async () => {
+    const fx = await loyaltyFixture();
+    const result = await placeOrder(fx, {
+      orderType: "dine_in",
+      tableNumber: "5",
+      items: [{ itemId: fx.itemId, quantity: 1 }],
+    });
+    if (!result.ok) throw new Error("order failed");
+    const orderId = result.value.orderId;
+
+    expect((await listRecentOrders(fx.userId, 50, { scope: "open" })).map((o) => o.id)).toEqual([
+      orderId,
+    ]);
+
+    expect(await advanceOrderStatus(fx.userId, orderId, "cancelled")).toEqual({ ok: true });
+    expect(await listRecentOrders(fx.userId, 50, { scope: "open" })).toEqual([]);
+    expect((await listRecentOrders(fx.userId, 50, { scope: "closed" })).map((o) => o.id)).toEqual([
+      orderId,
+    ]);
   });
 });

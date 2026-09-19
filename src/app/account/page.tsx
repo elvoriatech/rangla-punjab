@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { sanitizeAppReturnUrl } from "@/lib/app-return";
 import { CUSTOMER_COOKIE, customerProviders, verifyCustomerToken } from "@/lib/customer-auth";
 import { resolvePreviewContext } from "@/lib/preview-context";
 import { getRestaurantSlug } from "@/lib/restaurant";
@@ -43,9 +44,15 @@ const RESERVATION_BADGE: Record<string, string> = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ welcome?: string; error?: string; app?: string; locale?: string }>;
+  searchParams: Promise<{
+    welcome?: string;
+    error?: string;
+    app?: string;
+    locale?: string;
+    reset?: string;
+  }>;
 }): Promise<React.ReactElement> {
-  const { welcome, error, app, locale: localeParam } = await searchParams;
+  const { welcome, error, app, locale: localeParam, reset } = await searchParams;
   const slug = await getRestaurantSlug();
   const context = await resolvePreviewContext(slug, null);
   const store = await cookies();
@@ -98,6 +105,11 @@ export default async function AccountPage({
     : null;
   const locale = uiLocale(isLocaleCode(localeParam) ? localeParam : venueLocale);
   const t = postOrderCopy(locale);
+  // The reset pages keep the app's deep link alive across the round trip,
+  // so a guest who started in the app lands back in it. Allow-listed here
+  // for the same reason it is everywhere else: it ends up in an href.
+  const appReturn = sanitizeAppReturnUrl(app);
+  const forgotHref = `/account/forgot?locale=${locale}${appReturn ? `&app=${encodeURIComponent(appReturn)}` : ""}`;
   const resDate = new Intl.DateTimeFormat(locale, {
     weekday: "short",
     day: "2-digit",
@@ -152,6 +164,19 @@ export default async function AccountPage({
         />
       ) : null}
 
+      {/* A finished password reset lands here. Rendered inline, not in the
+          floating popup, because the reset pages are a zero-JS flow and
+          this is the line that tells the guest why they have to sign in
+          again. */}
+      {reset ? (
+        <p
+          role="status"
+          className="mt-6 border-s-4 border-[#3f7030] bg-[#3f7030]/10 px-4 py-3 text-sm"
+        >
+          {t.password.changedBody}
+        </p>
+      ) : null}
+
       {!customer ? (
         <section className="mt-8 space-y-3">
           <p className="text-sm text-muted">
@@ -196,6 +221,18 @@ export default async function AccountPage({
                 className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
               />
             </label>
+            {/* Right under the field a guest is staring at when the
+                password fails. A plain link, outside the <label> so it
+                never steals the label's own click: the whole reset flow
+                works without JS. */}
+            <p className="-mt-1 text-xs">
+              <Link
+                href={forgotHref}
+                className="underline underline-offset-2 text-muted hover:text-ink"
+              >
+                {t.password.forgotLink}
+              </Link>
+            </p>
             <label className="block text-sm">
               <span className="text-xs uppercase tracking-[0.14em] text-muted">
                 Name (nur bei Registrierung / sign-up only)

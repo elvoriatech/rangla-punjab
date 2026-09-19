@@ -126,6 +126,43 @@ const en = {
       failed: "Your message didn't go through — please try again.",
     },
   },
+
+  /* Cancelled order (P7-17). The tracker shows this INSTEAD of the step
+     rail: a cancelled order never walked the chain, and a half-lit rail
+     would read as "still coming". */
+  cancelledTitle: "This order was cancelled",
+  cancelledBody:
+    "The restaurant called this order off, so nothing is being prepared. If you already paid, the restaurant will refund you — give them a call if anything is unclear.",
+
+  /* Guest password reset (P7-15): the "forgot" form, the page the emailed
+     link opens, and the two lines that report the outcome — on the
+     account page and on the app hand-over page. Every sentence has to
+     work for someone who is half sure they even have an account here. */
+  password: {
+    forgotLink: "Forgot your password?",
+    forgotTitle: "Forgot your password?",
+    forgotIntro:
+      "Type the email address you order with and we'll send you a link to choose a new password.",
+    emailLabel: "Email",
+    sendLink: "Send me a link",
+    sent: "If an account exists for that address, the link is on its way. It works once and expires in 60 minutes.",
+    resetTitle: "Choose a new password",
+    resetIntro:
+      "Pick a password of at least 8 characters. Choosing it signs you out on every other device.",
+    newLabel: "New password",
+    confirmLabel: "Repeat the password",
+    save: "Save the new password",
+    changedTitle: "Password changed",
+    changedBody: "Your password is changed — please sign in with the new one.",
+    backToAccount: "Back to my account",
+    backToSignIn: "Back to sign in",
+    errors: {
+      invalid: "Please choose a password of at least 8 characters.",
+      mismatch: "The two passwords didn't match — please type them again.",
+      expired: "This link has already been used, or it expired. Please ask for a new one.",
+      failed: "That didn't work — please try again.",
+    },
+  },
 };
 
 export type PostOrderCopy = typeof en;
@@ -234,6 +271,37 @@ const de: PostOrderCopy = {
       failed: "Ihre Nachricht wurde nicht gesendet — bitte erneut versuchen.",
     },
   },
+
+  cancelledTitle: "Diese Bestellung wurde storniert",
+  cancelledBody:
+    "Das Restaurant hat diese Bestellung storniert — es wird nichts zubereitet. Falls Sie bereits bezahlt haben, erstattet Ihnen das Restaurant den Betrag. Rufen Sie bei Fragen einfach an.",
+
+  password: {
+    forgotLink: "Passwort vergessen?",
+    forgotTitle: "Passwort vergessen?",
+    forgotIntro:
+      "Geben Sie die E-Mail-Adresse ein, mit der Sie bestellen — wir schicken Ihnen einen Link für ein neues Passwort.",
+    emailLabel: "E-Mail",
+    sendLink: "Link schicken",
+    sent: "Falls es zu dieser Adresse ein Konto gibt, ist der Link unterwegs. Er funktioniert einmal und läuft nach 60 Minuten ab.",
+    resetTitle: "Neues Passwort wählen",
+    resetIntro:
+      "Wählen Sie ein Passwort mit mindestens 8 Zeichen. Damit werden Sie auf allen anderen Geräten abgemeldet.",
+    newLabel: "Neues Passwort",
+    confirmLabel: "Passwort wiederholen",
+    save: "Neues Passwort speichern",
+    changedTitle: "Passwort geändert",
+    changedBody: "Ihr Passwort wurde geändert — bitte melden Sie sich mit dem neuen an.",
+    backToAccount: "Zurück zu meinem Konto",
+    backToSignIn: "Zurück zur Anmeldung",
+    errors: {
+      invalid: "Bitte wählen Sie ein Passwort mit mindestens 8 Zeichen.",
+      mismatch: "Die beiden Passwörter stimmen nicht überein — bitte erneut eingeben.",
+      expired:
+        "Dieser Link wurde bereits benutzt oder ist abgelaufen. Bitte fordern Sie einen neuen an.",
+      failed: "Das hat nicht geklappt — bitte erneut versuchen.",
+    },
+  },
 };
 
 const es: PostOrderCopy = {
@@ -339,6 +407,36 @@ const es: PostOrderCopy = {
       failed: "Tu mensaje no se ha enviado: inténtalo de nuevo.",
     },
   },
+
+  cancelledTitle: "Este pedido se ha cancelado",
+  cancelledBody:
+    "El restaurante ha cancelado este pedido, así que no se preparará nada. Si ya habías pagado, el restaurante te devolverá el importe. Llámales si tienes cualquier duda.",
+
+  password: {
+    forgotLink: "¿Has olvidado la contraseña?",
+    forgotTitle: "¿Has olvidado la contraseña?",
+    forgotIntro:
+      "Escribe el correo con el que haces los pedidos y te enviaremos un enlace para elegir una contraseña nueva.",
+    emailLabel: "Correo electrónico",
+    sendLink: "Enviarme el enlace",
+    sent: "Si existe una cuenta con esa dirección, el enlace ya está en camino. Sirve una sola vez y caduca en 60 minutos.",
+    resetTitle: "Elige una nueva contraseña",
+    resetIntro:
+      "Elige una contraseña de al menos 8 caracteres. Al guardarla se cierra tu sesión en los demás dispositivos.",
+    newLabel: "Nueva contraseña",
+    confirmLabel: "Repite la contraseña",
+    save: "Guardar la nueva contraseña",
+    changedTitle: "Contraseña cambiada",
+    changedBody: "Tu contraseña se ha cambiado: inicia sesión con la nueva.",
+    backToAccount: "Volver a mi cuenta",
+    backToSignIn: "Volver al inicio de sesión",
+    errors: {
+      invalid: "Elige una contraseña de al menos 8 caracteres.",
+      mismatch: "Las dos contraseñas no coinciden: escríbelas de nuevo.",
+      expired: "Este enlace ya se ha usado o ha caducado. Pide uno nuevo.",
+      failed: "No ha funcionado: inténtalo de nuevo.",
+    },
+  },
 };
 
 const it: PostOrderCopy = {
@@ -442,6 +540,36 @@ const it: PostOrderCopy = {
       failed: "Il messaggio non è stato inviato: riprova.",
     },
   },
+
+  cancelledTitle: "Questo ordine è stato annullato",
+  cancelledBody:
+    "Il ristorante ha annullato questo ordine: non verrà preparato nulla. Se avevi già pagato, il ristorante ti rimborserà. Chiamali se qualcosa non ti è chiaro.",
+
+  password: {
+    forgotLink: "Password dimenticata?",
+    forgotTitle: "Password dimenticata?",
+    forgotIntro:
+      "Scrivi l'indirizzo email con cui ordini e ti inviamo un link per scegliere una nuova password.",
+    emailLabel: "Email",
+    sendLink: "Inviami il link",
+    sent: "Se esiste un account con quell'indirizzo, il link è in arrivo. Funziona una volta sola e scade dopo 60 minuti.",
+    resetTitle: "Scegli una nuova password",
+    resetIntro:
+      "Scegli una password di almeno 8 caratteri. Salvandola esci da tutti gli altri dispositivi.",
+    newLabel: "Nuova password",
+    confirmLabel: "Ripeti la password",
+    save: "Salva la nuova password",
+    changedTitle: "Password cambiata",
+    changedBody: "La tua password è stata cambiata: accedi con quella nuova.",
+    backToAccount: "Torna al mio account",
+    backToSignIn: "Torna all'accesso",
+    errors: {
+      invalid: "Scegli una password di almeno 8 caratteri.",
+      mismatch: "Le due password non coincidono: riscrivile.",
+      expired: "Questo link è già stato usato oppure è scaduto. Richiedine uno nuovo.",
+      failed: "Non ha funzionato: riprova.",
+    },
+  },
 };
 
 const ar: PostOrderCopy = {
@@ -541,6 +669,35 @@ const ar: PostOrderCopy = {
       resolved: "هذا البلاغ مغلق. يُرجى الاتصال بالمطعم.",
       notFound: "لم نعثر على هذا الطلب.",
       failed: "لم تُرسل رسالتك — حاول مرة أخرى.",
+    },
+  },
+
+  cancelledTitle: "تم إلغاء هذا الطلب",
+  cancelledBody:
+    "ألغى المطعم هذا الطلب، ولن يتم تحضير أي شيء. إذا كنت قد دفعت بالفعل، فسيردّ لك المطعم المبلغ. اتصل بهم إذا كان لديك أي استفسار.",
+
+  password: {
+    forgotLink: "نسيت كلمة المرور؟",
+    forgotTitle: "نسيت كلمة المرور؟",
+    forgotIntro: "اكتب البريد الإلكتروني الذي تطلب به، وسنرسل لك رابطًا لاختيار كلمة مرور جديدة.",
+    emailLabel: "البريد الإلكتروني",
+    sendLink: "أرسل لي الرابط",
+    sent: "إن كان هناك حساب بهذا العنوان، فالرابط في طريقه إليك. يعمل مرة واحدة وتنتهي صلاحيته بعد 60 دقيقة.",
+    resetTitle: "اختر كلمة مرور جديدة",
+    resetIntro:
+      "اختر كلمة مرور من 8 أحرف على الأقل. سيؤدي حفظها إلى تسجيل خروجك من جميع الأجهزة الأخرى.",
+    newLabel: "كلمة المرور الجديدة",
+    confirmLabel: "أعد كتابة كلمة المرور",
+    save: "حفظ كلمة المرور الجديدة",
+    changedTitle: "تم تغيير كلمة المرور",
+    changedBody: "تم تغيير كلمة مرورك — سجّل الدخول بالكلمة الجديدة.",
+    backToAccount: "العودة إلى حسابي",
+    backToSignIn: "العودة إلى تسجيل الدخول",
+    errors: {
+      invalid: "اختر كلمة مرور من 8 أحرف على الأقل.",
+      mismatch: "كلمتا المرور غير متطابقتين — أعد كتابتهما.",
+      expired: "استُخدم هذا الرابط من قبل أو انتهت صلاحيته. اطلب رابطًا جديدًا.",
+      failed: "لم تنجح العملية — حاول مرة أخرى.",
     },
   },
 };

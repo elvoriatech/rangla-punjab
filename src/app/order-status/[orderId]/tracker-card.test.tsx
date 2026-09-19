@@ -81,6 +81,24 @@ describe("order tracker", () => {
     expect(done).toContain(POST_ORDER_COPY.en.steps.pickedUp);
   });
 
+  it("replaces the step rail with a cancelled banner, in the guest's language", () => {
+    for (const locale of ["en", "de", "es", "it", "ar"] as const) {
+      const html = render({ ...order, status: "cancelled" }, locale);
+      expect(html).toContain(POST_ORDER_COPY[locale].cancelledTitle);
+      expect(html).toContain(POST_ORDER_COPY[locale].cancelledBody);
+      // No rail: a half-lit chain would read as "still on its way".
+      expect(html).not.toContain(POST_ORDER_COPY[locale].steps.preparing);
+      expect(html).not.toContain("start-[15px]");
+      // And nothing left to poll for.
+      expect(html).not.toContain('content="15"');
+      expect(html).not.toContain(POST_ORDER_COPY[locale].autoRefresh);
+      // Still the same receipt underneath — the guest keeps the lines,
+      // the total and the way back to the menu.
+      expect(html).toContain("Butter Chicken");
+      expect(html).toContain(POST_ORDER_COPY[locale].backToMenu);
+    }
+  });
+
   it("drops the refresh — and the promise of one — while a complaint is being written", () => {
     const paused = render(order, "en", true);
     expect(paused).not.toContain('content="15"');

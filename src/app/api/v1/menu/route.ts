@@ -101,6 +101,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         // to earn 5 points" on the cart. Always present, `enabled: false`
         // when the owner has not switched it on — the app shows nothing.
         loyalty: publicLoyalty(access.loyalty),
+        // P7-12: how many dishes carry an ACTIVE offer right now. The app
+        // hides its offers card, chip and tab badge entirely at 0, so it
+        // never has to walk the tree to find that out.
+        offerCount: menu.offerCount,
         categories: menu.categories.map((cat) => ({
           id: cat.id,
           name: cat.name,

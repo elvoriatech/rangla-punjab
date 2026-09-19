@@ -1,6 +1,6 @@
 import { issueRefByOrder, type IssueRef, type IssueStatus } from "./issue-service";
 import { getKitchenOrder, listRecentOrders, type KitchenOrder } from "./order-service";
-import { ORDER_STATUSES, canTransition } from "./order-status";
+import { ORDER_STATUSES, TERMINAL_STATUSES, canTransition } from "./order-status";
 import { asUser, resolveActiveTenantId } from "./tenant";
 
 /**
@@ -157,7 +157,11 @@ export async function getStaffSummary(userId: string): Promise<StaffSummary> {
   return asUser(userId, async (tx) => {
     // Sequential, not Promise.all: these share one interactive-transaction
     // connection, and serialising them keeps that explicit.
-    const openOrders = await tx.order.count({ where: { status: { not: "done" } } });
+    // "Still owes work" — a cancelled order owes none, so it drops out of
+    // the badge exactly like a finished one.
+    const openOrders = await tx.order.count({
+      where: { status: { notIn: [...TERMINAL_STATUSES] } },
+    });
     const unpaidOnline = await tx.order.count({ where: { paymentStatus: "pending" } });
     const pendingReservations = await tx.reservation.count({
       where: { deletedAt: null, status: "requested" },

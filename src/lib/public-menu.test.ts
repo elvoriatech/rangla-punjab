@@ -8,7 +8,13 @@ import { createCategory } from "./categories-service";
 import { createItem } from "./items-service";
 import { publishDraft } from "./menu-versions-service";
 import { resolvePreviewContext } from "./preview-context";
-import { formatPrice, loadPublicMenu } from "./public-menu";
+import {
+  formatPrice,
+  loadPublicMenu,
+  offerItems,
+  resolvePublicCategoryParam,
+  OFFERS_CATEGORY_ID,
+} from "./public-menu";
 
 describe("public menu loader", () => {
   const createdUserIds: string[] = [];
@@ -106,6 +112,75 @@ describe("public menu loader", () => {
     expect(risotto.dietary).toEqual(["vegetarian"]);
     expect(risotto.variants.map((v) => v.name)).toEqual(["Regular", "Truffle"]);
     expect(risotto.variants.map((v) => v.priceDeltaCents)).toEqual([0, 500]);
+  });
+
+  it("counts the items whose offer is live as offerCount (P7-12)", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const firstCtx = await resolvePreviewContext(venueSlug, null);
+    expect((await loadPublicMenu(firstCtx!))?.offerCount).toBe(0);
+
+    const draftCat = await asUser(userId, (tx) =>
+      tx.category.findFirstOrThrow({
+        where: { menuVersion: { status: "draft" } },
+        orderBy: { orderIndex: "asc" },
+      }),
+    );
+    // An offer with no window is live the moment it is published…
+    const live = await createItem(userId, {
+      categoryId: draftCat.id,
+      name: "Tiramisu",
+      priceCents: 800,
+      offerPriceCents: 500,
+      variants: [],
+    });
+    // …one whose date range has already closed never counts.
+    const expired = await createItem(userId, {
+      categoryId: draftCat.id,
+      name: "Panna cotta",
+      priceCents: 700,
+      offerPriceCents: 400,
+      offerStartsAt: new Date("2020-01-01T00:00:00Z"),
+      offerEndsAt: new Date("2020-02-01T00:00:00Z"),
+      variants: [],
+    });
+    if (!live.ok || !expired.ok) throw new Error("item failed");
+    if (!(await publishDraft(userId)).ok) throw new Error("re-publish failed");
+
+    const menu = await loadPublicMenu((await resolvePreviewContext(venueSlug, null))!);
+    expect(menu?.offerCount).toBe(1);
+    // …and the same rule drives the Offers destination's item list.
+    const discounted = offerItems(menu!);
+    expect(discounted.map((i) => i.name)).toEqual(["Tiramisu"]);
+    expect(discounted[0]!.priceCents).toBe(500);
+    expect(discounted[0]!.offer!.basePriceCents).toBe(800);
+  });
+
+  it("resolves ?cat=offers only while something is on offer", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const plain = await loadPublicMenu((await resolvePreviewContext(venueSlug, null))!);
+    // No live offer → a stale link degrades to the whole menu.
+    expect(resolvePublicCategoryParam(plain!, "offers")).toBeNull();
+    // A real category still resolves by its own slug.
+    expect(resolvePublicCategoryParam(plain!, "starters")).toBe(plain!.categories[0]!.id);
+
+    const draftCat = await asUser(userId, (tx) =>
+      tx.category.findFirstOrThrow({
+        where: { menuVersion: { status: "draft" } },
+        orderBy: { orderIndex: "asc" },
+      }),
+    );
+    const live = await createItem(userId, {
+      categoryId: draftCat.id,
+      name: "Affogato",
+      priceCents: 600,
+      offerPriceCents: 400,
+      variants: [],
+    });
+    if (!live.ok) throw new Error("item failed");
+    if (!(await publishDraft(userId)).ok) throw new Error("re-publish failed");
+
+    const withOffer = await loadPublicMenu((await resolvePreviewContext(venueSlug, null))!);
+    expect(resolvePublicCategoryParam(withOffer!, "offers")).toBe(OFFERS_CATEGORY_ID);
   });
 
   it("returns null when the venue has never published", async () => {

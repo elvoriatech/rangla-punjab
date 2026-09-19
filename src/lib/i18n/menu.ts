@@ -35,6 +35,17 @@ const en = {
     all: "All",
     allDiets: "All diets",
   },
+  /** P7-12 — the "Offers" destination: a synthetic first section listing
+   *  every dish whose offer is active, plus its own tab on the category
+   *  rail. Nothing here renders when the venue has no live offer. */
+  offers: {
+    /** Heading of the synthetic section. */
+    title: "Offers",
+    /** Label on the category rail (first tab). */
+    tab: "Offers",
+    /** Read out before the section's dishes. */
+    count: (n: number): string => (n === 1 ? "1 dish on offer" : `${n} dishes on offer`),
+  },
   badges: {
     open: "Open",
     /** Suffix of the open pill: "Open · until 22:00". */
@@ -144,6 +155,11 @@ const de: MenuCopy = {
     all: "Alle",
     allDiets: "Alle Ernährungsformen",
   },
+  offers: {
+    title: "Angebote",
+    tab: "Angebote",
+    count: (n) => (n === 1 ? "1 Gericht im Angebot" : `${n} Gerichte im Angebot`),
+  },
   badges: {
     open: "Geöffnet",
     until: (time) => `bis ${time}`,
@@ -250,6 +266,11 @@ const es: MenuCopy = {
     language: "Idioma",
     all: "Todo",
     allDiets: "Todas las dietas",
+  },
+  offers: {
+    title: "Ofertas",
+    tab: "Ofertas",
+    count: (n) => (n === 1 ? "1 plato en oferta" : `${n} platos en oferta`),
   },
   badges: {
     open: "Abierto",
@@ -358,6 +379,11 @@ const it: MenuCopy = {
     language: "Lingua",
     all: "Tutto",
     allDiets: "Tutte le diete",
+  },
+  offers: {
+    title: "Offerte",
+    tab: "Offerte",
+    count: (n) => (n === 1 ? "1 piatto in offerta" : `${n} piatti in offerta`),
   },
   badges: {
     open: "Aperto",
@@ -470,6 +496,19 @@ const ar: MenuCopy = {
     language: "اللغة",
     all: "الكل",
     allDiets: "كل الأنظمة الغذائية",
+  },
+  offers: {
+    title: "العروض",
+    tab: "العروض",
+    // MSA counted-noun agreement, same shape as `hero.dishCount`.
+    count: (n) =>
+      n === 1
+        ? "طبق واحد في العرض"
+        : n === 2
+          ? "طبقان في العرض"
+          : n <= 10
+            ? `${n} أطباق في العرض`
+            : `${n} طبقاً في العرض`,
   },
   badges: {
     open: "مفتوح",

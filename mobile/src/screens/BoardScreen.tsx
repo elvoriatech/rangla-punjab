@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   Linking,
   Platform,
@@ -89,6 +90,13 @@ const METHOD_ICONS: Record<string, string> = {
   cash: "💶",
   voucher: "🎁",
 };
+
+/** The out-of-band, terminal transition (P7-17). Spelled two ways
+ *  because the server's own vocabulary is what the board renders, and an
+ *  older deployment may still say "canceled". */
+function isCancelTransition(to: string): boolean {
+  return to === "cancelled" || to === "canceled";
+}
 
 /** Same day in the DEVICE's timezone — "today" is the restaurant's day. */
 function isToday(iso: string): boolean {
@@ -275,6 +283,27 @@ export function BoardScreen({
     void load("full").finally(() => setRefreshing(false));
   }, [load]);
 
+  /**
+   * Cancelling is the one action on this board that cannot be walked
+   * back, so it asks first — once, on the transition itself rather than
+   * on the button, so every route to it (an unknown-but-cancelling
+   * status the server grows later included) is guarded.
+   */
+  function onAction(order: StaffOrder, to: string): void {
+    if (!isCancelTransition(to)) {
+      void advance(order, to);
+      return;
+    }
+    Alert.alert(t.boardCancelTitle, t.boardCancelBody, [
+      { text: t.boardCancelKeep, style: "cancel" },
+      {
+        text: t.boardCancelConfirm,
+        style: "destructive",
+        onPress: () => void advance(order, to),
+      },
+    ]);
+  }
+
   async function advance(order: StaffOrder, to: string): Promise<void> {
     if (!staffToken || busyId) return;
     setNote(null);
@@ -397,6 +426,9 @@ export function BoardScreen({
       order.customerName || order.customerPhone || addressLine || address?.note,
     );
     const cardNote = note && note.id === order.id ? note : null;
+    // P7-17 deliberately refunds nothing automatically — so the card has
+    // to say out loud that money is still sitting with the provider.
+    const refundOwed = isCancelTransition(order.status) && paid && !byReward;
 
     return (
       <View
@@ -555,19 +587,21 @@ export function BoardScreen({
               <View style={styles.actions}>
                 {busyId === order.id ? <ActivityIndicator color={colors.red} /> : null}
                 {order.allowedNext.map((to, index) => {
-                  const quiet = to === "cancelled" || to === "canceled";
+                  // Cancelling is destructive, not merely secondary: it
+                  // wears the danger colour so a mis-tap is a visibly
+                  // different button, never a quieter version of "next".
+                  const destructive = isCancelTransition(to);
                   // The first step that isn't a cancel is the one the pass
                   // will actually tap — it gets the filled button.
                   const primary =
-                    !quiet &&
-                    index ===
-                      order.allowedNext.findIndex((x) => x !== "cancelled" && x !== "canceled");
+                    !destructive &&
+                    index === order.allowedNext.findIndex((x) => !isCancelTransition(x));
                   const busy = busyId === order.id;
                   const label = statusShort[to] ?? to;
                   return (
                     <Pressable
                       key={`${order.id}-${to}`}
-                      onPress={() => void advance(order, to)}
+                      onPress={() => onAction(order, to)}
                       disabled={busy}
                       accessibilityRole="button"
                       accessibilityLabel={label}
@@ -582,19 +616,19 @@ export function BoardScreen({
                           styles.actionIcon,
                           primary
                             ? styles.actionIconPrimary
-                            : quiet
-                              ? styles.actionIconQuiet
+                            : destructive
+                              ? styles.actionIconDanger
                               : styles.actionIconOutline,
                         ]}
                       >
                         <Ionicons
                           name={ACTION_ICONS[to] ?? "arrow-forward-outline"}
                           size={20}
-                          color={primary ? colors.onRed : quiet ? colors.inkSoft : colors.red}
+                          color={primary ? colors.onRed : destructive ? colors.danger : colors.red}
                         />
                       </View>
                       <Text
-                        style={[styles.actionCaption, quiet && styles.actionCaptionQuiet]}
+                        style={[styles.actionCaption, destructive && styles.actionCaptionDanger]}
                         numberOfLines={2}
                       >
                         {label}
@@ -606,6 +640,8 @@ export function BoardScreen({
             ) : null}
           </>
         ) : null}
+
+        {refundOwed ? <Text style={styles.refundNote}>{t.boardCancelledPaid}</Text> : null}
 
         {cardNote ? (
           <Text style={styles.cardNote}>
@@ -797,10 +833,20 @@ const styles = StyleSheet.create({
   },
   actionIconPrimary: { backgroundColor: colors.red, borderColor: colors.red },
   actionIconOutline: { backgroundColor: colors.creamCard, borderColor: colors.red },
-  actionIconQuiet: { backgroundColor: colors.creamCard, borderColor: colors.line },
+  actionIconDanger: { backgroundColor: colors.creamCard, borderColor: colors.danger },
   actionCaption: { color: colors.red, ...fonts.bodyBold, fontSize: 10, textAlign: "center" },
-  actionCaptionQuiet: { color: colors.inkSoft },
+  actionCaptionDanger: { color: colors.danger },
   cardNote: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
+  // Money the venue still owes a guest: loud enough to be acted on, and
+  // it stays on the card for as long as the cancelled order is listed.
+  refundNote: {
+    color: colors.danger,
+    ...fonts.bodySemi,
+    fontSize: 12,
+    borderTopWidth: 1,
+    borderColor: colors.line,
+    paddingTop: 8,
+  },
   pill: {
     flexDirection: "row",
     alignItems: "center",

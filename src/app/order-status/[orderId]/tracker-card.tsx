@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { guestSteps, stepIndex } from "@/lib/order-status";
+import { guestSteps, isCancelledStatus, stepIndex } from "@/lib/order-status";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 import { dirFor } from "@/lib/locales";
 import type { UiLocale } from "@/lib/locales";
@@ -50,7 +50,10 @@ export function OrderTrackerCard({
   const steps = guestSteps(order.orderType);
   const current = stepIndex(order.status, order.orderType);
   const isDone = order.status === "done";
-  const live = !isDone && !pauseRefresh;
+  // A cancelled order is finished too — there is nothing left to refresh
+  // towards, and the rail is replaced by the banner below (P7-17).
+  const cancelled = isCancelledStatus(order.status);
+  const live = !isDone && !cancelled && !pauseRefresh;
   const money = new Intl.NumberFormat(locale, { style: "currency", currency: order.currency });
   const time = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
@@ -79,61 +82,83 @@ export function OrderTrackerCard({
           {order.tableNumber ? t.tableSuffix(order.tableNumber) : ""}
         </p>
 
-        <ol className="mt-8 space-y-0">
-          {steps.map((step, i) => {
-            const reached = i <= current;
-            const isCurrent = i === current && !isDone;
-            return (
-              <li key={step.key} className="relative flex gap-4 pb-8 last:pb-0">
-                {i < steps.length - 1 ? (
+        {/* A cancelled order never walked the chain, so it gets a banner
+            rather than a rail — a half-lit rail reads as "still coming",
+            which is the one thing this guest must not believe. `role`
+            alert-free on purpose: this is a server render of a page the
+            guest just opened, not a live interruption. */}
+        {cancelled ? (
+          <div
+            className="mt-8 rounded-xl border p-4 text-center"
+            style={{
+              borderColor: "color-mix(in oklab, var(--menu-danger) 45%, transparent)",
+              backgroundColor: "color-mix(in oklab, var(--menu-danger) 10%, transparent)",
+            }}
+          >
+            <p className="text-base font-semibold" style={{ color: "var(--menu-danger)" }}>
+              {t.cancelledTitle}
+            </p>
+            <p className="mt-2 text-sm text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+              {t.cancelledBody}
+            </p>
+          </div>
+        ) : (
+          <ol className="mt-8 space-y-0">
+            {steps.map((step, i) => {
+              const reached = i <= current;
+              const isCurrent = i === current && !isDone;
+              return (
+                <li key={step.key} className="relative flex gap-4 pb-8 last:pb-0">
+                  {i < steps.length - 1 ? (
+                    <span
+                      aria-hidden="true"
+                      /* Logical inset: the rail runs under the bullets on
+                       whichever side the text starts. */
+                      className="absolute start-[15px] top-8 h-[calc(100%-2rem)] w-0.5"
+                      style={{
+                        backgroundColor:
+                          reached && i < current
+                            ? "var(--menu-positive)"
+                            : "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 22%, transparent)",
+                      }}
+                    />
+                  ) : null}
                   <span
                     aria-hidden="true"
-                    /* Logical inset: the rail runs under the bullets on
-                       whichever side the text starts. */
-                    className="absolute start-[15px] top-8 h-[calc(100%-2rem)] w-0.5"
-                    style={{
-                      backgroundColor:
-                        reached && i < current
-                          ? "var(--menu-positive)"
-                          : "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 22%, transparent)",
-                    }}
-                  />
-                ) : null}
-                <span
-                  aria-hidden="true"
-                  className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold"
-                  style={
-                    reached
-                      ? {
-                          backgroundColor: isCurrent
-                            ? "var(--menu-surface-accent, var(--menu-accent))"
-                            : "var(--menu-positive)",
-                          borderColor: isCurrent
-                            ? "var(--menu-surface-accent, var(--menu-accent))"
-                            : "var(--menu-positive)",
-                          color: "var(--menu-surface, #fff)",
-                        }
-                      : {
-                          borderColor:
-                            "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 28%, transparent)",
-                          color: "var(--menu-surface-text-soft, var(--menu-text-soft))",
-                        }
-                  }
-                >
-                  {reached && !isCurrent ? "✓" : i + 1}
-                </span>
-                {/* One language, full size. The old build stacked a small
+                    className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold"
+                    style={
+                      reached
+                        ? {
+                            backgroundColor: isCurrent
+                              ? "var(--menu-surface-accent, var(--menu-accent))"
+                              : "var(--menu-positive)",
+                            borderColor: isCurrent
+                              ? "var(--menu-surface-accent, var(--menu-accent))"
+                              : "var(--menu-positive)",
+                            color: "var(--menu-surface, #fff)",
+                          }
+                        : {
+                            borderColor:
+                              "color-mix(in oklab, var(--menu-surface-text, var(--menu-text)) 28%, transparent)",
+                            color: "var(--menu-surface-text-soft, var(--menu-text-soft))",
+                          }
+                    }
+                  >
+                    {reached && !isCurrent ? "✓" : i + 1}
+                  </span>
+                  {/* One language, full size. The old build stacked a small
                     English line under every German one — a stand-in for
                     translation, not a design. */}
-                <span
-                  className={`pt-1 text-start text-sm font-semibold ${reached ? "" : "opacity-60"}`}
-                >
-                  {t.steps[step.label]}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+                  <span
+                    className={`pt-1 text-start text-sm font-semibold ${reached ? "" : "opacity-60"}`}
+                  >
+                    {t.steps[step.label]}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
 
         <div className="mt-8 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/6 px-4 py-3 text-sm">
           <ul className="mb-2 space-y-1 border-b border-[var(--menu-surface-text,var(--menu-text))]/12 pb-2">

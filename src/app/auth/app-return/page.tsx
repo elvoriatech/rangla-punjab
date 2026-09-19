@@ -12,9 +12,10 @@ import { AppReturnView } from "./app-return-view";
  * to give the browser back to the app (meta refresh → `location.replace`
  * → a button the guest can press).
  *
- * `?status=success|failed` is set by the PayPal return leg only, and
- * turns the heading into the payment's outcome instead of the sign-in
- * line — the guest never signed in on that trip.
+ * `?status=success|failed` is set by the PayPal return leg, and
+ * `?status=reset` by the guest password-reset page; both turn the
+ * heading into that trip's outcome instead of the sign-in line — the
+ * guest never signed in on either.
  *
  * The deep link is allow-listed to app schemes inside `AppReturnView`, so
  * a hand-typed `?to=https://…` renders nothing but "you can close this
@@ -41,7 +42,7 @@ export default async function AppReturnPage({
       to={to}
       locale={locale ?? "en"}
       venueName={BRAND.name}
-      status={status === "success" || status === "failed" ? status : null}
+      status={status === "success" || status === "failed" || status === "reset" ? status : null}
     />
   );
 }

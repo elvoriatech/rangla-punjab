@@ -494,3 +494,89 @@ export const REWARD_COPY: Record<UiLocale, RewardCopy> = {
 };
 
 export const rewardCopy = (locale?: string | null): RewardCopy => REWARD_COPY[uiLocale(locale)];
+
+/* ------------------------------------------------------------------ */
+/* Guest password reset: "choose a new password"                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The guest half of the reset flow (P7-15). The owner's reset mail is a
+ * platform email in English; this one lands in the inbox of somebody who
+ * knows the RESTAURANT, so it is venue-branded and speaks the language
+ * the guest ordered in.
+ *
+ * Deliberately vague about who asked: the address may belong to someone
+ * who never requested anything, and the mail must read as harmless to
+ * them ("you can ignore this") rather than as an alarm.
+ */
+const guestResetEn = {
+  subject: (venue: string) => `Choose a new password for ${venue}`,
+  eyebrow: "Your account",
+  heading: "Choose a new password",
+  lead: "Someone asked to reset the password for your guest account. If that was you, pick a new one here:",
+  cta: "Choose a new password",
+  orPaste: "Or paste this link into your browser:",
+  expiry: "The link works once and expires in 60 minutes.",
+  ignore:
+    "If you didn't ask for this, you can ignore this email — your password stays exactly as it is.",
+};
+
+export type GuestResetCopy = typeof guestResetEn;
+
+const guestResetDe: GuestResetCopy = {
+  subject: (venue) => `Neues Passwort für ${venue} wählen`,
+  eyebrow: "Ihr Konto",
+  heading: "Neues Passwort wählen",
+  lead: "Jemand hat für Ihr Gastkonto ein neues Passwort angefordert. Wenn Sie das waren, wählen Sie hier eines:",
+  cta: "Neues Passwort wählen",
+  orPaste: "Oder diesen Link in den Browser kopieren:",
+  expiry: "Der Link funktioniert einmal und läuft nach 60 Minuten ab.",
+  ignore:
+    "Wenn Sie das nicht angefordert haben, ignorieren Sie diese E-Mail einfach — Ihr Passwort bleibt unverändert.",
+};
+
+const guestResetEs: GuestResetCopy = {
+  subject: (venue) => `Elige una nueva contraseña para ${venue}`,
+  eyebrow: "Tu cuenta",
+  heading: "Elige una nueva contraseña",
+  lead: "Alguien ha pedido restablecer la contraseña de tu cuenta. Si has sido tú, elige una nueva aquí:",
+  cta: "Elegir una nueva contraseña",
+  orPaste: "O pega este enlace en tu navegador:",
+  expiry: "El enlace sirve una sola vez y caduca en 60 minutos.",
+  ignore:
+    "Si no lo has pedido tú, puedes ignorar este correo: tu contraseña se queda tal como está.",
+};
+
+const guestResetIt: GuestResetCopy = {
+  subject: (venue) => `Scegli una nuova password per ${venue}`,
+  eyebrow: "Il tuo account",
+  heading: "Scegli una nuova password",
+  lead: "Qualcuno ha chiesto di reimpostare la password del tuo account. Se sei stato tu, scegline una nuova qui:",
+  cta: "Scegli una nuova password",
+  orPaste: "Oppure incolla questo link nel browser:",
+  expiry: "Il link funziona una volta sola e scade dopo 60 minuti.",
+  ignore:
+    "Se non sei stato tu a chiederlo, puoi ignorare questa email: la tua password resta invariata.",
+};
+
+const guestResetAr: GuestResetCopy = {
+  subject: (venue) => `اختر كلمة مرور جديدة لدى ${venue}`,
+  eyebrow: "حسابك",
+  heading: "اختر كلمة مرور جديدة",
+  lead: "طلب أحدهم إعادة تعيين كلمة مرور حسابك. إن كنت أنت، فاختر كلمة مرور جديدة من هنا:",
+  cta: "اختيار كلمة مرور جديدة",
+  orPaste: "أو انسخ هذا الرابط إلى متصفحك:",
+  expiry: "يعمل الرابط مرة واحدة وتنتهي صلاحيته بعد 60 دقيقة.",
+  ignore: "إن لم تطلب ذلك، فتجاهل هذه الرسالة — ستبقى كلمة مرورك كما هي.",
+};
+
+export const GUEST_RESET_COPY: Record<UiLocale, GuestResetCopy> = {
+  en: guestResetEn,
+  de: guestResetDe,
+  es: guestResetEs,
+  it: guestResetIt,
+  ar: guestResetAr,
+};
+
+export const guestResetCopy = (locale?: string | null): GuestResetCopy =>
+  GUEST_RESET_COPY[uiLocale(locale)];

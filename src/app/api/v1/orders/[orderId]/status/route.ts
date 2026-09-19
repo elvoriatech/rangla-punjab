@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getOrderTracking } from "@/lib/order-service";
-import { guestSteps, statusChain, stepIndex } from "@/lib/order-status";
+import { guestSteps, isCancelledStatus, statusChain, stepIndex } from "@/lib/order-status";
 import { getGuestIssueState } from "@/lib/issue-service";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 
@@ -48,6 +48,12 @@ export async function GET(
           id: order.id,
           orderNumber: order.orderNumber,
           status: order.status,
+          // P7-17. `cancelled` is off the chain, so `currentStepIndex`
+          // comes back as -1 and the steps are all unreached — correct,
+          // but easy for a client to render as "step 1 of 4, nothing
+          // done yet". This flag is the unambiguous read: draw the
+          // cancelled state, and stop polling.
+          cancelled: isCancelledStatus(order.status),
           statusChain: statusChain(order.orderType),
           currentStepIndex: current,
           steps: steps.map((s, i) => ({

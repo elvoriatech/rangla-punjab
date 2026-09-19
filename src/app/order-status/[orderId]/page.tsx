@@ -5,6 +5,7 @@ import { getOrderTracking } from "@/lib/order-service";
 import { menuThemeStyle } from "@/lib/menu-themes";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 import { isLocaleCode, uiLocale } from "@/lib/locales";
+import { isOpenStatus } from "@/lib/order-status";
 import { asTenant } from "@/lib/tenant";
 import { getGuestIssueState } from "@/lib/issue-service";
 import { OrderTrackerCard } from "./tracker-card";
@@ -122,7 +123,10 @@ export default async function OrderStatusPage({
           result={issueResult ?? null}
           action={reportIssueAction}
           compose={composing}
-          liveTracking={order.status !== "done"}
+          // Both terminals stop the tracker's meta refresh, so on either
+          // one the complaint box opens straight away instead of hiding
+          // behind a link that promises a refresh that isn't happening.
+          liveTracking={isOpenStatus(order.status)}
         />
       ) : null}
     </>

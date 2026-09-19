@@ -88,6 +88,7 @@ async function fixture(): Promise<Fixture> {
 interface MenuPayload {
   ok: boolean;
   venue: { locale: string; defaultLocale: string; enabledLocales: string[] };
+  offerCount: number;
   categories: { items: { name: string }[] }[];
 }
 
@@ -137,6 +138,27 @@ describe("GET /api/v1/menu — ?locale", () => {
     const body = await read(fx.slug, "?locale=fr");
     expect(body.venue.locale).toBe("de");
     expect(body.categories[0]!.items[0]!.name).toBe("Dal");
+  });
+
+  it("reports the live offer count so the app can hide its offers surface (P7-12)", async () => {
+    const fx = await fixture();
+    expect((await read(fx.slug)).offerCount).toBe(0);
+
+    await asTenant(fx.tenantId, async (tx) => {
+      const cat = await tx.category.findFirstOrThrow({ select: { id: true } });
+      await tx.item.create({
+        data: {
+          tenantId: fx.tenantId,
+          categoryId: cat.id,
+          name: "Mango Lassi",
+          priceCents: 500,
+          // No window: live from the moment it is published.
+          offerPriceCents: 300,
+          orderIndex: 1,
+        },
+      });
+    });
+    expect((await read(fx.slug)).offerCount).toBe(1);
   });
 
   it("ignores junk in the parameter", async () => {

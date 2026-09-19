@@ -10,9 +10,11 @@ import { dirFor, uiLocale } from "@/lib/locales";
  * `to` is the raw query value on purpose — the sanitizer lives inside the
  * component, so there is no way to render this with an unchecked link.
  *
- * `status` is the payment outcome when the PayPal return leg sent the
- * guest here; it replaces the sign-in heading with the settled state, so
- * the one line they read in passing is the one that is true.
+ * `status` is the outcome of whatever the app sent the browser out to
+ * do: the payment (`success`/`failed`, from the PayPal return leg) or a
+ * password reset (`reset`, from `/account/reset/[token]`). It replaces
+ * the sign-in heading with the settled state, so the one line they read
+ * in passing is the one that is true.
  */
 export function AppReturnView({
   to,
@@ -23,7 +25,7 @@ export function AppReturnView({
   to: string | null | undefined;
   locale: string;
   venueName: string | null;
-  status?: "success" | "failed" | null;
+  status?: "success" | "failed" | "reset" | null;
 }): React.ReactElement {
   const deepLink = sanitizeAppReturnUrl(to);
   const locale = uiLocale(localeCode);
@@ -46,8 +48,20 @@ export function AppReturnView({
           </p>
         ) : null}
         <h1 className="mt-2 font-serif text-3xl leading-tight">
-          {status === "success" ? t.paid : status === "failed" ? t.payFailed : t.signedIn}
+          {status === "success"
+            ? t.paid
+            : status === "failed"
+              ? t.payFailed
+              : status === "reset"
+                ? t.password.changedTitle
+                : t.signedIn}
         </h1>
+        {/* The reset leg is the one trip where the app CANNOT just carry
+            on: every session was revoked, so the guest has to sign in
+            again and needs to be told why. */}
+        {status === "reset" ? (
+          <p className="mt-3 text-sm text-muted">{t.password.changedBody}</p>
+        ) : null}
         {deepLink ? (
           <a
             href={deepLink}

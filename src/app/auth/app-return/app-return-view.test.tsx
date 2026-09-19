@@ -12,7 +12,7 @@ import { AppReturnView } from "./app-return-view";
 const render = (
   to: string | null | undefined,
   locale = "en",
-  status: "success" | "failed" | null = null,
+  status: "success" | "failed" | "reset" | null = null,
 ): string =>
   renderToStaticMarkup(
     <AppReturnView to={to} locale={locale} venueName="Rangla Punjab" status={status} />,
@@ -70,6 +70,18 @@ describe("<AppReturnView>", () => {
 
     // The sign-in trip has no status, and keeps its own heading.
     expect(render("ranglapunjab://auth-return")).toContain("You&#x27;re signed in");
+  });
+
+  it("says the password changed when the reset page sent the guest here", () => {
+    const html = render("ranglapunjab://auth-return", "en", "reset");
+    expect(html).toContain("Password changed");
+    // The app cannot just carry on — every session was revoked — so the
+    // page has to say why a sign-in is coming.
+    expect(html).toContain("please sign in with the new one");
+    expect(html).not.toContain("You&#x27;re signed in");
+    expect(html).toContain('href="ranglapunjab://auth-return"');
+
+    expect(render("ranglapunjab://auth-return", "de", "reset")).toContain("Passwort geändert");
   });
 
   it("speaks the venue's language, and turns the page around for RTL", () => {

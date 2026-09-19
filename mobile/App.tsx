@@ -17,7 +17,7 @@ import {
   Nunito_800ExtraBold,
 } from "@expo-google-fonts/nunito";
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
-import { fetchMenu } from "./src/api";
+import { fetchMenu, OFFERS_CATEGORY_ID } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
 import { AuthProvider, useAuth } from "./src/auth";
 import { I18nProvider, useI18n } from "./src/i18n";
@@ -143,8 +143,7 @@ function Shell(): React.ReactElement {
       if (res.ok) {
         setOpenOrders(res.data.openOrders);
         setOpenIssues(res.data.openIssues);
-      }
-      else if (res.error === "unauthorized") clearStaff();
+      } else if (res.error === "unauthorized") clearStaff();
       // Offline: keep the last count rather than flashing a zero.
     };
     void tick();
@@ -154,6 +153,8 @@ function Shell(): React.ReactElement {
       clearInterval(timer);
     };
   }, [staffToken, clearStaff]);
+
+  const offerCount = menu?.offerCount ?? 0;
 
   const onAdd = useCallback((item: ApiItem) => cart.add(item), [cart]);
   const onPlaced = useCallback(
@@ -223,6 +224,12 @@ function Shell(): React.ReactElement {
               setCategoryId(id);
               setTab("menu");
             }}
+            // Same threading as a category: the Menu tab is remounted on
+            // every switch, so its initial chip is simply this id (P7-12).
+            onOpenOffers={() => {
+              setCategoryId(OFFERS_CATEGORY_ID);
+              setTab("menu");
+            }}
             onBrowseAll={() => {
               setCategoryId(null);
               setTab("menu");
@@ -260,10 +267,7 @@ function Shell(): React.ReactElement {
           />
         ) : null}
         {tab === "issues" && restaurant ? (
-          <IssuesScreen
-            onBack={() => setTab("board")}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
+          <IssuesScreen onBack={() => setTab("board")} onOpenOwnerMenu={() => setOwnerMenu(true)} />
         ) : null}
         {tab === "info" ? (
           <AccountScreen
@@ -284,6 +288,9 @@ function Shell(): React.ReactElement {
         <TabButton
           label={t.tabMenu}
           icon="grid"
+          // What is on offer right now — the one number on this bar that
+          // is about the menu rather than about this device (P7-12).
+          badge={offerCount > 0 ? offerCount : undefined}
           active={tab === "menu"}
           onPress={() => setTab("menu")}
         />

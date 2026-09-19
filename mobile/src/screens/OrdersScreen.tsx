@@ -106,7 +106,11 @@ export function OrdersScreen({
           orders.map((order) => {
             const s = status[order.orderId];
             const paid = s?.paymentStatus === "paid";
-            const done = s?.status === "done" || s?.status === "cancelled";
+            // "Cancelled" is terminal but it is NOT "done": the order was
+            // never served, so it gets its own muted pill rather than the
+            // receipt green (P7-17).
+            const cancelled = s?.status === "cancelled" || s?.status === "canceled";
+            const done = s?.status === "done" || cancelled;
             const payShort = t.payShort as { paid: string; unpaid: string };
             const methodIcon = order.payment ? METHOD_ICONS[order.payment] : "💶";
             // Paid online → the method's icon + "Paid"; cash or a closed
@@ -144,12 +148,25 @@ export function OrdersScreen({
                         #{String(order.orderNumber).padStart(4, "0")}
                       </Text>
                       {s ? (
-                        <View style={[styles.pill, done ? styles.pillDone : styles.pillActive]}>
+                        <View
+                          style={[
+                            styles.pill,
+                            cancelled
+                              ? styles.pillCancelled
+                              : done
+                                ? styles.pillDone
+                                : styles.pillActive,
+                          ]}
+                        >
                           <Text style={styles.pillIcon}>{statusBadge(s).icon}</Text>
                           <Text
                             style={[
                               styles.pillText,
-                              done ? styles.pillTextDone : styles.pillTextActive,
+                              cancelled
+                                ? styles.pillTextCancelled
+                                : done
+                                  ? styles.pillTextDone
+                                  : styles.pillTextActive,
                             ]}
                             numberOfLines={1}
                           >
@@ -180,9 +197,7 @@ export function OrdersScreen({
                         <View
                           style={[
                             styles.pill,
-                            s.issue.status === "resolved"
-                              ? styles.pillNeutral
-                              : styles.pillProblem,
+                            s.issue.status === "resolved" ? styles.pillNeutral : styles.pillProblem,
                           ]}
                         >
                           <Text style={styles.pillIcon}>⚠️</Text>
@@ -195,8 +210,7 @@ export function OrdersScreen({
                             ]}
                             numberOfLines={1}
                           >
-                            {t.issuePill} ·{" "}
-                            {issueStatusLabels[s.issue.status] ?? s.issue.status}
+                            {t.issuePill} · {issueStatusLabels[s.issue.status] ?? s.issue.status}
                           </Text>
                         </View>
                       ) : null}
@@ -208,6 +222,9 @@ export function OrdersScreen({
                       </Text>
                       <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
                     </View>
+                    {cancelled ? (
+                      <Text style={styles.cancelledNote}>{t.orderCancelledTitle}</Text>
+                    ) : null}
                     {discountCents > 0 ? (
                       <Text style={styles.rewardOff}>
                         {fill(t.ordersRewardOff, {
@@ -254,6 +271,7 @@ const styles = StyleSheet.create({
   numberRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   number: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy },
   meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, flexShrink: 1 },
+  cancelledNote: { color: colors.danger, ...fonts.bodySemi, fontSize: 11.5 },
   // Reward applied but not the payment method: a quiet gold footnote.
   rewardOff: { color: colors.gold, ...fonts.bodySemi, fontSize: 11.5 },
   total: { color: colors.red, fontSize: 16, ...fonts.bodyHeavy },
@@ -279,6 +297,9 @@ const styles = StyleSheet.create({
   // Cash / not paid yet: quiet.
   pillNeutral: { backgroundColor: colors.cream, borderColor: colors.line },
   pillTextNeutral: { color: colors.inkSoft },
+  // Cancelled: struck from the day, not completed — never the green one.
+  pillCancelled: { backgroundColor: colors.cream, borderColor: colors.danger },
+  pillTextCancelled: { color: colors.danger },
   // An unresolved complaint — the one thing on the card that is still
   // waiting on somebody.
   pillProblem: { backgroundColor: "#fdeee6", borderColor: colors.danger },

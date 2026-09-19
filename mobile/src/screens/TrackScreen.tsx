@@ -27,6 +27,19 @@ import { useI18n } from "../i18n";
  * step list is authoritative (the app renders unknown statuses as
  * "in progress" rather than crashing — tolerant-client rule).
  */
+
+/** Statuses nothing ever leaves — polling stops here (P7-17). Spelled
+ *  both ways because the server's vocabulary is what arrives, and an
+ *  older deployment may still say "canceled". */
+function isTerminal(status: string | undefined): boolean {
+  return status === "done" || status === "cancelled" || status === "canceled";
+}
+
+/** Cancelled is terminal AND out of band: the step rail describes a
+ *  journey this order never finished, so it is replaced outright. */
+function isCancelled(status: string | undefined): boolean {
+  return status === "cancelled" || status === "canceled";
+}
 export function TrackScreen({
   orderId,
   token,
@@ -103,7 +116,9 @@ export function TrackScreen({
         // "Paid" settles within seconds, not at the next 10 s tick.
         if (next.paymentStatus === "paid") verifies = 6;
         const wait = confirmedRef.current && next.paymentStatus !== "paid" ? 3_000 : 10_000;
-        if (next.status !== "done") timer = setTimeout(() => void load(), wait);
+        // A cancelled order is as finished as a done one — there is
+        // nothing left for a poll to learn, so the loop ends here too.
+        if (!isTerminal(next.status)) timer = setTimeout(() => void load(), wait);
       } catch {
         if (!alive) return;
         setError(true);
@@ -178,7 +193,8 @@ export function TrackScreen({
 
   // Terminal statuses: the guest has eaten (or the order was cancelled), so
   // an unpaid online record means it was settled at the counter.
-  const closed = tracking?.status === "done" || tracking?.status === "cancelled";
+  const closed = isTerminal(tracking?.status);
+  const cancelled = isCancelled(tracking?.status);
   // A reward covered this order outright: there is nothing to pay, ever,
   // so the pay buttons stay away even before the status poll catches up.
   const paidByReward = tracking?.paymentProvider === "voucher";
@@ -197,8 +213,12 @@ export function TrackScreen({
           <Text style={styles.loading}>{error ? t.retrying : t.loadingOrder}</Text>
         ) : (
           <View style={styles.card}>
-            <Text style={styles.confirmed}>
-              {tracking.status === "done" ? t.orderDone : t.orderConfirmed}
+            <Text style={[styles.confirmed, cancelled && styles.confirmedCancelled]}>
+              {cancelled
+                ? t.orderCancelledTitle
+                : tracking.status === "done"
+                  ? t.orderDone
+                  : t.orderConfirmed}
             </Text>
             <Text style={styles.orderNo}>
               {t.orderNo} #{String(tracking.orderNumber).padStart(4, "0")}
@@ -209,54 +229,63 @@ export function TrackScreen({
               </Text>
             ) : null}
 
-            <View style={styles.steps}>
-              {tracking.steps.map((step, i) => {
-                const isCurrent = i === tracking.currentStepIndex && tracking.status !== "done";
-                return (
-                  <View key={step.key} style={styles.stepRow}>
-                    <View style={styles.stepRail}>
-                      <View
-                        style={[
-                          styles.dot,
-                          step.reached
-                            ? isCurrent
-                              ? { backgroundColor: colors.red, borderColor: colors.red }
-                              : { backgroundColor: colors.positive, borderColor: colors.positive }
-                            : null,
-                        ]}
-                      >
-                        <Text style={styles.dotText}>
-                          {step.reached && !isCurrent ? "✓" : i + 1}
-                        </Text>
-                      </View>
-                      {i < tracking.steps.length - 1 ? (
+            {cancelled ? (
+              // The one thing the guest needs from this screen now: it
+              // stopped, and what happens to money they already paid.
+              <View style={styles.cancelledBanner} accessibilityRole="alert">
+                <Text style={styles.cancelledTitle}>{t.orderCancelledTitle}</Text>
+                <Text style={styles.cancelledBody}>{t.orderCancelledBody}</Text>
+              </View>
+            ) : (
+              <View style={styles.steps}>
+                {tracking.steps.map((step, i) => {
+                  const isCurrent = i === tracking.currentStepIndex && tracking.status !== "done";
+                  return (
+                    <View key={step.key} style={styles.stepRow}>
+                      <View style={styles.stepRail}>
                         <View
                           style={[
-                            styles.railLine,
-                            i < tracking.currentStepIndex && { backgroundColor: colors.positive },
+                            styles.dot,
+                            step.reached
+                              ? isCurrent
+                                ? { backgroundColor: colors.red, borderColor: colors.red }
+                                : { backgroundColor: colors.positive, borderColor: colors.positive }
+                              : null,
                           ]}
-                        />
-                      ) : null}
-                    </View>
-                    <View style={{ flex: 1, paddingBottom: 18 }}>
-                      {/* The server ships only German + English step
+                        >
+                          <Text style={styles.dotText}>
+                            {step.reached && !isCurrent ? "✓" : i + 1}
+                          </Text>
+                        </View>
+                        {i < tracking.steps.length - 1 ? (
+                          <View
+                            style={[
+                              styles.railLine,
+                              i < tracking.currentStepIndex && { backgroundColor: colors.positive },
+                            ]}
+                          />
+                        ) : null}
+                      </View>
+                      <View style={{ flex: 1, paddingBottom: 18 }}>
+                        {/* The server ships only German + English step
                           labels. Show the one that matches the guest, and
                           pair it with the other only for those two
                           languages — a Spanish guest gains nothing from a
                           German subtitle. */}
-                      <Text style={[styles.stepPrimary, !step.reached && { opacity: 0.5 }]}>
-                        {lang === "de" ? step.labelDe : step.labelEn}
-                      </Text>
-                      {lang === "de" || lang === "en" ? (
-                        <Text style={styles.stepSecondary}>
-                          {lang === "de" ? step.labelEn : step.labelDe}
+                        <Text style={[styles.stepPrimary, !step.reached && { opacity: 0.5 }]}>
+                          {lang === "de" ? step.labelDe : step.labelEn}
                         </Text>
-                      ) : null}
+                        {lang === "de" || lang === "en" ? (
+                          <Text style={styles.stepSecondary}>
+                            {lang === "de" ? step.labelEn : step.labelDe}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
+            )}
 
             {tracking.items?.length ? (
               <View style={styles.itemsBox}>
@@ -286,20 +315,26 @@ export function TrackScreen({
               <Text style={styles.totalLabel}>{t.total}</Text>
               <Text style={styles.totalValue}>{money(tracking.totalCents, tracking.currency)}</Text>
             </View>
-            <Text style={styles.payState}>
-              {paidByReward
-                ? t.paidWithReward
-                : tracking.paymentStatus === "paid"
-                  ? t.paidOnline
-                  : confirmed
-                    ? t.payConfirming
-                    : closed
-                      ? t.paidAtRest
-                      : payment === "cash" ||
-                          (payment === undefined && !canPayCard && !canPayPaypal)
-                        ? t.payAtRest
-                        : t.payNotYet}
-            </Text>
+            {/* A cancelled order that was never paid owes no payment
+                line at all: "settled at the counter" would be a story
+                about a meal that never happened. One that WAS paid keeps
+                its line — that money is the guest's refund. */}
+            {cancelled && tracking.paymentStatus !== "paid" && !paidByReward ? null : (
+              <Text style={styles.payState}>
+                {paidByReward
+                  ? t.paidWithReward
+                  : tracking.paymentStatus === "paid"
+                    ? t.paidOnline
+                    : confirmed
+                      ? t.payConfirming
+                      : closed
+                        ? t.paidAtRest
+                        : payment === "cash" ||
+                            (payment === undefined && !canPayCard && !canPayPaypal)
+                          ? t.payAtRest
+                          : t.payNotYet}
+              </Text>
+            )}
             {rewardFailed ? <Text style={styles.rewardFailed}>{t.trackRewardFailed}</Text> : null}
 
             {/* Settled (server, sheet or reward), chosen cash, or the
@@ -365,9 +400,7 @@ export function TrackScreen({
                 accessibilityLabel={issueStatus ? t.issueView : t.issueReport}
                 style={({ pressed }) => [styles.issueBtn, pressed && { opacity: 0.7 }]}
               >
-                <Text style={styles.issueBtnText}>
-                  {issueStatus ? t.issueView : t.issueReport}
-                </Text>
+                <Text style={styles.issueBtnText}>{issueStatus ? t.issueView : t.issueReport}</Text>
                 {issueStatus ? (
                   <Text style={styles.issueBtnStatus}>
                     {(t.issueStatusLabels as Record<string, string>)[issueStatus] ?? issueStatus}
@@ -399,6 +432,18 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   confirmed: { color: colors.ink, fontSize: 18, ...fonts.bodyHeavy, textAlign: "center" },
+  confirmedCancelled: { color: colors.danger },
+  cancelledBanner: {
+    marginTop: 18,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    borderRadius: radius.md,
+    backgroundColor: "#fdeee6",
+    padding: 14,
+    gap: 4,
+  },
+  cancelledTitle: { color: colors.danger, fontSize: 15, ...fonts.bodyHeavy },
+  cancelledBody: { color: colors.ink, ...fonts.body, fontSize: 13, lineHeight: 19 },
   orderNo: {
     color: colors.inkSoft,
     ...fonts.body,

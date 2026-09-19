@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { ReserveDialog } from "./reserve-dialog";
-import { formatPrice, siteUrl, type PublicMenu } from "@/lib/public-menu";
+import {
+  formatPrice,
+  offerItems,
+  siteUrl,
+  OFFERS_CATEGORY_ID,
+  OFFERS_CATEGORY_SLUG,
+  type PublicMenu,
+} from "@/lib/public-menu";
 import { buildRestaurantJsonLd, jsonLdString } from "@/lib/structured-data";
 import { DIETARY_VALUES, HALAL_DIET, categorySlugs } from "@/lib/dietary-filter";
 import { menuThemeStyle, resolveMenuTheme } from "@/lib/menu-themes";
@@ -76,6 +83,24 @@ const WEEKDAY_INDEX: Record<string, number> = {
   sat: 6,
 };
 
+/**
+ * DOM id for a dish heading. The synthetic Offers section (P7-12) repeats
+ * dishes that also appear in their own category, so it renders them under
+ * a prefix: `aria-labelledby` must never resolve to two elements.
+ */
+function dishHeadingId(itemId: string, idPrefix?: string): string {
+  return `${idPrefix ?? ""}item-${itemId}`;
+}
+
+/** Glyph for the Offers tab when the venue shows category icons. */
+const OFFERS_ICON = "🔥";
+
+/** `?cat=` value for a category id — the Offers destination is synthetic,
+ *  so it carries a fixed slug instead of a name-derived one. */
+function catSlug(slugs: Map<string, string>, id: string): string {
+  return id === OFFERS_CATEGORY_ID ? OFFERS_CATEGORY_SLUG : (slugs.get(id) ?? id);
+}
+
 function shortWeekday(day: string, locale: string): string {
   const i = WEEKDAY_INDEX[day];
   if (i === undefined) return day;
@@ -129,6 +154,23 @@ export function MenuView({
   const diets = activeDiets ?? new Set<string>();
   const activeDiet = diets.size > 0 ? Array.from(diets)[0]! : null;
   const catList = allCategories ?? menu.categories.map((c) => ({ id: c.id, name: c.name }));
+  /* P7-12 — "Offers" as a destination: one synthetic section, first on the
+     page and first on every category rail, listing the dishes whose offer
+     is live. Derived from the tree we are actually rendering (the diet
+     filter may have removed every discounted dish), so the tab can never
+     lead to an empty section. Items keep their real ids: the Add button
+     places the dish from its own category, only the heading ids are
+     prefixed so nothing in the DOM appears twice. */
+  const offers = offerItems(menu);
+  const offersSection =
+    offers.length > 0
+      ? { id: OFFERS_CATEGORY_ID, name: t.offers.title, photoKey: null, items: offers }
+      : null;
+  // A stale `?cat=offers` (offers ended, or the diet filter emptied them)
+  // degrades to the whole menu rather than hiding every section.
+  const activeCat =
+    activeCategoryId === OFFERS_CATEGORY_ID && !offersSection ? null : (activeCategoryId ?? null);
+  const offersLabel = offersSection ? t.offers.tab : null;
   const jsonLd = jsonLdString(buildRestaurantJsonLd(menu, { pageUrl: `${siteUrl()}/${locale}` }));
   // Theme + texture come from the venue's saved appearance; the whole
   // renderer reads colors from these CSS vars, so this style attribute IS
@@ -260,7 +302,8 @@ export function MenuView({
         <StickyBar
           venue={menu.venue}
           categories={catList}
-          activeCategoryId={activeCategoryId ?? null}
+          activeCategoryId={activeCat}
+          offersLabel={offersLabel}
           activeDiet={activeDiet}
           showIcons={showIcons}
           offeredDiets={offeredDiets}
@@ -272,7 +315,7 @@ export function MenuView({
           locale={locale}
         />
 
-        {theme.layout === "hero" && !activeCategoryId ? (
+        {theme.layout === "hero" && !activeCat ? (
           <HeroSplash
             venue={menu.venue}
             categories={menu.categories}
@@ -290,7 +333,8 @@ export function MenuView({
           {sideNav ? (
             <SideRail
               categories={catList}
-              active={activeCategoryId ?? null}
+              active={activeCat}
+              offersLabel={offersLabel}
               activeDiet={activeDiet}
               showIcons={showIcons}
               t={t}
@@ -299,12 +343,28 @@ export function MenuView({
           <div className="min-w-0">
             {menu.categories.length === 0 ? (
               <p className="mx-auto mt-16 max-w-lg text-center text-sm text-[var(--menu-text)]/70">
-                {diets.size > 0 || activeCategoryId
-                  ? t.emptyStates.noDietMatch
-                  : t.emptyStates.emptyMenu}
+                {diets.size > 0 || activeCat ? t.emptyStates.noDietMatch : t.emptyStates.emptyMenu}
               </p>
             ) : (
               <div className={theme.layout === "editorial" ? "space-y-20" : "space-y-24"}>
+                {offersSection ? (
+                  <div
+                    data-category-id={OFFERS_CATEGORY_ID}
+                    hidden={activeCat ? activeCat !== OFFERS_CATEGORY_ID : undefined}
+                  >
+                    <p className="sr-only">{t.offers.count(offersSection.items.length)}</p>
+                    <Section
+                      cat={offersSection}
+                      catIndex={0}
+                      idPrefix="offer-"
+                      locale={locale}
+                      slug={menu.venue.slug}
+                      ordering={ordering}
+                      showIcons={showIcons}
+                      t={t}
+                    />
+                  </div>
+                ) : null}
                 {menu.categories.map((cat, catIndex) => (
                   /* Every category is in the DOM; the tabs filter by toggling
                      `hidden` (client-side, instant). A ?cat= deep link arrives
@@ -313,11 +373,14 @@ export function MenuView({
                   <div
                     key={cat.id}
                     data-category-id={cat.id}
-                    hidden={activeCategoryId ? cat.id !== activeCategoryId : undefined}
+                    hidden={activeCat ? cat.id !== activeCat : undefined}
                   >
                     <Section
                       cat={cat}
-                      catIndex={catIndex}
+                      /* Offers, when present, is section 01 — the numbered
+                         editorial headings and the LCP-priority first photo
+                         both follow the order on screen. */
+                      catIndex={offersSection ? catIndex + 1 : catIndex}
                       locale={locale}
                       slug={menu.venue.slug}
                       ordering={ordering}
@@ -431,6 +494,10 @@ type SectionProps = {
   ordering: boolean;
   showIcons: boolean;
   t: MenuCopy;
+  /** Set on the synthetic Offers section: prefixes the heading ids of the
+   *  dishes it repeats so no DOM id (or aria-labelledby target) is
+   *  duplicated on the page. */
+  idPrefix?: string;
 };
 
 /** Round icon medallion used by section headings when icons are on and
@@ -460,6 +527,9 @@ type DishProps = {
    * only; everything below the fold stays lazy.
    */
   priority?: boolean;
+  /** See `SectionProps.idPrefix` — the Offers section renders the same
+   *  dish twice on one page, so its copy needs its own heading id. */
+  idPrefix?: string;
 };
 
 /** Numbered heading + wide photo-left cards (the serif editorial look). */
@@ -470,6 +540,7 @@ function EditorialSection({
   slug,
   ordering,
   showIcons,
+  idPrefix,
   t,
 }: SectionProps): React.ReactElement {
   return (
@@ -525,6 +596,7 @@ function EditorialSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                idPrefix={idPrefix}
                 t={t}
               />
             </li>
@@ -684,6 +756,7 @@ function FloatingSection({
   slug,
   ordering,
   showIcons,
+  idPrefix,
   t,
 }: SectionProps): React.ReactElement {
   return (
@@ -720,7 +793,7 @@ function FloatingSection({
             >
               <article
                 suppressHydrationWarning
-                aria-labelledby={`item-${item.id}`}
+                aria-labelledby={dishHeadingId(item.id, idPrefix)}
                 className="dish-card group flex h-full flex-col text-[var(--menu-text)]"
               >
                 <div aria-hidden="true" className="relative mx-auto w-full max-w-56">
@@ -737,7 +810,7 @@ function FloatingSection({
                   </div>
                 </div>
                 <h3
-                  id={`item-${item.id}`}
+                  id={dishHeadingId(item.id, idPrefix)}
                   className={`mt-4 font-serif text-lg italic leading-snug ${
                     item.isAvailable ? "" : "line-through opacity-60"
                   }`}
@@ -803,6 +876,7 @@ function GridSection({
   slug,
   ordering,
   showIcons,
+  idPrefix,
   t,
 }: SectionProps): React.ReactElement {
   return (
@@ -852,6 +926,7 @@ function GridSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                idPrefix={idPrefix}
                 t={t}
               />
             </li>
@@ -870,6 +945,7 @@ function GridDishCard({
   ordering,
   priority,
   t,
+  idPrefix,
 }: DishProps): React.ReactElement {
   const src = menuImageUrl(item.photoKey, item.id, 480);
   const srcSet = menuImageSrcSet(item.photoKey, item.id, 480);
@@ -878,7 +954,7 @@ function GridDishCard({
       // The reveal script mutates class/style before hydration; React
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
-      aria-labelledby={`item-${item.id}`}
+      aria-labelledby={dishHeadingId(item.id, idPrefix)}
       className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative flex h-full flex-col overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-18px_rgba(36,50,78,0.35)]"
     >
       <div
@@ -905,7 +981,7 @@ function GridDishCard({
       <div className="flex flex-1 flex-col gap-1 px-2.5 py-3 sm:px-3 sm:py-4">
         <div className="flex items-start justify-between gap-2">
           <h3
-            id={`item-${item.id}`}
+            id={dishHeadingId(item.id, idPrefix)}
             className={
               item.isAvailable
                 ? "text-sm font-medium leading-snug"
@@ -1003,6 +1079,7 @@ function ListSection({
   slug,
   ordering,
   showIcons,
+  idPrefix,
   t,
 }: SectionProps): React.ReactElement {
   return (
@@ -1051,6 +1128,7 @@ function ListSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                idPrefix={idPrefix}
                 t={t}
               />
             </li>
@@ -1061,13 +1139,21 @@ function ListSection({
   );
 }
 
-function ListDishRow({ item, locale, slug, ordering, priority, t }: DishProps): React.ReactElement {
+function ListDishRow({
+  item,
+  locale,
+  slug,
+  ordering,
+  priority,
+  t,
+  idPrefix,
+}: DishProps): React.ReactElement {
   return (
     <article
       // The reveal script mutates class/style before hydration; React
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
-      aria-labelledby={`item-${item.id}`}
+      aria-labelledby={dishHeadingId(item.id, idPrefix)}
       className="dish-card text-[var(--menu-surface-text,var(--menu-text))] flex h-full items-stretch overflow-hidden rounded-lg border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] transition-all duration-300 hover:shadow-[0_16px_32px_-18px_rgba(0,0,0,0.35)]"
     >
       <div
@@ -1090,7 +1176,7 @@ function ListDishRow({ item, locale, slug, ordering, priority, t }: DishProps): 
       <div className="flex min-w-0 flex-1 flex-col py-2.5 ps-1.5 pe-3 sm:py-3 sm:ps-2 sm:pe-4">
         <div className="flex items-start justify-between gap-3">
           <h3
-            id={`item-${item.id}`}
+            id={dishHeadingId(item.id, idPrefix)}
             className={
               item.isAvailable
                 ? "font-serif text-lg leading-snug sm:text-xl"
@@ -1182,6 +1268,7 @@ function ShowcaseSection({
   slug,
   ordering,
   showIcons,
+  idPrefix,
   t,
 }: SectionProps): React.ReactElement {
   return (
@@ -1234,6 +1321,7 @@ function ShowcaseSection({
                 slug={slug}
                 ordering={ordering}
                 priority={catIndex === 0 && itemIndex === 0}
+                idPrefix={idPrefix}
                 t={t}
               />
             </li>
@@ -1251,6 +1339,7 @@ function ShowcaseDishCard({
   ordering,
   priority,
   t,
+  idPrefix,
 }: DishProps): React.ReactElement {
   const src = menuImageUrl(item.photoKey, item.id, 480);
   const srcSet = menuImageSrcSet(item.photoKey, item.id, 480);
@@ -1259,7 +1348,7 @@ function ShowcaseDishCard({
       // The reveal script mutates class/style before hydration; React
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
-      aria-labelledby={`item-${item.id}`}
+      aria-labelledby={dishHeadingId(item.id, idPrefix)}
       className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group flex h-full flex-col items-center text-center"
     >
       <div
@@ -1281,7 +1370,7 @@ function ShowcaseDishCard({
       </div>
       <div className="flex w-full items-start justify-between gap-3 text-start">
         <h3
-          id={`item-${item.id}`}
+          id={dishHeadingId(item.id, idPrefix)}
           className={
             item.isAvailable
               ? "font-serif text-xl leading-snug sm:text-2xl"
@@ -1418,6 +1507,7 @@ function StickyBar({
   venue,
   categories,
   activeCategoryId,
+  offersLabel,
   activeDiet,
   showIcons,
   offeredDiets,
@@ -1431,6 +1521,9 @@ function StickyBar({
   venue: PublicMenu["venue"];
   categories: { id: string; name: string }[];
   activeCategoryId: string | null;
+  /** Translated "Offers" tab label, or null when the venue has no live
+   *  offer — the synthetic tab then never renders. */
+  offersLabel: string | null;
   activeDiet: string | null;
   showIcons: boolean;
   offeredDiets: string[];
@@ -1452,6 +1545,7 @@ function StickyBar({
           <div className="mx-auto hidden max-w-none px-4 py-3 sm:px-6 lg:block lg:px-12">
             <CategoryTabs
               categories={categories}
+              offersLabel={offersLabel}
               active={activeCategoryId}
               activeDiet={activeDiet}
               showIcons={showIcons}
@@ -1469,6 +1563,7 @@ function StickyBar({
           <div className={`min-w-0 flex-1 lg:px-6 ${sideNav ? "hidden" : "hidden lg:block"}`}>
             <CategoryTabs
               categories={categories}
+              offersLabel={offersLabel}
               active={activeCategoryId}
               activeDiet={activeDiet}
               showIcons={showIcons}
@@ -1487,6 +1582,7 @@ function StickyBar({
         <div className="mx-auto max-w-none px-4 py-2.5 sm:px-6 sm:py-3">
           <CategoryTabs
             categories={categories}
+            offersLabel={offersLabel}
             active={activeCategoryId}
             activeDiet={activeDiet}
             showIcons={showIcons}
@@ -1499,9 +1595,7 @@ function StickyBar({
           <DietTabs
             active={activeDiet}
             activeCategorySlug={
-              activeCategoryId
-                ? (categorySlugs(categories).get(activeCategoryId) ?? activeCategoryId)
-                : null
+              activeCategoryId ? catSlug(categorySlugs(categories), activeCategoryId) : null
             }
             offeredDiets={offeredDiets}
             t={t}
@@ -1595,13 +1689,21 @@ function VenueMark({ venue }: { venue: PublicMenu["venue"] }): React.ReactElemen
 /* Dish card — full-width tile with gradient photo + gold accents      */
 /* ------------------------------------------------------------------ */
 
-function DishCard({ item, locale, slug, ordering, priority, t }: DishProps): React.ReactElement {
+function DishCard({
+  item,
+  locale,
+  slug,
+  ordering,
+  priority,
+  t,
+  idPrefix,
+}: DishProps): React.ReactElement {
   return (
     <article
       // The reveal script mutates class/style before hydration; React
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
-      aria-labelledby={`item-${item.id}`}
+      aria-labelledby={dishHeadingId(item.id, idPrefix)}
       className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
     >
       <div className="relative self-stretch">
@@ -1613,7 +1715,7 @@ function DishCard({ item, locale, slug, ordering, priority, t }: DishProps): Rea
       <div className="flex flex-col">
         <div className="flex items-start justify-between gap-3">
           <h3
-            id={`item-${item.id}`}
+            id={dishHeadingId(item.id, idPrefix)}
             className={
               item.isAvailable
                 ? "font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))] sm:text-xl"
@@ -1744,18 +1846,27 @@ function DishPhoto({
 function SideRail({
   categories,
   active,
+  offersLabel,
   activeDiet,
   showIcons,
   t,
 }: {
   categories: { id: string; name: string }[];
   active: string | null;
+  /** Translated "Offers" label, or null when there is nothing on offer. */
+  offersLabel: string | null;
   activeDiet: string | null;
   showIcons: boolean;
   t: MenuCopy;
 }): React.ReactElement {
   const dietQs = activeDiet ? `&diet=${activeDiet}` : "";
   const slugOf = categorySlugs(categories);
+  // Offers lead the rail — a destination, not a category. Real category
+  // slugs are computed from the real list above, so adding it can never
+  // renumber an existing `?cat=` URL.
+  const railCategories = offersLabel
+    ? [{ id: OFFERS_CATEGORY_ID, name: offersLabel }, ...categories]
+    : categories;
   // Modern rail: a soft translucent surface so the labels are readable
   // over ANY artwork/gradient; the active category is the app's red
   // bubble with the sharp bottom-right corner.
@@ -1783,19 +1894,19 @@ function SideRail({
               {t.nav.all}
             </CategoryLink>
           </li>
-          {categories.map((c) => (
+          {railCategories.map((c) => (
             <li key={c.id}>
               <CategoryLink
                 id={c.id}
-                slug={slugOf.get(c.id) ?? c.id}
-                href={`/?cat=${slugOf.get(c.id) ?? c.id}${dietQs}`}
+                slug={catSlug(slugOf, c.id)}
+                href={`/?cat=${catSlug(slugOf, c.id)}${dietQs}`}
                 initialActive={active}
                 activeClass={`${linkBase} ${railActive}`}
                 idleClass={`${linkBase} ${railIdle}`}
               >
                 {showIcons ? (
                   <span aria-hidden="true" className="me-1.5 text-sm normal-case tracking-normal">
-                    {categoryIcon(c.name)}
+                    {c.id === OFFERS_CATEGORY_ID ? OFFERS_ICON : categoryIcon(c.name)}
                   </span>
                 ) : null}
                 {c.name}
@@ -1811,22 +1922,36 @@ function SideRail({
 function CategoryTabs({
   categories,
   active,
+  offersLabel,
   activeDiet,
   showIcons,
   t,
 }: {
   categories: { id: string; name: string }[];
   active: string | null;
+  /** Translated "Offers" label, or null when there is nothing on offer. */
+  offersLabel: string | null;
   activeDiet: string | null;
   showIcons: boolean;
   t: MenuCopy;
 }): React.ReactElement | null {
   const slugOf = categorySlugs(categories);
+  // "Offers" leads the rail when the venue has a live offer. Its slug and
+  // icon are fixed here on the server; the real categories keep the slugs
+  // they have always had.
+  const railCategories = offersLabel
+    ? [{ id: OFFERS_CATEGORY_ID, name: offersLabel }, ...categories]
+    : categories;
   return (
     <CategoryTabsClient
-      categories={categories}
-      slugs={Object.fromEntries(categories.map((c) => [c.id, slugOf.get(c.id) ?? c.id]))}
-      icons={Object.fromEntries(categories.map((c) => [c.id, categoryIcon(c.name)]))}
+      categories={railCategories}
+      slugs={Object.fromEntries(railCategories.map((c) => [c.id, catSlug(slugOf, c.id)]))}
+      icons={Object.fromEntries(
+        railCategories.map((c) => [
+          c.id,
+          c.id === OFFERS_CATEGORY_ID ? OFFERS_ICON : categoryIcon(c.name),
+        ]),
+      )}
       active={active}
       activeDiet={activeDiet}
       showIcons={showIcons}

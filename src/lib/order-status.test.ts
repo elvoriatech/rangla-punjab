@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ORDER_STATUSES,
+  TERMINAL_STATUSES,
   advanceLabel,
   canTransition,
   guestSteps,
+  isCancelledStatus,
   isOpenStatus,
   nextStatus,
   statusChain,
@@ -23,6 +25,10 @@ describe("order lifecycle", () => {
       "out_for_delivery",
       "done",
     ]);
+    // Cancelling is out of band — it is never a step the guest walks.
+    for (const type of ["dine_in", "takeaway", "delivery"]) {
+      expect(statusChain(type)).not.toContain("cancelled");
+    }
   });
 
   it("allows forward and skip-ahead, refuses backwards and sideways", () => {
@@ -35,8 +41,26 @@ describe("order lifecycle", () => {
     expect(canTransition("ready", "out_for_delivery", "delivery")).toBe(true);
     expect(canTransition("ready", "out_for_delivery", "dine_in")).toBe(false);
     // junk never passes
-    expect(canTransition("placed", "cancelled", "dine_in")).toBe(false);
     expect(canTransition("nonsense", "done", "dine_in")).toBe(false);
+    expect(canTransition("placed", "nonsense", "dine_in")).toBe(false);
+  });
+
+  it("cancels out of band: from every open status, from nowhere terminal", () => {
+    for (const from of ["placed", "preparing", "ready"]) {
+      expect(canTransition(from, "cancelled", "dine_in")).toBe(true);
+      expect(canTransition(from, "cancelled", "takeaway")).toBe(true);
+      expect(canTransition(from, "cancelled", "delivery")).toBe(true);
+    }
+    // The courier can turn back; a dine-in order was never on that leg.
+    expect(canTransition("out_for_delivery", "cancelled", "delivery")).toBe(true);
+    expect(canTransition("out_for_delivery", "cancelled", "dine_in")).toBe(false);
+    // Both terminals are terminal.
+    expect(canTransition("done", "cancelled", "dine_in")).toBe(false);
+    expect(canTransition("cancelled", "cancelled", "dine_in")).toBe(false);
+    // Nothing leaves a cancelled order — not forwards, not backwards.
+    for (const to of ORDER_STATUSES) {
+      expect(canTransition("cancelled", to, "delivery")).toBe(false);
+    }
   });
 
   it("nextStatus follows the chain and ends at done", () => {
@@ -46,11 +70,31 @@ describe("order lifecycle", () => {
     expect(nextStatus("out_for_delivery", "delivery")).toBe("done");
     expect(nextStatus("done", "delivery")).toBeNull();
     expect(nextStatus("unknown", "dine_in")).toBeNull();
+    // Cancelling is never something the "advance" button walks into, and
+    // there is no way back out of it.
+    for (const type of ["dine_in", "takeaway", "delivery"]) {
+      for (const s of ORDER_STATUSES) {
+        expect(nextStatus(s, type)).not.toBe("cancelled");
+      }
+      expect(nextStatus("cancelled", type)).toBeNull();
+    }
   });
 
-  it("open = not terminal", () => {
+  it("open = not terminal; both done and cancelled are closed", () => {
     for (const s of ORDER_STATUSES) {
-      expect(isOpenStatus(s)).toBe(s !== "done");
+      expect(isOpenStatus(s)).toBe(s !== "done" && s !== "cancelled");
+    }
+    expect(TERMINAL_STATUSES).toEqual(["done", "cancelled"]);
+    expect(isCancelledStatus("cancelled")).toBe(true);
+    expect(isCancelledStatus("done")).toBe(false);
+  });
+
+  it("leaves the guest's step rail alone — cancelled is not a step", () => {
+    for (const type of ["dine_in", "takeaway", "delivery"]) {
+      expect(guestSteps(type).map((s) => s.key)).not.toContain("cancelled");
+      // -1, so every caller falls into its "no rail" branch and renders a
+      // cancelled state instead of a half-walked chain.
+      expect(stepIndex("cancelled", type)).toBe(-1);
     }
   });
 
@@ -90,5 +134,6 @@ describe("order lifecycle", () => {
     for (const s of ORDER_STATUSES) {
       expect(advanceLabel(s)).toBeTruthy();
     }
+    expect(advanceLabel("cancelled")).toBe("Cancel");
   });
 });
