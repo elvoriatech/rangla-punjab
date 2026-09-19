@@ -14,6 +14,15 @@
     "plugins": [
       "expo-font",
       [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "The app uses your photos so you can attach a picture when you report a problem with an order.",

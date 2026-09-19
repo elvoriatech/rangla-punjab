@@ -10,6 +10,7 @@
     "@react-native-google-signin/google-signin": "^16.1.5",
     "@stripe/stripe-react-native": "0.64.0",
     "expo": "~57.0.13",
+    "expo-audio": "~57.0.5",
     "expo-constants": "~57.0.19",
     "expo-device": "~57.0.2",
     "expo-font": "~57.0.1",

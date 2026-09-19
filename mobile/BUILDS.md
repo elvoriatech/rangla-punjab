@@ -508,6 +508,29 @@ Stripe key ⇒ the labelled **Simulate payment (test)** button instead.
 - **Tablet.** Turn the tablet on its side: the Board should go to two
   columns (three on a big one), the owner screens should stay a centred
   column rather than stretching, and the tab bar should stop growing.
+- **New-order chime.** The Board now *sounds* when an order lands, beside the
+  gold highlight and the buzz: one 1.5 s two-tone ding
+  (`assets/sounds/new-order.mp3`, ~18 KB, bundled — it works with no network).
+  The **"Sound for new orders"** switch sits under the auto-print switch in the
+  same card above the board, defaults **ON**, and is remembered per device
+  (`rangla-new-order-sound`). It rings once per poll however many orders that
+  poll carried, never on the first read after opening the Board, and never on
+  a guest device (the Board is restaurant-only). A push arriving in the
+  foreground re-reads the board, so it chimes on that path too. To test: open
+  the Board on the tablet, place an order from another phone, and listen —
+  then put the tablet on **silent** and do it again (the chime is configured
+  to play in silent mode, and to mix with rather than stop the kitchen radio).
+
+  ⛔ **Native rebuild required** — `expo-audio` (~57.0.5) is a **native
+  module**, so the currently installed APK/IPA has no audio engine and the
+  switch will simply stay quiet. Rebuild (`npx expo prebuild` + `expo run:ios`
+  / an EAS build) after pulling this change; an OTA update cannot deliver it.
+  **No new permission:** the `expo-audio` config-plugin entry in `app.json`
+  passes `microphonePermission: false` + `recordAudioAndroid: false`, so no
+  `NSMicrophoneUsageDescription` and no `RECORD_AUDIO` are written — playback
+  only. `enableBackgroundPlayback: false` likewise keeps the `audio`
+  background mode and the media-playback foreground service out of the build;
+  a chime has nothing to play while the app is closed.
 
 ## Shipping to the stores
 

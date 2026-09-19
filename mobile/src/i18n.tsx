@@ -613,6 +613,7 @@ const en = {
   boardAutoPrint: "Auto-print new orders",
   boardAutoPrintHint:
     "Each new order prints once, as it lands. Orders already on the board are left alone.",
+  boardSound: "Sound for new orders",
   boardPrinting: "Sending to the printer…",
   boardPrinted: "Ticket sent to the printer.",
   boardPrintFailed: "Couldn't print that ticket.",
@@ -1177,6 +1178,7 @@ const de: Strings = {
   boardAutoPrint: "Neue Bestellungen automatisch drucken",
   boardAutoPrintHint:
     "Jede neue Bestellung wird einmal gedruckt, sobald sie eingeht. Bestellungen, die schon auf der Tafel stehen, bleiben unberührt.",
+  boardSound: "Ton bei neuen Bestellungen",
   boardPrinting: "Wird an den Drucker gesendet…",
   boardPrinted: "Bon an den Drucker geschickt.",
   boardPrintFailed: "Der Bon konnte nicht gedruckt werden.",
@@ -1739,6 +1741,7 @@ const it: Strings = {
   boardAutoPrint: "Stampa automatica dei nuovi ordini",
   boardAutoPrintHint:
     "Ogni nuovo ordine viene stampato una volta, appena arriva. Gli ordini già in bacheca restano come sono.",
+  boardSound: "Suono per i nuovi ordini",
   boardPrinting: "Invio alla stampante…",
   boardPrinted: "Comanda inviata alla stampante.",
   boardPrintFailed: "Non è stato possibile stampare la comanda.",
@@ -2300,6 +2303,7 @@ const es: Strings = {
   boardAutoPrint: "Imprimir los pedidos nuevos automáticamente",
   boardAutoPrintHint:
     "Cada pedido nuevo se imprime una vez, al llegar. Los pedidos que ya están en el tablero no se tocan.",
+  boardSound: "Sonido para los pedidos nuevos",
   boardPrinting: "Enviando a la impresora…",
   boardPrinted: "Ticket enviado a la impresora.",
   boardPrintFailed: "No se ha podido imprimir el ticket.",
@@ -2853,6 +2857,7 @@ const ar: Strings = {
   boardAutoPrint: "طباعة تلقائية للطلبات الجديدة",
   boardAutoPrintHint:
     "تُطبع كل طلبية جديدة مرة واحدة فور وصولها. أما الطلبات الموجودة على اللوحة فتُترك كما هي.",
+  boardSound: "صوت عند وصول طلبات جديدة",
   boardPrinting: "جارٍ الإرسال إلى الطابعة…",
   boardPrinted: "أُرسل البون إلى الطابعة.",
   boardPrintFailed: "تعذّرت طباعة البون.",

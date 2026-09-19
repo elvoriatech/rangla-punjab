@@ -35,6 +35,8 @@ import {
   printTicket,
   setAutoPrintOn,
 } from "../print";
+import type { Chime } from "../sound";
+import { isNewOrderSoundOn, loadChime, setNewOrderSoundOn } from "../sound";
 import { useLayout } from "../layout";
 import { colors, fonts, money, radius } from "../theme";
 import { fill, localeTag, useI18n } from "../i18n";
@@ -203,6 +205,15 @@ export function BoardScreen({
   const [autoPrint, setAutoPrint] = useState(false);
   const autoPrintRef = useRef(false);
   autoPrintRef.current = autoPrint;
+  /**
+   * Whether a new order makes a noise. Held the same two ways and for
+   * the same reason as the printer switch above — and defaulted ON,
+   * because unlike a printer a chime has nothing to go wrong and an
+   * order nobody noticed is the failure this board exists to prevent.
+   */
+  const [sound, setSound] = useState(true);
+  const soundRef = useRef(true);
+  soundRef.current = sound;
   /** Printing talks back in one line above the board rather than on a
    *  card: an auto-print run can cover several orders at once. */
   const [toast, setToast] = useState<string | null>(null);
@@ -222,6 +233,10 @@ export function BoardScreen({
    * calls through this ref, which the effect below keeps current.
    */
   const autoPrintRunRef = useRef<(ids: readonly string[]) => void>(() => {});
+  /** The loaded chime, for the poll to reach without re-rendering it
+   *  into existence. Null until the board has mounted, and again after
+   *  it unmounts — both are silence, which is the safe direction. */
+  const chimeRef = useRef<Chime | null>(null);
 
   const tag = localeTag(lang);
   const timeOf = useCallback(
@@ -274,6 +289,12 @@ export function BoardScreen({
         if (autoPrintRef.current) autoPrintRunRef.current(arrived);
         // One short buzz, not a ringtone: the kitchen is a quiet room.
         Vibration.vibrate(250);
+        // ONE chime per poll, however many orders it carried: four
+        // tickets landing together are one piece of news, and four
+        // overlapping dings are just noise. `seen` is null until the
+        // first read lands, so `arrived` is empty on a cold start and
+        // the board never announces its own backlog.
+        if (soundRef.current) chimeRef.current?.play();
         setFresh((prevFresh) => [...prevFresh, ...arrived]);
         // A ticket that just landed opens itself: the kitchen should read
         // the items without being asked to tap first.
@@ -344,10 +365,34 @@ export function BoardScreen({
     void isAutoPrintOn().then((on) => {
       if (alive) setAutoPrint(on);
     });
+    void isNewOrderSoundOn().then((on) => {
+      if (alive) setSound(on);
+    });
     return () => {
       alive = false;
     };
   }, []);
+
+  /**
+   * The chime is loaded the moment the board opens, not the moment an
+   * order lands: decoding the file costs longer than the gap the kitchen
+   * would hear between the card lighting up and the ding.
+   *
+   * It is loaded even when the switch is off — flipping it on mid-rush
+   * must be instant, and a silent player costs one decoded second and a
+   * half of audio. The staff session gates it so nothing but a
+   * restaurant device ever opens an audio route; a guest never reaches
+   * this screen at all.
+   */
+  useEffect(() => {
+    if (!staffToken) return;
+    const chime = loadChime();
+    chimeRef.current = chime;
+    return () => {
+      chimeRef.current = null;
+      chime.release();
+    };
+  }, [staffToken]);
 
   useEffect(
     () => () => {
@@ -451,6 +496,18 @@ export function BoardScreen({
     },
     [orders],
   );
+
+  /**
+   * The sound switch has no backlog problem to solve — it changes what
+   * the NEXT arrival does and nothing else — so unlike the printer it
+   * baselines nothing. Turning it on previews nothing either: the pass
+   * is a shared room, and a switch that dings every time someone brushes
+   * it is a switch that gets turned off for good.
+   */
+  const toggleSound = useCallback((next: boolean): void => {
+    setSound(next);
+    void setNewOrderSoundOn(next);
+  }, []);
 
   const toggleCard = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -910,12 +967,13 @@ export function BoardScreen({
         {offline ? <Text style={styles.offline}>{t.boardReconnecting}</Text> : null}
         {toast ? <Text style={styles.toast}>{toast}</Text> : null}
 
-        {/* The printer switch sits above the board, not inside the owner
-            menu: it is a service-time decision the pass makes and has to
-            be able to see the state of at a glance. */}
-        <View style={styles.autoPrintCard}>
-          <View style={styles.autoPrintRow}>
-            <Text style={styles.autoPrintLabel}>{t.boardAutoPrint}</Text>
+        {/* The service switches sit above the board, not inside the
+            owner menu: how a new order announces itself — on paper, out
+            loud, or neither — is a decision the pass makes during
+            service and has to be able to see the state of at a glance. */}
+        <View style={styles.switchCard}>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>{t.boardAutoPrint}</Text>
             <Switch
               value={autoPrint}
               onValueChange={toggleAutoPrint}
@@ -924,7 +982,17 @@ export function BoardScreen({
               thumbColor={colors.cream}
             />
           </View>
-          {autoPrint ? <Text style={styles.autoPrintHint}>{t.boardAutoPrintHint}</Text> : null}
+          {autoPrint ? <Text style={styles.switchHint}>{t.boardAutoPrintHint}</Text> : null}
+          <View style={[styles.switchRow, styles.switchRowNext]}>
+            <Text style={styles.switchLabel}>{t.boardSound}</Text>
+            <Switch
+              value={sound}
+              onValueChange={toggleSound}
+              accessibilityLabel={t.boardSound}
+              trackColor={{ false: colors.line, true: colors.red }}
+              thumbColor={colors.cream}
+            />
+          </View>
         </View>
 
         <Text style={styles.section}>
@@ -975,7 +1043,7 @@ const styles = StyleSheet.create({
   /** What printing just did. Same voice as the offline line: one
    *  centred sentence that gets out of the way by itself. */
   toast: { color: colors.red, ...fonts.bodySemi, fontSize: 12.5, textAlign: "center" },
-  autoPrintCard: {
+  switchCard: {
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
@@ -984,15 +1052,19 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 2,
   },
-  autoPrintRow: {
+  switchRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
     minHeight: 44,
   },
-  autoPrintLabel: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 14.5 },
-  autoPrintHint: {
+  switchLabel: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 14.5 },
+  /** Two switches in one card read as one setting unless something
+   *  separates them — a hairline, not a gap, so the card stays compact
+   *  enough to sit above the board rather than in front of it. */
+  switchRowNext: { borderTopWidth: 1, borderTopColor: colors.line },
+  switchHint: {
     color: colors.inkSoft,
     ...fonts.body,
     fontSize: 12,
