@@ -61,6 +61,18 @@ const en = {
     spicyTitle: (level: number): string => `Spicy — level ${level} of 3`,
     spicyLevel: (level: number): string => `Spicy, level ${level} of 3`,
   },
+  /** P7-14 — the venue's Google rating under its name. Rendered only when
+   *  the owner has set a Place ID and a rating has actually been read, so
+   *  none of this ever shows a zero or an empty star. */
+  rating: {
+    /** Link text after the score: "★ 4.6 (312) · Write a review →". */
+    write: "Write a review",
+    /** Accessible name for that link — it leaves the site for Google. */
+    writeAria: "Write a Google review (opens in a new tab)",
+    /** Read out in place of the star + numbers, which mean nothing aloud. */
+    summary: (value: string, count: string): string =>
+      `Rated ${value} out of 5 from ${count} Google reviews`,
+  },
   diets: {
     vegan: "Vegan",
     vegetarian: "Vegetarian",
@@ -172,6 +184,11 @@ const de: MenuCopy = {
     price: "Preis",
     spicyTitle: (level) => `Scharf — Stufe ${level} von 3`,
     spicyLevel: (level) => `Scharf, Stufe ${level} von 3`,
+  },
+  rating: {
+    write: "Bewertung schreiben",
+    writeAria: "Eine Google-Bewertung schreiben (öffnet in einem neuen Tab)",
+    summary: (value, count) => `Mit ${value} von 5 bewertet, aus ${count} Google-Bewertungen`,
   },
   diets: {
     vegan: "Vegan",
@@ -285,6 +302,12 @@ const es: MenuCopy = {
     spicyTitle: (level) => `Picante — nivel ${level} de 3`,
     spicyLevel: (level) => `Picante, nivel ${level} de 3`,
   },
+  rating: {
+    write: "Escribir una reseña",
+    writeAria: "Escribir una reseña en Google (se abre en una pestaña nueva)",
+    summary: (value, count) =>
+      `Valorado con ${value} sobre 5 a partir de ${count} reseñas de Google`,
+  },
   diets: {
     vegan: "Vegano",
     vegetarian: "Vegetariano",
@@ -397,6 +420,11 @@ const it: MenuCopy = {
     price: "prezzo",
     spicyTitle: (level) => `Piccante — livello ${level} di 3`,
     spicyLevel: (level) => `Piccante, livello ${level} di 3`,
+  },
+  rating: {
+    write: "Scrivi una recensione",
+    writeAria: "Scrivi una recensione su Google (si apre in una nuova scheda)",
+    summary: (value, count) => `Valutato ${value} su 5 da ${count} recensioni Google`,
   },
   diets: {
     vegan: "Vegano",
@@ -522,6 +550,11 @@ const ar: MenuCopy = {
     price: "السعر",
     spicyTitle: (level) => `حار — المستوى ${level} من 3`,
     spicyLevel: (level) => `حار، المستوى ${level} من 3`,
+  },
+  rating: {
+    write: "اكتب تقييماً",
+    writeAria: "اكتب تقييماً على Google (يفتح في علامة تبويب جديدة)",
+    summary: (value, count) => `التقييم ${value} من 5 بناءً على ${count} تقييماً على Google`,
   },
   diets: {
     vegan: "نباتي صرف",

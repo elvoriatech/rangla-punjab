@@ -1,11 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { MessagePopup } from "@/components/message-popup";
 import { acceptedPaymentIds, PaymentMarks } from "../payment-marks";
-import { checkoutCopy } from "@/lib/i18n/checkout";
+import type { PaymentMethodId } from "@/lib/ordering-config";
+import type { CheckoutCopy } from "@/lib/i18n/checkout/en";
+import { loadCheckoutCopy } from "@/lib/i18n/checkout/load";
 import { dirFor, uiLocale } from "@/lib/locales";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 import {
@@ -26,6 +29,26 @@ interface PlacedOrder {
   totalCents: number;
   currency: string;
   receiptToken: string;
+}
+
+/**
+ * Apple Pay / Google Pay (P7-13). Split into its own chunk and pulled in
+ * only after the server has confirmed there IS a Stripe publishable key
+ * to build a payment request with — so `@stripe/stripe-js` (and the
+ * js.stripe.com script it injects) never reaches a guest who could not
+ * have used a wallet anyway.
+ */
+const WalletPayButton = dynamic(() => import("./wallet-button").then((m) => m.WalletPayButton), {
+  ssr: false,
+});
+
+/** What `/api/v1/pay/wallet-config` answers. `publishableKey: null` — no
+ *  Stripe account, a fake provider, or a fee model the intent endpoint
+ *  refuses — means no wallet button is drawn at all. */
+interface WalletConfig {
+  publishableKey: string | null;
+  applePay: boolean;
+  country: string;
 }
 
 /**
@@ -271,32 +294,61 @@ const CTA_PAY =
   "bg-[var(--menu-positive)] font-semibold text-[var(--menu-on-positive,var(--menu-bg))] hover:opacity-90 active:scale-[0.985] disabled:opacity-60 " +
   FOCUS_RING;
 
-/** Pay tiles: icon over a short label, three across on a phone. Same colour
- *  roles as the CTAs (positive fill for card, wash for cash), rounded-2xl so
- *  a stacked tile does not read as a pill that lost its text. */
-const PAY_TILE =
-  "flex min-h-[68px] w-full flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2.5 text-center text-xs font-semibold leading-tight transition active:scale-[0.985] disabled:opacity-50 " +
-  FOCUS_RING +
-  " ";
-const PAY_TILE_CARD =
-  "bg-[var(--menu-positive)] text-[var(--menu-on-positive,var(--menu-bg))] hover:opacity-90";
-const PAY_TILE_PRIMARY =
-  "bg-[var(--menu-surface-accent,var(--menu-accent))] text-[var(--menu-on-surface-accent,var(--menu-bg))] hover:opacity-90";
-const PAY_TILE_QUIET =
-  "bg-[var(--menu-surface-text,var(--menu-text))]/7 text-[var(--menu-surface-text,var(--menu-text))] hover:bg-[var(--menu-surface-text,var(--menu-text))]/13";
+/**
+ * Payment ROWS (P7-13, owner's mockup): one full-width row per method,
+ * radio-style, brand marks on the end edge. They only CHOOSE — a single
+ * CTA underneath places the order — which is what lets Apple Pay / Google
+ * Pay sit above them as a genuine one-tap alternative.
+ *
+ * The tiles this replaced each placed the order on tap, so "card" was a
+ * commitment rather than a choice and there was nowhere to put a wallet
+ * button that did not read as a fourth, differently-behaved tile.
+ *
+ * 52px min height clears the 44px target floor of 2.5.5 with room for the
+ * 32px brand chips.
+ */
+const PAY_ROW_BASE =
+  "relative flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2 text-start text-sm transition active:scale-[0.99] disabled:opacity-50 " +
+  FOCUS_RING;
+const PAY_ROW_IDLE =
+  PAY_ROW_BASE +
+  " bg-[var(--menu-surface-text,var(--menu-text))]/7 text-[var(--menu-surface-text,var(--menu-text))] hover:bg-[var(--menu-surface-text,var(--menu-text))]/13";
+const PAY_ROW_ON =
+  PAY_ROW_BASE +
+  " bg-[var(--menu-surface-accent,var(--menu-accent))]/14 font-semibold text-[var(--menu-surface-text,var(--menu-text))]";
 
-function CardIcon({ className }: { className?: string }): React.ReactElement {
+/** Now / Scheduled. Same recipe as the order-type chips, but with no icon
+ *  row above the label they need an explicit height to clear 44px. */
+const TIME_CHIP_IDLE = CHIP_IDLE + " min-h-[44px]";
+const TIME_CHIP_ON = CHIP_ON + " min-h-[44px]";
+
+/** ± over the server's slot list. 44px round targets, and `disabled` at
+ *  the ends of the list rather than wrapping — the ends of the list are
+ *  the ends of the service window. */
+const STEP_BTN =
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/7 text-lg leading-none text-[var(--menu-surface-text,var(--menu-text))] transition hover:bg-[var(--menu-surface-text,var(--menu-text))]/13 active:scale-90 disabled:opacity-40 disabled:hover:bg-[var(--menu-surface-text,var(--menu-text))]/7 " +
+  FOCUS_RING;
+
+/** "Change" on the saved-address card: a text control, so the underline
+ *  identifies it, padded to a 44px target. */
+const CHANGE_BTN =
+  "inline-flex min-h-[44px] shrink-0 items-center rounded-full px-3 text-xs font-medium text-[var(--menu-surface-text,var(--menu-text))] underline decoration-1 underline-offset-4 transition hover:bg-[var(--menu-surface-text,var(--menu-text))]/10 " +
+  FOCUS_RING;
+
+/** The selection carrier that is NOT colour: an empty ring becomes a
+ *  filled disc. 1.4.1 wants a shape, not just a wash. */
+function RadioDot({ on }: { on: boolean }): React.ReactElement {
   return (
     <svg
       viewBox="0 0 24 24"
+      className="h-5 w-5 shrink-0"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
-      className={className}
       aria-hidden="true"
     >
-      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-      <path d="M2.5 10h19M6.5 15h4" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="9" />
+      {on ? <circle cx="12" cy="12" r="4.6" fill="currentColor" stroke="none" /> : null}
     </svg>
   );
 }
@@ -359,10 +411,28 @@ export function CartDrawer({
     () => EMPTY_CART,
   );
   const [open, setOpen] = useState(false);
-  const t = checkoutCopy(locale);
   // Guest-copy locale for links we hand on (receipt PDF, tracker): the
   // venue locale collapsed to a language those surfaces can render.
   const copyLocale = uiLocale(locale);
+  /**
+   * P7-16 — the drawer is the only guest surface that needs the WHOLE
+   * checkout catalogue, so it fetches ONE language on its own chunk
+   * instead of importing the five-locale module (which would ship every
+   * language to every guest). This runs on mount, long before the guest
+   * can add an item, so in practice the copy is in by the time the sheet
+   * has anything to show; until then `null` renders the same nothing an
+   * empty cart does.
+   */
+  const [copy, setCopy] = useState<CheckoutCopy | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadCheckoutCopy(copyLocale).then((c) => {
+      if (live) setCopy(c);
+    });
+    return () => {
+      live = false;
+    };
+  }, [copyLocale]);
 
   // Bottom-sheet scroll on touch devices: while the sheet is open, lock
   // the page behind it. Without this a swipe on the sheet scrolls the
@@ -386,7 +456,11 @@ export function CartDrawer({
   // How the guest pays, chosen up front so a single tap places the order
   // AND opens the payment — no second "now pay" screen. Cash is always
   // available; card/PayPal only when the restaurant can take them.
-  const [payMethod, setPayMethod] = useState<PayMethod>("cash");
+  // P7-13: the list only CHOOSES now, so it needs a sensible default —
+  // the first rail the venue actually offers, mirroring the app.
+  const [payMethod, setPayMethod] = useState<PayMethod>(
+    onlinePayment ? "card" : paypalPayment ? "paypal" : "cash",
+  );
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
   const [note, setNote] = useState("");
@@ -399,6 +473,49 @@ export function CartDrawer({
   // Survives re-renders so a retry reuses the same idempotency key.
   const attemptRef = useRef<{ key: string; signature: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The guest asked to edit a delivery address the drawer had already
+   *  prefilled. Sticky for the session: once the fields are open they stay
+   *  open, so a half-typed change can't be swallowed by a re-render. */
+  const [editingAddress, setEditingAddress] = useState(false);
+  /** Answered by `/api/v1/pay/wallet-config` the first time the sheet
+   *  opens on a venue that takes card. null = not asked yet. */
+  const [wallet, setWallet] = useState<WalletConfig | null>(null);
+  /** A wallet charge already settled this order, so the confirmation
+   *  screen must not offer to charge it again. */
+  const [walletPaid, setWalletPaid] = useState(false);
+  /** The order the wallet flow placed, held until that flow resolves —
+   *  see `placeOrderOnServer(…, false)`. */
+  const walletOrderRef = useRef<PlacedOrder | null>(null);
+
+  /**
+   * Is there a wallet to offer at all? The key is public, but it only
+   * exists when a REAL Stripe account is behind the venue, so this single
+   * fetch is also the "can this deployment take a card right now" answer.
+   * Behind `open` because the menu page is static and edge-cached.
+   */
+  useEffect(() => {
+    if (!open || !onlinePayment || wallet !== null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/v1/pay/wallet-config");
+        if (!res.ok) return;
+        const body = (await res.json()) as Partial<WalletConfig> | null;
+        if (cancelled || !body) return;
+        setWallet({
+          publishableKey: body.publishableKey ?? null,
+          applePay: Boolean(body.applePay),
+          country: body.country ?? "DE",
+        });
+      } catch {
+        // Offline or a non-JSON body: no wallet button, everything else
+        // in the sheet keeps working.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, onlinePayment, wallet]);
 
   /**
    * Prefill from the signed-in customer, once, the first time the sheet
@@ -414,6 +531,10 @@ export function CartDrawer({
   // null = not asked yet. The loyalty line stays hidden until we know,
   // rather than flashing "sign in" at someone who already is.
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  /** The signed-in guest's last delivery address came back from the
+   *  profile — that, not "the fields happen to be full", is what makes an
+   *  address worth summarising as a card (P7-13). */
+  const [savedAddress, setSavedAddress] = useState(false);
   const prefilled = useRef(false);
   useEffect(() => {
     if (!open || prefilled.current) return;
@@ -448,6 +569,13 @@ export function CartDrawer({
           modes.deliveryAreas.length === 0 ||
           modes.deliveryAreas.some((a) => a.zip === addr.zip?.trim());
         if (zipKnown) fillIfEmpty(setZip, addr.zip);
+        // P7-13: only an address the ACCOUNT already knows earns the
+        // summary card. Deriving "we know it" from the fields being full
+        // would collapse the form under a first-time guest the moment
+        // they finished typing their ZIP.
+        if (!cancelled && zipKnown && addr.street?.trim() && addr.zip?.trim()) {
+          setSavedAddress(true);
+        }
       } catch {
         // Offline, blocked, or a non-JSON body — the form stays empty.
       }
@@ -456,6 +584,18 @@ export function CartDrawer({
       cancelled = true;
     };
   }, [open, modes.deliveryAreas]);
+
+  /**
+   * Fulfilment time (P7-13): two radios, then a ± stepper over the
+   * server's own slot list. "" is ASAP; anything else must BE one of the
+   * offered slots. Derived rather than corrected in an effect, so a slot
+   * list that changes under the guest (opening hours rolled over while
+   * the sheet sat open) simply reads as ASAP — and `scheduled` is also
+   * what the submit payload consults, so a time the server no longer
+   * offers can never be sent.
+   */
+  const slotIndex = requestSlots.indexOf(requestedTime);
+  const scheduled = requestedTime !== "" && slotIndex >= 0;
 
   const count = cartCount(lines);
   const itemsTotal = cartTotalCents(lines);
@@ -491,8 +631,26 @@ export function CartDrawer({
     (loyalty?.pointsPerOrder ?? 0) > 0 &&
     itemsTotal >= (loyalty?.minOrderCents ?? 0);
   const loyaltyPoints = String(loyalty?.pointsPerOrder ?? 0);
+  /** Is there a delivery address to SHOW rather than ask for? A returning
+   *  guest gets the card with a "Change" link; a new one gets the fields
+   *  straight away, because a card summarising nothing is just a gap. */
+  const hasAddress = savedAddress && street.trim().length > 0 && zip.trim().length > 0;
+  const addressFieldsOpen = editingAddress || !hasAddress;
+  const busy = placing || payStarting;
+  /** Nothing may be placed or paid: no items, missing details, under the
+   *  delivery minimum, or a payment already running. */
+  const payBlocked = busy || count === 0 || detailsMissing || belowMinimum;
 
-  if (count === 0 && !placed) return null;
+  // Nothing to show: empty cart, or the locale's copy hasn't landed yet.
+  if (copy === null || (count === 0 && !placed)) return null;
+  const t = copy;
+
+  /** Step one slot along the server's list. Never wraps — `disabled` at
+   *  the ends does the talking. */
+  function stepSlot(delta: number): void {
+    const next = requestSlots[slotIndex + delta];
+    if (next !== undefined) setRequestedTime(next);
+  }
 
   /** Save the PDF receipt without leaving the page — a hidden anchor with
    *  `download`, clicked inside the guest's own tap so browsers allow it. */
@@ -535,15 +693,30 @@ export function CartDrawer({
     setPayStarting(false);
   }
 
-  async function submitOrder(method: PayMethod): Promise<void> {
-    setPayMethod(method);
+  /** Move the sheet to its confirmation screen for a placed order. Split
+   *  out because the wallet flow defers it: the Apple Pay / Google Pay
+   *  sheet is still open while the order is being saved, and swapping the
+   *  page behind it would unmount the very button driving the payment. */
+  function commitPlaced(value: PlacedOrder): void {
+    setPlaced(value);
+    clearCart(slug);
+    setOpen(true);
+  }
+
+  /**
+   * Save the order. `commit` is false for the wallet path only — there
+   * the order is real from this moment, but the guest is still looking at
+   * the wallet sheet, so the confirmation screen waits for the charge to
+   * resolve (success or failure) before it appears.
+   */
+  async function placeOrderOnServer(method: PayMethod, commit = true): Promise<PlacedOrder | null> {
     setPlacing(true);
     setError(null);
     try {
       const payload = {
         slug,
         orderType,
-        requestedTime: orderType !== "dine_in" && requestedTime ? requestedTime : undefined,
+        requestedTime: orderType !== "dine_in" && scheduled ? requestedTime : undefined,
         tableNumber: orderType === "dine_in" ? tableNumber.trim() || undefined : undefined,
         customerName: orderType === "dine_in" ? undefined : customerName.trim(),
         customerPhone: orderType === "dine_in" ? undefined : customerPhone.trim(),
@@ -598,25 +771,33 @@ export function CartDrawer({
                       ? t.errInvalidTime
                       : t.errGeneric,
         );
-        return;
+        return null;
       }
       const value = (await res.json()) as PlacedOrder;
       // Landed — retire the key so the guest's next basket is a new order.
       attemptRef.current = null;
-      setPlaced(value);
-      clearCart(slug);
-      setOpen(true);
-      // Card / PayPal: go straight to the payment page. If that hop fails
-      // the confirmation screen below still offers the pay buttons, so
-      // the order is never stranded.
-      if (method !== "cash") await startPayment(value, method);
-      // Cash: the order is final now — hand over the receipt straight away.
-      else downloadReceipt(value);
+      if (commit) commitPlaced(value);
+      return value;
     } catch {
       setError(t.errNoConnection);
+      return null;
     } finally {
       setPlacing(false);
     }
+  }
+
+  /** The ordinary path: place, then open the payment page (card/PayPal)
+   *  or hand over the receipt (cash). */
+  async function submitOrder(method: PayMethod): Promise<void> {
+    setPayMethod(method);
+    const value = await placeOrderOnServer(method);
+    if (!value) return;
+    // Card / PayPal: go straight to the payment page. If that hop fails
+    // the confirmation screen below still offers the pay buttons, so
+    // the order is never stranded.
+    if (method !== "cash") await startPayment(value, method);
+    // Cash: the order is final now — hand over the receipt straight away.
+    else downloadReceipt(value);
   }
 
   const receiptHref = placed
@@ -626,8 +807,10 @@ export function CartDrawer({
     ? `/order-status/${placed.orderId}?token=${encodeURIComponent(placed.receiptToken)}&locale=${copyLocale}`
     : "#";
   /** Whether the confirmation screen already has a dominant pay CTA. When it
-   *  doesn't, "Track your order" is the primary action and takes that weight. */
-  const hasPaymentCta = onlinePayment || paypalPayment;
+   *  doesn't, "Track your order" is the primary action and takes that weight.
+   *  A wallet charge that went through leaves nothing to pay, so the pay
+   *  CTAs disappear and Track takes over. */
+  const hasPaymentCta = (onlinePayment || paypalPayment) && !walletPaid;
 
   return (
     /* `dir` here as well as on <html>: the sheet is a fixed overlay, and
@@ -714,7 +897,7 @@ export function CartDrawer({
                   : ""}
               </p>
               {error ? <MessagePopup kind="error" text={error} /> : null}
-              {onlinePayment && placed ? (
+              {onlinePayment && placed && !walletPaid ? (
                 <button
                   type="button"
                   disabled={payStarting}
@@ -724,7 +907,7 @@ export function CartDrawer({
                   {payStarting ? t.openingPayment : t.payOnline(money(placed.totalCents))}
                 </button>
               ) : null}
-              {paypalPayment && placed ? (
+              {paypalPayment && placed && !walletPaid ? (
                 <button
                   type="button"
                   disabled={payStarting}
@@ -955,25 +1138,89 @@ export function CartDrawer({
                     />
                   </label>
                   {requestSlots.length > 0 ? (
-                    <label className="block text-sm sm:col-span-2">
+                    /* P7-13 — "Now" / "Scheduled", then a ± stepper over
+                       the server's own slot list, replacing a <select>
+                       whose 30-odd identical-looking times were a scroll,
+                       not a choice. No free typing and no wrapping: the
+                       slots are later-today times inside opening hours
+                       (the server re-checks anyway). */
+                    <div className="block text-sm sm:col-span-2">
                       <span className={FIELD_LABEL}>
                         {orderType === "delivery" ? t.deliveryTime : t.pickupTime}
                       </span>
-                      {/* ASAP is the default; the slots are later-today
-                          times inside opening hours (server re-checks). */}
-                      <select
-                        value={requestedTime}
-                        onChange={(e) => setRequestedTime(e.target.value)}
-                        className={FIELD_SELECT}
+                      <div
+                        role="radiogroup"
+                        aria-label={orderType === "delivery" ? t.deliveryTime : t.pickupTime}
+                        className="mt-1 grid grid-cols-2 gap-2"
                       >
-                        <option value="">{t.asap}</option>
-                        {requestSlots.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={!scheduled}
+                          onClick={() => setRequestedTime("")}
+                          className={!scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
+                        >
+                          {t.timeNow}
+                          {!scheduled ? (
+                            <span
+                              aria-hidden="true"
+                              className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
+                            />
+                          ) : null}
+                        </button>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={scheduled}
+                          onClick={() => {
+                            if (!scheduled) setRequestedTime(requestSlots[0] ?? "");
+                          }}
+                          className={scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
+                        >
+                          {t.timeScheduled}
+                          {scheduled ? (
+                            <span
+                              aria-hidden="true"
+                              className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
+                            />
+                          ) : null}
+                        </button>
+                      </div>
+                      {scheduled ? (
+                        <div className="mt-2 flex items-center gap-2 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/7 p-1.5">
+                          <button
+                            type="button"
+                            aria-label={t.timeEarlier}
+                            disabled={slotIndex <= 0}
+                            onClick={() => stepSlot(-1)}
+                            className={STEP_BTN}
+                          >
+                            −
+                          </button>
+                          {/* The value itself is what changes, so it is
+                              announced rather than the buttons' labels. */}
+                          <span
+                            aria-live="polite"
+                            className="flex-1 text-center text-base font-semibold tabular-nums"
+                          >
+                            {requestedTime}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={t.timeLater}
+                            disabled={slotIndex >= requestSlots.length - 1}
+                            onClick={() => stepSlot(1)}
+                            className={STEP_BTN}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                          {t.asap}
+                        </p>
+                      )}
+                    </div>
                   ) : null}
                 </div>
               )}
@@ -993,68 +1240,122 @@ export function CartDrawer({
 
               {orderType === "delivery" ? (
                 <div className="mt-3 space-y-3">
-                  <label className="block text-sm">
-                    <span className={FIELD_LABEL}>{t.street}</span>
-                    <input
-                      type="text"
-                      value={street}
-                      maxLength={120}
-                      required
-                      onChange={(e) => setStreet(e.target.value)}
-                      className={FIELD}
-                    />
-                  </label>
-                  {modes.deliveryAreas.length > 0 ? (
-                    <div className="grid grid-cols-[minmax(0,130px)_1fr] gap-3">
-                      <label className="block text-sm">
-                        <span className={FIELD_LABEL}>{t.zip}</span>
-                        {/* The restaurant delivers to a fixed ZIP list, so
-                            the guest PICKS their area instead of typing —
-                            "do you deliver here?" answers itself. */}
-                        <select
-                          value={zip}
-                          required
-                          onChange={(e) => setZip(e.target.value)}
-                          className={FIELD_SELECT}
+                  {/* P7-13 — a returning guest's address, prefilled from
+                      their account, reads as a card with one "Change"
+                      link instead of four open fields they have to check
+                      character by character. A new guest never sees the
+                      card: summarising nothing is just a gap. */}
+                  {!addressFieldsOpen ? (
+                    <div className="flex items-start justify-between gap-3 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/7 p-3">
+                      <div className="min-w-0 text-sm">
+                        <p
+                          className={
+                            FIELD_LABEL +
+                            " text-[11px] uppercase tracking-[0.14em] rtl:normal-case rtl:tracking-normal"
+                          }
                         >
-                          <option value="" disabled>
-                            {t.selectPlaceholder}
-                          </option>
-                          {modes.deliveryAreas.map((a) => (
-                            <option key={a.zip} value={a.zip}>
-                              {a.zip}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="block text-sm">
-                        <span className={FIELD_LABEL}>{t.city}</span>
-                        {/* Filled automatically from the selected ZIP — the
-                            restaurant named this area, the guest never
-                            types it. */}
-                        <input
-                          type="text"
-                          value={selectedArea?.locality ?? ""}
-                          readOnly
-                          tabIndex={-1}
-                          placeholder={t.cityPlaceholder}
-                          className={FIELD_READONLY}
-                        />
-                      </label>
+                          {t.addressTitle}
+                        </p>
+                        <p className="mt-1 truncate font-medium">{street.trim()}</p>
+                        <p className="truncate">
+                          {[zip.trim(), selectedArea?.locality ?? ""].filter(Boolean).join(" ")}
+                        </p>
+                        {note.trim() ? (
+                          <p className="truncate text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                            {note.trim()}
+                          </p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingAddress(true)}
+                        aria-label={`${t.addressChange} — ${t.addressTitle}`}
+                        className={CHANGE_BTN}
+                      >
+                        {t.addressChange}
+                      </button>
                     </div>
                   ) : (
-                    <label className="block max-w-[150px] text-sm">
-                      <span className={FIELD_LABEL}>{t.zip}</span>
-                      <input
-                        type="text"
-                        value={zip}
-                        maxLength={10}
-                        required
-                        onChange={(e) => setZip(e.target.value)}
-                        className={FIELD}
-                      />
-                    </label>
+                    <>
+                      <label className="block text-sm">
+                        <span className={FIELD_LABEL}>{t.street}</span>
+                        <input
+                          type="text"
+                          value={street}
+                          maxLength={120}
+                          required
+                          onChange={(e) => setStreet(e.target.value)}
+                          className={FIELD}
+                        />
+                      </label>
+                      {modes.deliveryAreas.length > 0 ? (
+                        <div className="grid grid-cols-[minmax(0,130px)_1fr] gap-3">
+                          <label className="block text-sm">
+                            <span className={FIELD_LABEL}>{t.zip}</span>
+                            {/* The restaurant delivers to a fixed ZIP list, so
+                            the guest PICKS their area instead of typing —
+                            "do you deliver here?" answers itself. */}
+                            <select
+                              value={zip}
+                              required
+                              onChange={(e) => setZip(e.target.value)}
+                              className={FIELD_SELECT}
+                            >
+                              <option value="" disabled>
+                                {t.selectPlaceholder}
+                              </option>
+                              {modes.deliveryAreas.map((a) => (
+                                <option key={a.zip} value={a.zip}>
+                                  {a.zip}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="block text-sm">
+                            <span className={FIELD_LABEL}>{t.city}</span>
+                            {/* Filled automatically from the selected ZIP — the
+                            restaurant named this area, the guest never
+                            types it. */}
+                            <input
+                              type="text"
+                              value={selectedArea?.locality ?? ""}
+                              readOnly
+                              tabIndex={-1}
+                              placeholder={t.cityPlaceholder}
+                              className={FIELD_READONLY}
+                            />
+                          </label>
+                        </div>
+                      ) : (
+                        <label className="block max-w-[150px] text-sm">
+                          <span className={FIELD_LABEL}>{t.zip}</span>
+                          <input
+                            type="text"
+                            value={zip}
+                            maxLength={10}
+                            required
+                            onChange={(e) => setZip(e.target.value)}
+                            className={FIELD}
+                          />
+                        </label>
+                      )}
+                      <label className="block text-sm">
+                        <span className={FIELD_LABEL}>{t.deliveryNote}</span>
+                        <input
+                          type="text"
+                          value={note}
+                          maxLength={200}
+                          placeholder={t.deliveryNotePlaceholder}
+                          onChange={(e) => setNote(e.target.value)}
+                          className={FIELD}
+                        />
+                      </label>
+                    </>
                   )}
+                  {/* Outside the card/fields switch: the fee, the free-
+                      delivery threshold and the minimum are facts about
+                      the order, not about whether the guest happens to be
+                      editing their address. */}
                   {selectedArea && selectedArea.freeOverCents > 0 ? (
                     <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                       {itemsTotal >= selectedArea.freeOverCents
@@ -1062,17 +1363,6 @@ export function CartDrawer({
                         : t.freeDeliveryFrom(money(selectedArea.freeOverCents))}
                     </p>
                   ) : null}
-                  <label className="block text-sm">
-                    <span className={FIELD_LABEL}>{t.deliveryNote}</span>
-                    <input
-                      type="text"
-                      value={note}
-                      maxLength={200}
-                      placeholder={t.deliveryNotePlaceholder}
-                      onChange={(e) => setNote(e.target.value)}
-                      className={FIELD}
-                    />
-                  </label>
                   {feeCents > 0 ? (
                     <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                       {t.deliveryFee(money(feeCents))}
@@ -1088,72 +1378,142 @@ export function CartDrawer({
 
               {error ? <MessagePopup kind="error" text={error} /> : null}
 
-              {/* One tap per payment method, side by side: the button both
-                  places the order and (for card / PayPal) opens the payment
-                  page. While one is working the others are disabled, so a
-                  nervous double-tap cannot start two payments. The amount
-                  sits once above the row instead of on every tile. */}
+              {/* P7-13 — the wallet first, then the list, then one CTA.
+                  The three tiles this replaced each PLACED the order on
+                  tap, so choosing a method and committing to it were the
+                  same gesture and Apple Pay had nowhere to live that did
+                  not read as a fourth, differently-behaved tile. */}
               {(() => {
-                const busy = placing || payStarting;
-                const blocked = busy || count === 0 || detailsMissing || belowMinimum;
                 const cashLabel =
                   orderType === "delivery"
                     ? t.cashToDriver
                     : orderType === "takeaway"
                       ? t.payAtPickup
                       : t.payAtTable;
-                const cols = 1 + (onlinePayment ? 1 : 0) + (paypalPayment ? 1 : 0);
-                const gridCols =
-                  cols === 3 ? "grid-cols-3" : cols === 2 ? "grid-cols-2" : "grid-cols-1";
-                const text = (method: PayMethod, idle: string): string =>
-                  busy && payMethod === method ? (method === "cash" ? t.placing : t.opening) : idle;
+                const options: { key: PayMethod; label: string; marks: PaymentMethodId[] }[] = [
+                  ...(onlinePayment
+                    ? [
+                        {
+                          key: "card" as const,
+                          label: t.card,
+                          marks: ["visa", "mastercard"] as PaymentMethodId[],
+                        },
+                      ]
+                    : []),
+                  ...(paypalPayment
+                    ? [
+                        {
+                          key: "paypal" as const,
+                          label: t.paypal,
+                          marks: ["paypal"] as PaymentMethodId[],
+                        },
+                      ]
+                    : []),
+                  { key: "cash" as const, label: cashLabel, marks: [] },
+                ];
                 return (
-                  <div className="mt-4" role="group" aria-label={t.payGroup}>
-                    <p className="mb-2 text-center text-[11px] uppercase tracking-[0.18em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                      {onlinePayment || paypalPayment ? t.pay : t.placeOrder} · {money(total)}
-                    </p>
-                    <div className={"grid gap-2 " + gridCols}>
-                      {onlinePayment ? (
-                        <button
-                          type="button"
-                          disabled={blocked}
-                          onClick={() => void submitOrder("card")}
-                          className={PAY_TILE + PAY_TILE_CARD}
+                  <div className="mt-4">
+                    {/* Apple Pay / Google Pay: one tap places AND pays.
+                        Drawn ONLY when the browser, the venue's Stripe
+                        account and (for Apple) the verified merchant
+                        domain all agree — otherwise nothing at all is
+                        rendered here, not a disabled button. */}
+                    {onlinePayment && wallet?.publishableKey ? (
+                      <>
+                        <WalletPayButton
+                          publishableKey={wallet.publishableKey}
+                          allowApplePay={wallet.applePay}
+                          country={wallet.country}
+                          currency={currency}
+                          totalCents={total}
+                          label={t.yourOrder}
+                          disabled={payBlocked}
+                          errorText={t.errWalletPay}
+                          placeOrder={async () => {
+                            setPayMethod("card");
+                            const value = await placeOrderOnServer("card", false);
+                            walletOrderRef.current = value;
+                            return value
+                              ? { orderId: value.orderId, receiptToken: value.receiptToken }
+                              : null;
+                          }}
+                          onPaid={() => {
+                            const value = walletOrderRef.current;
+                            if (!value) return;
+                            setWalletPaid(true);
+                            commitPlaced(value);
+                            downloadReceipt(value);
+                          }}
+                          onError={(message) => {
+                            setError(message);
+                            // The order IS placed — show the confirmation
+                            // screen so its pay buttons can finish the job.
+                            const value = walletOrderRef.current;
+                            if (value) commitPlaced(value);
+                          }}
+                        />
+                        {options.length > 1 ? (
+                          <p className="mt-2 text-center text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                            {t.payOrChoose}
+                          </p>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {/* One row per method. A single option is not a choice
+                        — the CTA and the explainer below already say what
+                        will happen — so the list only appears when there
+                        is something to pick. */}
+                    {options.length > 1 ? (
+                      <div className="mt-3">
+                        <p className={FIELD_LABEL + " text-sm"}>{t.paymentMethod}</p>
+                        <div
+                          role="radiogroup"
+                          aria-label={t.paymentMethod}
+                          className="mt-1.5 space-y-2"
                         >
-                          <CardIcon className="h-6 w-6" />
-                          <span>{text("card", t.card)}</span>
-                        </button>
-                      ) : null}
-                      {paypalPayment ? (
-                        <button
-                          type="button"
-                          disabled={blocked}
-                          onClick={() => void submitOrder("paypal")}
-                          /* PayPal brand tile — the one hard-coded colour pair
-                             in the file, mandated by their guidelines. */
-                          className={
-                            PAY_TILE + "border-2 border-[#003087] bg-[#ffc439] text-[#003087]"
-                          }
-                        >
-                          <span aria-hidden="true" className="text-lg font-black italic leading-6">
-                            P
-                          </span>
-                          <span>{text("paypal", t.paypal)}</span>
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        disabled={blocked}
-                        onClick={() => void submitOrder("cash")}
-                        className={
-                          PAY_TILE +
-                          (onlinePayment || paypalPayment ? PAY_TILE_QUIET : PAY_TILE_PRIMARY)
-                        }
-                      >
-                        <CashIcon className="h-6 w-6" />
-                        <span>{text("cash", cashLabel)}</span>
-                      </button>
-                    </div>
+                          {options.map((option) => {
+                            const on = payMethod === option.key;
+                            return (
+                              <button
+                                key={option.key}
+                                type="button"
+                                role="radio"
+                                aria-checked={on}
+                                onClick={() => setPayMethod(option.key)}
+                                className={on ? PAY_ROW_ON : PAY_ROW_IDLE}
+                              >
+                                <RadioDot on={on} />
+                                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                                {/* Decorative: the row already says what
+                                    it is, so the marks are not a second
+                                    thing for a screen reader to read. */}
+                                <span aria-hidden="true" className="shrink-0">
+                                  {option.marks.length > 0 ? (
+                                    <PaymentMarks ids={option.marks} />
+                                  ) : (
+                                    <CashIcon className="h-6 w-6 text-[var(--menu-surface-text-soft,var(--menu-text-soft))]" />
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      disabled={payBlocked}
+                      onClick={() => void submitOrder(payMethod)}
+                      className={"mt-3 " + (payMethod === "cash" ? CTA_PRIMARY : CTA_PAY)}
+                    >
+                      {busy
+                        ? payMethod === "cash"
+                          ? t.placing
+                          : t.opening
+                        : `${payMethod === "cash" ? t.placeOrder : t.pay} · ${money(total)}`}
+                    </button>
                   </div>
                 );
               })()}

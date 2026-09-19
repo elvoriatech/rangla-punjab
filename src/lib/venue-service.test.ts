@@ -6,6 +6,8 @@ import { asTenant, asUser } from "./tenant";
 import {
   getMenuCounts,
   getVenueForUser,
+  getVenueGoogle,
+  updateVenueGooglePlaceId,
   updateVenueAppearance,
   updateVenueLocalization,
   updateVenueLogo,
@@ -157,5 +159,51 @@ describe("venue-service (owner dashboard)", () => {
     venue = await getVenueForUser(userId);
     if (!venue.ok) throw new Error("venue vanished");
     expect(venue.value.branding.logoKey).toBeNull();
+  });
+
+  it("updateVenueGooglePlaceId round-trips, clears, and drops a stale rating (P7-14)", async () => {
+    const { userId, venueId } = await signupWithVenue();
+    const PLACE = "ChIJN1t_tDeuEmsRUsoyG83frY4";
+
+    const empty = await getVenueGoogle(userId);
+    if (!empty.ok) throw new Error("no venue");
+    expect(empty.value).toEqual({ placeId: null, rating: null, reviewUrl: null });
+
+    expect((await updateVenueGooglePlaceId(userId, `  ${PLACE}  `)).ok).toBe(true);
+    const saved = await getVenueGoogle(userId);
+    if (!saved.ok) throw new Error("no venue");
+    expect(saved.value.placeId).toBe(PLACE);
+    expect(saved.value.reviewUrl).toBe(
+      `https://search.google.com/local/writereview?placeid=${PLACE}`,
+    );
+
+    // A rating read for THIS place shows up in the card…
+    await asUser(userId, (tx) =>
+      tx.venue.update({
+        where: { id: venueId },
+        data: { googleRating: { rating: 4.4, count: 91, fetchedAt: new Date().toISOString() } },
+      }),
+    );
+    const withRating = await getVenueGoogle(userId);
+    if (!withRating.ok) throw new Error("no venue");
+    expect(withRating.value.rating).toMatchObject({ rating: 4.4, count: 91 });
+
+    // …and is dropped the moment the owner points at a different place,
+    // because that number belongs to the old one.
+    expect((await updateVenueGooglePlaceId(userId, "ChIJrTLr_LZuEmsRBfy61i59si0")).ok).toBe(true);
+    const moved = await getVenueGoogle(userId);
+    if (!moved.ok) throw new Error("no venue");
+    expect(moved.value.rating).toBeNull();
+
+    // Blank clears the setting entirely — how the owner turns it off.
+    expect((await updateVenueGooglePlaceId(userId, "   ")).ok).toBe(true);
+    const cleared = await getVenueGoogle(userId);
+    if (!cleared.ok) throw new Error("no venue");
+    expect(cleared.value).toEqual({ placeId: null, rating: null, reviewUrl: null });
+
+    // Anything that is not Place-ID-shaped is refused rather than stored.
+    for (const bad of ["abc", "has spaces", "https://maps.google.com/?cid=1", "x".repeat(256)]) {
+      expect((await updateVenueGooglePlaceId(userId, bad)).ok, bad).toBe(false);
+    }
   });
 });

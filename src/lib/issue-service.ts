@@ -211,7 +211,10 @@ export async function getGuestIssueState(
     });
     if (!order) return null;
 
-    const endsAt = issueWindowEndsAt(order, parseOrderingConfig(order.venue.ordering).issueWindowHours);
+    const endsAt = issueWindowEndsAt(
+      order,
+      parseOrderingConfig(order.venue.ordering).issueWindowHours,
+    );
     const row = await tx.orderIssue.findFirst({ where: { orderId }, select: issueSelect });
     const issue = row ? toIssueView(row) : null;
     return {
@@ -225,16 +228,10 @@ export async function getGuestIssueState(
 }
 
 export type GuestPostError =
-  | "not_found"
-  | "window_closed"
-  | "resolved"
-  | "invalid"
-  | "invalid_photo"
-  | "too_large";
+  "not_found" | "window_closed" | "resolved" | "invalid" | "invalid_photo" | "too_large";
 
 export type GuestPostResult =
-  | { ok: true; issue: IssueView; created: boolean }
-  | { ok: false; error: GuestPostError };
+  { ok: true; issue: IssueView; created: boolean } | { ok: false; error: GuestPostError };
 
 /**
  * The guest's turn: create the thread with its first message, or append
@@ -422,6 +419,15 @@ async function notifyOwner(tenantId: string, issueId: string): Promise<void> {
     await sendNewIssueNotification(tenantId, issueId);
   } catch {
     /* the complaint is already saved; the email is a courtesy */
+  }
+  try {
+    // …and on their phone (P7-11). A separate try so a mail failure above
+    // cannot swallow the push, and vice versa: two channels, two courtesies,
+    // neither able to take the other down or fail the guest's complaint.
+    const { sendNewIssuePush } = await import("./push-service");
+    await sendNewIssuePush(tenantId, issueId);
+  } catch {
+    /* same posture as the email above */
   }
 }
 

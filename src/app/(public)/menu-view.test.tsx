@@ -340,6 +340,58 @@ describe("MenuView", () => {
     expect(html).not.toContain("Accepted payments");
   });
 
+  it("renders the Google rating line under the venue name, once, with a review link (P7-14)", () => {
+    const rated: PublicMenu = {
+      ...fixture,
+      rating: {
+        value: 4.6,
+        count: 312,
+        reviewUrl: "https://search.google.com/local/writereview?placeid=PLACE1",
+      },
+    };
+    const html = renderToStaticMarkup(<MenuView menu={rated} />);
+    expect(html).toContain("★");
+    expect(html).toMatch(/4\.6/);
+    expect(html).toContain("(312)");
+    expect(html).toContain("Write a review");
+    // Exactly one line: the sticky bar renders it, the (absent) banner
+    // hero does not.
+    expect(html.split("Write a review").length - 1).toBe(1);
+    // External link, new tab, and opener severed.
+    expect(html).toContain('href="https://search.google.com/local/writereview?placeid=PLACE1"');
+    expect(html).toContain('rel="noopener"');
+    // The star + numbers are decoration; the sentence is what is read out.
+    expect(html).toContain(menuCopy("en").rating.summary("4.6", "312"));
+    expect(html).toContain(menuCopy("en").rating.writeAria);
+  });
+
+  it("puts the rating on the banner hero instead when the venue has one (P7-14)", () => {
+    const rated: PublicMenu = {
+      ...fixture,
+      venue: { ...fixture.venue, branding: { ...fixture.venue.branding, bannerKey: "b1" } },
+      rating: { value: 4.6, count: 312, reviewUrl: "https://example.com/r" },
+    };
+    const html = renderToStaticMarkup(<MenuView menu={rated} />);
+    // Still exactly one line — the hero's, not the sticky bar's.
+    expect(html.split("Write a review").length - 1).toBe(1);
+  });
+
+  it("keeps the rating out of JSON-LD — Google disallows self-serving ratings (P7-14)", () => {
+    const rated: PublicMenu = {
+      ...fixture,
+      rating: { value: 4.6, count: 312, reviewUrl: "https://example.com/r" },
+    };
+    const html = renderToStaticMarkup(<MenuView menu={rated} />);
+    expect(html).not.toContain("aggregateRating");
+    expect(html).not.toContain("ratingValue");
+  });
+
+  it("shows no rating line at all when the server sends none", () => {
+    const html = renderToStaticMarkup(<MenuView menu={fixture} />);
+    expect(html).not.toContain("Write a review");
+    expect(html).not.toContain("writereview");
+  });
+
   it("shows a filter-aware empty state when a filter narrows out every item", () => {
     const empty: PublicMenu = { ...fixture, categories: [] };
     const html = renderToStaticMarkup(<MenuView menu={empty} activeDiets={new Set(["halal"])} />);

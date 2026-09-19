@@ -13,9 +13,20 @@ import {
   View,
 } from "react-native";
 import * as ExpoLinking from "expo-linking";
+import Svg, { Circle, Path, Rect, Text as SvgText } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
 import type { ApiMenu, OrderType, PlacedOrder } from "../api";
 import { payPageUrl, placeOrder, setVoucherArmed, startHostedPayment, verifyPayment } from "../api";
-import { confirmFakePayment, openPayPage, payWithCard, payWithPaypal } from "../payments";
+import type { PlatformPayButtonProps } from "../stripe-module";
+import {
+  confirmFakePayment,
+  isPlatformPayAvailable,
+  openPayPage,
+  payWithCard,
+  payWithPaypal,
+  payWithPlatformPay,
+  platformPayButton,
+} from "../payments";
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
@@ -41,6 +52,11 @@ type Placing = {
   /** Null only between the tap and the server's answer. */
   order: PlacedOrder | null;
   step: PlacingStep;
+  /** How THIS attempt is being paid — the panel's copy follows the button
+   *  that was pressed, not whatever the radio list says afterwards. */
+  method: PayMethod;
+  /** The native wallet (Apple Pay / Google Pay) rather than the sheet. */
+  wallet?: boolean;
   /** Dev/CI provider only: a fake intent waiting for the test button. */
   fake?: { ref: string };
   /** Carried through so every exit can pass it to `onPlaced`. */
@@ -101,8 +117,16 @@ export function CartScreen({
   );
   const [tableNumber, setTableNumber] = useState("");
   const [requestedTime, setRequestedTime] = useState(""); // "" = ASAP
-  const [timeOpen, setTimeOpen] = useState(false);
   const [zipOpen, setZipOpen] = useState(false);
+  /** The guest asked to edit a delivery address the app had already
+   *  filled in. Sticky for the session: once the fields are open they
+   *  stay open, so a half-typed change can't be swallowed by a re-render. */
+  const [editingAddress, setEditingAddress] = useState(false);
+  /** The guest has typed in the address fields themselves. The card is a
+   *  summary of what the PROFILE knew, so the moment a guest writes their
+   *  own address the fields are theirs and must stay open — including the
+   *  case where the profile arrives mid-typing. */
+  const [addressTouched, setAddressTouched] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -131,12 +155,12 @@ export function CartScreen({
   // the phone can show. Cash is offered when the venue accepts it, and
   // always when there is no online route at all, so the list is never empty.
   const payOptions = useMemo(() => {
-    const list: { key: PayMethod; label: string; emoji: string }[] = [];
-    if (menu.ordering.onlinePayment) list.push({ key: "card", label: t.methodCard, emoji: "💳" });
-    if (menu.ordering.paypal) list.push({ key: "paypal", label: t.methodPaypal, emoji: "🅿️" });
+    const list: { key: PayMethod; label: string }[] = [];
+    if (menu.ordering.onlinePayment) list.push({ key: "card", label: t.methodCard });
+    if (menu.ordering.paypal) list.push({ key: "paypal", label: t.methodPaypal });
     const cash = (menu.ordering.acceptedPayments ?? []).includes("cash");
     if (cash || list.length === 0) {
-      list.push({ key: "cash", label: t.methodCash, emoji: "💶" });
+      list.push({ key: "cash", label: t.methodCash });
     }
     return list;
   }, [menu.ordering, t]);
@@ -150,6 +174,35 @@ export function CartScreen({
       : payMethod === "paypal"
         ? t.payHintPaypal
         : t.payAtRestaurant;
+
+  /**
+   * Apple Pay / Google Pay, as a button of their own above the list
+   * (P7-13) — but only when there is genuinely one to draw. `null` here
+   * means nothing renders at all, which is the DEFAULT state:
+   *
+   *  - web / Expo Go: no native Stripe module;
+   *  - iOS without the ⛔ `APPLE_MERCHANT_ID` build var: no entitlement;
+   *  - a device with no wallet set up, or an Android that has not yet
+   *    initialised Stripe (it needs a publishable key, which only arrives
+   *    with a PaymentIntent);
+   *  - a venue that doesn't take card online.
+   *
+   * The probe runs once per mount and the button appears only on a
+   * definite yes.
+   */
+  const [PlatformPay, setPlatformPay] =
+    useState<React.ComponentType<PlatformPayButtonProps> | null>(null);
+  useEffect(() => {
+    if (!menu.ordering.onlinePayment) return;
+    let alive = true;
+    void isPlatformPayAvailable().then((supported) => {
+      if (!alive || !supported) return;
+      setPlatformPay(() => platformPayButton());
+    });
+    return () => {
+      alive = false;
+    };
+  }, [menu.ordering.onlinePayment]);
 
   // Restaurant-configured delivery areas: the guest PICKS a postcode and
   // the locality autofills; fee/minimum/free-over come from that row.
@@ -224,6 +277,46 @@ export function CartScreen({
     });
   }, [customer, areas]);
 
+  /**
+   * The fulfilment window the venue is offering right now (P7-13).
+   *
+   * The server enumerates the slots; the app only ever steps along that
+   * list, so it can never ask for a time the kitchen hasn't offered. A
+   * republished menu can shorten the list under a guest who already
+   * picked — in which case the pick is dropped back to ASAP rather than
+   * sent and rejected.
+   */
+  const slots = menu.ordering.requestSlots ?? [];
+  const slotIndex = slots.indexOf(requestedTime);
+  useEffect(() => {
+    if (requestedTime && !slots.includes(requestedTime)) setRequestedTime("");
+  }, [requestedTime, slots]);
+  const scheduled = requestedTime !== "" && slotIndex >= 0;
+  const stepSlot = (delta: number): void => {
+    const next = slots[slotIndex + delta];
+    if (next) setRequestedTime(next);
+  };
+
+  /**
+   * Is there a delivery address to SHOW rather than ask for?
+   *
+   * The test is the SIGNED-IN PROFILE's saved address, never "the fields
+   * happen to be full": a first-time guest typing their own address must
+   * not watch the form fold into a card the instant they finish the
+   * postcode. So the card appears only for an address this screen filled
+   * in from `customer.lastDeliveryAddress` that the guest hasn't touched
+   * — and a saved postcode the venue no longer serves is not one (the
+   * prefill effect below refuses to seed it, so there would be nothing
+   * to summarise).
+   */
+  const savedAddress = customer?.lastDeliveryAddress ?? null;
+  const addressFromProfile =
+    !addressTouched &&
+    Boolean(savedAddress?.street?.trim()) &&
+    Boolean(savedAddress?.zip?.trim()) &&
+    (areas.length === 0 || areas.some((a) => a.zip === savedAddress?.zip));
+  const addressFieldsOpen = editingAddress || !addressFromProfile;
+
   /** The one line under the title that says what is being waited on. The
    *  dev test panel says nothing here — its button is the whole message. */
   const placingLine =
@@ -231,9 +324,11 @@ export function CartScreen({
       ? null
       : placing.step === "confirming"
         ? t.placingConfirm
-        : payMethod === "paypal"
-          ? t.placingPaypal
-          : t.placingCard;
+        : placing.wallet
+          ? t.placingWallet
+          : placing.method === "paypal"
+            ? t.placingPaypal
+            : t.placingCard;
   /** Once the server has answered, ITS total is the one to show. */
   const placedTotal = placing?.order ? placing.order.chargedCents : chargedTotal;
 
@@ -252,14 +347,24 @@ export function CartScreen({
     if (outcome === "unavailable") await auth.login("google");
   }
 
-  async function submit(): Promise<void> {
+  /**
+   * Place the order, then pay it.
+   *
+   * `wallet` is the ONLY thing the Apple Pay / Google Pay button changes:
+   * it forces the card route (a wallet is a card) and swaps the payment
+   * sheet for the wallet sheet. Every other step — placement, the voucher
+   * branch, the fake provider, the hosted-page fallback, the cancelled
+   * and failed exits — is the same code as the ordinary Pay button.
+   */
+  async function submit({ wallet = false }: { wallet?: boolean } = {}): Promise<void> {
     if (busy) return; // double-tap guard: one in-flight order at a time
+    const method: PayMethod = wallet ? "card" : payMethod;
     setBusy(true);
     setError(null);
     // The form gives way to the placing panel right now — the basket itself
     // is untouched, so whatever is drawn behind a payment sheet still shows
     // the guest what they ordered.
-    setPlacing({ order: null, step: "placing" });
+    setPlacing({ order: null, step: "placing", method, wallet });
     const result = await placeOrder(
       {
         slug: menu.venue.slug,
@@ -270,7 +375,7 @@ export function CartScreen({
         customerName: needsContact ? name.trim() : undefined,
         customerPhone: needsContact ? phone.trim() : undefined,
         customerEmail: email.trim() || undefined,
-        intendedPayment: payMethod,
+        intendedPayment: method,
         // Only ever true when the account really holds an armed voucher —
         // the server checks again and owns the outcome.
         redeemVoucher: rewardCents > 0 ? true : undefined,
@@ -317,11 +422,11 @@ export function CartScreen({
       currency: menu.venue.currency,
       orderType,
       placedAt: new Date().toISOString(),
-      payment: payMethod,
+      payment: method,
     });
     // NOT cleared here. The cart is emptied only where this flow hands over
     // to the tracking screen, below.
-    setPlacing({ order, step: "placing", rewardFailed });
+    setPlacing({ order, step: "placing", method, wallet, rewardFailed });
 
     // The reward covered the whole bill: the order is already paid, so
     // every payment branch below would be asking for €0.00.
@@ -329,11 +434,11 @@ export function CartScreen({
       setBusy(false);
       setPlacing(null);
       cart.clear();
-      onPlaced(order, { payment: payMethod, paid: true, rewardFailed });
+      onPlaced(order, { payment: method, paid: true, rewardFailed });
       return;
     }
 
-    if (payMethod === "cash") {
+    if (method === "cash") {
       setBusy(false);
       setPlacing(null);
       cart.clear();
@@ -354,35 +459,45 @@ export function CartScreen({
       // is over (paid, cancelled or failed) and the tracking screen takes
       // over from here.
       cart.clear();
-      onPlaced(order, { payment: payMethod, note, paid, rewardFailed });
+      onPlaced(order, { payment: method, note, paid, rewardFailed });
     };
 
-    if (payMethod === "paypal") {
+    if (method === "paypal") {
       // Straight into PayPal: the server starts the payment and the
       // in-app browser opens on the approve page, then closes itself the
       // moment the return leg bounces back to the deep link.
-      setPlacing({ order, step: "opening", rewardFailed });
+      setPlacing({ order, step: "opening", method, rewardFailed });
       await payWithPaypal(order.orderId, order.receiptToken);
       done();
       return;
     }
 
-    setPlacing({ order, step: "paying", rewardFailed });
-    const outcome = await payWithCard(order.orderId, order.receiptToken, {
+    setPlacing({ order, step: "paying", method, wallet, rewardFailed });
+    const pay = wallet ? payWithPlatformPay : payWithCard;
+    const outcome = await pay(order.orderId, order.receiptToken, {
       merchantDisplayName: menu.venue.name,
     });
     if (typeof outcome === "object") {
-      // Fake provider (dev/CI): no sheet exists, so hand over to the test
-      // button rather than pretending the payment went through.
+      // Fake provider (dev/CI): no sheet exists — and no wallet either,
+      // because a wallet is only ever opened against a real Stripe
+      // intent. Hand over to the test button rather than pretending the
+      // payment went through.
       setPaying(false);
       setBusy(false);
-      setPlacing({ order, step: "paying", fake: { ref: outcome.fake.ref }, rewardFailed });
+      setPlacing({
+        order,
+        step: "paying",
+        method,
+        wallet,
+        fake: { ref: outcome.fake.ref },
+        rewardFailed,
+      });
       return;
     }
     if (outcome === "unavailable") {
       // Expo Go, web, or a venue without a publishable key — the hosted
       // checkout page can still take the money.
-      setPlacing({ order, step: "opening", rewardFailed });
+      setPlacing({ order, step: "opening", method, rewardFailed });
       const hosted = await startHostedPayment(order.orderId, order.receiptToken);
       const url = hosted.ok ? hosted.url : payPageUrl(order.orderId, order.receiptToken, deepLink);
       await openPayPage(url, deepLink);
@@ -395,7 +510,7 @@ export function CartScreen({
     if (outcome === "paid") {
       // Settle server-side right away (Stripe lookup), so the tracking
       // screen opens on "Paid" even if the webhook is late or missing.
-      setPlacing({ order, step: "confirming", rewardFailed });
+      setPlacing({ order, step: "confirming", method, wallet, rewardFailed });
       await verifyPayment(order.orderId, order.receiptToken);
       done(undefined, true);
     } else done(outcome);
@@ -410,7 +525,7 @@ export function CartScreen({
     if (!order || !ref || busy) return;
     setBusy(true);
     const rewardFailed = placing?.rewardFailed;
-    setPlacing({ order, step: "confirming", rewardFailed });
+    setPlacing({ order, step: "confirming", method: "card", rewardFailed });
     await confirmFakePayment(order.orderId, order.receiptToken, ref);
     setBusy(false);
     setPlacing(null);
@@ -533,62 +648,48 @@ export function CartScreen({
                 />
               ) : (
                 <>
-                  {(menu.ordering.requestSlots ?? []).length > 0 ? (
-                    <View style={{ gap: 4 }}>
+                  {/* When to fulfil it: two radios, and a ± stepper over
+                      the server's own slot list once "Scheduled" is
+                      chosen. No free typing and no wrapping — the ends of
+                      the list are the ends of the service window. */}
+                  {slots.length > 0 ? (
+                    <View style={{ gap: 8 }}>
                       <Text style={styles.fieldLabel}>
                         {orderType === "delivery" ? t.timeDelivery : t.timePickup}
                       </Text>
-                      <Pressable style={styles.dropdown} onPress={() => setTimeOpen(true)}>
-                        <Text style={styles.dropdownValue}>
-                          {requestedTime === "" ? t.asap : requestedTime}
-                        </Text>
-                        <Text style={styles.dropdownChevron}>▾</Text>
-                      </Pressable>
-                      <Modal
-                        visible={timeOpen}
-                        transparent
-                        animationType="fade"
-                        onRequestClose={() => setTimeOpen(false)}
-                      >
-                        <Pressable style={styles.modalBackdrop} onPress={() => setTimeOpen(false)}>
-                          <View style={styles.modalSheet}>
-                            <Text style={styles.modalTitle}>
-                              {orderType === "delivery" ? t.timeDelivery : t.timePickup}
-                            </Text>
-                            <ScrollView style={{ maxHeight: 380 }}>
-                              {["", ...(menu.ordering.requestSlots ?? [])].map((slot) => {
-                                const selected = requestedTime === slot;
-                                return (
-                                  <Pressable
-                                    key={slot || "asap"}
-                                    onPress={() => {
-                                      setRequestedTime(slot);
-                                      setTimeOpen(false);
-                                    }}
-                                    style={[
-                                      styles.modalOption,
-                                      selected && styles.modalOptionActive,
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.modalOptionText,
-                                        selected && {
-                                          color: colors.red,
-                                          ...fonts.bodyHeavy,
-                                        },
-                                      ]}
-                                    >
-                                      {slot === "" ? t.asap : slot}
-                                    </Text>
-                                    {selected ? <Text style={{ color: colors.red }}>✓</Text> : null}
-                                  </Pressable>
-                                );
-                              })}
-                            </ScrollView>
-                          </View>
-                        </Pressable>
-                      </Modal>
+                      <View style={styles.radioRow}>
+                        <RadioChip
+                          label={t.timeNow}
+                          selected={!scheduled}
+                          onPress={() => setRequestedTime("")}
+                        />
+                        <RadioChip
+                          label={t.timeScheduled}
+                          selected={scheduled}
+                          onPress={() => {
+                            if (!scheduled) setRequestedTime(slots[0] ?? "");
+                          }}
+                        />
+                      </View>
+                      {scheduled ? (
+                        <View style={styles.stepper}>
+                          <StepButton
+                            icon="remove"
+                            label={t.timeEarlier}
+                            disabled={slotIndex <= 0}
+                            onPress={() => stepSlot(-1)}
+                          />
+                          <Text style={styles.stepperValue}>{requestedTime}</Text>
+                          <StepButton
+                            icon="add"
+                            label={t.timeLater}
+                            disabled={slotIndex >= slots.length - 1}
+                            onPress={() => stepSlot(1)}
+                          />
+                        </View>
+                      ) : (
+                        <Text style={styles.stepperHint}>{t.asap}</Text>
+                      )}
                     </View>
                   ) : null}
                   {/* Signed out: one tap fills name, phone, email and
@@ -627,12 +728,43 @@ export function CartScreen({
                 keyboardType="email-address"
                 hint={t.receiptEmailHint}
               />
-              {orderType === "delivery" ? (
+              {orderType === "delivery" && !addressFieldsOpen ? (
+                /* The address the app already knows, as a card. One tap on
+                   "Change" turns it back into the fields — a returning
+                   guest should not have to read past four inputs they
+                   filled in weeks ago. */
+                <View style={styles.addressCard}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.addressLabel}>{t.addressTitle}</Text>
+                    <Text style={styles.addressLine}>{street.trim()}</Text>
+                    <Text style={styles.addressLine}>
+                      {[zip.trim(), area?.locality].filter(Boolean).join(" ")}
+                    </Text>
+                    {note.trim() ? (
+                      <Text style={styles.addressNote} numberOfLines={2}>
+                        {note.trim()}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    onPress={() => setEditingAddress(true)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t.addressChange} — ${t.addressTitle}`}
+                  >
+                    <Text style={styles.addressChange}>{t.addressChange}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {orderType === "delivery" && addressFieldsOpen ? (
                 <>
                   <Field
                     label={t.street}
                     value={street}
-                    onChange={setStreet}
+                    onChange={(v) => {
+                      setAddressTouched(true);
+                      setStreet(v);
+                    }}
                     placeholder="Bahnhofstraße 15"
                   />
                   {areas.length > 0 ? (
@@ -678,6 +810,7 @@ export function CartScreen({
                                   <Pressable
                                     key={a.zip}
                                     onPress={() => {
+                                      setAddressTouched(true);
                                       setZip(a.zip);
                                       setZipOpen(false);
                                     }}
@@ -711,7 +844,10 @@ export function CartScreen({
                     <Field
                       label={t.zipLabel}
                       value={zip}
-                      onChange={setZip}
+                      onChange={(v) => {
+                        setAddressTouched(true);
+                        setZip(v);
+                      }}
                       placeholder="56068"
                       keyboardType="number-pad"
                     />
@@ -719,7 +855,10 @@ export function CartScreen({
                   <Field
                     label={t.noteOptional}
                     value={note}
-                    onChange={setNote}
+                    onChange={(v) => {
+                      setAddressTouched(true);
+                      setNote(v);
+                    }}
                     placeholder={t.notePlaceholder}
                   />
                 </>
@@ -771,33 +910,78 @@ export function CartScreen({
                 </Text>
               ) : null}
 
+              {/* Apple Pay / Google Pay, above the list and above the
+                  ordinary button: one tap places and pays. Rendered ONLY
+                  when the device, the build and the venue all support it
+                  — otherwise nothing at all is drawn here (P7-13). */}
+              {PlatformPay && !fullyCovered ? (
+                <View style={{ gap: 6, marginTop: 8 }}>
+                  <PlatformPay
+                    onPress={() => {
+                      setPayMethod("card");
+                      void submit({ wallet: true });
+                    }}
+                    disabled={missing || busy}
+                    borderRadius={radius.md}
+                    style={styles.walletButton}
+                  />
+                  {/* Only when there IS another way below to choose. */}
+                  {payOptions.length > 1 ? (
+                    <Text style={styles.walletDivider}>{t.payOrChoose}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+
               {/* One option = no choice to make; the hint below still says
                   what will happen. A fully covered order has nothing to
                   charge, so there is no method to pick either. */}
               {payOptions.length > 1 && !fullyCovered ? (
-                <View style={{ gap: 6, marginTop: 4 }}>
+                <View style={{ gap: 8, marginTop: 4 }}>
                   <Text style={styles.fieldLabel}>{t.paymentMethod}</Text>
-                  <View style={styles.payRow}>
-                    {payOptions.map((option) => (
-                      <Pressable
-                        key={option.key}
-                        onPress={() => setPayMethod(option.key)}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: payMethod === option.key }}
-                        style={[styles.payCard, payMethod === option.key && styles.payCardActive]}
-                      >
-                        <Text style={{ ...fonts.body, fontSize: 22 }}>{option.emoji}</Text>
-                        <Text
-                          style={[
-                            styles.payCardText,
-                            payMethod === option.key && { color: colors.red },
-                          ]}
-                          numberOfLines={1}
+                  <View style={{ gap: 8 }}>
+                    {payOptions.map((option) => {
+                      const selected = payMethod === option.key;
+                      return (
+                        <Pressable
+                          key={option.key}
+                          onPress={() => setPayMethod(option.key)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                          accessibilityLabel={option.label}
+                          style={[styles.payRow, selected && styles.payRowActive]}
                         >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    ))}
+                          <Ionicons
+                            name={selected ? "radio-button-on" : "radio-button-off"}
+                            size={20}
+                            color={selected ? colors.red : colors.inkSoft}
+                          />
+                          <Text
+                            style={[styles.payRowText, selected && { color: colors.red }]}
+                            numberOfLines={1}
+                          >
+                            {option.label}
+                          </Text>
+                          {/* Decorative: the row already says what it is,
+                              so the marks are not a second thing to read. */}
+                          <View
+                            style={styles.payMarks}
+                            importantForAccessibility="no-hide-descendants"
+                            accessibilityElementsHidden
+                          >
+                            {option.key === "card" ? (
+                              <>
+                                <VisaMark />
+                                <MastercardMark />
+                              </>
+                            ) : option.key === "paypal" ? (
+                              <PaypalMark />
+                            ) : (
+                              <CashMark />
+                            )}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 </View>
               ) : null}
@@ -864,6 +1048,126 @@ function Field({
   );
 }
 
+/** "Now" / "Scheduled" — a radio drawn as a chip, so the two choices are
+ *  one tap apart and neither is hidden inside a menu (P7-13). */
+function RadioChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}): React.ReactElement {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+      style={[styles.radioChip, selected && styles.radioChipActive]}
+    >
+      <Ionicons
+        name={selected ? "radio-button-on" : "radio-button-off"}
+        size={18}
+        color={selected ? colors.red : colors.inkSoft}
+      />
+      <Text style={[styles.radioChipText, selected && { color: colors.red }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** One end of the time stepper. Disabled at the ends of the server's slot
+ *  list — the list never wraps, because 21:45 is not "earlier" than 11:00. */
+function StepButton({
+  icon,
+  label,
+  disabled,
+  onPress,
+}: {
+  icon: "add" | "remove";
+  label: string;
+  disabled: boolean;
+  onPress: () => void;
+}): React.ReactElement {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      style={[styles.stepBtn, disabled && styles.stepBtnOff]}
+    >
+      <Ionicons name={icon} size={20} color={disabled ? colors.inkSoft : colors.red} />
+    </Pressable>
+  );
+}
+
+/* ── Payment brand marks ─────────────────────────────────────────────────
+ *
+ * Drawn here as inline SVG rather than shipped as images: four small
+ * vectors cost nothing in the bundle, stay sharp at any density, and
+ * never 404. They are simplified, generic representations — enough for a
+ * guest to recognise the row at a glance, not facsimiles of the
+ * trademarks. They are decorative: every row carries its own text label,
+ * and the marks are hidden from the accessibility tree.
+ */
+
+const MARK_W = 34;
+const MARK_H = 22;
+
+function VisaMark(): React.ReactElement {
+  return (
+    <Svg width={MARK_W} height={MARK_H} viewBox="0 0 34 22">
+      <Rect x={0.5} y={0.5} width={33} height={21} rx={3} fill="#1a1f71" />
+      <SvgText
+        x={17}
+        y={15}
+        fill="#ffffff"
+        fontSize={9}
+        fontWeight="bold"
+        letterSpacing={0.5}
+        textAnchor="middle"
+      >
+        VISA
+      </SvgText>
+    </Svg>
+  );
+}
+
+function MastercardMark(): React.ReactElement {
+  return (
+    <Svg width={MARK_W} height={MARK_H} viewBox="0 0 34 22">
+      <Rect x={0.5} y={0.5} width={33} height={21} rx={3} fill="#ffffff" stroke={colors.line} />
+      <Circle cx={14} cy={11} r={6.5} fill="#eb001b" />
+      <Circle cx={20} cy={11} r={6.5} fill="#f79e1b" opacity={0.85} />
+    </Svg>
+  );
+}
+
+function PaypalMark(): React.ReactElement {
+  return (
+    <Svg width={MARK_W} height={MARK_H} viewBox="0 0 34 22">
+      <Rect x={0.5} y={0.5} width={33} height={21} rx={3} fill="#ffffff" stroke={colors.line} />
+      <Path d="M15 4 h6 a4 4 0 1 1 0 8 h-3 l-1 6 h-3 z" fill="#009cde" />
+      <Path d="M10 4 h6 a4 4 0 1 1 0 8 h-3 l-1 6 h-3 z" fill="#003087" />
+    </Svg>
+  );
+}
+
+function CashMark(): React.ReactElement {
+  return (
+    <Svg width={MARK_W} height={MARK_H} viewBox="0 0 34 22">
+      <Rect x={0.5} y={0.5} width={33} height={21} rx={3} fill="#ffffff" stroke={colors.line} />
+      <Rect x={4} y={5} width={26} height={12} rx={2} fill="#e9f3e4" stroke="#3f7030" />
+      <Circle cx={17} cy={11} r={3.2} fill="none" stroke="#3f7030" strokeWidth={1.2} />
+    </Svg>
+  );
+}
+
 function Row({
   label,
   value,
@@ -926,24 +1230,101 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
   },
   typeChipActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
-  // Payment choice: the same family as the order-type chips, drawn as
-  // proper cards — the guest is choosing how money moves, so it gets the
-  // biggest tap target on the screen.
-  payRow: { flexDirection: "row", gap: 8 },
-  payCard: {
+  // Payment choice: full-width rows, one per method, each with its brand
+  // mark on the trailing edge. A row (not a chip) because the guest is
+  // choosing how money moves — it should be the easiest thing to hit on
+  // the screen, and the marks need somewhere to sit (P7-13).
+  payRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    minHeight: 52,
+    backgroundColor: colors.creamCard,
+  },
+  payRowActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
+  payRowText: { flex: 1, color: colors.ink, fontSize: 14, ...fonts.bodyBold },
+  payMarks: { flexDirection: "row", alignItems: "center", gap: 5 },
+  // Stripe draws the wallet button itself; we only own the box it fills.
+  walletButton: { height: 48, width: "100%" },
+  walletDivider: {
+    color: colors.inkSoft,
+    ...fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  // "Now" / "Scheduled", then the ± stepper over the server's slots.
+  radioRow: { flexDirection: "row", gap: 8 },
+  radioChip: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    gap: 6,
     borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: radius.md,
     paddingVertical: 10,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
+    minHeight: 46,
     backgroundColor: colors.creamCard,
   },
-  payCardActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
-  payCardText: { color: colors.inkSoft, fontSize: 13, ...fonts.bodyBold },
+  radioChipActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
+  radioChipText: { color: colors.inkSoft, fontSize: 13, ...fonts.bodyBold, flexShrink: 1 },
+  stepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: 6,
+  },
+  stepBtn: {
+    width: 44,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.red,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cream,
+  },
+  stepBtnOff: { borderColor: colors.line, opacity: 0.55 },
+  stepperValue: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 20 },
+  stepperHint: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5 },
+  // The saved delivery address, shown rather than asked for.
+  addressCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: 14,
+  },
+  addressLabel: {
+    color: colors.inkSoft,
+    ...fonts.bodySemi,
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  addressLine: { color: colors.ink, ...fonts.bodySemi, fontSize: 14.5 },
+  addressNote: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, marginTop: 2 },
+  addressChange: {
+    color: colors.red,
+    ...fonts.bodyBold,
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
   dropdown: {
     flexDirection: "row",
     alignItems: "center",

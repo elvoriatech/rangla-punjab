@@ -406,6 +406,10 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
       void sendReceiptEmailForOrder(tenantId, orderId);
       const { sendNewOrderNotification } = await import("./order-notification");
       void sendNewOrderNotification(tenantId, orderId);
+      // The owner's phone hears about an online order on the same rule as
+      // their inbox: when the money has actually moved (P7-11).
+      const { sendNewOrderPush } = await import("./push-service");
+      void sendNewOrderPush(tenantId, orderId);
       // Loyalty points are earned when the money actually moves. Same
       // fire-and-forget posture as the mails above, and idempotent at the
       // database, so the webhook / /pay/verify / dashboard-reconcile race

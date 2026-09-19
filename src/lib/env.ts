@@ -63,6 +63,15 @@ const envSchema = z.object({
   // rather than baking it into the app, so rotating the key (or switching
   // Stripe accounts) never costs an app-store rebuild.
   STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
+  // Apple Pay in a WEB browser (P7-13). Google Pay needs nothing beyond a
+  // live Stripe account, but Apple additionally requires the merchant
+  // domain to be verified — the association file served from
+  // /.well-known/ and the domain registered in the Stripe dashboard —
+  // which is a human step nobody can automate from here. Until that is
+  // done, an Apple Pay button would open a sheet that fails at
+  // confirmation, so the guest checkout hides it. Only the literal "true"
+  // turns it on; a stray "1" must not.
+  APPLE_PAY_WEB_ENABLED: z.enum(["true", "false"]).optional(),
 
   // PayPal (restaurant's OWN business account — single-merchant checkout).
   // Both optional so dev + test run on the fake provider; the real REST
@@ -90,6 +99,27 @@ const envSchema = z.object({
   GOOGLE_MOBILE_CLIENT_IDS: z.string().min(1).optional(),
   MICROSOFT_CLIENT_ID: z.string().min(1).optional(),
   MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
+
+  // Push notifications to the restaurant's phone (P7-11). We never talk to
+  // APNs/FCM: the server POSTs to Expo's push service, which holds the
+  // Apple key and the FCM service account (both uploaded to EAS by the
+  // owner — human-gated). Unset ⇒ the in-memory fake provider records
+  // sends and nothing leaves the process, which is exactly what dev, CI
+  // and a deployment without credentials should do. Only the literal
+  // "true" turns the real transport on; a stray "0" must not enable it.
+  EXPO_PUSH_ENABLED: z.enum(["true", "false"]).optional(),
+  // Optional bearer for the push API — required only once the Expo project
+  // has "enhanced security for push notifications" switched on.
+  EXPO_ACCESS_TOKEN: z.string().min(1).optional(),
+
+  // Google rating + review link (P7-14). Server-side secret for the Places
+  // API (New); the key is billable, so it stays human-gated and absent by
+  // default. Unset ⇒ the rating provider is an in-memory fake that never
+  // calls Google, so dev, CI and any un-keyed deployment simply show no
+  // rating rather than a wrong one. The venue's Place ID is an owner
+  // setting (venues.google_place_id), not an env var — a key without a
+  // Place ID, or a Place ID without a key, still means "no rating".
+  GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
 });
 
 function loadEnv() {

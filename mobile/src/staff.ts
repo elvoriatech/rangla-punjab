@@ -335,9 +335,9 @@ function asIssueSummary(raw: unknown): StaffIssueSummary | null {
   const i = raw as Record<string, unknown>;
   const id = str(i.id);
   if (!id) return null;
-  const last = (i.lastMessage && typeof i.lastMessage === "object" ? i.lastMessage : null) as
-    | Record<string, unknown>
-    | null;
+  const last = (
+    i.lastMessage && typeof i.lastMessage === "object" ? i.lastMessage : null
+  ) as Record<string, unknown> | null;
   return {
     id,
     orderId: str(i.orderId),
@@ -454,6 +454,47 @@ export async function resolveStaffIssue(
 /** Best effort: the local session is cleared whatever the server says. */
 export async function staffLogout(token: string): Promise<void> {
   await staffFetch(token, "/api/v1/staff/logout", { method: "POST" });
+}
+
+/* ------------------------------------------------------------------ *
+ * Push devices (P7-11) — which phones this restaurant's notifications
+ * go to. The token is an Expo push token (`ExponentPushToken[…]`); the
+ * server fans out through the Expo Push API, so nothing here knows about
+ * APNs or FCM. `src/push.ts` owns the permission + token half.
+ * ------------------------------------------------------------------ */
+
+/** Upsert on the token: the same phone re-registering on every app start
+ *  is the normal case, not a duplicate. */
+export async function registerStaffDevice(
+  token: string,
+  device: { token: string; platform: "ios" | "android" | "web"; appVersion?: string },
+): Promise<StaffResult<null>> {
+  const res = await staffFetch(token, "/api/v1/staff/devices", {
+    method: "POST",
+    body: {
+      token: device.token,
+      platform: device.platform,
+      ...(device.appVersion ? { appVersion: device.appVersion } : {}),
+    },
+  });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 && res.status !== 201) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: null };
+}
+
+/** Stop pushing to this device. Best effort, like `staffLogout` — the
+ *  session is going away whatever the server answers. */
+export async function unregisterStaffDevice(
+  token: string,
+  pushToken: string,
+): Promise<StaffResult<null>> {
+  const res = await staffFetch(token, "/api/v1/staff/devices", {
+    method: "DELETE",
+    body: { token: pushToken },
+  });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 && res.status !== 204) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: null };
 }
 
 /* ------------------------------------------------------------------ *

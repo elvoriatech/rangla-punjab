@@ -132,8 +132,14 @@ export default async function PayPage({
               orderId={orderId}
               token={token}
               payRef={ref}
-              amountLabel={money(order.totalCents)}
-              locale={locale}
+              /* P7-16: the button gets WORDS, not a locale — importing the
+                 catalogue from a client component ships all five. */
+              labels={{
+                pay: t.payAmount(money(order.totalCents)),
+                processing: t.processing,
+                failed: t.payFailed,
+                testNote: t.testPayPage,
+              }}
             />
           ) : null}
           {paypalAvailable() ? (
@@ -141,7 +147,11 @@ export default async function PayPage({
               orderId={orderId}
               token={token}
               appReturnUrl={appReturnUrl}
-              locale={locale}
+              labels={{
+                pay: t.payWithPaypal,
+                opening: t.openingPaypal,
+                failed: t.paypalFailed,
+              }}
             />
           ) : null}
           {!ref && !paypalAvailable() ? (

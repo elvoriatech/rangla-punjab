@@ -3,7 +3,44 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { OpeningHours } from "@/lib/opening-hours";
 import { reservableDates, slotTimesForDate } from "@/lib/opening-hours";
-import { menuCopy } from "@/lib/i18n/menu";
+
+/**
+ * Every string this dialog says, resolved for the guest's language by the
+ * server that renders the menu (P7-16: a client component never imports a
+ * five-locale catalogue).
+ *
+ * `guestCounts` is the pre-rendered party-size label for 1…MAX_GUESTS
+ * people (index 0 = one guest). A lookup table rather than a `{n}`
+ * template because plural rules differ per language — Arabic alone needs
+ * four forms — and 20 short strings in ONE language cost less than
+ * shipping a plural engine plus five catalogues.
+ */
+export interface ReserveLabels {
+  buttonShort: string;
+  buttonLong: string;
+  title: string;
+  holdNote: string;
+  close: string;
+  received: string;
+  confirmByPhone: string;
+  done: string;
+  date: string;
+  time: string;
+  guests: string;
+  name: string;
+  phone: string;
+  note: string;
+  select: string;
+  pickDateFirst: string;
+  guestCounts: string[];
+  notePlaceholder: string;
+  sending: string;
+  submit: string;
+  noPayment: string;
+  errorRateLimited: string;
+  errorInvalidTime: string;
+  errorGeneric: string;
+}
 
 /**
  * Table-reservation dialog on the public menu. The date list holds only
@@ -78,11 +115,14 @@ export function ReserveDialog({
   hours,
   timezone,
   locale,
+  labels,
 }: {
   slug: string;
   hours: OpeningHours;
   timezone: string;
+  /** Venue/route locale — only for `Intl` date formatting, not for copy. */
   locale: string;
+  labels: ReserveLabels;
 }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
@@ -95,7 +135,6 @@ export function ReserveDialog({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ date: string; time: string } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const t = menuCopy(locale);
   const dateLabel = useMemo(() => dateFormatter(locale), [locale]);
 
   // Dates/slots are computed at open time so a dialog left open overnight
@@ -145,16 +184,16 @@ export function ReserveDialog({
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setError(
           body.error === "rate_limited"
-            ? t.reserve.errorRateLimited
+            ? labels.errorRateLimited
             : body.error === "invalid_time"
-              ? t.reserve.errorInvalidTime
-              : t.reserve.errorGeneric,
+              ? labels.errorInvalidTime
+              : labels.errorGeneric,
         );
         return;
       }
       setDone({ date, time });
     } catch {
-      setError(t.reserve.errorGeneric);
+      setError(labels.errorGeneric);
     } finally {
       setBusy(false);
     }
@@ -190,8 +229,8 @@ export function ReserveDialog({
         </svg>
         {/* Two whole phrases rather than a word plus a suffix: only
             English happens to grow the long form by appending. */}
-        <span className="sm:hidden">{t.reserve.buttonShort}</span>
-        <span className="hidden sm:inline">{t.reserve.buttonLong}</span>
+        <span className="sm:hidden">{labels.buttonShort}</span>
+        <span className="hidden sm:inline">{labels.buttonLong}</span>
       </button>
 
       {open ? (
@@ -205,18 +244,18 @@ export function ReserveDialog({
             ref={dialogRef}
             role="dialog"
             aria-modal="true"
-            aria-label={t.reserve.title}
+            aria-label={labels.title}
             className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-[var(--menu-surface)] p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-2xl sm:rounded-2xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-serif text-2xl">{t.reserve.title}</h2>
-                <p className={`mt-1.5 text-sm ${INK_SOFT}`}>{t.reserve.holdNote}</p>
+                <h2 className="font-serif text-2xl">{labels.title}</h2>
+                <p className={`mt-1.5 text-sm ${INK_SOFT}`}>{labels.holdNote}</p>
               </div>
               <button
                 type="button"
                 onClick={reset}
-                aria-label={t.reserve.close}
+                aria-label={labels.close}
                 className="rounded p-1 text-2xl leading-none text-[var(--menu-surface-text-soft,var(--menu-text-soft))] hover:text-[var(--menu-surface-text,var(--menu-text))]"
               >
                 ×
@@ -231,21 +270,21 @@ export function ReserveDialog({
                 >
                   ✓
                 </p>
-                <h3 className="mt-4 font-serif text-xl">{t.reserve.received}</h3>
+                <h3 className="mt-4 font-serif text-xl">{labels.received}</h3>
                 <p className={`mt-2 text-sm ${INK_SOFT}`}>
                   {dateLabel.format(new Date(`${done.date}T12:00:00`))} · {done.time} ·{" "}
-                  {t.reserve.guestCount(guests)}
+                  {labels.guestCounts[guests - 1]}
                 </p>
-                <p className="mt-3 text-sm">{t.reserve.confirmByPhone}</p>
+                <p className="mt-3 text-sm">{labels.confirmByPhone}</p>
                 <button type="button" onClick={reset} className={`mt-6 ${CTA}`}>
-                  {t.reserve.done}
+                  {labels.done}
                 </button>
               </div>
             ) : (
               <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block">
-                    <span className={FIELD_LABEL}>{t.reserve.date}</span>
+                    <span className={FIELD_LABEL}>{labels.date}</span>
                     <select
                       required
                       value={date}
@@ -256,7 +295,7 @@ export function ReserveDialog({
                       className={FIELD_SELECT}
                     >
                       <option value="" disabled>
-                        {t.reserve.select}
+                        {labels.select}
                       </option>
                       {dates.map((d) => (
                         <option key={d.date} value={d.date}>
@@ -266,7 +305,7 @@ export function ReserveDialog({
                     </select>
                   </label>
                   <label className="block">
-                    <span className={FIELD_LABEL}>{t.reserve.time}</span>
+                    <span className={FIELD_LABEL}>{labels.time}</span>
                     <select
                       required
                       value={time}
@@ -275,7 +314,7 @@ export function ReserveDialog({
                       className={`${FIELD_SELECT} disabled:opacity-60`}
                     >
                       <option value="" disabled>
-                        {date ? t.reserve.select : t.reserve.pickDateFirst}
+                        {date ? labels.select : labels.pickDateFirst}
                       </option>
                       {slots.map((t) => (
                         <option key={t} value={t}>
@@ -290,14 +329,14 @@ export function ReserveDialog({
                     no list to scroll. Bounds match the server (1–20). */}
                 <div className="block">
                   <span className={FIELD_LABEL} id="reserve-guests-label">
-                    {t.reserve.guests}
+                    {labels.guests}
                   </span>
                   <div role="group" aria-labelledby="reserve-guests-label" className={STEP_BOX}>
                     <button
                       type="button"
                       onClick={() => setGuests((g) => Math.max(MIN_GUESTS, g - 1))}
                       disabled={guests <= MIN_GUESTS}
-                      aria-label={`− 1 · ${t.reserve.guests}`}
+                      aria-label={`− 1 · ${labels.guests}`}
                       className={STEP_BTN}
                     >
                       −
@@ -306,13 +345,13 @@ export function ReserveDialog({
                       className="min-w-[8ch] text-center text-base font-semibold"
                       aria-live="polite"
                     >
-                      {t.reserve.guestCount(guests)}
+                      {labels.guestCounts[guests - 1]}
                     </span>
                     <button
                       type="button"
                       onClick={() => setGuests((g) => Math.min(MAX_GUESTS, g + 1))}
                       disabled={guests >= MAX_GUESTS}
-                      aria-label={`+ 1 · ${t.reserve.guests}`}
+                      aria-label={`+ 1 · ${labels.guests}`}
                       className={STEP_BTN}
                     >
                       +
@@ -321,7 +360,7 @@ export function ReserveDialog({
                 </div>
 
                 <label className="block">
-                  <span className={FIELD_LABEL}>{t.reserve.name}</span>
+                  <span className={FIELD_LABEL}>{labels.name}</span>
                   <input
                     type="text"
                     required
@@ -334,7 +373,7 @@ export function ReserveDialog({
                   />
                 </label>
                 <label className="block">
-                  <span className={FIELD_LABEL}>{t.reserve.phone}</span>
+                  <span className={FIELD_LABEL}>{labels.phone}</span>
                   <input
                     type="tel"
                     required
@@ -348,13 +387,13 @@ export function ReserveDialog({
                   />
                 </label>
                 <label className="block">
-                  <span className={FIELD_LABEL}>{t.reserve.note}</span>
+                  <span className={FIELD_LABEL}>{labels.note}</span>
                   <input
                     type="text"
                     maxLength={200}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder={t.reserve.notePlaceholder}
+                    placeholder={labels.notePlaceholder}
                     className={FIELD}
                   />
                 </label>
@@ -369,9 +408,9 @@ export function ReserveDialog({
                 ) : null}
 
                 <button type="submit" disabled={busy || !date || !time} className={CTA}>
-                  {busy ? t.reserve.sending : t.reserve.submit}
+                  {busy ? labels.sending : labels.submit}
                 </button>
-                <p className={`text-center text-xs ${INK_SOFT}`}>{t.reserve.noPayment}</p>
+                <p className={`text-center text-xs ${INK_SOFT}`}>{labels.noPayment}</p>
               </form>
             )}
           </div>

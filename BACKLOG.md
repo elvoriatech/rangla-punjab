@@ -242,21 +242,47 @@ Shipped after the phase was opened:
   App: `expo-image-picker` added → native rebuild required (see `mobile/BUILDS.md`).
 
 Next, in this order (decisions already taken in brackets):
-- [ ] (P7-11) Push notifications to the owner's phone for new orders (and later issues):
+- [x] (P7-11) Push notifications to the owner's phone for new orders (and later issues):
   expo-notifications, `POST /api/v1/staff/devices`, send on order placement/settlement.
-  ⛔ needs-human: Apple push key, Firebase project.
+  Note: structural half shipped — `staff_devices` table, `push-service.ts` (Expo Push API
+  provider behind `EXPO_PUSH_ENABLED=true`, fake provider otherwise), `POST/DELETE
+  /api/v1/staff/devices`, pushes on new order (cash + online-paid) and new complaint; app
+  registers in restaurant mode, notification tap opens Board / the complaint. Native
+  rebuild required (`expo-notifications`, `expo-device`).
+- [ ] (P7-11b) ⛔ needs-human — Upload the APNs key (`eas credentials`) and the FCM
+  service-account JSON to EAS, set `EXPO_PUSH_ENABLED=true` (+ optional
+  `EXPO_ACCESS_TOKEN`) in `prod.env`, rebuild the app, test one real order on the phone.
+  Steps in `mobile/BUILDS.md`. [deps: P7-11]
 - [x] (P7-12) Offers as a destination: "Angebote" tab on the web menu; app Offers screen +
   Home card + Menu-tab badge while any offer is live; all hidden when none.
   Note: `PublicMenu.offerCount` (+ `/api/v1/menu`); web renders a synthetic first section
   `data-category-id="__offers"` and an Offers tab first in every rail, `?cat=offers` works
   without JS; app: Offers chip first in the Menu rail (flat list of offer dishes), Home
   offers card, Menu-tab badge. Everything disappears when no offer is active.
-- [ ] (P7-13) Checkout in the style of the owner's mockup: address card with "Ändern",
+- [x] (P7-13) Checkout in the style of the owner's mockup: address card with "Ändern",
   Sofort / Geplant radio with a ± time stepper (web + app), payment list with brand marks
   incl. Apple Pay / Google Pay as direct platform-pay buttons. [Keep Card as a row unless
-  the owner says otherwise.] ⛔ Apple Pay merchant setup; Google Pay production approval.
-- [ ] (P7-14) Google rating + review link (Places API, Place ID, daily cache, link to
-  write-a-review). ⛔ needs-human: API key, Place ID, billing.
+  the owner says otherwise.]
+  Note: web drawer + app CartScreen rebuilt (address card for a saved profile address,
+  Now/Scheduled + ± stepper over the server's slots, payment rows with brand marks, one
+  CTA). Wallet buttons exist but render only with config: web = Stripe
+  PaymentRequestButton via `/api/v1/pay/wallet-config` (Apple Pay additionally behind
+  `APPLE_PAY_WEB_ENABLED`), app = Stripe PlatformPayButton when `APPLE_MERCHANT_ID` is set
+  at build time; Google Pay stays inside the PaymentSheet until approved.
+- [ ] (P7-13b) ⛔ needs-human — Apple Pay: create the merchant id, set `APPLE_MERCHANT_ID`
+  for the EAS build, verify the web domain with Apple/Stripe and set
+  `APPLE_PAY_WEB_ENABLED=true`; Google Pay: request production access in the Google Pay &
+  Wallet Console. Checklist in `mobile/BUILDS.md`. [deps: P7-13, P6-3]
+- [x] (P7-14) Google rating + review link (Places API, Place ID, daily cache, link to
+  write-a-review).
+  Note: `venues.google_place_id` + cached `google_rating`, `google-rating.ts` (Places API
+  (New), 24 h stale-while-revalidate, fake provider in tests, zero requests without key or
+  Place ID), `PublicMenu.rating` + `/api/v1/menu.rating`, "★ 4.6 (312) · Write a review"
+  on the web menu and the app Home, Dashboard → Settings → Google card. No `aggregateRating`
+  in JSON-LD on purpose.
+- [ ] (P7-14b) ⛔ needs-human — Create the Google Cloud project + billing, enable Places API
+  (New), set `GOOGLE_PLACES_API_KEY` in `prod.env`, paste the Place ID in Dashboard →
+  Settings → Google. [deps: P7-14]
 - [x] (P7-15) Guest password reset (forgot → email → reset page; app link opens it in-app).
   Note: `customer_password_reset_tokens` (hashed, 60 min, single use, password accounts
   only, neutral 200 on request); `POST /api/auth/customer/reset/request` + `/reset/{token}`;
@@ -264,8 +290,14 @@ Next, in this order (decisions already taken in brackets):
   guest session; with `?app=` the reset page hands back to the app via
   `/auth/app-return?to=…&status=reset`. App: "Forgot password?" panel on Account, reset
   return shows "Password changed — sign in again".
-- [ ] (P7-16) Ship only the active locale's guest-copy catalogue to the browser and lower the
+- [x] (P7-16) Ship only the active locale's guest-copy catalogue to the browser and lower the
   Lighthouse script budget back to 260 kB (raised to 275 kB in 7167674). Task chip exists.
+  Note: client components no longer import catalogues (labels arrive as props from the
+  server); the checkout catalogue is split per locale under `src/lib/i18n/checkout/` and
+  loaded lazily by the drawer; zod was pulled out of the eager guest bundle
+  (`opening-hours-schema.ts`). `check:bundle` now measures the real client chunks, adds a
+  locale-leak guard, and the guest route went 277 kB → 194 kB gzip; `lighthouserc.json`
+  script budget back to 260000.
 - [x] (P7-17) "cancelled" order status in the kitchen lifecycle (loyalty reversal + voucher
   restore are already wired to it).
   Note: terminal, out-of-band status reachable from any non-terminal step; never suggested
@@ -286,3 +318,4 @@ the stores' privacy-policy link, Google OAuth iOS/Android client ids for native 
 - 2026-07-22 — **P1-3 verified done** (template picker already implemented). **AI menu-import removed** (feature + worker + model/migration). **Images moved to local disk** (`public/uploads` + `/img` sharp resize; dropped S3/MinIO/imgproxy/@aws-sdk). Full vitest suite green (434) on the local DB; typecheck + lint clean. All work committed to local branch `rangla` (not pushed).
 - 2026-07-22 — **Remaining phases cleared** (branch `rangla`): P4-2 (removed public signup + onboarding wizard + `/platform` marketing + `/admin/onboarding` funnel), P1-4 (branch switcher + active-venue cookie), P2-5 (order→pay e2e incl. kitchen visibility), P3-2 (operator Provision-Restaurant form + owner invite email), P3-3 (backups/runbooks folded into `/admin`), P4-4 (no k6 to prune; tier-price/AI/aws-sdk already gone). **P5 security pass verified**: RLS isolation test green (prod runs RLS-off as owner by decision), webhook 400s unsigned, `/admin`→isPlatformAdmin + `/dashboard`→membership, rate limits on order/pay/auth, guest-bundle check present. **P6-1**: prod compose validates (app + caddy + redis + remote DB + uploads volume; no pgbouncer/imgproxy/minio). Full suite green (437). Only ⛔ P6-2/P6-3 (VPS/DNS/live-Stripe) remain — human-gated. **Action for operator: rotate the live Stripe key currently in `.env`.**
 - 2026-09-19 — **Phase 7 opened** (owner & guest experience in the app). P7-1…P7-7 shipped and live on prod (`5f8dde9`, `bcb5760`); P7-8/P7-9 in progress; P7-10…P7-17 queued with decisions recorded above. Working mode for this phase: Opus agents implement, Fable architects/reviews; pushes only on the owner's say-so.
+- 2026-09-19 (evening) — **Phase 7 queue cleared** in three local commits (not pushed — a push is a prod deploy, owner decides): P7-10 complaint threads; P7-17 cancelled status + P7-12 offers destination + P7-15 guest password reset; P7-16 per-locale guest copy (guest bundle 277 → 194 kB gzip, budget back to 260 kB) + P7-11 push (structural) + P7-14 Google rating (structural) + P7-13 checkout redesign (wallet buttons behind config). Four new migrations (`order_issues`, `order_status_cancelled`, `customer_password_reset`, `staff_devices`, `venue_google_rating`). App gained native deps (`expo-image-picker`, `expo-notifications`, `expo-device`) → the next iPhone/EAS build is a NATIVE rebuild, not an OTA. Remaining: ⛔ P6-2/P6-3, P7-11b/13b/14b credential steps, legal markers, Google OAuth ids.

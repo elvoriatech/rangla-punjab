@@ -12,6 +12,7 @@ import * as ExpoLinking from "expo-linking";
 import { BASE_URL } from "./api";
 import { openReturningPage } from "./browser";
 import { useI18n } from "./i18n";
+import { unregisterStaffPush } from "./push";
 import { staffLogout } from "./staff";
 import {
   clearStaffToken,
@@ -526,7 +527,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     setStaffToken(null);
     setStaff(null);
     await clearStaffToken();
-    if (current) await staffLogout(current);
+    if (current) {
+      // Order matters: the push device is deleted with the token that
+      // still authorises it, THEN the session itself is ended (P7-11).
+      // A phone that keeps receiving the restaurant's orders after it was
+      // signed out is the one failure mode worth a round trip.
+      await unregisterStaffPush(current);
+      await staffLogout(current);
+    }
   }, [staffToken]);
 
   const fetchMyOrders = useCallback(async (): Promise<AccountOrder[]> => {

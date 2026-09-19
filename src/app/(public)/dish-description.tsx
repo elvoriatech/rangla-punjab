@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { menuCopy } from "@/lib/i18n/menu";
+
+/** The three strings this component says, resolved for the guest's
+ *  language by the server that renders the dish card (P7-16: a client
+ *  component never imports a five-locale catalogue). `moreAbout` arrives
+ *  with the dish name already interpolated. */
+export interface DishDescriptionLabels {
+  more: string;
+  moreAbout: string;
+  close: string;
+}
 
 /**
  * Dish description, two lines by default. Long texts are clamped and get a
@@ -19,19 +28,18 @@ import { menuCopy } from "@/lib/i18n/menu";
 export function DishDescription({
   text,
   dishName,
-  locale,
+  labels,
   className,
 }: {
   text: string;
   dishName: string;
-  locale: string;
+  labels: DishDescriptionLabels;
   className: string;
 }): React.ReactElement {
   const ref = useRef<HTMLParagraphElement>(null);
   const [hydrated, setHydrated] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const [open, setOpen] = useState(false);
-  const t = menuCopy(locale);
 
   useEffect(() => {
     // Deferred a tick (react-hooks forbids synchronous setState in effects).
@@ -74,10 +82,10 @@ export function DishDescription({
           type="button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
-          aria-label={t.dish.moreAbout(dishName)}
+          aria-label={labels.moreAbout}
           className="mt-0.5 inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-text,var(--menu-text))]"
         >
-          {t.dish.more}
+          {labels.more}
           {/* Directional glyph: mirrored under `dir="rtl"` so it still
               points away from the label instead of back into it. */}
           <span aria-hidden="true" className="inline-block rtl:-scale-x-100">
@@ -95,7 +103,7 @@ export function DishDescription({
             >
               <button
                 type="button"
-                aria-label={t.dish.close}
+                aria-label={labels.close}
                 onClick={() => setOpen(false)}
                 className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-[2px]"
               />
@@ -107,7 +115,7 @@ export function DishDescription({
                   onClick={() => setOpen(false)}
                   className="mt-6 w-full rounded-full bg-neutral-900 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
                 >
-                  {t.dish.close}
+                  {labels.close}
                 </button>
               </div>
             </div>,

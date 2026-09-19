@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   ImageBackground,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,14 +10,14 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ApiMenu, ApiItem } from "../api";
+import type { ApiMenu, ApiItem, ApiRating } from "../api";
 import { offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffOrdering } from "../staff";
 import { fetchStaffOrdering, updateStaffOrdering } from "../staff";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
-import { fill, useI18n } from "../i18n";
+import { fill, localeTag, useI18n } from "../i18n";
 import { headlineVoucher, useLoyalty } from "../loyalty";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
 import { DishSheet } from "../dish-sheet";
@@ -92,6 +93,44 @@ function HeroCarousel({ text }: { text: string }): React.ReactElement {
     </ImageBackground>
   );
 }
+/**
+ * "★ 4.6 (312) · Write a review" — the venue's Google rating, right under
+ * the hero (P7-14).
+ *
+ * One line, not a card: it is a credential, not an offer. Tapping opens
+ * Google's own review form in the system browser (`Linking.openURL`,
+ * deliberately not the in-app browser — the guest may want their signed-in
+ * Google session, which lives in Chrome/Safari, not in our Custom Tab).
+ *
+ * The whole thing is absent when the server sends no rating, which is the
+ * default state: no Place ID, or the ⛔ Places API key isn't configured.
+ */
+function RatingLine({ rating }: { rating: ApiRating }): React.ReactElement {
+  const { t, lang } = useI18n();
+  // "4.6" in English, "4,6" in German — the venue's score is a number the
+  // guest reads, so it follows their language like every price does.
+  const value = rating.value.toLocaleString(localeTag(lang), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  const count = rating.count.toLocaleString(localeTag(lang));
+  return (
+    <Pressable
+      style={styles.ratingRow}
+      onPress={() => void Linking.openURL(rating.reviewUrl).catch(() => {})}
+      accessibilityRole="link"
+      accessibilityLabel={`${fill(t.ratingA11y, { value, count })} — ${t.ratingWriteReview}`}
+      hitSlop={6}
+    >
+      <Text style={styles.ratingStar}>★</Text>
+      <Text style={styles.ratingValue}>{value}</Text>
+      <Text style={styles.ratingCount}>({count})</Text>
+      <Text style={styles.ratingDot}>·</Text>
+      <Text style={styles.ratingLink}>{t.ratingWriteReview}</Text>
+    </Pressable>
+  );
+}
+
 export function HomeScreen({
   menu,
   onAdd,
@@ -143,6 +182,10 @@ export function HomeScreen({
       <BrandHeader title={menu.venue.name} subtitle={t.restaurant} onMenu={onOpenOwnerMenu} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <HeroCarousel text={t.heroLine} />
+
+        {/* What other guests think of this place, said once and quietly
+            (P7-14). Nothing renders when the server sends no rating. */}
+        {menu.rating ? <RatingLine rating={menu.rating} /> : null}
 
         {/* The counter's own controls: which services are taking orders
             right now. Guests never see this — they see the RESULT, as
@@ -383,6 +426,27 @@ function ServiceSwitch({
 
 const styles = StyleSheet.create({
   hero: { height: 160, borderRadius: radius.lg, overflow: "hidden" },
+  // Under the hero, above everything the guest can act on: a single
+  // baseline of small type, with only the link carrying colour.
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 5,
+    marginTop: 10,
+    marginHorizontal: 2,
+    minHeight: 32,
+  },
+  ratingStar: { color: colors.goldSoft, ...fonts.body, fontSize: 15 },
+  ratingValue: { color: colors.ink, ...fonts.bodyBold, fontSize: 13.5 },
+  ratingCount: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
+  ratingDot: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
+  ratingLink: {
+    color: colors.red,
+    ...fonts.bodyBold,
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
   serviceCard: {
     flexDirection: "row",
     alignItems: "center",

@@ -39,6 +39,21 @@ function iosUrlScheme(clientId) {
   return `com.googleusercontent.apps.${id.slice(0, -suffix.length)}`;
 }
 
+/**
+ * Apple Pay's merchant id, read at CONFIG time from the environment
+ * (`APPLE_MERCHANT_ID=merchant.com.elvoria.ranglapunjab`). It is ⛔
+ * human-gated: creating the merchant id and uploading the Stripe
+ * payment-processing certificate is an Apple Developer account job.
+ *
+ * Unset — the default, and what every build in this repo does today —
+ * means: no `com.apple.developer.in-app-payments` entitlement is written,
+ * `initPaymentSheet` is NOT given an `applePay` block, and the app's
+ * platform-pay button never renders on iOS. Setting it is the only thing
+ * that turns any of that on (plus a native rebuild: the entitlement is
+ * part of the binary).
+ */
+const appleMerchantId = (process.env.APPLE_MERCHANT_ID ?? "").trim() || null;
+
 module.exports = ({ config }) => {
   const generated = brand.expo ?? {};
   const android = { ...config.android, ...generated.android };
@@ -58,12 +73,18 @@ module.exports = ({ config }) => {
     // `com.google.android.gms.wallet.api.enabled` manifest flag Google Pay
     // needs.
     //
-    // Apple Pay is deliberately OUT of scope and human-gated: it needs an
-    // Apple Developer merchant id and a certificate uploaded to Stripe. Once
-    // those exist, add `merchantIdentifier: "merchant.com.elvoria.ranglapunjab"`
-    // here and pass `applePay: { merchantCountryCode: "DE" }` to
-    // `initPaymentSheet` (see src/payments.ts and BUILDS.md).
-    ["@stripe/stripe-react-native", { enableGooglePay: true }],
+    // Apple Pay rides on APPLE_MERCHANT_ID (⛔ above): with it, the
+    // plugin writes the `com.apple.developer.in-app-payments`
+    // entitlement and `src/payments.ts` turns the sheet's Apple Pay row
+    // and the platform-pay button on. Without it — the default — the
+    // plugin options are exactly what they were before P7-13.
+    [
+      "@stripe/stripe-react-native",
+      {
+        enableGooglePay: true,
+        ...(appleMerchantId ? { merchantIdentifier: appleMerchantId } : {}),
+      },
+    ],
   ];
   // Native one-tap Google sign-in is opt-in per build: without the iOS
   // client id there is no URL scheme to register, and the plugin throws
@@ -80,6 +101,15 @@ module.exports = ({ config }) => {
     android,
     web: { ...config.web, ...generated.web },
     plugins,
-    extra: { ...config.extra, ...generated.extra },
+    // The Apple Pay keys go on LAST so a regenerated brand file can never
+    // clobber them; the runtime reads both through `expo-constants`
+    // (`src/payments.ts`). `applePayEnabled` is the one flag every UI
+    // gate checks, `appleMerchantId` is what `initStripe` needs.
+    extra: {
+      ...config.extra,
+      ...generated.extra,
+      applePayEnabled: Boolean(appleMerchantId),
+      ...(appleMerchantId ? { appleMerchantId } : {}),
+    },
   };
 };

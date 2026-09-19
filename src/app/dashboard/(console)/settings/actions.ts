@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionUserId } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/media-service";
 import {
+  updateVenueGooglePlaceId,
   updateVenueHalalFilter,
   updateVenueLocalization,
   updateVenueLogo,
@@ -152,6 +153,15 @@ export async function saveLoyaltyAction(form: FormData): Promise<void> {
     voucherExpiryMonths: whole(form.get("loyaltyExpiryMonths")),
   });
   return finish(userId, result.ok, "loyalty");
+}
+
+/** P7-14 — the venue's Google Place ID. Blank clears it, which turns the
+ *  rating line off everywhere; a changed id also drops the cached number
+ *  (see `updateVenueGooglePlaceId`). */
+export async function saveGoogleAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateVenueGooglePlaceId(userId, String(form.get("googlePlaceId") ?? ""));
+  return finish(userId, result.ok, "google");
 }
 
 export async function saveLocalizationAction(form: FormData): Promise<void> {

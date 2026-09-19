@@ -89,6 +89,7 @@ interface MenuPayload {
   ok: boolean;
   venue: { locale: string; defaultLocale: string; enabledLocales: string[] };
   offerCount: number;
+  rating: { value: number; count: number; reviewUrl: string } | null;
   categories: { items: { name: string }[] }[];
 }
 
@@ -159,6 +160,29 @@ describe("GET /api/v1/menu — ?locale", () => {
       });
     });
     expect((await read(fx.slug)).offerCount).toBe(1);
+  });
+
+  it("sends the Google rating, and an explicit null when there is none (P7-14)", async () => {
+    const fx = await fixture();
+    // The field is always present: the app tests `rating` and nothing
+    // else, so "absent" must never be a third state it has to handle.
+    const before = await read(fx.slug);
+    expect(before).toHaveProperty("rating");
+    expect(before.rating).toBeNull();
+
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          googlePlaceId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+          googleRating: { rating: 4.6, count: 312, fetchedAt: new Date().toISOString() },
+        },
+      }),
+    );
+    expect((await read(fx.slug)).rating).toEqual({
+      value: 4.6,
+      count: 312,
+      reviewUrl: "https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4",
+    });
   });
 
   it("ignores junk in the parameter", async () => {

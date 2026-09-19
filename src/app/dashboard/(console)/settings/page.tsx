@@ -5,6 +5,7 @@ import { getSessionUserId } from "@/lib/auth";
 import {
   getLoyaltySettings,
   getOrderingSettings,
+  getVenueGoogle,
   getVenueHours,
   getVenueForUser,
   SUPPORTED_CURRENCIES,
@@ -20,6 +21,7 @@ import {
   removeBannerAction,
   removeLogoAction,
   saveBannerAction,
+  saveGoogleAction,
   saveHalalAction,
   saveLocalizationAction,
   saveHoursAction,
@@ -74,6 +76,12 @@ const MESSAGES: Record<string, { saved: string; error: string }> = {
     saved: "Saved. The Halal filter and badge now match your choice on the public menu.",
     error: "Couldn't save the Halal setting — try again.",
   },
+  google: {
+    saved:
+      "Google Place ID saved. Your rating appears under your name once it's been read — usually the next time a guest opens the menu.",
+    error:
+      "That doesn't look like a Google Place ID. Copy it from Google's Place ID finder, or leave the field empty to show no rating.",
+  },
   localization: {
     saved:
       "Currency and languages saved. Prices on the draft use the new currency — publish to show guests.",
@@ -98,6 +106,17 @@ export default async function SettingsPage({
   const ordering = orderingResult.ok ? orderingResult.value : null;
   const loyaltyResult = await getLoyaltySettings(userId);
   const loyalty = loyaltyResult.ok ? loyaltyResult.value : null;
+  const googleResult = await getVenueGoogle(userId);
+  const google = googleResult.ok ? googleResult.value : null;
+  // Same fixed dashboard locale + zone as the overview's timestamps: this
+  // console is English and runs the restaurant's clock, not the browser's.
+  const googleRefreshedLabel = google?.rating
+    ? new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Berlin",
+      }).format(new Date(google.rating.fetchedAt))
+    : null;
   const { saved, error } = await searchParams;
 
   const banner = saved
@@ -243,6 +262,75 @@ export default async function SettingsPage({
           </div>
         </div>
       </section>
+
+      {/* Google rating + review link (P7-14) */}
+      <form action={saveGoogleAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
+        <p className="text-sm font-medium">Google</p>
+        <p className="mt-1 text-xs text-muted">
+          Show your Google star rating under your restaurant name — on the menu and in the app —
+          with a link that opens Google&rsquo;s &ldquo;write a review&rdquo; form. Leave the field
+          empty to show nothing.
+        </p>
+        <label className="mt-4 block text-sm">
+          <span className="font-medium">Google Place ID</span>
+          <input
+            type="text"
+            name="googlePlaceId"
+            inputMode="text"
+            maxLength={255}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+            defaultValue={google?.placeId ?? ""}
+            className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-ink"
+          />
+        </label>
+        <p className="mt-2 text-xs text-muted">
+          Find yours with{" "}
+          <a
+            href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2"
+          >
+            Google&rsquo;s Place ID finder
+          </a>
+          : search for your restaurant on the map and copy the ID it shows.
+        </p>
+        {google?.rating ? (
+          <p className="mt-3 text-sm">
+            <span aria-hidden="true" className="text-gold-dark">
+              ★
+            </span>{" "}
+            <strong>{google.rating.rating.toFixed(1)}</strong> · {google.rating.count} reviews ·
+            last refreshed {googleRefreshedLabel}
+          </p>
+        ) : google?.placeId ? (
+          <p className="mt-3 text-xs text-muted">
+            No rating read yet. Ratings refresh by themselves once a day, the first time somebody
+            opens your menu — provided this deployment has a Google Places API key.
+          </p>
+        ) : null}
+        {google?.reviewUrl ? (
+          <p className="mt-1 text-xs text-muted">
+            Review link:{" "}
+            <a
+              href={google.reviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all underline underline-offset-2"
+            >
+              {google.reviewUrl}
+            </a>
+          </p>
+        ) : null}
+        <SubmitButton
+          pendingLabel="Saving…"
+          className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+        >
+          Save Place ID
+        </SubmitButton>
+      </form>
 
       {/* Currency + languages */}
       <form action={saveLocalizationAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">

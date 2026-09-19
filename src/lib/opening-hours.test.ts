@@ -9,9 +9,9 @@ import {
   compileWeekly,
   formatDay,
   openState,
-  parseOpeningHours,
   type OpeningHours,
 } from "./opening-hours";
+import { parseOpeningHours } from "./opening-hours-schema";
 
 const TZ = "Europe/Berlin";
 

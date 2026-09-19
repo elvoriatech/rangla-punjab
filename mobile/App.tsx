@@ -22,6 +22,8 @@ import { CartProvider, useCart } from "./src/cart";
 import { AuthProvider, useAuth } from "./src/auth";
 import { I18nProvider, useI18n } from "./src/i18n";
 import type { StoredOrder } from "./src/orders-store";
+import type { PushTarget } from "./src/push";
+import { registerForStaffPush, usePushRouting } from "./src/push";
 import { fetchStaffSummary } from "./src/staff";
 import { colors, fonts } from "./src/theme";
 import { HomeScreen } from "./src/screens/HomeScreen";
@@ -86,6 +88,11 @@ function Shell(): React.ReactElement {
   const [presetType, setPresetType] = useState<OrderType | null>(null);
   const [track, setTrack] = useState<TrackTarget | null>(null);
   const [ordersRefresh, setOrdersRefresh] = useState(0);
+  /** Bumped when a push lands while the app is open — the board re-reads
+   *  rather than waiting out the rest of its poll interval (P7-11). */
+  const [boardRefresh, setBoardRefresh] = useState(0);
+  /** The complaint a push asked us to open, handed to IssuesScreen. */
+  const [openIssueId, setOpenIssueId] = useState<string | null>(null);
   const [ownerMenu, setOwnerMenu] = useState(false);
 
   const load = useCallback(() => {
@@ -153,6 +160,36 @@ function Shell(): React.ReactElement {
       clearInterval(timer);
     };
   }, [staffToken, clearStaff]);
+
+  // Push (P7-11). Registration is attempted whenever a staff session
+  // exists — on sign-in AND on every cold start, because a token can be
+  // rotated by the OS and the server's row has to follow. Everything it
+  // needs may be missing (simulator, denied permission, no EAS project
+  // id, ⛔ APNs/FCM credentials not uploaded yet); each of those is a
+  // quiet no-op, never an error the owner has to read.
+  const pushChannel = t.pushChannelOrders;
+  useEffect(() => {
+    if (!staffToken) return;
+    void registerForStaffPush(staffToken, { channelName: pushChannel });
+  }, [staffToken, pushChannel]);
+
+  // A tap always lands on the screen the push is ABOUT, from wherever the
+  // app happened to be — including a cold start.
+  const onPushTarget = useCallback((target: PushTarget) => {
+    setTrack(null);
+    if (target.kind === "order") {
+      setOpenIssueId(null);
+      setTab("board");
+      setBoardRefresh((n) => n + 1);
+      return;
+    }
+    setOpenIssueId(target.issueId);
+    setTab("issues");
+  }, []);
+  // Foreground arrival: not a navigation, just news the board should
+  // already be showing.
+  const onPushReceived = useCallback(() => setBoardRefresh((n) => n + 1), []);
+  usePushRouting({ enabled: restaurant, onTarget: onPushTarget, onReceived: onPushReceived });
 
   const offerCount = menu?.offerCount ?? 0;
 
@@ -257,7 +294,7 @@ function Shell(): React.ReactElement {
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
         {tab === "board" && restaurant ? (
-          <BoardScreen onOpenOwnerMenu={() => setOwnerMenu(true)} />
+          <BoardScreen refreshKey={boardRefresh} onOpenOwnerMenu={() => setOwnerMenu(true)} />
         ) : null}
         {tab === "loyalty" && restaurant ? (
           <LoyaltyStaffScreen
@@ -267,7 +304,16 @@ function Shell(): React.ReactElement {
           />
         ) : null}
         {tab === "issues" && restaurant ? (
-          <IssuesScreen onBack={() => setTab("board")} onOpenOwnerMenu={() => setOwnerMenu(true)} />
+          <IssuesScreen
+            // A push tap opens the thread it was about; reached from the
+            // owner's burger it is just the list (P7-11).
+            initialIssueId={openIssueId}
+            onBack={() => {
+              setOpenIssueId(null);
+              setTab("board");
+            }}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
         ) : null}
         {tab === "info" ? (
           <AccountScreen
@@ -341,7 +387,12 @@ function Shell(): React.ReactElement {
             setTab("menu");
           }}
           onLoyalty={() => setTab("loyalty")}
-          onIssues={() => setTab("issues")}
+          onIssues={() => {
+            // Reached deliberately: the list, not whatever thread a push
+            // happened to open earlier.
+            setOpenIssueId(null);
+            setTab("issues");
+          }}
           openIssues={openIssues}
         />
       ) : null}

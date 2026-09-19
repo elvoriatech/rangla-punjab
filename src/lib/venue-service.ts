@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { asUser } from "./tenant";
 import { getActiveVenueId } from "./active-venue";
@@ -333,6 +334,88 @@ export async function updateVenueName(
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* Google rating (P7-14)                                               */
+/* ------------------------------------------------------------------ */
+
+import { parseCachedRating, reviewUrl, type CachedRating } from "./google-rating";
+
+export interface VenueGoogleSettings {
+  /** The owner's Place ID, or null when they have not set one. */
+  placeId: string | null;
+  /** Last rating read from Google — null until the first refresh runs
+   *  (which needs the ⛔ human-gated API key). */
+  rating: CachedRating | null;
+  /** Where the guest-facing "Write a review" link points. Null without a
+   *  Place ID; shown in Settings so the owner can check it themselves. */
+  reviewUrl: string | null;
+}
+
+/**
+ * Google Place IDs are opaque, base64url-ish and documented as up to 255
+ * characters. We validate the SHAPE only — whether the id names this
+ * restaurant is between the owner and Google, and the first refresh
+ * answering nothing is what a wrong id looks like.
+ */
+export const GOOGLE_PLACE_ID_RE = /^[A-Za-z0-9_-]{6,255}$/;
+
+/** The Google card's state for the settings page. */
+export async function getVenueGoogle(userId: string): Promise<ServiceResult<VenueGoogleSettings>> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { googlePlaceId: true, googleRating: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    return {
+      ok: true as const,
+      value: {
+        placeId: venue.googlePlaceId,
+        rating: parseCachedRating(venue.googleRating),
+        reviewUrl: venue.googlePlaceId ? reviewUrl(venue.googlePlaceId) : null,
+      },
+    };
+  });
+}
+
+/**
+ * Save (or clear) the venue's Google Place ID. An empty string clears it,
+ * which is how the owner turns the rating line off.
+ *
+ * Changing the id also drops the cached rating: that number belongs to the
+ * PREVIOUS place, and showing it under a new Place ID — even for the few
+ * hours until the next refresh — would be a wrong number on the menu.
+ */
+export async function updateVenueGooglePlaceId(
+  userId: string,
+  rawPlaceId: string,
+): Promise<ServiceResult> {
+  const trimmed = rawPlaceId.trim();
+  if (trimmed.length > 0 && !GOOGLE_PLACE_ID_RE.test(trimmed)) {
+    return { ok: false, error: "invalid" };
+  }
+  const placeId = trimmed.length > 0 ? trimmed : null;
+
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true, googlePlaceId: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    await tx.venue.update({
+      where: { id: venue.id },
+      data: {
+        googlePlaceId: placeId,
+        // `Prisma.DbNull` is SQL NULL in a nullable JSONB column — a bare
+        // `null` there would be the JSON value `null`, which is not the
+        // same thing and would not read back as "no rating".
+        ...(placeId === venue.googlePlaceId ? {} : { googleRating: Prisma.DbNull }),
+      },
+    });
+    return { ok: true as const, value: undefined };
+  });
+}
+
 /**
  * Draft-menu counts for the overview stat tiles. Zero draft (fresh tenant
  * mid-onboarding) reports zeros rather than erroring — the overview stays
@@ -454,7 +537,8 @@ export async function updateVenueLoyalty(userId: string, input: unknown): Promis
 /* Opening hours (P8)                                                  */
 /* ------------------------------------------------------------------ */
 
-import { parseOpeningHours, type OpeningHours } from "./opening-hours";
+import type { OpeningHours } from "./opening-hours";
+import { parseOpeningHours } from "./opening-hours-schema";
 
 export interface VenueHours {
   timezone: string;

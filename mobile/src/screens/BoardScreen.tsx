@@ -112,8 +112,13 @@ function isToday(iso: string): boolean {
 }
 
 export function BoardScreen({
+  refreshKey = 0,
   onOpenOwnerMenu,
 }: {
+  /** Changes when something OUTSIDE this screen knows the board is stale
+   *  — today that is a push landing while the app is open (P7-11). The
+   *  value itself means nothing; only that it changed. */
+  refreshKey?: number;
   /** The header's burger — the board is a restaurant-only screen, so it
    *  is always there in practice; optional so the type doesn't lie. */
   onOpenOwnerMenu?: () => void;
@@ -249,6 +254,16 @@ export function BoardScreen({
       sub.remove();
     };
   }, [staffToken]);
+
+  // A push arrived while the app was open: re-read the whole board at
+  // once rather than waiting out the rest of the poll interval. Skipped
+  // on the first render — the effect above has just done a full read.
+  const firstRefreshKey = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshKey === firstRefreshKey.current) return;
+    firstRefreshKey.current = refreshKey;
+    void loadRef.current("full");
+  }, [refreshKey]);
 
   useEffect(
     () => () => {

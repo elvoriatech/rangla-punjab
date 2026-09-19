@@ -8,7 +8,8 @@ import { stripeDirectChargeAvailable } from "./stripe";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
 import { resolveTenantAccess } from "./plan-state";
-import { openState, parseOpeningHours, todayLocalTimeToDate } from "./opening-hours";
+import { openState, todayLocalTimeToDate } from "./opening-hours";
+import { parseOpeningHours } from "./opening-hours-schema";
 import { parseLoyaltyConfig } from "./loyalty-config";
 import { attachVoucherToOrder, claimArmedVoucher } from "./loyalty-service";
 import {

@@ -19,13 +19,15 @@ import type { LoyaltyConfig } from "@/lib/loyalty-config";
 import type { OpeningHours, OpenState } from "@/lib/opening-hours";
 import { acceptedPaymentIds, PaymentMarks } from "./payment-marks";
 import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
-import { AddToOrderButton } from "./order/add-button";
+import { AddToOrderButton, type AddToOrderLabels } from "./order/add-button";
 import { CartDrawer } from "./order/cart-lazy";
-import { AllergenDialog } from "./allergen-dialog";
-import { DishDescription } from "./dish-description";
+import { AllergenDialog, type AllergenLabels } from "./allergen-dialog";
+import { DishDescription, type DishDescriptionLabels } from "./dish-description";
+import type { ReserveLabels } from "./reserve-dialog";
 import { CategoryLink, CategoryTabs as CategoryTabsClient, TabLink } from "./category-tabs";
+import { checkoutCopy } from "@/lib/i18n/checkout";
 import { menuCopy, type MenuCopy } from "@/lib/i18n/menu";
-import { LOCALES } from "@/lib/locales";
+import { LOCALES, uiLocale } from "@/lib/locales";
 
 /**
  * Public menu render — theme_one aesthetic (deep chocolate + gold),
@@ -63,6 +65,58 @@ const DIET_META: Record<string, { icon: string; crossed?: boolean }> = {
   kosher: { icon: "✡" },
 };
 
+/* ------------------------------------------------------------------ */
+/* Copy handed to client components                                     */
+/* ------------------------------------------------------------------ */
+/**
+ * P7-16 — every client component under this page receives the handful of
+ * WORDS it renders, already resolved for the guest's language, instead of
+ * importing a catalogue itself. A `"use client"` import of
+ * `@/lib/i18n/*` ships all five locales to every guest;
+ * `scripts/check-guest-bundle.ts` fails the build if one leaks back in.
+ *
+ * These live at module scope (not threaded as props) because `menuCopy`
+ * and `checkoutCopy` are plain record lookups — resolving per dish costs
+ * nothing on the server and keeps the section components' signatures
+ * unchanged.
+ */
+function dishLabels(locale: string, dishName: string): DishDescriptionLabels {
+  const c = menuCopy(locale).dish;
+  return { more: c.more, moreAbout: c.moreAbout(dishName), close: c.close };
+}
+
+function allergenLabels(locale: string, dishName: string): AllergenLabels {
+  const c = menuCopy(locale).allergens;
+  return {
+    info: c.info,
+    infoFor: c.infoFor(dishName),
+    heading: c.heading,
+    contains: c.contains,
+    traces: c.traces,
+    close: c.close,
+  };
+}
+
+function addToOrderLabels(locale: string, dishName: string): AddToOrderLabels {
+  const c = checkoutCopy(locale);
+  return { add: c.add, added: c.added, addAria: c.addAria(dishName) };
+}
+
+/** Party sizes the reservation stepper can reach (mirrors MIN/MAX_GUESTS
+ *  in `reserve-dialog.tsx` and the server's own 1–20 bound). */
+const RESERVE_MAX_GUESTS = 20;
+
+function reserveLabels(locale: string): ReserveLabels {
+  const { guestCount, ...rest } = menuCopy(locale).reserve;
+  return {
+    ...rest,
+    // Pre-rendered per party size: plural rules differ per language
+    // (Arabic needs four forms), and 20 short strings in ONE language are
+    // cheaper than shipping a plural engine plus five catalogues.
+    guestCounts: Array.from({ length: RESERVE_MAX_GUESTS }, (_, i) => guestCount(i + 1)),
+  };
+}
+
 /** Diet ids are plain strings on the wire (a venue could carry one the
  *  catalogue has not met); an unknown id degrades to its humanised key
  *  rather than vanishing from the filter rail. */
@@ -94,6 +148,90 @@ function dishHeadingId(itemId: string, idPrefix?: string): string {
 
 /** Glyph for the Offers tab when the venue shows category icons. */
 const OFFERS_ICON = "🔥";
+
+/* ------------------------------------------------------------------ */
+/* Google rating (P7-14)                                               */
+/* ------------------------------------------------------------------ */
+
+/** "4.6" in the guest's language (a comma decimal in de/es/it). Always one
+ *  decimal, so the line never jumps between "4" and "4.6" on a refresh. */
+function formatRatingValue(value: number, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale || "en", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(value);
+  } catch {
+    return value.toFixed(1);
+  }
+}
+
+/** "1,204" / "1.204" / "١٬٢٠٤" — the review count, grouped per locale. */
+function formatRatingCount(count: number, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale || "en").format(count);
+  } catch {
+    return String(count);
+  }
+}
+
+/**
+ * "★ 4.6 (312) · Write a review →" — the venue's Google rating, directly
+ * under its name (P7-14). Server-rendered, zero JS, and absent entirely
+ * unless the server actually has a rating: no Place ID, no Places API key,
+ * or nothing read yet all arrive here as `null` and render nothing.
+ *
+ * Accessibility: the star and the bracketed count are decoration and mean
+ * nothing read aloud, so the visual run is `aria-hidden` and a screen
+ * reader gets one plain sentence instead ("Rated 4.6 out of 5 from 312
+ * Google reviews"). The link says where it goes and that it opens a new
+ * tab, because it leaves the restaurant's site for Google's review form.
+ *
+ * Deliberately NOT mirrored into JSON-LD: Google's structured-data policy
+ * forbids a site marking up third-party ratings of itself, so
+ * `structured-data.ts` stays untouched.
+ */
+function RatingLine({
+  rating,
+  locale,
+  t,
+  onDark = false,
+}: {
+  rating: NonNullable<PublicMenu["rating"]>;
+  locale: string;
+  t: MenuCopy;
+  /** On the banner hero the line sits on a photo scrim, where the theme's
+   *  page ink has no contrast guarantee — white with the same drop shadow
+   *  as the name above it. */
+  onDark?: boolean;
+}): React.ReactElement {
+  const value = formatRatingValue(rating.value, locale);
+  const count = formatRatingCount(rating.count, locale);
+  return (
+    <p
+      className={`flex flex-wrap items-center gap-x-1.5 text-xs leading-tight ${
+        onDark
+          ? "text-white/90 drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
+          : "text-[var(--menu-text)]/80"
+      }`}
+    >
+      <span aria-hidden="true" className="whitespace-nowrap">
+        <span className="text-[var(--menu-accent)]">★</span> {value} ({count})
+      </span>
+      <span className="sr-only">{t.rating.summary(value, count)}</span>
+      <span aria-hidden="true">·</span>
+      <a
+        href={rating.reviewUrl}
+        target="_blank"
+        rel="noopener"
+        aria-label={t.rating.writeAria}
+        className="whitespace-nowrap underline decoration-[var(--menu-accent)]/60 underline-offset-2 hover:decoration-[var(--menu-accent)]"
+      >
+        {t.rating.write} <span aria-hidden="true">→</span>
+      </a>
+    </p>
+  );
+}
 
 /** `?cat=` value for a category id — the Offers destination is synthetic,
  *  so it carries a fixed slug instead of a name-derived one. */
@@ -292,6 +430,7 @@ export function MenuView({
              menu controls. */
           <HeroBanner
             venue={menu.venue}
+            rating={menu.rating}
             openNow={openNow}
             reserve={reserve}
             t={t}
@@ -301,6 +440,9 @@ export function MenuView({
 
         <StickyBar
           venue={menu.venue}
+          /* Only when there is no banner hero — the hero renders its own
+             copy of the line, and two would be one too many. */
+          rating={menu.venue.branding.bannerKey ? null : menu.rating}
           categories={catList}
           activeCategoryId={activeCat}
           offersLabel={offersLabel}
@@ -826,7 +968,7 @@ function FloatingSection({
                   <DishDescription
                     text={item.description}
                     dishName={item.name}
-                    locale={locale}
+                    labels={dishLabels(locale, item.name)}
                     className="mt-1 text-xs leading-relaxed text-[var(--menu-text-soft)]"
                   />
                 ) : null}
@@ -852,10 +994,10 @@ function FloatingSection({
                   </p>
                   {ordering && item.isAvailable ? (
                     <AddToOrderButton
-                      locale={locale}
                       slug={slug}
                       itemId={item.id}
                       name={item.name}
+                      labels={addToOrderLabels(locale, item.name)}
                       priceCents={item.priceCents}
                     />
                   ) : null}
@@ -1010,7 +1152,7 @@ function GridDishCard({
           <DishDescription
             text={item.description}
             dishName={item.name}
-            locale={locale}
+            labels={dishLabels(locale, item.name)}
             className="text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
           />
         ) : null}
@@ -1057,10 +1199,10 @@ function GridDishCard({
           </p>
           {ordering && item.isAvailable ? (
             <AddToOrderButton
-              locale={locale}
               slug={slug}
               itemId={item.id}
               name={item.name}
+              labels={addToOrderLabels(locale, item.name)}
               priceCents={item.priceCents}
             />
           ) : null}
@@ -1200,7 +1342,7 @@ function ListDishRow({
           <DishDescription
             text={item.description}
             dishName={item.name}
-            locale={locale}
+            labels={dishLabels(locale, item.name)}
             className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
           />
         ) : null}
@@ -1246,10 +1388,10 @@ function ListDishRow({
           </p>
           {ordering && item.isAvailable ? (
             <AddToOrderButton
-              locale={locale}
               slug={slug}
               itemId={item.id}
               name={item.name}
+              labels={addToOrderLabels(locale, item.name)}
               priceCents={item.priceCents}
             />
           ) : null}
@@ -1394,7 +1536,7 @@ function ShowcaseDishCard({
         <DishDescription
           text={item.description}
           dishName={item.name}
-          locale={locale}
+          labels={dishLabels(locale, item.name)}
           className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
         />
       ) : null}
@@ -1440,10 +1582,10 @@ function ShowcaseDishCard({
         </p>
         {ordering && item.isAvailable ? (
           <AddToOrderButton
-            locale={locale}
             slug={slug}
             itemId={item.id}
             name={item.name}
+            labels={addToOrderLabels(locale, item.name)}
             priceCents={item.priceCents}
           />
         ) : null}
@@ -1461,12 +1603,14 @@ function ShowcaseDishCard({
  *  top-right. The sticky bar below carries only menu controls. */
 function HeroBanner({
   venue,
+  rating,
   openNow,
   reserve,
   t,
   locale,
 }: {
   venue: PublicMenu["venue"];
+  rating?: PublicMenu["rating"];
   openNow?: OpenState;
   reserve?: { slug: string; hours: OpeningHours; timezone: string };
   t: MenuCopy;
@@ -1491,13 +1635,21 @@ function HeroBanner({
       />
       <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
         <OpenBadge state={openNow} t={t} locale={locale} />
-        {reserve ? <ReserveDialog {...reserve} locale={locale} /> : null}
+        {reserve ? (
+          <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
+        ) : null}
       </div>
       <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
         <VenueMark venue={venue} />
-        <span className="font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
-          {venue.name}
-        </span>
+        <div className="min-w-0">
+          <span className="block font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
+            {venue.name}
+          </span>
+          {/* P7-14 — the rating sits directly under the name, here on the
+              hero and (without a banner) under the name in the bar below.
+              Exactly one of the two renders on any given page. */}
+          {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
+        </div>
       </div>
     </div>
   );
@@ -1505,6 +1657,7 @@ function HeroBanner({
 
 function StickyBar({
   venue,
+  rating,
   categories,
   activeCategoryId,
   offersLabel,
@@ -1519,6 +1672,9 @@ function StickyBar({
   locale,
 }: {
   venue: PublicMenu["venue"];
+  /** P7-14 — rendered under the venue name here, but only on a page with
+   *  no banner hero; with a banner the hero carries the line instead. */
+  rating?: PublicMenu["rating"];
   categories: { id: string; name: string }[];
   activeCategoryId: string | null;
   /** Translated "Offers" tab label, or null when the venue has no live
@@ -1557,7 +1713,7 @@ function StickyBar({
         <div className="mx-auto flex min-h-[3.5rem] max-w-none items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:px-12">
           {/* Logo + restaurant name, leading edge at every width (right
               of the bar under dir="rtl"). */}
-          <VenueMark venue={venue} />
+          <VenueMark venue={venue} rating={rating} locale={locale} t={t} />
           {/* Category tabs: desktop only, fill the middle — unless the
               owner chose the side rail, which replaces them on lg+. */}
           <div className={`min-w-0 flex-1 lg:px-6 ${sideNav ? "hidden" : "hidden lg:block"}`}>
@@ -1573,7 +1729,9 @@ function StickyBar({
           {/* Open/closed pill + reserve button: right corner at every width. */}
           <div className="flex shrink-0 items-center gap-2">
             <OpenBadge state={openNow} t={t} locale={locale} />
-            {reserve ? <ReserveDialog {...reserve} locale={locale} /> : null}
+            {reserve ? (
+              <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
+            ) : null}
           </div>
         </div>
       )}
@@ -1661,7 +1819,19 @@ function OpenBadge({
   );
 }
 
-function VenueMark({ venue }: { venue: PublicMenu["venue"] }): React.ReactElement {
+function VenueMark({
+  venue,
+  rating,
+  locale,
+  t,
+}: {
+  venue: PublicMenu["venue"];
+  /** P7-14 — shown under the name in the sticky bar when the page has no
+   *  banner hero (the hero carries its own copy of the line). */
+  rating?: PublicMenu["rating"];
+  locale?: string;
+  t?: MenuCopy;
+}): React.ReactElement {
   // Top bar leads with the logo + restaurant name, so the venue's identity
   // stays visible as the guest scrolls. The name truncates on narrow
   // screens so it never crowds the open/closed pill.
@@ -1678,9 +1848,16 @@ function VenueMark({ venue }: { venue: PublicMenu["venue"] }): React.ReactElemen
         height={44}
         className={`shrink-0 ${venue.branding.logoKey ? "h-11 w-11 rounded-full object-cover" : "h-11 w-11"}`}
       />
-      <span className="min-w-0 truncate font-serif text-lg italic leading-tight text-[var(--menu-text)]">
-        {venue.name}
-      </span>
+      <div className="min-w-0">
+        <span className="block min-w-0 truncate font-serif text-lg italic leading-tight text-[var(--menu-text)]">
+          {venue.name}
+        </span>
+        {rating && t ? (
+          <div className="mt-0.5">
+            <RatingLine rating={rating} locale={locale ?? "en"} t={t} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1744,7 +1921,7 @@ function DishCard({
           <DishDescription
             text={item.description}
             dishName={item.name}
-            locale={locale}
+            labels={dishLabels(locale, item.name)}
             className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text,var(--menu-text))]"
           />
         ) : null}
@@ -1790,10 +1967,10 @@ function DishCard({
           </p>
           {ordering && item.isAvailable ? (
             <AddToOrderButton
-              locale={locale}
               slug={slug}
               itemId={item.id}
               name={item.name}
+              labels={addToOrderLabels(locale, item.name)}
               priceCents={item.priceCents}
             />
           ) : null}
@@ -2050,7 +2227,13 @@ function BadgeRow({
           <span className="sr-only">{t.badges.spicyLevel(Math.min(spice, 3))}</span>
         </span>
       ) : null}
-      <AllergenDialog allergens={allergens} traces={traces} dishName={dishName} locale={locale} />
+      <AllergenDialog
+        allergens={allergens}
+        traces={traces}
+        dishName={dishName}
+        lang={uiLocale(locale)}
+        labels={allergenLabels(locale, dishName)}
+      />
     </div>
   );
 }
@@ -2119,7 +2302,13 @@ function MobileAllergenLine({
           <span className="sr-only">{t.badges.spicyLevel(Math.min(spice, 3))}</span>
         </span>
       ) : null}
-      <AllergenDialog allergens={allergens} traces={traces} dishName={dishName} locale={locale} />
+      <AllergenDialog
+        allergens={allergens}
+        traces={traces}
+        dishName={dishName}
+        lang={uiLocale(locale)}
+        labels={allergenLabels(locale, dishName)}
+      />
     </div>
   );
 }

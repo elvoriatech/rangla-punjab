@@ -1,7 +1,8 @@
 import type { ReservationStatus } from "@prisma/client";
 import { z } from "zod";
 import { asTenant, asUser } from "./tenant";
-import { localDateTimeToInstant, parseOpeningHours, slotTimesForDate } from "./opening-hours";
+import { localDateTimeToInstant, slotTimesForDate } from "./opening-hours";
+import { parseOpeningHours } from "./opening-hours-schema";
 import { effectiveOrdering, parseOrderingConfig } from "./ordering-config";
 import { resolveTenantAccess } from "./plan-state";
 import { createLogger } from "./logger";

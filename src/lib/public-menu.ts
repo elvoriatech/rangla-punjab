@@ -2,7 +2,8 @@ import { readDb } from "./db";
 import { asTenantRead } from "./tenant";
 import { resolveCategoryParam } from "./dietary-filter";
 import { effectiveItemPrice } from "./offer-pricing";
-import { parseOpeningHours } from "./opening-hours";
+import { parseOpeningHours } from "./opening-hours-schema";
+import { publicRating, scheduleVenueRatingRefresh, type PublicRating } from "./google-rating";
 import type { PreviewContext } from "./preview-context";
 
 /**
@@ -87,6 +88,11 @@ export interface PublicMenu {
    *  tree, so a diet filter never changes it — surfaces that also narrow
    *  the menu re-derive from the items they actually render. */
   offerCount: number;
+  /** The venue's Google rating + review link (P7-14), or null — which is
+   *  what a venue with no Place ID, or a deployment with no Places API
+   *  key, always gets. Optional so a hand-built fixture needn't carry it;
+   *  every surface treats absent and null identically: no rating line. */
+  rating?: PublicRating | null;
 }
 
 /** The synthetic category the "Offers" destination renders as. Never a real
@@ -140,9 +146,18 @@ export async function loadPublicMenu(
         timezone: true,
         hours: true,
         branding: true,
+        googlePlaceId: true,
+        googleRating: true,
       },
     });
     if (!venue) return null;
+
+    // P7-14 — the Google rating rides along on the venue row we already
+    // read, so the line costs no extra query. When the cache is over a day
+    // old (or empty) a refresh is queued to run AFTER this transaction
+    // commits; this render still serves what is cached, including nothing.
+    const rating = publicRating(venue);
+    scheduleVenueRatingRefresh(context.tenantId, venue.id, venue);
 
     const categories = await tx.category.findMany({
       where: { menuVersionId: versionId },
@@ -245,6 +260,7 @@ export async function loadPublicMenu(
         (n, c) => n + c.items.filter((i) => i.offer != null).length,
         0,
       ),
+      rating,
     };
   });
 }

@@ -117,6 +117,26 @@ export interface ApiMenu {
   offerCount?: number;
   /** Absent on an older server ⇒ no rewards UI anywhere. */
   loyalty?: ApiLoyaltyConfig;
+  /**
+   * The venue's Google rating and the link that opens Google's own
+   * "write a review" form (P7-14).
+   *
+   * Null — and absent on any server that predates the feature, or whose
+   * venue has no Place ID, or whose Places API key is ⛔ not configured —
+   * means simply: no rating line anywhere in the app. The app NEVER
+   * computes or caches this itself; the number on screen is whatever the
+   * server last read from Google.
+   */
+  rating?: ApiRating | null;
+}
+
+export interface ApiRating {
+  /** Google's average, 1–5. */
+  value: number;
+  /** How many ratings it averages. */
+  count: number;
+  /** Absolute https URL to Google's review form. */
+  reviewUrl: string;
 }
 
 /** The server emits absolute image URLs against its own origin; in dev
@@ -142,7 +162,32 @@ export async function fetchMenu(locale?: string): Promise<ApiMenu> {
     venue: { ...menu.venue, logoUrl: rebaseUrl(menu.venue.logoUrl) },
     categories,
     offerCount: offerCountOf(menu.offerCount, categories),
+    rating: asRating(menu.rating),
   };
+}
+
+/**
+ * The Google rating, read the way everything else here is: anything that
+ * isn't a complete, plausible rating is no rating at all (P7-14).
+ *
+ * Strict on purpose. A half-read rating would put a wrong number under
+ * the venue's name, and "★ NaN" beside a review link is worse than no
+ * line — so a missing count, a rating outside 1–5, or a review URL that
+ * isn't plain https all collapse to null.
+ */
+function asRating(raw: unknown): ApiRating | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const value = typeof r.value === "number" && Number.isFinite(r.value) ? r.value : null;
+  const count =
+    typeof r.count === "number" && Number.isFinite(r.count) ? Math.trunc(r.count) : null;
+  const reviewUrl = typeof r.reviewUrl === "string" ? r.reviewUrl.trim() : "";
+  if (value === null || count === null || count < 0) return null;
+  if (value < 1 || value > 5) return null;
+  // Only ever a web link: this string goes straight to `Linking.openURL`,
+  // and the server is not the place to be handed an app scheme from.
+  if (!/^https?:\/\//i.test(reviewUrl)) return null;
+  return { value, count, reviewUrl };
 }
 
 /** The server's own count when it sends one, else the offers visible in

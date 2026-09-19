@@ -133,10 +133,32 @@ test keys to live keys is a server change — no rebuild, no resubmission.
 **Google Pay** is enabled by the config plugin in `app.config.js`
 (`enableGooglePay: true` writes the `com.google.android.gms.wallet.api.enabled`
 manifest flag). The sheet runs against Google's **test environment** while
-the venue's key is a `pk_test_` key. Production Google Pay additionally
-needs the app approved in the **Google Pay & Wallet Console** (Business
-profile + an integration request against the release package name) — until
-then a production build shows test cards only.
+the venue's key is a `pk_test_` key.
+
+⛔ **Production Google Pay is human-gated.** It needs the app approved in
+the **Google Pay & Wallet Console**:
+1. Create a Google Pay business profile (business name, support contact,
+   logo).
+2. Submit an integration request for the release package name
+   `com.elvoria.ranglapunjab`, attaching screenshots of the whole payment
+   flow.
+3. Wait for approval, then switch the venue's Stripe key to a live key —
+   `testEnv` follows the key (`pk_test_` ⇒ test), so there is nothing to
+   rebuild.
+
+Until then a production build shows Google's test cards only.
+
+**The standalone wallet button** (`PlatformPayButton`, above the payment
+list in the cart — P7-13) is drawn only when
+`isPlatformPaySupported()` answers true, and it confirms only a real
+Stripe PaymentIntent — the dev/CI fake provider falls back to the
+labelled "Simulate payment (test)" button exactly as the card route does.
+Note one honest limitation: on **Android** that check needs the Stripe SDK
+to have been initialised, and the publishable key only arrives with a
+PaymentIntent — so the Google Pay button does not appear before the first
+card payment of a session. That is deliberate: it is better than drawing a
+button that opens a sheet which cannot be paid. Google Pay is still
+offered inside the payment sheet on every attempt.
 
 **3-D Secure** returns to `<scheme>://stripe-redirect` (`ranglapunjab://stripe-redirect`).
 The scheme comes from `brand.generated.json` via `expo-constants`; nothing
@@ -149,24 +171,90 @@ shows a clearly-labelled "Simulate payment (test)" button that calls
 `POST /api/orders/{id}/pay/confirm`. It can never appear against a real
 Stripe account.
 
-⛔ **Apple Pay is human-gated and deliberately not wired.** To enable it:
+⛔ **Apple Pay is human-gated.** The code is wired and waiting; the only
+thing missing is the merchant id, and everything Apple-Pay-shaped stays
+invisible until it is set. To enable it:
+
 1. Create the merchant id `merchant.com.elvoria.ranglapunjab` in the Apple
    Developer account.
 2. Generate the Apple Pay payment-processing certificate from Stripe and
    upload it in the Apple Developer portal (Stripe Dashboard → Settings →
    Payments → Apple Pay).
-3. Add `merchantIdentifier: "merchant.com.elvoria.ranglapunjab"` to the
-   `["@stripe/stripe-react-native", { … }]` plugin options in
-   `app.config.js` — that writes the `com.apple.developer.in-app-payments`
+3. Build with the env var set — that is the **one** switch:
+   ```bash
+   APPLE_MERCHANT_ID=merchant.com.elvoria.ranglapunjab npx expo run:ios …
+   ```
+   or add it to the build profile's `env` block in `eas.json`.
+4. Rebuild and resubmit: the entitlement is part of the binary.
+
+What the env var does, all in `app.config.js`:
+- writes `merchantIdentifier` into the `["@stripe/stripe-react-native", …]`
+  plugin options, which writes the `com.apple.developer.in-app-payments`
+  entitlement;
+- sets `extra.applePayEnabled = true` and `extra.appleMerchantId`, which is
+  what `src/payments.ts` reads to pass `merchantIdentifier` to `initStripe`,
+  to add `applePay: { merchantCountryCode: "DE" }` to `initPaymentSheet`,
+  and to allow the standalone Apple Pay button in the cart.
+
+Unset — the default for every build in this repo today — none of those
+happen and the checkout looks exactly as it did before P7-13.
+
+## Push notifications to the owner's phone
+
+The restaurant's phone gets a notification when an order lands or a guest
+reports a problem. Guests are never pushed to: `src/push.ts` does nothing
+at all unless a **staff session** exists, so a guest device never sees a
+permission prompt.
+
+**Transport is the Expo Push API.** The app registers an Expo push token
+(`ExponentPushToken[…]`) with `POST /api/v1/staff/devices`
+(`{ token, platform, appVersion }`, `X-Staff-Token`); signing out of
+restaurant mode `DELETE`s the same token. The server posts to
+`exp.host/--/api/v2/push/send` and **Expo** talks to APNs and FCM — there
+is no Firebase SDK and no APNs key in this repo.
+
+The token is attributed to the EAS project id in `app.json`
+(`extra.eas.projectId`). A build without one registers nothing, silently.
+
+**Tapping a notification** routes on its `data.kind`: `"order"` opens the
+Board tab, `"issue"` opens Complaints with that thread already open. A
+push that arrives while the app is open refreshes the board instead of
+navigating. A cold start from a tap is handled too
+(`getLastNotificationResponse`).
+
+⛔ **Native rebuild required** — `expo-notifications` and `expo-device` are
+native modules, so the currently installed APK/IPA will not register a
+token. Rebuild (see below) after pulling this change.
+
+⛔ **Human-gated credentials — until these are uploaded the app registers a
+token and nothing is ever delivered.** That is the intended degraded
+state; no code change is needed afterwards.
+
+1. **iOS — APNs key.** In the Apple Developer account create an "Apple
+   Push Notifications service (APNs)" key (.p8), then upload it to EAS:
+   ```bash
+   cd mobile
+   eas credentials            # iOS → the build profile → Push Notifications: Manage your Apple Push Notifications Key
+   ```
+   Also needs a paid Apple Developer Program membership: the
+   personal-team local build below cannot carry the `aps-environment`
    entitlement.
-4. Pass `applePay: { merchantCountryCode: "DE" }` to `initPaymentSheet` in
-   `src/payments.ts`.
-5. Rebuild and resubmit: the entitlement is part of the binary.
+2. **Android — FCM service account.** Create a Firebase project for the
+   package `com.elvoria.ranglapunjab`, download the **service-account
+   JSON** (Project settings → Service accounts → Generate new private
+   key) and upload it to EAS:
+   ```bash
+   eas credentials            # Android → the build profile → Google Service Account → FCM V1
+   ```
+3. **Server** — set `EXPO_PUSH_ENABLED` (and optionally
+   `EXPO_ACCESS_TOKEN`). Unset, the server uses its in-memory fake
+   provider and sends nothing.
 
 ## Rebuild and install for testing
 
-Native modules (Stripe payment sheet, Google sign-in) are in the app now, so
-**Expo Go cannot run it** — every test install is a real build.
+Native modules (Stripe payment sheet, Google sign-in, push notifications)
+are in the app now, so **Expo Go cannot run it** — every test install is a
+real build.
 
 ### iPhone plugged into this Mac (free, no Apple Developer Program)
 

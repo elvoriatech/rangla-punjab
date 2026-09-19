@@ -1,0 +1,25 @@
+-- Google rating + review link (P7-14).
+--
+-- Two nullable columns on the venue, both absent by default, because the
+-- whole feature is opt-in twice over: the owner has to paste a Place ID in
+-- Settings, and the deployment has to hold a Places API key. Miss either and
+-- every surface — web menu line, app hero line, `/api/v1/menu`.rating — is
+-- simply not there.
+--
+-- `google_place_id` is Google's own opaque identifier for the venue
+-- (`ChIJ…`). It is the input to the Places lookup AND the input to the
+-- review URL, so a venue with a Place ID but no cached rating still has a
+-- working "write a review" link the moment a number arrives.
+--
+-- `google_rating` is the CACHE, not the truth: `{ rating, count, fetchedAt }`
+-- exactly as `src/lib/google-rating.ts` writes it. JSONB rather than three
+-- columns because the three values are only ever read and written together,
+-- and because a future Places field (price level, opening state) is then an
+-- app-level change instead of another migration. Stale-while-revalidate at
+-- 24h happens on menu load — there is no cron; see the P7-14 decision.
+--
+-- No RLS work: `venues` already has tenant isolation enabled, forced and
+-- policed from P1-2, and adding columns to a table does not touch its
+-- policies or its grants.
+ALTER TABLE "venues" ADD COLUMN "google_place_id" TEXT;
+ALTER TABLE "venues" ADD COLUMN "google_rating" JSONB;

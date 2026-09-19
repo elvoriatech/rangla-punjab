@@ -1,9 +1,11 @@
+import type React from "react";
 import { Linking, Platform } from "react-native";
 import Constants from "expo-constants";
 import * as ExpoLinking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { confirmFakePayment, createPaymentIntent, payPageUrl, startPaypal } from "./api";
 import { openReturningPage } from "./browser";
+import type { PlatformPayButtonProps } from "./stripe-module";
 import { loadStripe } from "./stripe-module";
 
 /**
@@ -39,6 +41,58 @@ export const APP_SCHEME: string =
 /** Where a 3-D Secure challenge returns to. Must match the `urlScheme`
  *  passed to `initStripe` — Stripe dismisses its own web view on it. */
 export const STRIPE_RETURN_URL = `${APP_SCHEME}://stripe-redirect`;
+
+/** The merchant country for both wallets. The venue is a German GmbH and
+ *  the Stripe account is German; this is the account's country, not the
+ *  guest's. */
+const MERCHANT_COUNTRY = "DE";
+
+/**
+ * Apple Pay's merchant id, or null when this build has none (P7-13).
+ *
+ * ⛔ Human-gated: `app.config.js` reads `APPLE_MERCHANT_ID` at config time
+ * and only then writes the `merchantIdentifier` plugin option (which
+ * writes the entitlement) and these two `extra` keys. Null is the default
+ * and means: no `applePay` block for the payment sheet, no Apple Pay row
+ * inside it, and no platform-pay button on iOS. Nothing else changes.
+ */
+export function appleMerchantId(): string | null {
+  const extra = Constants.expoConfig?.extra;
+  if (!extra || extra.applePayEnabled !== true) return null;
+  const id = extra.appleMerchantId;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+/**
+ * Is there a native wallet button to draw at all?
+ *
+ * Every "no" here is a legitimate, silent state, not an error:
+ *  - web / Expo Go — no native module;
+ *  - iOS without `APPLE_MERCHANT_ID` — the entitlement isn't in the
+ *    binary, so an Apple Pay button would open a sheet that fails;
+ *  - a device with no wallet, or an Android that hasn't initialised the
+ *    Stripe SDK yet (it needs a publishable key, which arrives with the
+ *    PaymentIntent — so before the first card payment of a session this
+ *    answers false, and the button simply doesn't appear).
+ */
+export async function isPlatformPayAvailable(): Promise<boolean> {
+  const stripe = loadStripe();
+  if (!stripe) return false;
+  if (Platform.OS === "ios" && !appleMerchantId()) return false;
+  if (Platform.OS !== "ios" && Platform.OS !== "android") return false;
+  try {
+    return await stripe.isPlatformPaySupported();
+  } catch {
+    return false;
+  }
+}
+
+/** Stripe's own Apple Pay / Google Pay button, or null when this build
+ *  has no Stripe module. Reached through the seam so the web bundle still
+ *  contains no Stripe import. */
+export function platformPayButton(): React.ComponentType<PlatformPayButtonProps> | null {
+  return loadStripe()?.PlatformPayButton ?? null;
+}
 
 /**
  * What a card attempt ended as.
@@ -85,17 +139,22 @@ export async function payWithCard(
   const stripe = loadStripe();
   if (!stripe || !intent.publishableKey) return "unavailable";
 
+  const merchantId = appleMerchantId();
   try {
     await stripe.initStripe({
       publishableKey: intent.publishableKey,
       urlScheme: APP_SCHEME,
+      // Only when the merchant id exists (⛔): without the entitlement an
+      // Apple Pay row in the sheet would dead-end.
+      ...(merchantId ? { merchantIdentifier: merchantId } : {}),
     });
     const init = await stripe.initPaymentSheet({
       paymentIntentClientSecret: intent.clientSecret,
       merchantDisplayName: opts.merchantDisplayName || intent.merchantName,
       returnURL: STRIPE_RETURN_URL,
+      ...(merchantId ? { applePay: { merchantCountryCode: MERCHANT_COUNTRY } } : {}),
       googlePay: {
-        merchantCountryCode: "DE",
+        merchantCountryCode: MERCHANT_COUNTRY,
         currencyCode: intent.currency.toUpperCase(),
         // Google Pay stays in its test environment until the Google Pay &
         // Wallet Console approves the production app — which is exactly
@@ -110,6 +169,80 @@ export async function payWithCard(
     const presented = await stripe.presentPaymentSheet();
     if (!presented.error) return "paid";
     return presented.error.code === "Canceled" ? "cancelled" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
+ * Pay with Apple Pay / Google Pay directly — no payment sheet in between
+ * (P7-13).
+ *
+ * Same contract as `payWithCard`, and deliberately the same `CardOutcome`
+ * union, so the cart's placing state machine has exactly one set of
+ * branches to handle whichever button was pressed.
+ *
+ * The wallet is only ever opened against a REAL Stripe PaymentIntent: a
+ * `fake` intent (the dev/CI provider) returns the same `{ fake }` outcome
+ * the card route does and the cart shows its labelled test button, and a
+ * venue with no publishable key falls back to the hosted page. There is no
+ * path on which a native wallet sheet is shown for something Stripe is
+ * not actually charging.
+ */
+export async function payWithPlatformPay(
+  orderId: string,
+  token: string,
+  opts: { merchantDisplayName: string },
+): Promise<CardOutcome> {
+  const created = await createPaymentIntent(orderId, token);
+  if (!created.ok) {
+    if (created.error === "already_paid") return "paid";
+    if (FALL_BACK_TO_HOSTED.has(created.error)) return "unavailable";
+    return "failed";
+  }
+  const intent = created.intent;
+  if (intent.mode === "fake") return { fake: { ref: intent.ref } };
+
+  const stripe = loadStripe();
+  if (!stripe || !intent.publishableKey) return "unavailable";
+  const merchantId = appleMerchantId();
+  if (Platform.OS === "ios" && !merchantId) return "unavailable";
+
+  const name = opts.merchantDisplayName || intent.merchantName;
+  const currency = intent.currency.toUpperCase();
+  try {
+    await stripe.initStripe({
+      publishableKey: intent.publishableKey,
+      urlScheme: APP_SCHEME,
+      ...(merchantId ? { merchantIdentifier: merchantId } : {}),
+    });
+    // Both blocks are always sent: each platform ignores the other's.
+    const result = await stripe.confirmPlatformPayPayment(intent.clientSecret, {
+      applePay: {
+        merchantCountryCode: MERCHANT_COUNTRY,
+        currencyCode: currency,
+        // Apple's sheet shows the last line as "Pay <name> <amount>", so
+        // the single line IS the total.
+        cartItems: [
+          {
+            paymentType: "Immediate",
+            label: name,
+            amount: (intent.amountCents / 100).toFixed(2),
+          },
+        ],
+      },
+      googlePay: {
+        merchantCountryCode: MERCHANT_COUNTRY,
+        currencyCode: currency,
+        merchantName: name,
+        // Same rule as the sheet: a test key means Google's test
+        // environment, which is also all a not-yet-approved app may use.
+        testEnv: intent.publishableKey.startsWith("pk_test_"),
+      },
+    });
+    if (!result.error) return "paid";
+    const code = result.error.code;
+    return code === "Canceled" || code === "Cancelled" ? "cancelled" : "failed";
   } catch {
     return "failed";
   }

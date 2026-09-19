@@ -155,6 +155,34 @@ describe("public menu loader", () => {
     expect(discounted[0]!.offer!.basePriceCents).toBe(800);
   });
 
+  it("carries the venue's Google rating, or null when there is none (P7-14)", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+
+    // A venue nobody has given a Place ID shows no rating at all — which
+    // is every venue until the owner pastes one into Settings.
+    expect((await loadPublicMenu(context!))?.rating ?? null).toBeNull();
+
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          googlePlaceId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+          googleRating: { rating: 4.6, count: 312, fetchedAt: new Date().toISOString() },
+        },
+      }),
+    );
+    expect((await loadPublicMenu(context!))?.rating).toEqual({
+      value: 4.6,
+      count: 312,
+      reviewUrl: "https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4",
+    });
+
+    // A rating cached against a Place ID the owner has since cleared is
+    // not a rating: there would be nowhere for "write a review" to go.
+    await asUser(userId, (tx) => tx.venue.updateMany({ data: { googlePlaceId: null } }));
+    expect((await loadPublicMenu(context!))?.rating ?? null).toBeNull();
+  });
+
   it("resolves ?cat=offers only while something is on offer", async () => {
     const { userId, venueSlug } = await seedPublishedMenu();
     const plain = await loadPublicMenu((await resolvePreviewContext(venueSlug, null))!);

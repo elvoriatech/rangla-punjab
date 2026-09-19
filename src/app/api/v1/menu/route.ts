@@ -105,6 +105,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         // hides its offers card, chip and tab badge entirely at 0, so it
         // never has to walk the tree to find that out.
         offerCount: menu.offerCount,
+        // P7-14: the venue's Google rating and the link to Google's own
+        // review form. Explicitly null — never absent — when the venue has
+        // no Place ID or the deployment has no Places API key, so the app
+        // has one thing to test and hides the line on it.
+        rating: menu.rating ?? null,
         categories: menu.categories.map((cat) => ({
           id: cat.id,
           name: cat.name,

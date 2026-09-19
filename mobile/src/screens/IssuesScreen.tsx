@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -30,9 +30,13 @@ import { CHEVRON_FORWARD, colors, fonts, radius } from "../theme";
  * back arrow — it is not a tab.
  */
 export function IssuesScreen({
+  initialIssueId = null,
   onBack,
   onOpenOwnerMenu,
 }: {
+  /** A thread to open straight away — a push tap about a complaint lands
+   *  here rather than on the list (P7-11). Null = just the queue. */
+  initialIssueId?: string | null;
   onBack: () => void;
   onOpenOwnerMenu?: () => void;
 }): React.ReactElement {
@@ -43,9 +47,19 @@ export function IssuesScreen({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialIssueId);
 
   const statusLabels = t.issueStatusLabels as Record<string, string>;
+
+  // A SECOND push about a different complaint, while this screen is
+  // already up: follow it. Closing the sheet by hand leaves `openId` null
+  // and this effect does not re-open it, because the prop hasn't changed.
+  const firstTarget = useRef(initialIssueId);
+  useEffect(() => {
+    if (!initialIssueId || initialIssueId === firstTarget.current) return;
+    firstTarget.current = initialIssueId;
+    setOpenId(initialIssueId);
+  }, [initialIssueId]);
 
   const load = useCallback(async (): Promise<void> => {
     if (!staffToken) return;
@@ -132,9 +146,7 @@ export function IssuesScreen({
               >
                 <View style={{ flex: 1, gap: 5 }}>
                   <View style={styles.topRow}>
-                    <View
-                      style={[styles.pill, resolved ? styles.pillDone : styles.pillProblem]}
-                    >
+                    <View style={[styles.pill, resolved ? styles.pillDone : styles.pillProblem]}>
                       <Text
                         style={[
                           styles.pillText,
@@ -145,9 +157,7 @@ export function IssuesScreen({
                         {statusLabels[issue.status] ?? issue.status}
                       </Text>
                     </View>
-                    <Text style={styles.number}>
-                      #{String(issue.orderNumber).padStart(4, "0")}
-                    </Text>
+                    <Text style={styles.number}>#{String(issue.orderNumber).padStart(4, "0")}</Text>
                     <Text style={styles.name} numberOfLines={1}>
                       {issue.customerName ?? t.issueGuest}
                     </Text>

@@ -87,6 +87,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     void sendReceiptEmailForOrder(context.tenantId, result.value.orderId);
     const { sendNewOrderNotification } = await import("@/lib/order-notification");
     void sendNewOrderNotification(context.tenantId, result.value.orderId);
+    // …and the same alert on the owner's phone (P7-11). Same trigger, same
+    // fire-and-forget terms: with no push credentials configured this is a
+    // recorded no-op, and it must never be able to fail an order.
+    const { sendNewOrderPush } = await import("@/lib/push-service");
+    void sendNewOrderPush(context.tenantId, result.value.orderId);
     // A voucher-settled order never passes through markOrderPaid and is
     // already "paid", so the kitchen's "done" transition won't credit it
     // either. Ask here, on the same fire-and-forget terms: the charged

@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 /**
  * Per-venue opening hours. Stored in `venues.hours` JSONB.
  *
@@ -28,37 +26,39 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
   sun: "Sunday",
 };
 
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+/**
+ * The canonical shape, as plain TypeScript.
+ *
+ * P7-16 — these used to be `z.infer<typeof openingHoursSchema>`, which
+ * meant every importer of this module (including `reserve-dialog.tsx`, a
+ * `"use client"` component on the guest menu) dragged the whole of zod
+ * into the browser. The zod schema and `parseOpeningHours` now live in
+ * `./opening-hours-schema`, which only server code imports; that file
+ * type-asserts the two stay in step, so a schema change still fails the
+ * build if it drifts from these.
+ */
+/* `type`, not `interface`: these values are written straight back into
+   the `venues.hours` JSONB column, and only a type alias picks up the
+   implicit index signature Prisma's `InputJsonValue` requires. */
+export type Slot = {
+  /** "HH:MM" wall-clock in the venue's own timezone. */
+  open: string;
+  close: string;
+};
 
-const slotSchema = z.object({
-  open: z.string().regex(TIME_RE),
-  close: z.string().regex(TIME_RE),
-});
+export type DayHours = {
+  closed: boolean;
+  slots: Slot[];
+};
 
-const daySchema = z.object({
-  closed: z.boolean().default(false),
-  slots: z.array(slotSchema).max(4).default([]),
-});
-
-export const openingHoursSchema = z.object({
+export type OpeningHours = {
   /** true only once the owner has saved hours — an unset venue shows
    *  no badge rather than a misleading "Closed". */
-  configured: z.boolean().default(false),
-  // String-keyed (not enum-keyed) so the record is partial — an
-  // unconfigured or sparse map is valid; readers guard missing days.
-  days: z.record(z.string(), daySchema).default({}),
-});
-
-export type OpeningHours = z.infer<typeof openingHoursSchema>;
-export type DayHours = z.infer<typeof daySchema>;
-export type Slot = z.infer<typeof slotSchema>;
-
-const EMPTY: OpeningHours = { configured: false, days: {} };
-
-export function parseOpeningHours(raw: unknown): OpeningHours {
-  const parsed = openingHoursSchema.safeParse(raw ?? {});
-  return parsed.success ? parsed.data : EMPTY;
-}
+  configured: boolean;
+  /** String-keyed (not `Weekday`-keyed) so the record is partial — an
+   *  unconfigured or sparse map is valid; readers guard missing days. */
+  days: Record<string, DayHours>;
+};
 
 function dayFor(hours: OpeningHours, day: Weekday): DayHours {
   return hours.days[day] ?? { closed: true, slots: [] };

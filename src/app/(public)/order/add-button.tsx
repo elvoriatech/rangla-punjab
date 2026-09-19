@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addToCart } from "./cart-store";
-import { checkoutCopy } from "@/lib/i18n/checkout";
+
+/** The three strings this button says, already resolved for the guest's
+ *  language by the server that renders the card (P7-16: a client
+ *  component never imports a five-locale catalogue). `addAria` arrives
+ *  with the dish name already interpolated. */
+export interface AddToOrderLabels {
+  add: string;
+  added: string;
+  addAria: string;
+}
 
 /**
  * "Add" button on every dish card. Styled entirely from the menu theme
@@ -14,18 +23,15 @@ export function AddToOrderButton({
   itemId,
   name,
   priceCents,
-  locale,
+  labels,
 }: {
   slug: string;
   itemId: string;
   name: string;
   priceCents: number;
-  /** Menu locale. Optional so a card that hasn't been threaded through
-   *  yet still compiles; English is the guaranteed-complete catalogue. */
-  locale?: string;
+  labels: AddToOrderLabels;
 }): React.ReactElement {
   const [justAdded, setJustAdded] = useState(false);
-  const t = checkoutCopy(locale);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -37,7 +43,7 @@ export function AddToOrderButton({
   return (
     <button
       type="button"
-      aria-label={t.addAria(name)}
+      aria-label={labels.addAria}
       onClick={() => {
         addToCart(slug, { itemId, name, priceCents });
         setJustAdded(true);
@@ -54,7 +60,7 @@ export function AddToOrderButton({
       <span aria-hidden="true" className="block text-base leading-none tracking-normal sm:hidden">
         {justAdded ? "✓" : "+"}
       </span>
-      <span className="hidden sm:inline">{justAdded ? t.added : t.add}</span>
+      <span className="hidden sm:inline">{justAdded ? labels.added : labels.add}</span>
     </button>
   );
 }

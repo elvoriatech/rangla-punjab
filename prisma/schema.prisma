@@ -146,6 +146,7 @@ model Tenant {
   loyaltyVouchers LoyaltyVoucher[]
   orderIssues        OrderIssue[]
   orderIssueMessages OrderIssueMessage[]
+  staffDevices       StaffDevice[]
 }
 
 model MenuTemplate {
@@ -187,6 +188,7 @@ model User {
   memberships             Membership[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+  staffDevices            StaffDevice[]
 
   @@map("users")
 }
@@ -255,6 +257,12 @@ model Venue {
   // Owner-side loyalty switches (src/lib/loyalty-config.ts); {} = defaults,
   // and the default is OFF, so an untouched venue shows guests nothing.
   loyalty        Json        @default("{}")
+  // Google rating + review link (P7-14, src/lib/google-rating.ts). The
+  // Place ID is the owner's own setting; the rating is a CACHE of what the
+  // Places API last answered — `{ rating, count, fetchedAt }`, refreshed at
+  // most once a day on menu load. Both null ⇒ no rating anywhere.
+  googlePlaceId  String?     @map("google_place_id")
+  googleRating   Json?       @map("google_rating")
   status         VenueStatus @default(active)
 
   createdAt DateTime  @default(now())
@@ -902,4 +910,41 @@ model OrderIssueMessage {
   @@index([tenantId])
   @@index([issueId, createdAt])
   @@map("order_issue_messages")
+}
+
+/// One installation of the app that has asked to be told about new orders
+/// (P7-11). A row per DEVICE, not per person: the owner's phone and the
+/// counter tablet are two addresses and both should buzz.
+///
+/// `expoPushToken` is UNIQUE because the token IS the installation's
+/// identity — registering again is an upsert on it, and a handset that
+/// moves between accounts belongs to whoever registered it last.
+///
+/// `disabledAt` is stamped when Expo answers `DeviceNotRegistered` (app
+/// deleted, notification permission revoked, token rotated). The row stays
+/// so a later re-register revives the same address instead of leaving a
+/// second, silently-dead one behind.
+model StaffDevice {
+  id            String    @id @default(cuid())
+  tenantId      String    @map("tenant_id")
+  userId        String    @map("user_id")
+  expoPushToken String    @unique @map("expo_push_token")
+  /// ios | android | web — CHECK-constrained in the migration.
+  platform      String
+  /// Diagnostics only: when one build stops receiving, this answers "which
+  /// build?" without a support round-trip.
+  appVersion    String?   @map("app_version")
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at")
+  disabledAt    DateTime? @map("disabled_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, disabledAt])
+  @@index([userId])
+  @@map("staff_devices")
 }
