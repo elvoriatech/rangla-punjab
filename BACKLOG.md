@@ -211,16 +211,19 @@ Done (pushed, live on prod):
   to the app via `/auth/app-return`, cart shows a placing panel instead of an empty cart,
   obvious Sign out button. (a80fff2, 5f8dde9)
 
-In progress (Opus agents, uncommitted at the time of writing):
-- [ ] (P7-8) Owner management in the app: header burger → owner menu (Board, Manage menu,
+Shipped after the phase was opened:
+- [x] (P7-8) Owner management in the app: header burger → owner menu (Board, Manage menu,
   Loyalty, Open dashboard, Sign out); Menu screen shows pencil + on/off switch per dish;
   edit sheet (price, availability, offer price + until date/time); Home shows 🛍️ Pickup /
   🛵 Delivery switches opposite the open pill (on by default); Loyalty overview for the
   owner. Server: `Item.sourceItemId` so app edits update BOTH the published and the draft
   item (live, no publish) + backfill; `GET/PATCH /api/v1/staff/{menu,items/{id},ordering}`,
-  `GET /api/v1/staff/loyalty`. Board status buttons become small icon-only.
-- [ ] (P7-9) PayPal from the app opens PayPal directly (approve URL from `/pay/paypal`) in
-  an in-app session and returns via `/auth/app-return?status=…`, skipping the web pay page.
+  `GET /api/v1/staff/loyalty`. Board status buttons become small icon-only. (b60858e)
+  Note: the backfill links published↔draft items only where names match; on a
+  deploy whose dashboard draft is stale, app edits stay live but report
+  `mirrored: false` until the next publish — check the draft before publishing.
+- [x] (P7-9) PayPal from the app opens PayPal directly (approve URL from `/pay/paypal`) in
+  an in-app session and returns via `/auth/app-return?status=…`, skipping the web pay page. (b60858e)
 
 Next, in this order (decisions already taken in brackets):
 - [ ] (P7-10) Complaint thread on an order: `order_issues` + `order_issue_messages` (guest
