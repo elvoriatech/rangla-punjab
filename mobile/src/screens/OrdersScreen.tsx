@@ -119,8 +119,27 @@ export function OrdersScreen({
                 accessibilityLabel={`${t.orderNo} ${order.orderNumber}`}
               >
                 <View style={styles.cardTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.number}>#{String(order.orderNumber).padStart(4, "0")}</Text>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    {/* Status sits right beside the number — the first
+                        thing a guest looks for on a glance. */}
+                    <View style={styles.numberRow}>
+                      <Text style={styles.number}>
+                        #{String(order.orderNumber).padStart(4, "0")}
+                      </Text>
+                      {s ? (
+                        <View style={[styles.pill, done ? styles.pillDone : styles.pillActive]}>
+                          <Text
+                            style={[
+                              styles.pillText,
+                              done ? styles.pillTextDone : styles.pillTextActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {stepLabel(s)}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.meta}>
                       {dateFmt(order.placedAt)} · {typeLabel[order.orderType] ?? order.orderType}
                     </Text>
@@ -128,20 +147,8 @@ export function OrdersScreen({
                   <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
                   <Text style={styles.chev}>{CHEVRON_FORWARD}</Text>
                 </View>
-                <View style={styles.pills}>
-                  {s ? (
-                    <View style={[styles.pill, done ? styles.pillDone : styles.pillActive]}>
-                      <Text
-                        style={[
-                          styles.pillText,
-                          done ? styles.pillTextDone : styles.pillTextActive,
-                        ]}
-                      >
-                        {stepLabel(s)}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {payText ? (
+                {payText ? (
+                  <View style={styles.pills}>
                     <View style={[styles.pill, paid ? styles.pillDone : styles.pillNeutral]}>
                       <Text
                         style={[
@@ -152,8 +159,8 @@ export function OrdersScreen({
                         {payText}
                       </Text>
                     </View>
-                  ) : null}
-                </View>
+                  </View>
+                ) : null}
               </Pressable>
             );
           })
@@ -173,7 +180,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     borderRadius: radius.lg,
     padding: 16,
-    gap: 12,
+    gap: 10,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -181,6 +188,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  numberRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   number: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy },
   meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 3 },
   total: { color: colors.red, fontSize: 16, ...fonts.bodyHeavy },
