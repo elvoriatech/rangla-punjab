@@ -28,6 +28,7 @@ async function dropTestChildren(db: PrismaClient, year: number): Promise<void> {
          JOIN pg_class p ON p.oid = i.inhparent
          JOIN pg_namespace pn ON pn.oid = p.relnamespace
         WHERE p.relname = $1 AND pn.nspname = 'public'
+          AND c.relkind IN ('r', 'p')
           AND c.relname LIKE $2`,
       parent,
       `${parent}_${year}_%`,
@@ -36,16 +37,27 @@ async function dropTestChildren(db: PrismaClient, year: number): Promise<void> {
       await db.$executeRawUnsafe(`ALTER TABLE "${parent}" DETACH PARTITION "${relname}"`);
       await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "${relname}" CASCADE`);
     }
-    // Archive sweep — any archive table for this parent + year.
+    // Archive sweep — any archive TABLE for this parent + year. The
+    // relkind filter matters: `ALTER TABLE ... SET SCHEMA archive`
+    // moves the partition's indexes across too, so a bare LIKE also
+    // matches e.g. `scan_stats_2029_05_pkey` and `DROP TABLE` on that
+    // index fails with 42809 ("is not a table").
     const archived = await db.$queryRawUnsafe<{ relname: string }[]>(
       `SELECT c.relname FROM pg_class c
          JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'archive'
+          AND c.relkind IN ('r', 'p')
           AND c.relname LIKE $1`,
       `${parent}_${year}_%`,
     );
     for (const { relname } of archived) {
-      await db.$executeRawUnsafe(`DROP TABLE IF EXISTS archive."${relname}" CASCADE`);
+      // Tolerant: CASCADE on an earlier sibling may already have taken
+      // this one with it, and a parallel suite may be sweeping too.
+      try {
+        await db.$executeRawUnsafe(`DROP TABLE IF EXISTS archive."${relname}" CASCADE`);
+      } catch {
+        // best-effort cleanup — leftovers are re-swept next run
+      }
     }
   }
 }

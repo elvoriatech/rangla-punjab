@@ -26,9 +26,13 @@ beforeAll(async () => {
     for (const [parent, child, from, to] of bootstrap) {
       await admin.$executeRawUnsafe(`DROP TABLE IF EXISTS archive."${child}" CASCADE`);
       const rows = await admin.$queryRawUnsafe<{ exists: boolean }[]>(
+        // relkind filter: only a real table counts as "the partition
+        // already exists" — an index sharing the name must not make
+        // us skip the CREATE TABLE below.
         `SELECT EXISTS (
            SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE c.relname = $1 AND n.nspname = 'public'
+              AND c.relkind IN ('r', 'p')
          ) AS "exists"`,
         child,
       );
