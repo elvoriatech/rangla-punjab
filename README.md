@@ -356,6 +356,78 @@ Everything below is data or config — no code changes.
     captures, but only the webhook settles an order when the guest closes
     the tab after approving.
 
+### Loyalty points
+
+Optional, per venue, and **off until the owner switches it on** in Dashboard →
+**Settings** → **Loyalty**. While it is off guests see nothing at all — no cart
+line, no rewards card, no loyalty block in the API.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| Collect points | off | Master switch — off hides the whole feature |
+| Minimum order to earn | €20 | Food only; the delivery fee never counts towards it |
+| Points per qualifying order | 5 | A flat number, however big the order is |
+| Points needed for a reward | 100 | ≈ 20 orders at the default rate |
+| Reward is worth | €20 | What one voucher takes off a bill |
+| Reward expires | end of the month it was earned | Plus N further months (0 = this month), 23:59:59 in the venue's timezone |
+
+Points are earned per **order**, never per dish: one qualifying order is worth
+the same whether it's one curry or five.
+
+**Earning.** Points land once, when the order settles — online orders when the
+payment is confirmed, cash orders when the kitchen marks them done. Only
+signed-in guests collect (the web cart shows everyone else an invitation to
+sign in), and the order's *food value* — the total minus the delivery-fee line
+— has to reach the minimum. A cancelled order gives its points back. The ledger
+is the truth: a balance is the sum of its movements, never a stored counter.
+
+**Reaching the threshold** mints one voucher and sends the guest a branded
+"Hurra! You've earned a €20 meal" email in their language. The voucher then
+shows up on the app's Rewards card and on `/account`.
+
+**Redeeming is pull-only.** The guest arms a voucher in the app's "Check my
+reward" popup; the next order placed **from the app** asks for it, and the
+server claims the soonest-expiring armed voucher inside the order transaction
+and takes up to the reward's value off the bill. Website orders never spend a
+voucher, so a reward the guest was saving for a takeaway can't be eaten by an
+order placed in a browser. A reward that covers the whole bill marks the order
+**paid** (provider `voucher`) — no payment step, and the kitchen ticket and
+receipt go out at once. The reward line then appears everywhere the money does:
+receipt and kitchen emails, the PDF, the 80 mm ticket, the dashboard list
+(`Paid · Reward`), the web tracker, `/account` and the app.
+
+The app reads `GET /api/v1/me/loyalty` (balance, vouchers, last movements) and
+writes `POST /api/v1/me/loyalty/vouchers/{id}/arm`; `/api/v1/menu` carries the
+venue's loyalty block so the cart can show the points line.
+
+### Restaurant mode in the app
+
+The owner signs in on the app's **ordinary Account form** — the same email and
+password box guests use. `POST /api/auth/customer/login` answers with a `kind`:
+a matching guest account always wins, and `restaurant` is only granted to the
+account holding the dashboard's **owner** membership (the one seeded from
+`OWNER_EMAIL` / `OWNER_PASSWORD`). That is the only restaurant login; there are
+**no staff accounts by design**.
+
+Signed in as the restaurant, the tab bar becomes **Home · Menu · Board ·
+Account** — the Board replaces Cart and Orders, and nothing guest-only (basket,
+rewards, Google sign-in) is reachable. The Board lists every open order plus
+the ones finished today, and each card carries:
+
+- one button per status the **server** allows next, applied through the same
+  lifecycle the dashboard's buttons use
+- payment pills (card, PayPal, cash, reward), the items and the total
+- **Call** for the guest's number, **Directions** for a delivery address
+- a tab badge with the open-order count, 10-second polling with a vibration
+  and a highlight for new arrivals, and keep-awake so a tablet on the pass
+  never sleeps
+
+**Guests see nothing new** — the guest app is unchanged. The restaurant
+credential *is* the dashboard's own signed session value, so **changing the
+dashboard password — or removing the owner membership — signs the app out** on
+its next request. The board's routes live under `/api/v1/staff/*` (orders,
+status, summary, logout) and take an `X-Staff-Token` header.
+
 ---
 
 ## 8. Docs

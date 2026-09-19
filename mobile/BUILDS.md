@@ -239,6 +239,26 @@ and must return to the app. The order must flip to "Paid" on the tracking
 screen and the kitchen ticket email must arrive only then. Server without any
 Stripe key ⇒ the labelled **Simulate payment (test)** button instead.
 
+#### Testing restaurant mode and loyalty
+
+- **Restaurant mode.** On the Account tab sign in with the *dashboard* owner
+  credentials (`OWNER_EMAIL` / `OWNER_PASSWORD`). The tab bar turns into
+  Home · Menu · Board · Account and the Board opens on the live orders. Place a
+  guest order from another device (or the website) and watch it arrive within
+  ten seconds, with a vibration and a highlight; tap a status button and check
+  the dashboard moved with it. **Call** and **Directions** hand off to the
+  phone and maps apps. Signing in with a guest account must show none of this.
+- **Loyalty** only appears once Dashboard → Settings → **Loyalty** is switched
+  on. Sign in as a guest, place an order over the minimum, and watch the points
+  land on the Rewards card when the order settles (cash counts when the kitchen
+  marks it done). At the threshold the "Hurra" email arrives and a voucher
+  appears — arm it in the **Check my reward** popup, then start the next order
+  in the app: the cart previews the reward, the button shows the discounted
+  total, and an order the reward covers entirely skips the payment step.
+- `expo-keep-awake` was added for the Board (it keeps a counter tablet's screen
+  on). It is a **native module**, so an existing install has to be rebuilt —
+  a JS-only reload won't pick it up.
+
 ## Shipping to the stores
 
 `eas.json` now points both store profiles at production
