@@ -14,7 +14,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
+import type { PickedPhoto } from "./photo";
+import { askPhotoSource, pickPhoto } from "./photo";
 import type { ApiIssue } from "./api";
 import { fetchIssue, postIssueMessage } from "./api";
 import type { StaffIssue } from "./staff";
@@ -46,8 +47,6 @@ import { colors, fonts, radius } from "./theme";
 /** 5 MB — `MAX_ISSUE_PHOTO_BYTES` on the server. Checked here too so an
  *  over-size photo is refused before it is uploaded. */
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-/** What the server accepts; anything else is refused with `invalid_photo`. */
-const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 /** `ISSUE_BODY_MAX` on the server. */
 const BODY_MAX = 2000;
 
@@ -69,14 +68,6 @@ interface Thread {
   messages: ThreadMessage[];
   /** Staff mode only: enough of the order to know whose complaint it is. */
   order?: { number: number; name: string | null } | null;
-}
-
-/** A photo the guest has chosen but not yet sent. The RN file shape:
- *  `{ uri, name, type }`, which `FormData` streams off disk. */
-interface PendingPhoto {
-  uri: string;
-  name: string;
-  type: string;
 }
 
 function toThread(issue: ApiIssue): Thread {
@@ -138,7 +129,7 @@ export function IssueSheet({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [draft, setDraft] = useState("");
-  const [photo, setPhoto] = useState<PendingPhoto | null>(null);
+  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The photo the reader tapped, shown full-size over the sheet. */
@@ -215,21 +206,25 @@ export function IssueSheet({
    * Ask where the photo should come from, then take it there.
    *
    * A guest reporting a cold curry is standing over it — the camera is
-   * the obvious source and used to be unreachable, so the action now
-   * offers both and the library stays the second option rather than the
-   * only one. Both paths share every rule below (size cap, type
-   * normalisation, one photo per message); only the capture differs.
+   * the obvious source and used to be unreachable, so the action offers
+   * both and the library stays the second option rather than the only
+   * one. The picking itself (permissions, the size cap, normalising an
+   * HEIC to JPEG) is shared with the owner's dish photo in `photo.ts`.
    */
   function choosePhotoSource(): void {
     if (picking.current) return;
-    Alert.alert(t.issueAddPhoto, undefined, [
-      { text: t.issuePhotoCamera, onPress: () => void pickPhoto("camera") },
-      { text: t.issuePhotoLibrary, onPress: () => void pickPhoto("library") },
-      { text: t.signInCancel, style: "cancel" },
-    ]);
+    askPhotoSource(
+      {
+        title: t.issueAddPhoto,
+        camera: t.issuePhotoCamera,
+        library: t.issuePhotoLibrary,
+        cancel: t.signInCancel,
+      },
+      (source) => void takePhoto(source),
+    );
   }
 
-  async function pickPhoto(source: "camera" | "library"): Promise<void> {
+  async function takePhoto(source: "camera" | "library"): Promise<void> {
     // NOTE: this presents the system picker while the sheet is still
     // VISIBLE, which is safe — iOS is happy to stack a presenter on a
     // settled modal. What is NOT safe is closing the sheet and
@@ -239,46 +234,21 @@ export function IssueSheet({
     picking.current = true;
     setError(null);
     try {
-      // Asked LAZILY, on the first tap, and only for the source that was
-      // actually chosen: a guest who picks from their library is never
-      // asked for the camera, and vice versa.
-      const permission =
-        source === "camera"
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        setError(source === "camera" ? t.issueCameraDenied : t.issuePhotoDenied);
+      const picked = await pickPhoto(source, { maxBytes: MAX_PHOTO_BYTES });
+      if (!picked.ok) {
+        if (picked.reason === "cancelled") return;
+        setError(
+          picked.reason === "denied"
+            ? source === "camera"
+              ? t.issueCameraDenied
+              : t.issuePhotoDenied
+            : picked.reason === "too_large"
+              ? (errorLabels.too_large ?? "")
+              : t.issuePhotoFailed,
+        );
         return;
       }
-      const options = {
-        mediaTypes: ["images"] as ImagePicker.MediaType[],
-        allowsEditing: false,
-        // Identical on both paths: the size cap and the JPEG
-        // re-encode below depend on it.
-        quality: 0.8,
-      };
-      const picked =
-        source === "camera"
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync(options);
-      if (picked.canceled || picked.assets.length === 0) return;
-      const asset = picked.assets[0];
-      if (typeof asset.fileSize === "number" && asset.fileSize > MAX_PHOTO_BYTES) {
-        setError(errorLabels.too_large ?? "");
-        return;
-      }
-      // `quality < 1` makes the picker re-encode to JPEG, so an unknown
-      // or platform-specific type (HEIC) is JPEG by the time we see it.
-      const type =
-        asset.mimeType && PHOTO_TYPES.includes(asset.mimeType) ? asset.mimeType : "image/jpeg";
-      const extension = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
-      setPhoto({
-        uri: asset.uri,
-        name: asset.fileName ?? `photo.${extension}`,
-        type,
-      });
-    } catch {
-      setError(t.issuePhotoFailed);
+      setPhoto(picked.photo);
     } finally {
       picking.current = false;
     }

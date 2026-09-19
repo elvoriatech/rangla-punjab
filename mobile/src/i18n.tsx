@@ -612,6 +612,20 @@ const en = {
   staffNameInvalid: "A dish needs a name, 120 characters at most.",
   staffDescriptionInvalid: "That description is too long — 2000 characters at most.",
 
+  /* The dish photo, changed from the counter. */
+  staffItemPhoto: "Photo",
+  staffAddPhoto: "Add photo",
+  staffChangePhoto: "Change photo",
+  staffRemovePhoto: "Remove photo",
+  staffRemovePhotoConfirm: "Guests will see this dish without a picture.",
+  staffPhotoHint: "Guests see this in the menu. Big photos are shrunk before they are sent.",
+  staffPhotoUploading: "Uploading photo…",
+  staffPhotoRemoving: "Removing photo…",
+  staffPhotoFailed: "That photo couldn't be saved. Please try again.",
+  staffPhotoInvalid: "That file isn't a photo we can use — JPEG, PNG or WebP.",
+  staffPhotoTooLarge: "That photo is too big — 10 MB at most.",
+  staffPhotoDenied: "Without access to your photos we can't change the dish photo.",
+
   /* Venue open/closed, in the app header. */
   venueOpen: "Open",
   venueClosed: "Closed",
@@ -1134,6 +1148,20 @@ const de: Strings = {
   staffNameInvalid: "Ein Gericht braucht einen Namen, höchstens 120 Zeichen.",
   staffDescriptionInvalid: "Die Beschreibung ist zu lang – höchstens 2000 Zeichen.",
 
+  /* Das Foto eines Gerichts, direkt vom Tresen. */
+  staffItemPhoto: "Foto",
+  staffAddPhoto: "Foto hinzufügen",
+  staffChangePhoto: "Foto ändern",
+  staffRemovePhoto: "Foto entfernen",
+  staffRemovePhotoConfirm: "Gäste sehen dieses Gericht dann ohne Bild.",
+  staffPhotoHint: "Das sehen Gäste in der Karte. Große Fotos werden vor dem Senden verkleinert.",
+  staffPhotoUploading: "Foto wird hochgeladen …",
+  staffPhotoRemoving: "Foto wird entfernt …",
+  staffPhotoFailed: "Das Foto konnte nicht gespeichert werden. Bitte noch einmal versuchen.",
+  staffPhotoInvalid: "Diese Datei können wir nicht verwenden – JPEG, PNG oder WebP.",
+  staffPhotoTooLarge: "Das Foto ist zu groß – höchstens 10 MB.",
+  staffPhotoDenied: "Ohne Zugriff auf Ihre Fotos können wir das Bild nicht ändern.",
+
   /* Geöffnet/Geschlossen, im App-Header. */
   venueOpen: "Offen",
   venueClosed: "Geschlossen",
@@ -1654,6 +1682,21 @@ const it: Strings = {
   staffNameInvalid: "Un piatto ha bisogno di un nome, al massimo 120 caratteri.",
   staffDescriptionInvalid: "La descrizione è troppo lunga: al massimo 2000 caratteri.",
 
+  /* La foto del piatto, cambiata dal banco. */
+  staffItemPhoto: "Foto",
+  staffAddPhoto: "Aggiungi foto",
+  staffChangePhoto: "Cambia foto",
+  staffRemovePhoto: "Rimuovi foto",
+  staffRemovePhotoConfirm: "I clienti vedranno questo piatto senza immagine.",
+  staffPhotoHint:
+    "È quello che i clienti vedono nel menu. Le foto grandi vengono ridotte prima dell'invio.",
+  staffPhotoUploading: "Caricamento della foto…",
+  staffPhotoRemoving: "Rimozione della foto…",
+  staffPhotoFailed: "Non è stato possibile salvare la foto. Riprova.",
+  staffPhotoInvalid: "Questo file non è utilizzabile: serve JPEG, PNG o WebP.",
+  staffPhotoTooLarge: "La foto è troppo grande: al massimo 10 MB.",
+  staffPhotoDenied: "Senza accesso alle tue foto non possiamo cambiare l'immagine del piatto.",
+
   /* Aperto/chiuso, nell'intestazione dell'app. */
   venueOpen: "Aperto",
   venueClosed: "Chiuso",
@@ -2172,6 +2215,21 @@ const es: Strings = {
   staffNameInvalid: "El plato necesita un nombre, 120 caracteres como máximo.",
   staffDescriptionInvalid: "Esa descripción es demasiado larga: 2000 caracteres como máximo.",
 
+  /* La foto del plato, cambiada desde el mostrador. */
+  staffItemPhoto: "Foto",
+  staffAddPhoto: "Añadir foto",
+  staffChangePhoto: "Cambiar foto",
+  staffRemovePhoto: "Quitar foto",
+  staffRemovePhotoConfirm: "Los clientes verán este plato sin imagen.",
+  staffPhotoHint:
+    "Es lo que los clientes ven en la carta. Las fotos grandes se reducen antes de enviarlas.",
+  staffPhotoUploading: "Subiendo la foto…",
+  staffPhotoRemoving: "Quitando la foto…",
+  staffPhotoFailed: "No se pudo guardar esa foto. Inténtalo de nuevo.",
+  staffPhotoInvalid: "Ese archivo no nos sirve: necesita ser JPEG, PNG o WebP.",
+  staffPhotoTooLarge: "Esa foto es demasiado grande: 10 MB como máximo.",
+  staffPhotoDenied: "Sin acceso a tus fotos no podemos cambiar la imagen del plato.",
+
   /* Abierto/cerrado, en la cabecera de la app. */
   venueOpen: "Abierto",
   venueClosed: "Cerrado",
@@ -2680,6 +2738,20 @@ const ar: Strings = {
   staffItemDescriptionHint: "ما يقرأه الضيوف تحت الاسم. اتركه فارغاً إن لم ترغب بوصف.",
   staffNameInvalid: "يحتاج الطبق إلى اسم، بحد أقصى 120 حرفاً.",
   staffDescriptionInvalid: "هذا الوصف طويل جداً — بحد أقصى 2000 حرف.",
+
+  /* صورة الطبق، تُغيّر من المنضدة. */
+  staffItemPhoto: "صورة",
+  staffAddPhoto: "إضافة صورة",
+  staffChangePhoto: "تغيير الصورة",
+  staffRemovePhoto: "إزالة الصورة",
+  staffRemovePhotoConfirm: "سيرى الضيوف هذا الطبق بلا صورة.",
+  staffPhotoHint: "هذا ما يراه الضيوف في القائمة. الصور الكبيرة تُصغّر قبل الإرسال.",
+  staffPhotoUploading: "جارٍ رفع الصورة…",
+  staffPhotoRemoving: "جارٍ إزالة الصورة…",
+  staffPhotoFailed: "تعذّر حفظ الصورة. حاول مرة أخرى.",
+  staffPhotoInvalid: "هذا الملف غير صالح — يلزم JPEG أو PNG أو WebP.",
+  staffPhotoTooLarge: "الصورة كبيرة جداً — بحد أقصى 10 ميجابايت.",
+  staffPhotoDenied: "بدون الوصول إلى صورك لا يمكننا تغيير صورة الطبق.",
 
   /* مفتوح/مغلق، في ترويسة التطبيق. */
   venueOpen: "مفتوح",

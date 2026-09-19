@@ -13,11 +13,18 @@ import type { ApiMenu, ApiItem } from "../api";
 import { OFFERS_CATEGORY_ID, offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffItem, StaffItemPatch, StaffMenuCategory } from "../staff";
-import { fetchStaffMenu, updateStaffItem } from "../staff";
+import {
+  fetchStaffMenu,
+  removeStaffItemPhoto,
+  updateStaffItem,
+  uploadStaffItemPhoto,
+} from "../staff";
 import { BrandHeader, DishRow } from "../components";
 import { useLayout } from "../layout";
 import { DishSheet } from "../dish-sheet";
+import type { PhotoOutcome } from "../staff-menu";
 import { StaffDishRow, StaffItemSheet, staffViewOfGuestMenu } from "../staff-menu";
+import type { PickedPhoto } from "../photo";
 import { colors, fonts, isRTL } from "../theme";
 import { useI18n } from "../i18n";
 
@@ -149,6 +156,34 @@ export function MenuScreen({
       else setReloadKey((n) => n + 1);
       onMenuChanged?.();
       return null;
+    },
+    [staffToken, applyItem, clearStaff, onMenuChanged, t],
+  );
+
+  /**
+   * The dish photo: its own route, saved the moment it is picked rather
+   * than with the rest of the form. A `null` file removes it.
+   *
+   * The echoed item goes straight into the list, so the row behind the
+   * sheet shows the new picture before the sheet is even closed.
+   */
+  const savePhoto = useCallback(
+    async (item: StaffItem, file: PickedPhoto | null): Promise<PhotoOutcome> => {
+      if (!staffToken) return { ok: false, error: "unauthorized" };
+      setNote(null);
+      const res = file
+        ? await uploadStaffItemPhoto(staffToken, item.id, file)
+        : await removeStaffItemPhoto(staffToken, item.id);
+      if (!res.ok) {
+        if (res.error === "unauthorized") clearStaff();
+        else if (res.error === "notfound") setNote(t.staffItemGone);
+        return { ok: false, error: res.error };
+      }
+      if (res.data) applyItem(res.data);
+      // No echo: the list can only learn the new URL by re-reading.
+      else setReloadKey((n) => n + 1);
+      onMenuChanged?.();
+      return { ok: true, item: res.data };
     },
     [staffToken, applyItem, clearStaff, onMenuChanged, t],
   );
@@ -295,7 +330,12 @@ export function MenuScreen({
       </ScrollView>
 
       {staffMode ? (
-        <StaffItemSheet item={editing} onClose={() => setEditing(null)} onSave={saveItem} />
+        <StaffItemSheet
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSave={saveItem}
+          onPhoto={savePhoto}
+        />
       ) : (
         <DishSheet item={openDish} onClose={() => setOpenDish(null)} onAdd={onAdd} />
       )}

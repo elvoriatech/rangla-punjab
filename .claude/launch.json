@@ -4,9 +4,9 @@
     {
       "name": "rangla-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
-      "port": 3000,
-      "autoPort": true
+      "runtimeArgs": ["dev", "-p", "58816"],
+      "port": 58816,
+      "autoPort": false
     },
     {
       "name": "rangla-mobile",

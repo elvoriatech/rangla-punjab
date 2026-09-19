@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -14,7 +16,16 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ApiCategory } from "./api";
-import type { StaffItem, StaffItemPatch, StaffMenuCategory, StaffOfferWeekly } from "./staff";
+import type {
+  StaffItem,
+  StaffItemPatch,
+  StaffMenuCategory,
+  StaffOfferWeekly,
+  StaffPhotoError,
+} from "./staff";
+import { MAX_ITEM_PHOTO_BYTES } from "./staff";
+import type { PickedPhoto } from "./photo";
+import { askPhotoSource, pickPhoto, shrinkPhoto } from "./photo";
 import { localeTag, useI18n } from "./i18n";
 import { colors, fonts, money, radius } from "./theme";
 import { SHEET_MAX } from "./layout";
@@ -179,6 +190,17 @@ function sameWeekly(a: StaffOfferWeekly | null, b: StaffOfferWeekly | null): boo
 }
 
 /**
+ * What the screen owning the list does with a picked photo: `null` as
+ * the file means "take the current one off". It answers with the item
+ * the server echoed (null when it echoed none — the sheet then shows
+ * the local file it just sent, which is the same picture).
+ */
+export type PhotoOutcome =
+  { ok: true; item: StaffItem | null } | { ok: false; error: StaffPhotoError };
+
+export type PhotoSaver = (item: StaffItem, file: PickedPhoto | null) => Promise<PhotoOutcome>;
+
+/**
  * Edit one dish.
  *
  * The name is read-only on purpose: translations, description, allergens
@@ -190,12 +212,16 @@ export function StaffItemSheet({
   item,
   onClose,
   onSave,
+  onPhoto,
 }: {
   item: StaffItem | null;
   onClose: () => void;
   /** Resolves to the field the server rejected ("" = a general failure,
    *  null = saved). The sheet stays open on anything but null. */
   onSave: (item: StaffItem, patch: StaffItemPatch) => Promise<string | null>;
+  /** The photo has its own route and is saved the moment it is picked —
+   *  it does not wait for "Save" like the text fields do. */
+  onPhoto: PhotoSaver;
 }): React.ReactElement {
   const { t, lang } = useI18n();
   const decimal = lang === "en" ? "." : ",";
@@ -213,6 +239,7 @@ export function StaffItemSheet({
           t={t}
           onClose={onClose}
           onSave={onSave}
+          onPhoto={onPhoto}
         />
       ) : (
         <View />
@@ -228,6 +255,7 @@ function StaffItemForm({
   t,
   onClose,
   onSave,
+  onPhoto,
 }: {
   item: StaffItem;
   decimal: string;
@@ -235,6 +263,7 @@ function StaffItemForm({
   t: ReturnType<typeof useI18n>["t"];
   onClose: () => void;
   onSave: (item: StaffItem, patch: StaffItemPatch) => Promise<string | null>;
+  onPhoto: PhotoSaver;
 }): React.ReactElement {
   const [name, setName] = useState(item.name);
   const [description, setDescription] = useState(item.description ?? "");
@@ -263,6 +292,14 @@ function StaffItemForm({
   const [days, setDays] = useState<number[]>(item.offer?.weekly?.days ?? []);
   const [picker, setPicker] = useState<"date" | "time" | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The photo as it stands RIGHT NOW: it is saved on its own route the
+   *  moment it is picked, so this is never part of the patch. */
+  const [photoUrl, setPhotoUrl] = useState<string | null>(item.photoUrl);
+  const [photoBusy, setPhotoBusy] = useState<"upload" | "remove" | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  /** True while the system picker is up, so a double tap cannot ask iOS
+   *  to present a second one on top of the first. */
+  const picking = useRef(false);
   const [error, setError] = useState<{
     field: "name" | "description" | "price" | "offer" | "general";
     text: string;
@@ -295,6 +332,99 @@ function StaffItemForm({
       current.includes(index) ? current.filter((d) => d !== index) : [...current, index].sort(),
     );
   };
+
+  /** The server's refusal, in the owner's language. */
+  function photoMessage(error: StaffPhotoError): string {
+    if (error === "invalid_photo") return t.staffPhotoInvalid;
+    if (error === "too_large") return t.staffPhotoTooLarge;
+    if (error === "notfound") return t.staffItemGone;
+    // "unauthorized" is the screen's to act on (it clears the session);
+    // whatever is still on screen for the half-second before that should
+    // not claim the photo was saved.
+    return t.staffPhotoFailed;
+  }
+
+  function changePhoto(): void {
+    if (picking.current || photoBusy !== null) return;
+    askPhotoSource(
+      {
+        title: photoUrl ? t.staffChangePhoto : t.staffAddPhoto,
+        camera: t.issuePhotoCamera,
+        library: t.issuePhotoLibrary,
+        cancel: t.staffCancel,
+      },
+      (source) => void takePhoto(source),
+    );
+  }
+
+  async function takePhoto(source: "camera" | "library"): Promise<void> {
+    if (picking.current || photoBusy !== null) return;
+    picking.current = true;
+    setPhotoError(null);
+    try {
+      const picked = await pickPhoto(source, { maxBytes: MAX_ITEM_PHOTO_BYTES });
+      if (!picked.ok) {
+        // Backing out of the picker is not an error worth a red line.
+        if (picked.reason === "cancelled") return;
+        setPhotoError(
+          picked.reason === "denied"
+            ? source === "camera"
+              ? t.issueCameraDenied
+              : t.staffPhotoDenied
+            : picked.reason === "too_large"
+              ? t.staffPhotoTooLarge
+              : t.issuePhotoFailed,
+        );
+        return;
+      }
+      setPhotoBusy("upload");
+      // A phone camera hands over 4000 px and several megabytes; the
+      // menu shows it a screen wide. Shrunk here, so a counter on a
+      // restaurant's wifi uploads ~300 KB instead of ~4 MB.
+      const file = await shrinkPhoto(picked.photo, { width: picked.width, height: picked.height });
+      const res = await onPhoto(item, file);
+      if (!res.ok) {
+        setPhotoError(photoMessage(res.error));
+        return;
+      }
+      // The local file, not the server's URL: it is the very image that
+      // was just sent, and it can't be served stale out of the image
+      // cache the way a re-used remote URL could be. The LIST behind the
+      // sheet takes the echoed item, which is the one guests will load.
+      setPhotoUrl(file.uri);
+    } finally {
+      picking.current = false;
+      setPhotoBusy(null);
+    }
+  }
+
+  function confirmRemovePhoto(): void {
+    if (photoBusy !== null) return;
+    // Removing is live and immediate, so it is asked once.
+    Alert.alert(t.staffRemovePhoto, t.staffRemovePhotoConfirm, [
+      { text: t.staffCancel, style: "cancel" },
+      {
+        text: t.staffRemovePhoto,
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            setPhotoBusy("remove");
+            setPhotoError(null);
+            try {
+              const res = await onPhoto(item, null);
+              if (!res.ok) {
+                setPhotoError(photoMessage(res.error));
+                return;
+              }
+              setPhotoUrl(res.item ? res.item.photoUrl : null);
+            } finally {
+              setPhotoBusy(null);
+            }
+          })();
+        },
+      },
+    ]);
+  }
 
   async function save(): Promise<void> {
     if (busy) return;
@@ -423,6 +553,70 @@ function StaffItemForm({
             </View>
 
             <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
+              {/* The dish's picture, first — it is the thing a guest
+                  looks at before any of the words. Saved on its own
+                  route the moment it is picked, so it never waits
+                  behind the form's "Save". */}
+              <View style={{ gap: 8 }}>
+                <Text style={styles.label}>{t.staffItemPhoto}</Text>
+                <View style={styles.photoEditRow}>
+                  {photoUrl ? (
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={styles.photoPreview}
+                      resizeMode="cover"
+                      accessibilityIgnoresInvertColors
+                    />
+                  ) : (
+                    <View style={[styles.photoPreview, styles.photoEmpty]}>
+                      <Ionicons name="image-outline" size={24} color={colors.inkSoft} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <Pressable
+                      onPress={changePhoto}
+                      disabled={photoBusy !== null}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${photoUrl ? t.staffChangePhoto : t.staffAddPhoto} — ${item.name}`}
+                      style={({ pressed }) => [
+                        styles.photoBtn,
+                        (photoBusy !== null || pressed) && { opacity: 0.6 },
+                      ]}
+                    >
+                      <Text style={styles.photoBtnText} numberOfLines={1}>
+                        {photoUrl ? t.staffChangePhoto : t.staffAddPhoto}
+                      </Text>
+                    </Pressable>
+                    {photoUrl ? (
+                      <Pressable
+                        onPress={confirmRemovePhoto}
+                        disabled={photoBusy !== null}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t.staffRemovePhoto} — ${item.name}`}
+                        style={({ pressed }) => [
+                          styles.photoQuietBtn,
+                          (photoBusy !== null || pressed) && { opacity: 0.6 },
+                        ]}
+                      >
+                        <Text style={styles.photoQuietText} numberOfLines={1}>
+                          {t.staffRemovePhoto}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </View>
+                {photoBusy !== null ? (
+                  <View style={styles.photoBusyRow}>
+                    <ActivityIndicator size="small" color={colors.red} />
+                    <Text style={styles.hint}>
+                      {photoBusy === "upload" ? t.staffPhotoUploading : t.staffPhotoRemoving}
+                    </Text>
+                  </View>
+                ) : null}
+                {photoError ? <Text style={styles.error}>{photoError}</Text> : null}
+                <Text style={styles.hint}>{t.staffPhotoHint}</Text>
+              </View>
+
               {/* Name and description used to be read-only here, with a
                   line pointing at the web dashboard. The counter is the
                   device the owner actually has in their hand, so they
@@ -580,9 +774,13 @@ function StaffItemForm({
                   <Text style={styles.btnQuietText}>{t.staffCancel}</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.btn, styles.btnPrimary, busy && { opacity: 0.6 }]}
+                  style={[
+                    styles.btn,
+                    styles.btnPrimary,
+                    (busy || photoBusy !== null) && { opacity: 0.6 },
+                  ]}
                   onPress={() => void save()}
-                  disabled={busy}
+                  disabled={busy || photoBusy !== null}
                   accessibilityRole="button"
                 >
                   <Text style={styles.btnPrimaryText}>{busy ? t.staffSaving : t.staffSave}</Text>
@@ -777,6 +975,44 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputBad: { borderColor: colors.danger },
+  photoEditRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  /** Same 4:3-ish tile the menu row shows, big enough to judge the
+   *  picture by before it goes live. */
+  photoPreview: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.md,
+    backgroundColor: colors.line,
+  },
+  photoEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.creamCard,
+  },
+  photoBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.red,
+    borderRadius: radius.pill,
+    // 44 is the smallest comfortable tap target.
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  photoBtnText: { color: colors.red, ...fonts.bodyBold, fontSize: 13.5 },
+  photoQuietBtn: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.pill,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  photoQuietText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13 },
+  photoBusyRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   /** Three lines of room, growing with the text — a dish description is
    *  a sentence or two, not a single-line field to scroll sideways. */
   inputMultiline: { minHeight: 88, paddingTop: 11 },

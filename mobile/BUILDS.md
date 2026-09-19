@@ -443,6 +443,25 @@ Stripe key ⇒ the labelled **Simulate payment (test)** button instead.
   a comma, and a refused field is marked individually.
 - **Dish name and description** are editable in the Menu tab's edit sheet
   (restaurant mode) — they used to point at the web dashboard.
+- **Dish photo.** The same edit sheet now opens on the dish's picture with
+  **Change photo** (→ *Take photo* / *Choose from library*, the guest
+  complaint sheet's chooser, shared in `src/photo.ts`) and **Remove photo**.
+  Both are LIVE and immediate — they do not wait for *Save* — and the row
+  behind the sheet shows the new picture as soon as the server answers.
+  Before uploading, the app shrinks the picked image to a longest edge of
+  **1600 px** and re-encodes it as **JPEG at quality 0.82**, so a 4 MB camera
+  frame leaves the counter as roughly 200–400 KB. Routes:
+  `POST|DELETE /api/v1/staff/items/{id}/photo` (`X-Staff-Token`, multipart
+  field `photo`, JPEG/PNG/WebP, 10 MB cap). To test: edit a dish, take a
+  photo, confirm the menu row and the *guest* menu both show it, then remove
+  it and confirm the empty tile comes back.
+
+  ⛔ **Native rebuild required** — `expo-image-manipulator` (~57.0.19) is a
+  **native module**, so the currently installed APK/IPA cannot downscale and
+  the feature will fail on the picked image. Rebuild (`npx expo prebuild` +
+  `expo run:ios` / an EAS build) after pulling this change; an OTA update
+  cannot deliver it. No new permission: the camera and photo-library strings
+  from `expo-image-picker` already cover it.
 - **Open / Closed** now shows as a coloured dot plus the word in the header.
   It only renders when the server says; behind the counter it reflects the
   live state from `/api/v1/staff/hours`.

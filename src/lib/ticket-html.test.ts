@@ -61,6 +61,21 @@ describe("renderTicketHtml", () => {
     expect(html).toContain("monospace");
   });
 
+  it("centres the 302 px column on wider paper and cuts to the roll when it can", () => {
+    const html = renderTicketHtml(order(), VENUE);
+    // Auto side margins: the phone's print preview and any A4/letter sheet
+    // put the ticket in the middle rather than against the left edge.
+    // Horizontal only, so the ticket still starts at the top of the page.
+    expect(html).toContain("margin: 0 auto");
+    // …and it survives into the print sheet, not just the on-screen preview.
+    const print = html.slice(html.indexOf("@media print"));
+    expect(print).toContain("margin: 0 auto");
+    // A receipt printer that honours `size` trims the page to the roll.
+    expect(print).toContain("@page { size: 80mm auto; margin: 0; }");
+    // The column itself must stay 80 mm — centring must not widen it.
+    expect(html).not.toContain("width: 100%");
+  });
+
   it("carries the venue, the padded order number, the time and the dishes", () => {
     const html = renderTicketHtml(order(), VENUE);
     expect(html).toContain("Rangla Punjab");

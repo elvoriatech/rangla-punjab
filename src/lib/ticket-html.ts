@@ -28,6 +28,10 @@ import type { KitchenOrder } from "./order-service";
  *   horizontal overflow silently clips the price column.
  * - `@page { margin: 0 }` because a receipt printer's own margin is the
  *   roll edge; anything the renderer adds is wasted paper per ticket.
+ *   `@media print` narrows that to `size: 80mm auto`, so a printer that
+ *   honours page size cuts to the roll instead of centring 80 mm of ticket
+ *   on an A4 sheet — and where it is ignored, the column's auto side
+ *   margins still put it in the middle of whatever paper turns up.
  */
 
 /** Material icon paths (24×24) for the ticket's info rows. */
@@ -225,7 +229,12 @@ export function renderTicketHtml(
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: #fff; color: #000; }
 body {
+  /* The ticket column is always 80 mm (302 px); the auto side margins centre
+     it on anything wider — the phone's print preview, A4 paper, a PDF export
+     — instead of pinning it to the left edge. Auto margins are horizontal
+     only, so the ticket still starts at the top of the page. */
   width: 302px;
+  margin: 0 auto;
   padding: 8px 10px 16px;
   font-family: "Menlo", "Consolas", "DejaVu Sans Mono", monospace;
   font-size: 13px;
@@ -266,7 +275,11 @@ li.note { display: block; padding-left: 20px; font-size: 11px; font-style: itali
 .disc { display: flex; justify-content: space-between; }
 .foot { margin-top: 7px; text-align: center; font-size: 11px; }
 @media print {
-  body { width: 302px; padding: 0 6px 6px; }
+  /* A receipt printer that honours the page size cuts to the roll instead of
+     padding the ticket out to a letter/A4 sheet. One that ignores it falls
+     back to the real paper, where the auto margins keep the column centred. */
+  @page { size: 80mm auto; margin: 0; }
+  body { width: 302px; margin: 0 auto; padding: 0 6px 6px; }
   .qr svg { width: 132px; height: 132px; }
 }
 </style>

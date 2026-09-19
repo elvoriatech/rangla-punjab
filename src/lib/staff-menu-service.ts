@@ -258,6 +258,60 @@ export interface StaffItemUpdate {
 }
 
 /**
+ * Every row one staff write must land on, keyed by id with its current
+ * price (the one field both callers need for the offer invariant).
+ *
+ * The pair is resolved from a single anchor: `sourceItemId` on a published
+ * row names its draft, and a draft row is its own anchor. From that one id
+ * both sides are reachable, so a caller may name EITHER id and get the same
+ * write. Null means no such live row in this tenant — which, read under the
+ * tenant GUC, is also how another tenant's id answers.
+ */
+async function resolveItemPair(
+  tx: Prisma.TransactionClient,
+  itemId: string,
+): Promise<Map<string, number> | null> {
+  const anchor = await tx.item.findFirst({
+    where: { id: itemId, deletedAt: null },
+    select: { id: true, sourceItemId: true, priceCents: true },
+  });
+  if (!anchor) return null;
+
+  const menu = await tx.menu.findFirst({ select: { publishedVersion: true } });
+  const draftId = anchor.sourceItemId ?? anchor.id;
+
+  // The draft half: the row `draftId` names, but only if it really lives in
+  // a draft version — a dangling link from an older publish must not make
+  // some unrelated row a twin.
+  const draftTwin = await tx.item.findFirst({
+    where: {
+      id: draftId,
+      deletedAt: null,
+      category: { menuVersion: { status: "draft" } },
+    },
+    select: { id: true, priceCents: true },
+  });
+  // The published half: every copy of that draft row in the CURRENT
+  // published version. Older published versions are history and are left
+  // exactly as they were served.
+  const publishedTwins = menu?.publishedVersion
+    ? await tx.item.findMany({
+        where: {
+          sourceItemId: draftId,
+          deletedAt: null,
+          category: { menuVersionId: menu.publishedVersion },
+        },
+        select: { id: true, priceCents: true },
+      })
+    : [];
+
+  const rows = new Map<string, number>([[anchor.id, anchor.priceCents]]);
+  if (draftTwin) rows.set(draftTwin.id, draftTwin.priceCents);
+  for (const row of publishedTwins) rows.set(row.id, row.priceCents);
+  return rows;
+}
+
+/**
  * Update one dish and its twin.
  *
  * The pair is resolved from a single anchor: `sourceItemId` on a published row
@@ -292,43 +346,8 @@ export async function updateStaffItem(
   }
 
   const outcome = await asTenant(tenantId, async (tx): Promise<StaffResult<StaffItemUpdate>> => {
-    const anchor = await tx.item.findFirst({
-      where: { id: itemId, deletedAt: null },
-      select: { id: true, sourceItemId: true, priceCents: true },
-    });
-    if (!anchor) return { ok: false, error: "not_found" };
-
-    const menu = await tx.menu.findFirst({ select: { publishedVersion: true } });
-    const draftId = anchor.sourceItemId ?? anchor.id;
-
-    // The draft half: the row `draftId` names, but only if it really lives in
-    // a draft version — a dangling link from an older publish must not make
-    // some unrelated row a twin.
-    const draftTwin = await tx.item.findFirst({
-      where: {
-        id: draftId,
-        deletedAt: null,
-        category: { menuVersion: { status: "draft" } },
-      },
-      select: { id: true, priceCents: true },
-    });
-    // The published half: every copy of that draft row in the CURRENT
-    // published version. Older published versions are history and are left
-    // exactly as they were served.
-    const publishedTwins = menu?.publishedVersion
-      ? await tx.item.findMany({
-          where: {
-            sourceItemId: draftId,
-            deletedAt: null,
-            category: { menuVersionId: menu.publishedVersion },
-          },
-          select: { id: true, priceCents: true },
-        })
-      : [];
-
-    const rows = new Map<string, number>([[anchor.id, anchor.priceCents]]);
-    if (draftTwin) rows.set(draftTwin.id, draftTwin.priceCents);
-    for (const row of publishedTwins) rows.set(row.id, row.priceCents);
+    const rows = await resolveItemPair(tx, itemId);
+    if (!rows) return { ok: false, error: "not_found" };
 
     // An offer must be a genuine reduction on EVERY row it lands on.
     if (patch.offer) {
@@ -383,6 +402,82 @@ export async function updateStaffItem(
 
   // Purge outside the transaction: a CDN hiccup must never roll back a write
   // the owner already saw succeed, and the 300 s s-maxage bounds the damage.
+  if (outcome.ok) await purgeMenuForTenant(tenantId);
+  return outcome;
+}
+
+/* ------------------------------------------------------------------ */
+/* The dish photo                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The dish's name, or null when this tenant has no such live dish.
+ *
+ * The photo route asks BEFORE it stores any bytes: a wrong id (or another
+ * tenant's, which RLS makes the same thing) must answer 404 without
+ * leaving an orphan `Media` row and a file on disk behind it. The name
+ * doubles as the upload's alt text, exactly as the dashboard's item form
+ * labels the same photo.
+ */
+export async function findStaffItemName(tenantId: string, itemId: string): Promise<string | null> {
+  return asTenant(tenantId, async (tx) => {
+    const row = await tx.item.findFirst({
+      where: { id: itemId, deletedAt: null },
+      select: { name: true },
+    });
+    return row?.name ?? null;
+  });
+}
+
+/**
+ * Attach a photo to a dish — or, with `null`, take it off.
+ *
+ * Same both-halves rule as price: the published row so guests see the new
+ * picture now, and the draft twin so the next publish does not put the old
+ * one back. `photoMediaId` is the same column the dashboard's item form
+ * writes, pointing at a `Media` row the caller has already created through
+ * `saveUploadedImage` (normalized, EXIF-stripped, stored under the tenant
+ * prefix) — this function never touches bytes.
+ *
+ * Removal DETACHES and keeps the `Media` row, exactly as the dashboard's
+ * remove-photo action does (`setCategoryPhoto(..., null)`): the same upload
+ * may still be referenced by an older published version, and an owner who
+ * clears a photo by accident has not lost the file.
+ */
+export async function setStaffItemPhoto(
+  tenantId: string,
+  itemId: string,
+  photoMediaId: string | null,
+): Promise<StaffResult<StaffItemUpdate>> {
+  const outcome = await asTenant(tenantId, async (tx): Promise<StaffResult<StaffItemUpdate>> => {
+    const rows = await resolveItemPair(tx, itemId);
+    if (!rows) return { ok: false, error: "not_found" };
+
+    if (photoMediaId !== null) {
+      // Read back under the tenant GUC, so RLS — not a foreign-key error —
+      // is what refuses an upload belonging to somebody else.
+      const media = await tx.media.findFirst({
+        where: { id: photoMediaId },
+        select: { id: true },
+      });
+      if (!media) return { ok: false, error: "not_found" };
+    }
+
+    await tx.item.updateMany({ where: { id: { in: [...rows.keys()] } }, data: { photoMediaId } });
+
+    const timezone = await venueTimezone(tx);
+    const fresh = await tx.item.findFirstOrThrow({
+      where: { id: itemId },
+      select: staffItemSelect,
+    });
+    return {
+      ok: true,
+      value: { item: toStaffItem(fresh, timezone, new Date()), mirrored: rows.size > 1 },
+    };
+  });
+
+  // Outside the transaction, like every other staff write: a CDN hiccup must
+  // never roll back a change the owner already saw succeed.
   if (outcome.ok) await purgeMenuForTenant(tenantId);
   return outcome;
 }

@@ -37,6 +37,15 @@ import type { ApiItem, ApiRating } from "./api";
  * a third row of type under a 20 pt name is noise. No rating (the
  * default: no Place ID, rating switched off, older server) ⇒ the
  * subtitle stays exactly as it was.
+ *
+ * EVERY screen's bar is the SAME height. The content area is pinned to
+ * `HEADER_CONTENT_HEIGHT` (safe-area padding sits above it, in `App.tsx`),
+ * measured off the tallest case there is — a 20 pt title plus the rating
+ * line under it. A screen that passes only a title gets the same slab
+ * with more air in it, so moving between Home, Menu, Cart and Orders no
+ * longer makes the red jump. The title is deliberately single-line
+ * (`numberOfLines={1}` + `adjustsFontSizeToFit`): letting a long venue
+ * name wrap is the other way the height used to drift.
  */
 export function BrandHeader({
   title,
@@ -56,46 +65,63 @@ export function BrandHeader({
   return (
     <View style={styles.headerWrap}>
       <View style={styles.header}>
-        {onBack ? (
-          <Pressable
-            onPress={onBack}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t.back}
-            style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
-          >
-            {/* Ionicons don't mirror themselves: pick the arrow that points
-                "back" in the current reading direction. */}
-            <Ionicons
-              name={isRTL ? "arrow-forward" : "arrow-back"}
-              size={22}
-              color={colors.onRed}
-            />
-          </Pressable>
-        ) : (
-          <Image source={logo} style={styles.headerLogo} />
-        )}
+        {/* Start slot: logo, or the back arrow in its place. Both stay
+            vertically centred in the bar, exactly where they were. */}
+        <View style={styles.headerStart}>
+          {onBack ? (
+            <Pressable
+              onPress={onBack}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t.back}
+              style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
+            >
+              {/* Ionicons don't mirror themselves: pick the arrow that points
+                  "back" in the current reading direction. */}
+              <Ionicons
+                name={isRTL ? "arrow-forward" : "arrow-back"}
+                size={22}
+                color={colors.onRed}
+              />
+            </Pressable>
+          ) : (
+            <Image source={logo} style={styles.headerLogo} />
+          )}
+        </View>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            {title}
+          </Text>
           {rating ? (
             <HeaderRatingLine rating={rating} />
           ) : subtitle ? (
-            <Text style={styles.headerSubtitle}>{subtitle}</Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
           ) : null}
         </View>
-        {onMenu ? (
-          <Pressable
-            onPress={onMenu}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t.ownerMenuOpen}
-            style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
-          >
-            <Ionicons name="menu" size={26} color={colors.onRed} />
-          </Pressable>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
+        {/* End slot: the burger, pinned to the TOP corner of the content
+            area rather than centred on it. The slot itself is always
+            there — an empty one on the screens without a burger — so the
+            centred title keeps symmetric gutters either way. */}
+        <View style={styles.headerEnd}>
+          {onMenu ? (
+            <Pressable
+              onPress={onMenu}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t.ownerMenuOpen}
+              style={({ pressed }) => [styles.headerMenuBtn, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons name="menu" size={26} color={colors.onRed} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -431,6 +457,18 @@ export function QtyStepper({
   );
 }
 
+/**
+ * The one height every screen's red bar agrees on, safe-area padding
+ * excluded. It is the tallest case measured: a 26 pt title line plus the
+ * rating line under it (2 pt of air + a 24 pt press box). A title-only
+ * screen renders the same 52 and simply centres its one line in it.
+ */
+const HEADER_CONTENT_HEIGHT = 52;
+/** Both side slots, reserved whether or not anything is in them, so the
+ *  centred title always has the same gutter left and right. 44 is the
+ *  minimum touch target, which the burger now fills exactly. */
+const HEADER_SLOT = 44;
+
 const styles = StyleSheet.create({
   /** The red slab. It owns the padding and the colour so the rows
    *  inside it are pure layout — and so the status line, when it is
@@ -440,20 +478,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  /** `gap: 8` rather than the old 12: "Rangla Punjab · Konstanz" at 20 pt
-   *  needs 235 pt and a 375 pt phone left it 237 — two points from
-   *  wrapping. Eight points either side of a 40 pt icon still reads as
-   *  space, and buys the longest venue name room it can be trusted with. */
+  /** Fixed height, and `stretch` so the side slots are full-height rails
+   *  that can park their contents at the top (burger) or the middle
+   *  (logo / back arrow) independently.
+   *
+   *  `gap: 8` rather than the old 12: "Rangla Punjab · Konstanz" at 20 pt
+   *  needs ~235 pt, and 375 - 32 padding - 2×44 slots - 2×8 gaps leaves
+   *  it 239. `adjustsFontSizeToFit` on the title is the guarantee for the
+   *  names that don't fit even that. */
   header: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "stretch",
+    height: HEADER_CONTENT_HEIGHT,
     gap: 8,
   },
+  /** Logo and back arrow keep their old vertical centring. */
+  headerStart: { width: HEADER_SLOT, justifyContent: "center", alignItems: "flex-start" },
+  /** The burger rides the TOP of the content area (owner's ask), flush
+   *  with the slab's own 16 pt inset on the end side. */
+  headerEnd: { width: HEADER_SLOT, justifyContent: "flex-start", alignItems: "flex-end" },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
    *  never shifts the title off centre. */
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerCenter: { flex: 1, alignItems: "center" },
+  /** A full 44 pt target, since nothing above it constrains the corner. */
+  headerMenuBtn: {
+    width: HEADER_SLOT,
+    height: HEADER_SLOT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerCenter: { flex: 1, alignItems: "center", justifyContent: "center" },
   /** `flexDirection: "row"` mirrors itself in an RTL build, so the dot
    *  stays on the reading edge with nothing to special-case.
    *
@@ -480,7 +535,9 @@ const styles = StyleSheet.create({
   },
   stateDot: { width: 9, height: 9, borderRadius: 5 },
   stateText: { ...fonts.bodyHeavy, fontSize: 11, letterSpacing: 0.2 },
-  headerTitle: { color: colors.onRed, fontSize: 20, ...fonts.display },
+  /** Explicit `lineHeight` so the fixed bar height is arithmetic rather
+   *  than a guess about Playfair's ascenders on each platform. */
+  headerTitle: { color: colors.onRed, fontSize: 20, lineHeight: 26, ...fonts.display },
   headerSubtitle: {
     color: colors.goldSoft,
     ...fonts.body,
@@ -492,13 +549,14 @@ const styles = StyleSheet.create({
    *  the press a ~28 pt box of its own, and the 10 pt hitSlop above and
    *  below takes the real target past 44 pt without pushing the header
    *  taller than the subtitle it replaces by more than a few points.
-   *  `wrap` is insurance: a long localised "Write a review" beside a
-   *  four-digit count folds to a second line rather than being clipped. */
+   *  It must NOT wrap: the bar's height is now fixed, so a second line
+   *  would be clipped rather than accommodated — the link shrinks and
+   *  ellipsises instead (`numberOfLines={1}` on it). */
   headerRating: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     gap: 4,
     marginTop: 2,
     minHeight: 24,
@@ -513,6 +571,7 @@ const styles = StyleSheet.create({
     ...fonts.bodySemi,
     fontSize: 12,
     textDecorationLine: "underline",
+    flexShrink: 1,
   },
   sectionRow: {
     flexDirection: "row",

@@ -739,6 +739,96 @@ export async function updateStaffItem(
   return { ok: true, data: asStaffItem(res.body.item) };
 }
 
+/**
+ * A dish photo lives on its own two routes rather than in the item
+ * patch: it is a file, not a field, so it travels as multipart and is
+ * saved the moment it is picked (there is nothing sensible to "cancel"
+ * once the bytes are on the server).
+ *
+ * `POST .../photo` replaces whatever the dish had; `DELETE .../photo`
+ * takes it off. Both answer with the whole item, so the caller can drop
+ * the new `photoUrl` straight into the list.
+ */
+export type StaffPhotoError =
+  | "unauthorized"
+  /** 400 — not an image, or not one of JPEG/PNG/WebP. */
+  | "invalid_photo"
+  /** 413 — over the server's 10 MB cap (or a proxy's own). */
+  | "too_large"
+  | "notfound"
+  | "network"
+  | "server";
+
+export type StaffPhotoResult =
+  /** Null when the server answered 200 without echoing the item — the
+   *  caller's refetch carries the truth, exactly as for a patch. */
+  { ok: true; data: StaffItem | null } | { ok: false; error: StaffPhotoError };
+
+/** `MAX_ITEM_PHOTO_BYTES` on the server. Checked here too so an
+ *  over-size photo is refused before it is uploaded. */
+export const MAX_ITEM_PHOTO_BYTES = 10 * 1024 * 1024;
+
+/** The server's own code when it sent one, the status when it didn't. */
+function photoFailure(status: number, body: Record<string, unknown> | null): StaffPhotoError {
+  const named = body ? str(body.error) : "";
+  if (named === "invalid_photo" || named === "too_large") return named;
+  if (status === 401 || status === 403) return "unauthorized";
+  if (status === 413) return "too_large";
+  if (status === 404) return "notfound";
+  if (status === 400 || status === 422) return "invalid_photo";
+  return "server";
+}
+
+/**
+ * Put a photo on one dish. LIVE, like every other edit here: a 200 means
+ * the guest menu already shows it.
+ *
+ * The caller is expected to have shrunk the image first (see
+ * `shrinkPhoto` in `photo.ts`) — this sends whatever it is given.
+ */
+export async function uploadStaffItemPhoto(
+  token: string,
+  itemId: string,
+  file: { uri: string; name: string; type: string },
+): Promise<StaffPhotoResult> {
+  try {
+    const form = new FormData();
+    // The RN file descriptor: not a browser File, which is why this cast
+    // exists at all (same shape `postIssueMessage` sends).
+    form.append("photo", file as unknown as Blob);
+    const res = await fetch(`${BASE_URL}/api/v1/staff/items/${encodeURIComponent(itemId)}/photo`, {
+      method: "POST",
+      // No Content-Type: `fetch` has to set the multipart boundary.
+      headers: { "X-Staff-Token": token },
+      body: form,
+    });
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    // Defensive like every other route here: a 200 is the verdict, and
+    // an `ok` the server didn't send is not a failure it reported.
+    if (res.status !== 200 || !body || body.ok === false) {
+      return { ok: false, error: photoFailure(res.status, body) };
+    }
+    return { ok: true, data: asStaffItem(body.item) };
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+/** Take the photo off a dish. The row falls back to the empty tile. */
+export async function removeStaffItemPhoto(
+  token: string,
+  itemId: string,
+): Promise<StaffPhotoResult> {
+  const res = await staffFetch(token, `/api/v1/staff/items/${encodeURIComponent(itemId)}/photo`, {
+    method: "DELETE",
+  });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body || res.body.ok === false) {
+    return { ok: false, error: photoFailure(res.status, res.body) };
+  }
+  return { ok: true, data: asStaffItem(res.body.item) };
+}
+
 function asOrdering(raw: unknown): StaffOrdering {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   // Absent means "on": the switches are how a venue turns a service OFF,
