@@ -90,6 +90,10 @@ export function BoardScreen(): React.ReactElement {
    *  simply failed. Said once, then it gets out of the way. */
   const [note, setNote] = useState<{ id: string; kind: "moved" | "failed" } | null>(null);
   const [fresh, setFresh] = useState<readonly string[]>([]);
+  /** Which cards are open. A card is a headline until someone asks for the
+   *  rest of it — the board is a list to scan, not a wall to scroll. Nothing
+   *  is persisted: closing the app gives the quiet default back. */
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set<string>());
 
   /** Server clock from the last successful read — the `since` cursor. */
   const sinceRef = useRef<string | null>(null);
@@ -147,6 +151,13 @@ export function BoardScreen(): React.ReactElement {
         // One short buzz, not a ringtone: the kitchen is a quiet room.
         Vibration.vibrate(250);
         setFresh((prevFresh) => [...prevFresh, ...arrived]);
+        // A ticket that just landed opens itself: the kitchen should read
+        // the items without being asked to tap first.
+        setExpandedIds((prev) => {
+          const next = new Set(prev);
+          for (const id of arrived) next.add(id);
+          return next;
+        });
         const timer = setTimeout(() => {
           timersRef.current = timersRef.current.filter((x) => x !== timer);
           setFresh((prevFresh) => prevFresh.filter((id) => !arrived.includes(id)));
@@ -210,6 +221,14 @@ export function BoardScreen(): React.ReactElement {
       );
     }, 6_000);
     timersRef.current.push(timer);
+  }, []);
+
+  const toggleCard = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   }, []);
 
   const onRefresh = useCallback(() => {
@@ -276,6 +295,8 @@ export function BoardScreen(): React.ReactElement {
 
   function renderCard(order: StaffOrder, closed: boolean): React.ReactElement {
     const lit = fresh.includes(order.id);
+    const expanded = expandedIds.has(order.id);
+    const number = `#${String(order.orderNumber).padStart(4, "0")}`;
     const placed = timeOf(order.createdAt);
     const planned = order.requestedFor ? timeOf(order.requestedFor) : "";
     const typeText =
@@ -302,6 +323,9 @@ export function BoardScreen(): React.ReactElement {
     const addressLine = address
       ? [address.street, address.zip, address.city].filter(Boolean).join(", ")
       : "";
+    const hasContact = Boolean(
+      order.customerName || order.customerPhone || addressLine || address?.note,
+    );
     const cardNote = note && note.id === order.id ? note : null;
 
     return (
@@ -309,122 +333,158 @@ export function BoardScreen(): React.ReactElement {
         key={order.id}
         style={[styles.card, closed && styles.cardClosed, lit && styles.cardFresh]}
       >
-        <View style={styles.headRow}>
-          <Text style={styles.number}>#{String(order.orderNumber).padStart(4, "0")}</Text>
-          <View style={[styles.pill, closed ? styles.pillDone : styles.pillActive]}>
-            <Text
-              style={[styles.pillText, closed ? styles.pillTextDone : styles.pillTextActive]}
-              numberOfLines={1}
-            >
-              {statusShort[order.status] ?? order.status}
-            </Text>
-          </View>
-          <View style={[styles.pill, pay.settled ? styles.pillDone : styles.pillNeutral]}>
-            <Text style={styles.pillIcon}>{pay.icon}</Text>
-            <Text
-              style={[styles.pillText, pay.settled ? styles.pillTextDone : styles.pillTextNeutral]}
-              numberOfLines={1}
-            >
-              {pay.text}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.metaRow}>
-          <Text style={styles.meta} numberOfLines={1}>
-            {TYPE_ICONS[order.orderType] ?? "•"} {typeText}
-          </Text>
-          <Text style={styles.meta} numberOfLines={1}>
-            {placed}
-            {planned ? ` · ${fill(t.boardPlanned, { time: planned })}` : ""}
-          </Text>
-        </View>
-
-        <View style={styles.items}>
-          {order.items.map((item, index) => (
-            <View key={`${order.id}-${index}`} style={styles.itemRow}>
-              <Text style={styles.itemQty}>{item.quantity}×</Text>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemPrice}>
-                {money(item.priceCents * item.quantity, order.currency)}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>{t.total}</Text>
-          <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
-        </View>
-        {discountCents > 0 ? (
-          <Text style={styles.rewardOff}>
-            {fill(t.ordersRewardOff, { value: money(discountCents, order.currency) })}
-          </Text>
-        ) : null}
-
-        {order.customerName || order.customerPhone || addressLine || address?.note ? (
-          <View style={styles.contact}>
-            {order.customerName ? (
-              <Text style={styles.contactName}>{order.customerName}</Text>
-            ) : null}
-            <View style={styles.contactBtns}>
-              {order.customerPhone ? (
-                <Pressable
-                  onPress={() => callPhone(order.customerPhone as string)}
-                  style={styles.contactBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${t.boardCall} ${order.customerPhone}`}
+        {/* The headline: everything the pass needs to triage at a glance,
+            and the tap target that reveals the rest. */}
+        <Pressable
+          onPress={() => toggleCard(order.id)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel={fill(t.boardOrderDetails, { number })}
+          style={({ pressed }) => [styles.header, pressed && { opacity: 0.65 }]}
+        >
+          <View style={styles.headRow}>
+            <View style={styles.headMain}>
+              <Text style={styles.number}>{number}</Text>
+              <View style={[styles.pill, closed ? styles.pillDone : styles.pillActive]}>
+                <Text
+                  style={[styles.pillText, closed ? styles.pillTextDone : styles.pillTextActive]}
+                  numberOfLines={1}
                 >
-                  <Text style={styles.contactBtnText}>📞 {order.customerPhone}</Text>
-                </Pressable>
-              ) : null}
-              {addressLine ? (
-                <Pressable
-                  onPress={() => openDirections(order)}
-                  style={styles.contactBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${t.boardDirections}: ${addressLine}`}
-                >
-                  <Text style={styles.contactBtnText} numberOfLines={2}>
-                    🧭 {addressLine}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-            {address?.note ? (
-              <Text style={styles.contactNote}>
-                {t.boardNote}: {address.note}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        {order.allowedNext.length > 0 ? (
-          <View style={styles.actions}>
-            {order.allowedNext.map((to) => {
-              const quiet = to === "cancelled" || to === "canceled";
-              const busy = busyId === order.id;
-              return (
-                <Pressable
-                  key={`${order.id}-${to}`}
-                  onPress={() => void advance(order, to)}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: busy }}
-                  style={({ pressed }) => [
-                    styles.action,
-                    quiet ? styles.actionQuiet : styles.actionPrimary,
-                    (busy || pressed) && { opacity: 0.6 },
+                  {statusShort[order.status] ?? order.status}
+                </Text>
+              </View>
+              <View style={[styles.pill, pay.settled ? styles.pillDone : styles.pillNeutral]}>
+                <Text style={styles.pillIcon}>{pay.icon}</Text>
+                <Text
+                  style={[
+                    styles.pillText,
+                    pay.settled ? styles.pillTextDone : styles.pillTextNeutral,
                   ]}
+                  numberOfLines={1}
                 >
-                  <Text style={quiet ? styles.actionQuietText : styles.actionPrimaryText}>
-                    {statusShort[to] ?? to}
-                  </Text>
-                </Pressable>
-              );
-            })}
-            {busyId === order.id ? <ActivityIndicator color={colors.red} /> : null}
+                  {pay.text}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.headEnd}>
+              <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
+              {/* Vertical glyph on purpose: it means the same thing in an
+                  RTL layout, so there is nothing to mirror. */}
+              <Text style={[styles.chevron, expanded && styles.chevronOpen]}>▾</Text>
+            </View>
           </View>
+
+          <View style={styles.metaRow}>
+            <Text style={styles.meta} numberOfLines={1}>
+              {TYPE_ICONS[order.orderType] ?? "•"} {typeText}
+            </Text>
+            <Text style={styles.meta} numberOfLines={1}>
+              {placed}
+              {planned ? ` · ${fill(t.boardPlanned, { time: planned })}` : ""}
+            </Text>
+          </View>
+        </Pressable>
+
+        {expanded ? (
+          <>
+            {hasContact ? (
+              <View style={styles.contact}>
+                {order.customerName || order.customerPhone ? (
+                  // Who it is, and the one tap that reaches them — opposite
+                  // ends of the same line, so the eye finds both at once.
+                  <View style={styles.contactTop}>
+                    <Text style={styles.contactName} numberOfLines={1}>
+                      {order.customerName ?? ""}
+                    </Text>
+                    {order.customerPhone ? (
+                      <Pressable
+                        onPress={() => callPhone(order.customerPhone as string)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t.boardCall} ${order.customerPhone}`}
+                        style={({ pressed }) => [styles.phoneBtn, pressed && { opacity: 0.6 }]}
+                      >
+                        <Text style={styles.phoneBtnText} numberOfLines={1}>
+                          📞 {order.customerPhone}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : null}
+
+                {addressLine ? (
+                  // The address gets the full width it needs; the whole row
+                  // is the directions button.
+                  <Pressable
+                    onPress={() => openDirections(order)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t.boardDirections}: ${addressLine}`}
+                    style={({ pressed }) => [styles.addressRow, pressed && { opacity: 0.6 }]}
+                  >
+                    <Text style={styles.address} numberOfLines={2}>
+                      {addressLine}
+                    </Text>
+                    <View style={styles.dirChip}>
+                      <Text style={styles.dirChipText} numberOfLines={1}>
+                        🧭 {t.boardDirections}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ) : null}
+
+                {address?.note ? (
+                  <Text style={styles.contactNote}>
+                    {t.boardNote}: {address.note}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            <View style={styles.items}>
+              {order.items.map((item, index) => (
+                <View key={`${order.id}-${index}`} style={styles.itemRow}>
+                  <Text style={styles.itemQty}>{item.quantity}×</Text>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={styles.itemPrice}>
+                    {money(item.priceCents * item.quantity, order.currency)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {discountCents > 0 ? (
+              <Text style={styles.rewardOff}>
+                {fill(t.ordersRewardOff, { value: money(discountCents, order.currency) })}
+              </Text>
+            ) : null}
+
+            {order.allowedNext.length > 0 ? (
+              <View style={styles.actions}>
+                {order.allowedNext.map((to) => {
+                  const quiet = to === "cancelled" || to === "canceled";
+                  const busy = busyId === order.id;
+                  return (
+                    <Pressable
+                      key={`${order.id}-${to}`}
+                      onPress={() => void advance(order, to)}
+                      disabled={busy}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: busy }}
+                      style={({ pressed }) => [
+                        styles.action,
+                        quiet ? styles.actionQuiet : styles.actionPrimary,
+                        (busy || pressed) && { opacity: 0.6 },
+                      ]}
+                    >
+                      <Text style={quiet ? styles.actionQuietText : styles.actionPrimaryText}>
+                        {statusShort[to] ?? to}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                {busyId === order.id ? <ActivityIndicator color={colors.red} /> : null}
+              </View>
+            ) : null}
+          </>
         ) : null}
 
         {cardNote ? (
@@ -526,7 +586,12 @@ const styles = StyleSheet.create({
   cardClosed: { backgroundColor: colors.cream, opacity: 0.75 },
   /** Just arrived: the gold the brand uses for "look here". */
   cardFresh: { borderColor: colors.goldSoft, borderWidth: 2, backgroundColor: "#fdf6e3" },
-  headRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  header: { gap: 6 },
+  headRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headMain: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 },
+  headEnd: { flexDirection: "row", alignItems: "center", gap: 8 },
+  chevron: { color: colors.inkSoft, fontSize: 15, lineHeight: 18, ...fonts.bodyHeavy },
+  chevronOpen: { transform: [{ rotate: "180deg" }] },
   number: { color: colors.ink, fontSize: 19, ...fonts.bodyHeavy },
   metaRow: {
     flexDirection: "row",
@@ -540,15 +605,6 @@ const styles = StyleSheet.create({
   itemQty: { color: colors.red, ...fonts.bodyHeavy, fontSize: 14, minWidth: 26 },
   itemName: { color: colors.ink, ...fonts.bodySemi, fontSize: 14.5, flex: 1 },
   itemPrice: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5 },
-  totalRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderColor: colors.line,
-    paddingTop: 8,
-  },
-  totalLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13 },
   total: { color: colors.red, fontSize: 17, ...fonts.bodyHeavy },
   rewardOff: { color: colors.gold, ...fonts.bodySemi, fontSize: 11.5 },
   contact: {
@@ -557,9 +613,9 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     paddingTop: 8,
   },
-  contactName: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
-  contactBtns: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  contactBtn: {
+  contactTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  contactName: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, flex: 1 },
+  phoneBtn: {
     borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: radius.pill,
@@ -568,7 +624,29 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     flexShrink: 1,
   },
-  contactBtnText: { color: colors.ink, ...fonts.bodySemi, fontSize: 13 },
+  phoneBtnText: { color: colors.ink, ...fonts.bodySemi, fontSize: 13 },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    backgroundColor: colors.cream,
+    paddingStart: 12,
+    paddingEnd: 8,
+    paddingVertical: 8,
+  },
+  address: { color: colors.ink, ...fonts.bodySemi, fontSize: 13, flex: 1 },
+  dirChip: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.pill,
+    backgroundColor: colors.creamCard,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  dirChipText: { color: colors.ink, ...fonts.bodyBold, fontSize: 12.5 },
   contactNote: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5 },
   actions: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2 },
   action: {
