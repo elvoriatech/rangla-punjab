@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Linking, Platform } from "react-native";
+import { Platform } from "react-native";
+import * as ExpoLinking from "expo-linking";
 import { BASE_URL } from "./api";
+import { openReturningPage } from "./browser";
 import { staffLogout } from "./staff";
 import {
   clearStaffToken,
@@ -22,9 +24,12 @@ import {
  *     sign-in creates the account. Needs the EXPO_PUBLIC_GOOGLE_*_CLIENT_ID
  *     build vars AND a native build (the module does not exist in Expo Go).
  *  2. **Device-code browser flow** (`login`) — the app mints a device
- *     code, opens the provider login in the system browser and polls
+ *     code, opens the provider login in an in-app browser and polls
  *     until the backend parks the token under that code. No native
  *     module, works everywhere; the fallback whenever (1) is unavailable.
+ *     The device code carries our `auth-return` deep link, so the last
+ *     page of the flow hands the browser straight back to the app
+ *     instead of leaving the guest on the website.
  *
  * Plus email/password against the app's own account endpoints.
  *
@@ -275,17 +280,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       setBusyProvider(providerId);
       const myAttempt = cancelled;
       try {
-        const res = await fetch(`${BASE_URL}/api/v1/auth/device`, { method: "POST" });
+        // Where the browser must end up. The server parks it WITH the
+        // device code (never in the OAuth state) and the sign-in callback
+        // bounces to it; `openAuthSessionAsync` then closes the tab on it.
+        const returnUrl = ExpoLinking.createURL("auth-return");
+        const res = await fetch(`${BASE_URL}/api/v1/auth/device`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ app: returnUrl }),
+        });
         const body = (await res.json()) as {
           code?: string;
           providers?: { id: string; loginUrl: string }[];
         };
         const entry = body.providers?.find((p) => p.id === providerId);
         if (!body.code || !entry) return false;
-        await Linking.openURL(entry.loginUrl);
+        // Not awaited: the browser may sit open for minutes, and the poll
+        // below is what actually ends the sign-in. Settling it early (the
+        // deep link fired, or the guest dismissed the tab) just short-
+        // circuits the current 3-second wait so the signed-in state shows
+        // the instant the app is back on screen.
+        let browserClosed = false;
+        const session = openReturningPage(entry.loginUrl, returnUrl).then(
+          () => {
+            browserClosed = true;
+          },
+          () => {
+            browserClosed = true;
+          },
+        );
         // Poll up to 5 minutes for the browser flow to finish.
         for (let i = 0; i < 100; i += 1) {
-          await new Promise((r) => setTimeout(r, 3000));
+          const tick = new Promise((r) => setTimeout(r, 3000));
+          await (browserClosed ? tick : Promise.race([tick, session]));
           if (cancelled !== myAttempt) return false;
           const poll = await fetch(`${BASE_URL}/api/v1/auth/device/${body.code}`);
           if (poll.status === 404) return false; // expired

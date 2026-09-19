@@ -14,6 +14,7 @@ import { QtyStepper } from "./components";
 import Svg, { Circle, Path } from "react-native-svg";
 import type { ApiMenu } from "./api";
 import { createReservation } from "./api";
+import { rememberReservation } from "./reservations-store";
 import { localeTag, useI18n } from "./i18n";
 import { colors, fonts, radius } from "./theme";
 
@@ -83,6 +84,25 @@ export function ReserveSheet({
       );
       return;
     }
+    // Remember it on THIS device: the id + token the server just minted
+    // are the guest's whole claim to the request, and holding them here
+    // is what lets Konto → Reservierungen show the restaurant's answer
+    // later. A server that predates the fields sends neither — the
+    // confirmation below then simply has nothing to follow up.
+    if (result.id && result.token) {
+      await rememberReservation({
+        id: result.id,
+        token: result.token,
+        date,
+        time,
+        guests,
+        name: name.trim(),
+        createdAt: new Date().toISOString(),
+      }).catch(() => {
+        // Best effort: a full or unwritable store must not turn a
+        // successfully filed reservation into an error.
+      });
+    }
     setDone(true);
   }
 
@@ -134,6 +154,7 @@ export function ReserveSheet({
                   {dateLabel(date)} · {time} · {guests} {guests === 1 ? t.guest : t.guests}
                 </Text>
                 <Text style={styles.doneSub}>{t.resDoneSub}</Text>
+                <Text style={styles.doneWhere}>{t.resDoneWhere}</Text>
                 <Pressable style={[styles.cta, styles.ctaStretch]} onPress={close}>
                   <Text style={styles.ctaText}>{t.resDoneBtn}</Text>
                 </Pressable>
@@ -361,6 +382,14 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     ...fonts.body,
     fontSize: 13,
+    textAlign: "center",
+    paddingHorizontal: 12,
+  },
+  /** Where to look afterwards — quieter than the confirmation itself. */
+  doneWhere: {
+    color: colors.ink,
+    ...fonts.bodySemi,
+    fontSize: 12.5,
     textAlign: "center",
     paddingHorizontal: 12,
   },

@@ -1,3 +1,4 @@
+import type { ReservationStatus } from "@prisma/client";
 import { z } from "zod";
 import { asTenant, asUser } from "./tenant";
 import { localDateTimeToInstant, parseOpeningHours, slotTimesForDate } from "./opening-hours";
@@ -26,8 +27,21 @@ export const reservationSchema = z.object({
 
 export type ReservationInput = z.infer<typeof reservationSchema>;
 
+/** The four values `Reservation.status` can hold. Re-exported from the
+ *  Prisma enum so the wire contract and the column can never drift. */
+export type ReservationStatusValue = ReservationStatus;
+export const RESERVATION_STATUSES = [
+  "requested",
+  "confirmed",
+  "declined",
+  "cancelled",
+] as const satisfies readonly ReservationStatusValue[];
+
 export type CreateReservationResult =
-  | { ok: true; value: { reservationId: string; date: string; time: string } }
+  | {
+      ok: true;
+      value: { reservationId: string; date: string; time: string; status: ReservationStatusValue };
+    }
   | { ok: false; error: "invalid" | "reservations_off" | "invalid_time" };
 
 const MAX_DAYS_AHEAD = 60;
@@ -35,6 +49,9 @@ const MAX_DAYS_AHEAD = 60;
 export async function createReservation(
   context: { tenantId: string; venueId: string },
   raw: unknown,
+  /** The signed-in guest, when the request carried a customer token.
+   *  Anonymous requests (the common case) pass nothing. */
+  actor?: { customerId?: string | null },
 ): Promise<CreateReservationResult> {
   const parsed = reservationSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "invalid" };
@@ -70,10 +87,24 @@ export async function createReservation(
       return { ok: false, error: "invalid_time" as const };
     }
 
+    // The customer id is only honoured when the row really belongs to this
+    // tenant: the caller resolved it from a token, and RLS would reject a
+    // foreign one at the FK anyway, but failing softly (anonymous
+    // reservation) beats 500ing a guest who is merely signed in elsewhere.
+    const customerId = actor?.customerId
+      ? ((
+          await tx.customer.findFirst({
+            where: { id: actor.customerId, deletedAt: null },
+            select: { id: true },
+          })
+        )?.id ?? null)
+      : null;
+
     const reservation = await tx.reservation.create({
       data: {
         tenantId: context.tenantId,
         venueId: context.venueId,
+        customerId,
         name: input.name,
         phone: input.phone,
         guests: input.guests,
@@ -82,17 +113,23 @@ export async function createReservation(
         time: input.time,
         note: input.note || null,
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     log.info("reservation.requested", {
       reservationId: reservation.id,
       venueId: context.venueId,
       guests: input.guests,
       at: at.toISOString(),
+      signedIn: customerId !== null,
     });
     return {
       ok: true as const,
-      value: { reservationId: reservation.id, date: input.date, time: input.time },
+      value: {
+        reservationId: reservation.id,
+        date: input.date,
+        time: input.time,
+        status: reservation.status,
+      },
     };
   });
 }
@@ -131,6 +168,117 @@ export async function listReservations(userId: string): Promise<ReservationRow[]
       },
     }),
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Guest-side reads — "what happened to my table request?"             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The reservation as the guest sees it: their own request plus whatever
+ * the restaurant decided. Deliberately narrower than {@link ReservationRow}
+ * — no phone number echoed back, no `at` instant (the wall-clock pair the
+ * guest actually picked is the honest thing to show), and the venue block
+ * carries only what a guest needs to chase it up.
+ *
+ * Clients MUST tolerate a `status` they don't recognize — same contract
+ * rule as the order tracker: the lifecycle may grow after an app ships.
+ */
+export interface ReservationView {
+  id: string;
+  /** Venue-local wall clock the guest picked — "YYYY-MM-DD" / "HH:MM". */
+  date: string;
+  time: string;
+  guests: number;
+  name: string;
+  status: ReservationStatusValue;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  venue: { name: string; phone: string | null };
+}
+
+const VIEW_SELECT = {
+  id: true,
+  date: true,
+  time: true,
+  guests: true,
+  name: true,
+  status: true,
+  note: true,
+  createdAt: true,
+  updatedAt: true,
+  venue: { select: { name: true } },
+} as const;
+
+interface ViewRow {
+  id: string;
+  date: string;
+  time: string;
+  guests: number;
+  name: string;
+  status: ReservationStatusValue;
+  note: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  venue: { name: string };
+}
+
+/**
+ * `phone` is in the contract from day one because "call the restaurant"
+ * is the obvious next step from a `declined` badge — but `Venue` has no
+ * phone column yet, so it is honestly `null` rather than invented. When
+ * the column lands this is the one line that changes.
+ */
+function toReservationView(row: ViewRow): ReservationView {
+  return {
+    id: row.id,
+    date: row.date,
+    time: row.time,
+    guests: row.guests,
+    name: row.name,
+    status: row.status,
+    note: row.note,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    venue: { name: row.venue.name, phone: null },
+  };
+}
+
+/**
+ * One reservation, for a caller that already proved it may read it (a
+ * signed reservation token). Soft-deleted rows read as gone.
+ */
+export async function getReservationForGuest(
+  tenantId: string,
+  reservationId: string,
+): Promise<ReservationView | null> {
+  const row = await asTenant(tenantId, (tx) =>
+    tx.reservation.findFirst({
+      where: { id: reservationId, deletedAt: null },
+      select: VIEW_SELECT,
+    }),
+  );
+  return row ? toReservationView(row) : null;
+}
+
+/** How many reservations one guest's history returns. */
+const GUEST_HISTORY_LIMIT = 50;
+
+/** The signed-in guest's own reservations, newest request first. */
+export async function listCustomerReservations(
+  tenantId: string,
+  customerId: string,
+): Promise<ReservationView[]> {
+  const rows = await asTenant(tenantId, (tx) =>
+    tx.reservation.findMany({
+      where: { customerId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: GUEST_HISTORY_LIMIT,
+      select: VIEW_SELECT,
+    }),
+  );
+  return rows.map(toReservationView);
 }
 
 const SETTABLE = ["confirmed", "declined", "cancelled"] as const;

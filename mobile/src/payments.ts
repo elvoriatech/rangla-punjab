@@ -2,6 +2,7 @@ import { Linking, Platform } from "react-native";
 import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import { confirmFakePayment, createPaymentIntent } from "./api";
+import { openReturningPage } from "./browser";
 import { loadStripe } from "./stripe-module";
 
 /**
@@ -118,27 +119,13 @@ export async function payWithCard(
 export { confirmFakePayment };
 
 /**
- * Open a payment page WITHOUT leaving the app: Custom Tabs on Android,
- * SFSafariViewController on iOS. `openAuthSessionAsync` closes the tab
- * itself the moment the page navigates to `returnUrl`, which is what makes
- * "approve in PayPal, land back on the order" feel like one flow.
+ * Open a payment page WITHOUT leaving the app — "approve in PayPal, land
+ * back on the order" as one flow. The mechanics live in `browser.ts`
+ * because the browser sign-in in `auth.tsx` needs the identical
+ * open-and-come-back behaviour.
  */
 export async function openPayPage(url: string, returnUrl: string): Promise<void> {
-  if (Platform.OS === "web") {
-    await Linking.openURL(url);
-    return;
-  }
-  try {
-    await WebBrowser.openAuthSessionAsync(url, returnUrl);
-  } catch {
-    // No Custom Tabs provider / no SFSafariViewController: a plain in-app
-    // browser still completes the payment, the guest just taps Done.
-    try {
-      await WebBrowser.openBrowserAsync(url);
-    } catch {
-      await Linking.openURL(url).catch(() => {});
-    }
-  }
+  await openReturningPage(url, returnUrl);
 }
 
 /** The receipt PDF and anything else that is read, not transacted. */

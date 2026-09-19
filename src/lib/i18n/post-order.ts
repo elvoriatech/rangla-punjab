@@ -43,6 +43,11 @@ const en = {
   showAtRestaurant:
     "Show this screen at the restaurant if needed — the kitchen sees the order as paid.",
   backToApp: "Back to the app",
+  /* Browser sign-in hand-over (`/auth/app-return`): the guest signed in
+     on a web page the app opened, and this is the whole page they see
+     while the deep link takes them back. */
+  signedIn: "You're signed in",
+  closeWindow: "You can close this window.",
   downloadReceipt: "Download receipt (PDF)",
   /** Leading part of the downloaded file name: `receipt-0007.pdf`. ASCII
    *  only — this ends up in a Content-Disposition/`download` attribute. */
@@ -59,6 +64,25 @@ const en = {
   payWithPaypal: "Pay with PayPal",
   openingPaypal: "Opening PayPal…",
   paypalFailed: "PayPal didn't start — try again.",
+  /* Reservations (the account page's "my table requests" card) */
+  reservationsTitle: "My reservations",
+  reservationsEmpty: "No table requests with this account yet.",
+  reservationGuestsOne: "1 guest",
+  reservationGuestsMany: (n: string) => `${n} guests`,
+  reservationRequestedOn: (when: string) => `Requested ${when}`,
+  reservationNote: "Note",
+  reservationStatus: {
+    requested: "Awaiting confirmation",
+    confirmed: "Confirmed",
+    declined: "Declined",
+    cancelled: "Cancelled",
+  },
+  reservationHint: {
+    requested: "The restaurant will call you to confirm this table.",
+    confirmed: "Your table is booked — see you then.",
+    declined: "The restaurant couldn't take this one. Please try another time.",
+    cancelled: "This reservation was cancelled.",
+  },
 };
 
 export type PostOrderCopy = typeof en;
@@ -92,6 +116,8 @@ const de: PostOrderCopy = {
   showAtRestaurant:
     "Zeigen Sie diesen Bildschirm bei Bedarf im Restaurant vor — die Küche sieht die Bestellung als bezahlt.",
   backToApp: "Zurück zur App",
+  signedIn: "Sie sind angemeldet",
+  closeWindow: "Sie können dieses Fenster schließen.",
   downloadReceipt: "Beleg herunterladen (PDF)",
   receiptFilePrefix: "beleg",
   paused: "Bestellungen pausiert",
@@ -106,6 +132,25 @@ const de: PostOrderCopy = {
   payWithPaypal: "Mit PayPal zahlen",
   openingPaypal: "PayPal wird geöffnet…",
   paypalFailed: "PayPal wurde nicht gestartet — bitte erneut versuchen.",
+  reservationsTitle: "Meine Reservierungen",
+  reservationsEmpty: "Noch keine Tischanfragen mit diesem Konto.",
+  reservationGuestsOne: "1 Gast",
+  reservationGuestsMany: (n) => `${n} Gäste`,
+  reservationRequestedOn: (when) => `Angefragt am ${when}`,
+  reservationNote: "Hinweis",
+  reservationStatus: {
+    requested: "Warten auf Bestätigung",
+    confirmed: "Bestätigt",
+    declined: "Abgelehnt",
+    cancelled: "Storniert",
+  },
+  reservationHint: {
+    requested: "Das Restaurant meldet sich telefonisch zur Bestätigung.",
+    confirmed: "Ihr Tisch ist reserviert — bis dann.",
+    declined:
+      "Das Restaurant konnte diesen Termin nicht annehmen. Bitte wählen Sie eine andere Zeit.",
+    cancelled: "Diese Reservierung wurde storniert.",
+  },
 };
 
 const es: PostOrderCopy = {
@@ -137,6 +182,8 @@ const es: PostOrderCopy = {
   showAtRestaurant:
     "Muestra esta pantalla en el restaurante si hace falta: la cocina ve el pedido como pagado.",
   backToApp: "Volver a la app",
+  signedIn: "Has iniciado sesión",
+  closeWindow: "Ya puedes cerrar esta ventana.",
   downloadReceipt: "Descargar el recibo (PDF)",
   receiptFilePrefix: "recibo",
   paused: "Pedidos en pausa",
@@ -151,6 +198,24 @@ const es: PostOrderCopy = {
   payWithPaypal: "Pagar con PayPal",
   openingPaypal: "Abriendo PayPal…",
   paypalFailed: "PayPal no se ha iniciado: inténtalo de nuevo.",
+  reservationsTitle: "Mis reservas",
+  reservationsEmpty: "Todavía no hay reservas con esta cuenta.",
+  reservationGuestsOne: "1 persona",
+  reservationGuestsMany: (n) => `${n} personas`,
+  reservationRequestedOn: (when) => `Solicitada el ${when}`,
+  reservationNote: "Nota",
+  reservationStatus: {
+    requested: "Pendiente de confirmación",
+    confirmed: "Confirmada",
+    declined: "Rechazada",
+    cancelled: "Cancelada",
+  },
+  reservationHint: {
+    requested: "El restaurante te llamará para confirmar la mesa.",
+    confirmed: "Tu mesa está reservada: nos vemos.",
+    declined: "El restaurante no ha podido aceptarla. Prueba con otra hora.",
+    cancelled: "Esta reserva se ha cancelado.",
+  },
 };
 
 const it: PostOrderCopy = {
@@ -182,6 +247,8 @@ const it: PostOrderCopy = {
   showAtRestaurant:
     "Mostra questa schermata al ristorante se serve: la cucina vede l'ordine come pagato.",
   backToApp: "Torna all'app",
+  signedIn: "Accesso effettuato",
+  closeWindow: "Puoi chiudere questa finestra.",
   downloadReceipt: "Scarica la ricevuta (PDF)",
   receiptFilePrefix: "ricevuta",
   paused: "Ordini in pausa",
@@ -194,6 +261,24 @@ const it: PostOrderCopy = {
   payWithPaypal: "Paga con PayPal",
   openingPaypal: "Apertura di PayPal…",
   paypalFailed: "PayPal non è partito: riprova.",
+  reservationsTitle: "Le mie prenotazioni",
+  reservationsEmpty: "Ancora nessuna prenotazione con questo account.",
+  reservationGuestsOne: "1 persona",
+  reservationGuestsMany: (n) => `${n} persone`,
+  reservationRequestedOn: (when) => `Richiesta il ${when}`,
+  reservationNote: "Nota",
+  reservationStatus: {
+    requested: "In attesa di conferma",
+    confirmed: "Confermata",
+    declined: "Rifiutata",
+    cancelled: "Annullata",
+  },
+  reservationHint: {
+    requested: "Il ristorante ti chiamerà per confermare il tavolo.",
+    confirmed: "Il tuo tavolo è prenotato: a presto.",
+    declined: "Il ristorante non ha potuto accettarla. Prova con un altro orario.",
+    cancelled: "Questa prenotazione è stata annullata.",
+  },
 };
 
 const ar: PostOrderCopy = {
@@ -224,6 +309,8 @@ const ar: PostOrderCopy = {
   paid: "تم الدفع ✓",
   showAtRestaurant: "اعرض هذه الشاشة في المطعم عند الحاجة — يرى المطبخ الطلب مدفوعًا.",
   backToApp: "العودة إلى التطبيق",
+  signedIn: "تم تسجيل الدخول",
+  closeWindow: "يمكنك إغلاق هذه النافذة.",
   downloadReceipt: "تنزيل الإيصال (PDF)",
   // ASCII on purpose: this lands in a file name.
   receiptFilePrefix: "receipt",
@@ -237,6 +324,24 @@ const ar: PostOrderCopy = {
   payWithPaypal: "الدفع عبر PayPal",
   openingPaypal: "جارٍ فتح PayPal…",
   paypalFailed: "لم يبدأ PayPal — حاول مرة أخرى.",
+  reservationsTitle: "حجوزاتي",
+  reservationsEmpty: "لا توجد حجوزات بهذا الحساب بعد.",
+  reservationGuestsOne: "شخص واحد",
+  reservationGuestsMany: (n) => `${n} أشخاص`,
+  reservationRequestedOn: (when) => `تم الطلب في ${when}`,
+  reservationNote: "ملاحظة",
+  reservationStatus: {
+    requested: "في انتظار التأكيد",
+    confirmed: "مؤكد",
+    declined: "مرفوض",
+    cancelled: "ملغى",
+  },
+  reservationHint: {
+    requested: "سيتصل بك المطعم لتأكيد الطاولة.",
+    confirmed: "تم حجز طاولتك — نراك قريبًا.",
+    declined: "لم يتمكن المطعم من قبول هذا الموعد. جرّب وقتًا آخر.",
+    cancelled: "تم إلغاء هذا الحجز.",
+  },
 };
 
 export const POST_ORDER_COPY: Record<UiLocale, PostOrderCopy> = { en, de, es, it, ar };

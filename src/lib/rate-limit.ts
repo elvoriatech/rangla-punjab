@@ -180,6 +180,17 @@ export const RESERVATION_IP: RateLimitConfig = {
   limit: 5,
   windowSec: 3600,
 };
+// Reading a reservation back is a poll, not a write: the app refreshes
+// the status card while a guest waits for the restaurant to call, and a
+// family may have several phones open behind one restaurant IP. 60/min
+// is far above that and still bounds someone spraying guessed ids at the
+// route. failOpen: a Redis blip must not blank a guest's booking.
+export const RESERVATION_READ_IP: RateLimitConfig = {
+  scope: "reservation-read:ip",
+  limit: 60,
+  windowSec: 60,
+  failOpen: true,
+};
 // Guest orders are anonymous — per-IP is the only handle we have. 10/min
 // absorbs a large table ordering in rounds while blunting scripted spam.
 // failOpen: a Redis outage must not stop guests ordering or paying. The

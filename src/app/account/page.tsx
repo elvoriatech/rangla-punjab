@@ -9,6 +9,9 @@ import { signReceiptToken } from "@/lib/receipt-token";
 import { asTenant } from "@/lib/tenant";
 import { formatPrice } from "@/lib/public-menu";
 import { getLoyaltySummary } from "@/lib/loyalty-service";
+import { listCustomerReservations } from "@/lib/reservation-service";
+import { postOrderCopy } from "@/lib/i18n/post-order";
+import { dirFor, isLocaleCode, uiLocale } from "@/lib/locales";
 import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } from "./actions";
 
 /**
@@ -22,12 +25,27 @@ import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } fro
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Mein Konto", robots: { index: false } };
 
+/**
+ * Badge palette for the reservation lifecycle. Warm while the guest is
+ * still waiting on the restaurant, green once the table is theirs, and
+ * muted for the two endings — red-tinted ink for a refusal the guest
+ * needs to act on, plain grey for a cancellation. Same four tokens the
+ * owner\'s reservations console uses, so both sides of the transaction
+ * read the same colour for the same word.
+ */
+const RESERVATION_BADGE: Record<string, string> = {
+  requested: "bg-orange/15 text-orange-dark",
+  confirmed: "bg-[#3f7030]/15 text-[#3f7030]",
+  declined: "bg-red-900/10 text-red-900",
+  cancelled: "bg-ink/10 text-muted",
+};
+
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ welcome?: string; error?: string; app?: string }>;
+  searchParams: Promise<{ welcome?: string; error?: string; app?: string; locale?: string }>;
 }): Promise<React.ReactElement> {
-  const { welcome, error, app } = await searchParams;
+  const { welcome, error, app, locale: localeParam } = await searchParams;
   const slug = await getRestaurantSlug();
   const context = await resolvePreviewContext(slug, null);
   const store = await cookies();
@@ -61,6 +79,32 @@ export default async function AccountPage({
   const loyalty =
     context && customer ? await getLoyaltySummary(context.tenantId, customer.id) : null;
   const showLoyalty = Boolean(loyalty?.enabled);
+
+  // Table requests this account made. Anonymous ones are unreachable from
+  // here by design — nothing links them to a customer — so an empty list
+  // means "none while signed in", which the empty state says out loud.
+  const reservations =
+    context && customer ? await listCustomerReservations(context.tenantId, customer.id) : [];
+
+  // Same language rule as the tracker and the payment page (plan decision
+  // 5): `?locale=` when the link carries one — the app appends it — and
+  // the venue\'s own language otherwise.
+  const venueLocale = context
+    ? await asTenant(context.tenantId, (tx) =>
+        tx.venue
+          .findFirst({ where: { id: context.venueId }, select: { defaultLocale: true } })
+          .then((v) => v?.defaultLocale ?? null),
+      )
+    : null;
+  const locale = uiLocale(isLocaleCode(localeParam) ? localeParam : venueLocale);
+  const t = postOrderCopy(locale);
+  const resDate = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "UTC",
+  });
+  const resRequested = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
 
   const dt = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" });
   const dOnly = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" });
@@ -299,6 +343,53 @@ export default async function AccountPage({
               )}
             </section>
           ) : null}
+
+          {/* Table requests made while signed in. The badge is the whole
+              point of the card: it is the only place a guest learns the
+              restaurant said yes without waiting for the phone to ring. */}
+          <section
+            aria-label={t.reservationsTitle}
+            dir={dirFor(locale)}
+            className="mt-8 border border-ink/15 bg-card px-5 py-4"
+          >
+            <h2 className="font-serif text-2xl">{t.reservationsTitle}</h2>
+            {reservations.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">{t.reservationsEmpty}</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-ink/10 border border-ink/15">
+                {reservations.map((r) => (
+                  <li key={r.id} className="px-3 py-3 text-sm">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="font-semibold tabular-nums">
+                        {/* Noon UTC, so formatting the date-only string can
+                            never slip a day backwards in a western zone. */}
+                        {resDate.format(new Date(`${r.date}T12:00:00Z`))} · {r.time}
+                      </span>
+                      <span className="text-muted">
+                        {r.guests === 1
+                          ? t.reservationGuestsOne
+                          : t.reservationGuestsMany(String(r.guests))}
+                      </span>
+                      <span
+                        className={`ms-auto rounded-full px-2 py-0.5 text-[11px] uppercase tracking-wide ${RESERVATION_BADGE[r.status] ?? "bg-ink/10 text-muted"}`}
+                      >
+                        {t.reservationStatus[r.status]}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-muted">{t.reservationHint[r.status]}</p>
+                    {r.note ? (
+                      <p className="mt-1 text-muted">
+                        {t.reservationNote}: {r.note}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 text-xs text-muted">
+                      {t.reservationRequestedOn(resRequested.format(new Date(r.createdAt)))}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <h2 className="mt-8 font-serif text-2xl">Meine Bestellungen · My orders</h2>
           {orders.length === 0 ? (

@@ -25,6 +25,7 @@ import {
   shortDate,
   useLoyalty,
 } from "../loyalty";
+import { ReservationsCard } from "../reservations";
 import { PrimaryButton } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
@@ -423,6 +424,13 @@ export function AccountScreen({
             )}
           </View>
         ) : null}
+
+        {/* Reservations — the one guest section that does NOT need an
+            account: the ids + tokens on this device are enough to ask
+            the server how each request went, and a signed-in guest also
+            gets the ones filed on their other phone. The card renders
+            itself away when there is nothing to show. */}
+        {!staff ? <ReservationsCard token={auth.token} /> : null}
 
         {/* Hours */}
         <View style={styles.card}>

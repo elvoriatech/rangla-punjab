@@ -445,24 +445,131 @@ export interface ReservationInput {
   note?: string;
 }
 
-/** Request a table. The restaurant confirms by phone — this only files
- *  the request, so there is nothing to pay and no account needed. */
+/**
+ * A reservation as the server describes it back to the guest.
+ *
+ * `status` stays widened to `string`: the restaurant's workflow may grow
+ * a state after this build shipped, and an unknown one must render as
+ * itself rather than disappear.
+ */
+export interface ReservationView {
+  id: string;
+  /** "YYYY-MM-DD" */
+  date: string;
+  /** "HH:MM" */
+  time: string;
+  guests: number;
+  name: string;
+  status: "requested" | "confirmed" | "declined" | (string & {});
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Who to ring while the request is still open. `phone` is null when
+   *  the venue publishes none. */
+  venue: { name: string; phone: string | null };
+}
+
+/** Defensive read: anything without an id is not a reservation. */
+function asReservation(raw: unknown): ReservationView | null {
+  const r = raw as Partial<ReservationView> | null;
+  if (!r || typeof r.id !== "string") return null;
+  const venue = (r.venue ?? {}) as Partial<ReservationView["venue"]>;
+  return {
+    id: r.id,
+    date: typeof r.date === "string" ? r.date : "",
+    time: typeof r.time === "string" ? r.time : "",
+    guests: Number(r.guests ?? 0),
+    name: typeof r.name === "string" ? r.name : "",
+    status: typeof r.status === "string" ? r.status : "requested",
+    note: typeof r.note === "string" && r.note.trim() ? r.note : null,
+    createdAt: typeof r.createdAt === "string" ? r.createdAt : "",
+    updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : "",
+    venue: {
+      name: typeof venue.name === "string" ? venue.name : "",
+      phone: typeof venue.phone === "string" && venue.phone.trim() ? venue.phone : null,
+    },
+  };
+}
+
+/**
+ * Request a table. The restaurant confirms by phone — this only files
+ * the request, so there is nothing to pay and no account needed.
+ *
+ * The three tracking fields are read defensively: a server that predates
+ * reservation status sends none of them, and the app then behaves exactly
+ * as it did before — a confirmation screen and nothing to follow up.
+ */
 export async function createReservation(
   input: ReservationInput,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; id: string | null; token: string | null; status: string | null }
+  | { ok: false; error: string }
+> {
   try {
     const res = await fetch(`${BASE_URL}/api/reservations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
     if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      return { ok: false, error: body.error ?? `http_${res.status}` };
+      return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
     }
-    return { ok: true };
+    return {
+      ok: true,
+      id: typeof body?.id === "string" ? body.id : null,
+      token: typeof body?.token === "string" ? body.token : null,
+      status: typeof body?.status === "string" ? body.status : null,
+    };
   } catch {
     return { ok: false, error: "network" };
+  }
+}
+
+/**
+ * One reservation, read with the token this device stored when it was
+ * filed. Null for every "nothing to show" case — 403/404 (withdrawn or a
+ * token that no longer matches), offline, a server without the route —
+ * so the caller has one thing to check. Never throws.
+ */
+export async function fetchReservation(id: string, token: string): Promise<ReservationView | null> {
+  if (!id || !token) return null;
+  try {
+    const res = await fetch(
+      `${BASE_URL}/api/v1/reservations/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`,
+    );
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      reservation?: unknown;
+    } | null;
+    if (!body?.ok) return null;
+    return asReservation(body.reservation);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every reservation attached to the signed-in account, across devices.
+ * Empty for signed out, 401, offline or a server without the route —
+ * the device's own list then stands alone. Never throws.
+ */
+export async function fetchMyReservations(token: string | null): Promise<ReservationView[]> {
+  if (!token) return [];
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/me/reservations`, {
+      headers: { "X-Customer-Token": token },
+    });
+    if (!res.ok) return [];
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      reservations?: unknown;
+    } | null;
+    if (!body?.ok || !Array.isArray(body.reservations)) return [];
+    return body.reservations.map(asReservation).filter((r): r is ReservationView => r !== null);
+  } catch {
+    return [];
   }
 }
 

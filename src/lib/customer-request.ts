@@ -21,8 +21,19 @@ export async function customerToken(req: NextRequest): Promise<string | null> {
   if (header) return header;
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  const store = await cookies();
-  return store.get(CUSTOMER_COOKIE)?.value ?? null;
+  // NextRequest parses `Cookie` itself, so ask it before `next/headers`:
+  // same value, and it works on a handler invoked outside a request store
+  // (a unit test calling the route function directly).
+  const onRequest = req.cookies.get(CUSTOMER_COOKIE)?.value;
+  if (onRequest) return onRequest;
+  try {
+    const store = await cookies();
+    return store.get(CUSTOMER_COOKIE)?.value ?? null;
+  } catch {
+    // No request store — a request that carried no cookie header simply
+    // has no token, which is the anonymous case, not an error.
+    return null;
+  }
 }
 
 export type CustomerAuth =

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -26,6 +27,34 @@ import { colors, fonts, money, radius } from "../theme";
 
 /** How the guest chose to pay, decided BEFORE the order is placed. */
 type PayMethod = "card" | "paypal" | "cash";
+
+/**
+ * Where the checkout has got to after the guest tapped Pay:
+ *  - `placing`    — the order is on its way to the server;
+ *  - `paying`     — the native Stripe sheet is up;
+ *  - `opening`    — the in-app browser has the pay page (PayPal / hosted);
+ *  - `confirming` — money taken, we are settling it server-side.
+ */
+type PlacingStep = "placing" | "paying" | "opening" | "confirming";
+
+type Placing = {
+  /** Null only between the tap and the server's answer. */
+  order: PlacedOrder | null;
+  step: PlacingStep;
+  /** Dev/CI provider only: a fake intent waiting for the test button. */
+  fake?: { ref: string };
+  /** Carried through so every exit can pass it to `onPlaced`. */
+  rewardFailed?: boolean;
+};
+
+/**
+ * The in-flight checkout, mirrored outside React. Switching tabs unmounts
+ * this screen while the payment sheet's promise is still pending; the flow
+ * itself finishes on `onPlaced` either way, and this is what lets the panel
+ * come back — instead of a fully interactive cart that could be ordered a
+ * second time — if the guest wanders back here first.
+ */
+let livePlacing: Placing | null = null;
 
 /**
  * Warenkorb + Kasse — the mockup's cart and checkout as one flow.
@@ -85,13 +114,17 @@ export function CartScreen({
    *  is waiting for instead of spinning anonymously. */
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Dev/CI provider only: the order is placed and a fake intent is open,
-   *  waiting for the obviously-labelled test button. */
-  const [fakePending, setFakePending] = useState<{
-    order: PlacedOrder;
-    ref: string;
-    rewardFailed?: boolean;
-  } | null>(null);
+  /**
+   * Set the moment the guest taps Pay, cleared only where the flow ends on
+   * `onPlaced`. While it is set the cart lines are still there — shown
+   * read-only inside the placing panel — so the screen behind the Stripe
+   * sheet or the PayPal browser never looks like an emptied basket.
+   */
+  const [placing, setPlacingState] = useState<Placing | null>(livePlacing);
+  const setPlacing = (next: Placing | null): void => {
+    livePlacing = next;
+    setPlacingState(next);
+  };
 
   // What this venue can actually take. "card" covers the native Stripe
   // sheet AND Google Pay — same intent, the sheet decides which of them
@@ -191,6 +224,19 @@ export function CartScreen({
     });
   }, [customer, areas]);
 
+  /** The one line under the title that says what is being waited on. The
+   *  dev test panel says nothing here — its button is the whole message. */
+  const placingLine =
+    placing == null || placing.step === "placing" || placing.fake
+      ? null
+      : placing.step === "confirming"
+        ? t.placingConfirm
+        : payMethod === "paypal"
+          ? t.placingPaypal
+          : t.placingCard;
+  /** Once the server has answered, ITS total is the one to show. */
+  const placedTotal = placing?.order ? placing.order.chargedCents : chargedTotal;
+
   const needsContact = orderType !== "dine_in";
   const missing =
     cart.lines.length === 0 ||
@@ -210,6 +256,10 @@ export function CartScreen({
     if (busy) return; // double-tap guard: one in-flight order at a time
     setBusy(true);
     setError(null);
+    // The form gives way to the placing panel right now — the basket itself
+    // is untouched, so whatever is drawn behind a payment sheet still shows
+    // the guest what they ordered.
+    setPlacing({ order: null, step: "placing" });
     const result = await placeOrder(
       {
         slug: menu.venue.slug,
@@ -238,6 +288,7 @@ export function CartScreen({
     );
     if (!result.ok) {
       setBusy(false);
+      setPlacing(null); // nothing was created: back to the editable cart
       const messages: Record<string, string> = {
         ordering_paused: t.orderingPaused,
         outside_delivery_area: t.outsideArea,
@@ -268,18 +319,24 @@ export function CartScreen({
       placedAt: new Date().toISOString(),
       payment: payMethod,
     });
-    cart.clear();
+    // NOT cleared here. The cart is emptied only where this flow hands over
+    // to the tracking screen, below.
+    setPlacing({ order, step: "placing", rewardFailed });
 
     // The reward covered the whole bill: the order is already paid, so
     // every payment branch below would be asking for €0.00.
     if (order.paidByVoucher) {
       setBusy(false);
+      setPlacing(null);
+      cart.clear();
       onPlaced(order, { payment: payMethod, paid: true, rewardFailed });
       return;
     }
 
     if (payMethod === "cash") {
       setBusy(false);
+      setPlacing(null);
+      cart.clear();
       onPlaced(order, { payment: "cash", rewardFailed });
       return;
     }
@@ -292,17 +349,24 @@ export function CartScreen({
     const done = (note?: "cancelled" | "failed", paid?: boolean): void => {
       setPaying(false);
       setBusy(false);
+      setPlacing(null);
+      // The one place an online order's basket is emptied: the payment step
+      // is over (paid, cancelled or failed) and the tracking screen takes
+      // over from here.
+      cart.clear();
       onPlaced(order, { payment: payMethod, note, paid, rewardFailed });
     };
 
     if (payMethod === "paypal") {
       // PayPal's button lives on our web pay page; the in-app browser
       // closes itself when that page returns to the deep link.
+      setPlacing({ order, step: "opening", rewardFailed });
       await openPayPage(payPageUrl(order.orderId, order.receiptToken, deepLink), deepLink);
       done();
       return;
     }
 
+    setPlacing({ order, step: "paying", rewardFailed });
     const outcome = await payWithCard(order.orderId, order.receiptToken, {
       merchantDisplayName: menu.venue.name,
     });
@@ -311,12 +375,13 @@ export function CartScreen({
       // button rather than pretending the payment went through.
       setPaying(false);
       setBusy(false);
-      setFakePending({ order, ref: outcome.fake.ref, rewardFailed });
+      setPlacing({ order, step: "paying", fake: { ref: outcome.fake.ref }, rewardFailed });
       return;
     }
     if (outcome === "unavailable") {
       // Expo Go, web, or a venue without a publishable key — the hosted
       // checkout page can still take the money.
+      setPlacing({ order, step: "opening", rewardFailed });
       const hosted = await startHostedPayment(order.orderId, order.receiptToken);
       const url = hosted.ok ? hosted.url : payPageUrl(order.orderId, order.receiptToken, deepLink);
       await openPayPage(url, deepLink);
@@ -329,6 +394,7 @@ export function CartScreen({
     if (outcome === "paid") {
       // Settle server-side right away (Stripe lookup), so the tracking
       // screen opens on "Paid" even if the webhook is late or missing.
+      setPlacing({ order, step: "confirming", rewardFailed });
       await verifyPayment(order.orderId, order.receiptToken);
       done(undefined, true);
     } else done(outcome);
@@ -338,12 +404,16 @@ export function CartScreen({
    *  Stripe account — the server only mints fake intents when it has no
    *  live provider configured. */
   async function settleFake(): Promise<void> {
-    if (!fakePending || busy) return;
+    const order = placing?.order;
+    const ref = placing?.fake?.ref;
+    if (!order || !ref || busy) return;
     setBusy(true);
-    const { order, ref, rewardFailed } = fakePending;
+    const rewardFailed = placing?.rewardFailed;
+    setPlacing({ order, step: "confirming", rewardFailed });
     await confirmFakePayment(order.orderId, order.receiptToken, ref);
     setBusy(false);
-    setFakePending(null);
+    setPlacing(null);
+    cart.clear();
     onPlaced(order, { payment: "card", paid: true, rewardFailed });
   }
 
@@ -355,26 +425,60 @@ export function CartScreen({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}>
-          {fakePending ? (
-            /* Dev/CI only: the basket is already cleared and the order is
-               live, so this panel replaces the cart until the test intent
-               is settled. Labelled as a test so it can never be mistaken
-               for a real payment. */
-            <View style={styles.fakeBox}>
-              <Text style={styles.emptyTitle}>
-                {t.orderNo} #{String(fakePending.order.orderNumber).padStart(4, "0")}
-              </Text>
-              <Text style={styles.emptySub}>
-                {money(fakePending.order.chargedCents, menu.venue.currency)}
-              </Text>
-              <View style={{ alignSelf: "stretch", marginTop: 12 }}>
+          {placing ? (
+            /* The order is in flight. Everything interactive is gone —
+               no stepper, no fields, no payment cards, no button — but the
+               basket is still here, read-only, so the screen behind the
+               Stripe sheet or the PayPal browser is recognisably the order
+               the guest just placed. */
+            <View style={styles.placingBox}>
+              <View style={styles.placingHead}>
+                <ActivityIndicator color={colors.red} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.placingTitle}>
+                    {placing.order
+                      ? fill(t.placedTitle, {
+                          orderNo: String(placing.order.orderNumber).padStart(4, "0"),
+                        })
+                      : t.placingTitle}
+                  </Text>
+                  {placingLine ? <Text style={styles.placingStep}>{placingLine}</Text> : null}
+                </View>
+              </View>
+
+              <View style={styles.placingSummary}>
+                {cart.lines.map((line) => (
+                  <Row
+                    key={line.itemId}
+                    label={`${line.quantity} × ${line.name}`}
+                    value={money(line.priceCents * line.quantity, menu.venue.currency)}
+                  />
+                ))}
+                {orderType === "delivery" ? (
+                  <Row label={t.deliveryFee} value={money(deliveryFee, menu.venue.currency)} />
+                ) : null}
+                {rewardCents > 0 ? (
+                  <Row
+                    label={`★ ${t.rewardsReward}`}
+                    value={`−${money(rewardCents, menu.venue.currency)}`}
+                  />
+                ) : null}
+                <Row label={t.total} value={money(placedTotal, menu.venue.currency)} bold />
+              </View>
+
+              {/* Dev/CI provider only: no real sheet exists, so the test
+                  intent is settled from inside the same panel. Labelled as
+                  a test so it can never be mistaken for a real payment. */}
+              {placing.fake ? (
                 <PrimaryButton
                   label={t.simulatePayment}
                   tone="red"
                   busy={busy}
                   onPress={() => void settleFake()}
                 />
-              </View>
+              ) : null}
+
+              <Text style={styles.placingHint}>{t.placingHint}</Text>
             </View>
           ) : cart.lines.length === 0 ? (
             <View style={styles.empty}>
@@ -778,16 +882,22 @@ function Row({
 
 const styles = StyleSheet.create({
   empty: { alignItems: "center", gap: 6, paddingVertical: 60 },
-  fakeBox: {
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+  // The in-flight checkout: one cream card, the same hairline and radius as
+  // the totals box it stands in for, with the reassurance in gold.
+  placingBox: {
+    gap: 12,
+    padding: 14,
+    marginTop: 4,
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,
   },
+  placingHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  placingTitle: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 16 },
+  placingStep: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginTop: 2 },
+  placingSummary: { gap: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line },
+  placingHint: { color: colors.gold, ...fonts.bodySemi, fontSize: 12.5, textAlign: "center" },
   emptyTitle: { color: colors.ink, fontSize: 17, ...fonts.bodyBold },
   emptySub: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
   line: {

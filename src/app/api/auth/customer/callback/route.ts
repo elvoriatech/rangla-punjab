@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import {
   CUSTOMER_COOKIE,
@@ -8,6 +7,7 @@ import {
   signInCustomer,
   verifyState,
 } from "@/lib/customer-auth";
+import { sanitizeAppReturnUrl } from "@/lib/app-return";
 import { resolvePreviewContext } from "@/lib/preview-context";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { redis } from "@/lib/redis";
@@ -18,6 +18,13 @@ import { siteUrl } from "@/lib/site-url";
  * Exchanges the code, upserts the customer, mints the opaque token, sets
  * the web cookie — and, when the flow started on the APP (device code in
  * the state), parks the token in Redis for the app's poll to collect.
+ *
+ * The app also parks its own return deep link with the device code, so a
+ * browser sign-in ENDS in the app: we bounce to `/auth/app-return`, which
+ * hands the browser over to the deep link. The link is looked up from the
+ * code — it never travels through the provider in the OAuth state — and
+ * only ever reaches the page after `sanitizeAppReturnUrl`. Without one
+ * (older builds, or a link we refuse) the flow keeps landing on /account.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const back = (path: string): NextResponse => NextResponse.redirect(`${siteUrl()}${path}`, 303);
@@ -39,7 +46,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const signedIn = await signInCustomer(context.tenantId, provider.id, identity);
 
   // App-initiated flow: hand the token to the polling device code.
+  let appReturnUrl: string | null = null;
   if (state.d && /^[a-z0-9-]{4,40}$/i.test(state.d)) {
+    appReturnUrl = await storedAppReturn(state.d);
     await redis.set(
       `customer-device:${state.d}`,
       // The full profile, identical to what POST /api/auth/customer/google
@@ -52,13 +61,38 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const store = await cookies();
-  store.set(CUSTOMER_COOKIE, signedIn.token, {
+  // The app is waiting on the other side of this deep link: send the
+  // browser to the hand-over page rather than to a web account screen the
+  // guest would have to escape by hand.
+  const res = back(
+    appReturnUrl
+      ? `/auth/app-return?to=${encodeURIComponent(appReturnUrl)}`
+      : state.d
+        ? "/account?welcome=1&app=1"
+        : "/account?welcome=1",
+  );
+  // Set on the RESPONSE, not through `cookies()`: same Set-Cookie header
+  // on the same 303, without tying the handler to a request store.
+  res.cookies.set(CUSTOMER_COOKIE, signedIn.token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: CUSTOMER_TOKEN_TTL_DAYS * 24 * 60 * 60,
   });
-  return back(state.d ? "/account?welcome=1&app=1" : "/account?welcome=1");
+  return res;
+}
+
+/** The return deep link the app parked with its device code, if any.
+ *  Re-sanitized on the way out: what Redis holds is only as trustworthy
+ *  as whatever wrote it. */
+async function storedAppReturn(code: string): Promise<string | null> {
+  try {
+    const raw = await redis.get(`customer-device:${code}`);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as { app?: unknown };
+    return sanitizeAppReturnUrl(typeof entry.app === "string" ? entry.app : null);
+  } catch {
+    return null;
+  }
 }

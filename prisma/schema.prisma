@@ -662,6 +662,7 @@ model Customer {
   orders Order[]
   loyaltyLedger   LoyaltyLedger[]
   loyaltyVouchers LoyaltyVoucher[]
+  reservations    Reservation[]
 
   @@unique([tenantId, provider, providerSub])
   @@index([tenantId, email])
@@ -769,6 +770,11 @@ model Reservation {
   id       String            @id @default(cuid())
   tenantId String            @map("tenant_id")
   venueId  String            @map("venue_id")
+  /// The signed-in guest who asked for the table, when there was one.
+  /// Nullable because reservations stay anonymous by default — the menu
+  /// dialog never demands an account — and SetNull because deleting an
+  /// account must not erase the restaurant's book for tonight.
+  customerId String?         @map("customer_id")
   name     String
   phone    String
   guests   Int
@@ -784,8 +790,10 @@ model Reservation {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? @map("deleted_at")
 
-  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue    Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, at])
+  @@index([tenantId, customerId])
   @@map("reservations")
 }
