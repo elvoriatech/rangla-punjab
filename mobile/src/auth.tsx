@@ -119,6 +119,12 @@ export const GOOGLE_NATIVE = "google-native";
 interface AuthApi {
   token: string | null;
   customer: CustomerProfile | null;
+  /** False until the secure-store reads that restore a saved session have
+   *  BOTH settled. Until then `token`/`staff` being null means "we haven't
+   *  looked yet", not "signed out" — the shell waits on this before it
+   *  decides whether to show the welcome screen (a device that is already
+   *  signed in must never see it flash past). */
+  ready: boolean;
   /** Non-null ⇔ this device is signed in as the RESTAURANT. The whole of
    *  restaurant mode hangs off this one value. */
   staff: StaffProfile | null;
@@ -230,6 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
   const [staffToken, setStaffToken] = useState<string | null>(null);
   const [staff, setStaff] = useState<StaffProfile | null>(null);
+  const [ready, setReady] = useState(false);
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
   const [providers, setProviders] = useState<{ id: string; label: string }[]>([]);
   const [cancelled, setCancelled] = useState(0);
@@ -240,17 +247,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const googleAvailable = googleReady || providers.some((p) => p.id === "google");
 
   useEffect(() => {
-    void readToken().then((saved) => {
-      if (saved) setToken(saved);
-    });
+    const guest = readToken()
+      .then((saved) => {
+        if (saved) setToken(saved);
+      })
+      .catch(() => {});
     // The restaurant session is restored exactly like the guest's — the
     // counter tablet is signed in until someone signs it out.
-    void readStaffToken().then((saved) => {
-      const session = decodeStaffSession(saved);
-      if (!session) return;
-      setStaffToken(session.token);
-      setStaff({ name: session.name, email: session.email });
-    });
+    const restaurantSession = readStaffToken()
+      .then((saved) => {
+        const session = decodeStaffSession(saved);
+        if (!session) return;
+        setStaffToken(session.token);
+        setStaff({ name: session.name, email: session.email });
+      })
+      .catch(() => {});
+    // `ready` flips only once BOTH slots have been looked at, and always
+    // after whatever they found has been queued — so the render that first
+    // sees `ready` already sees the restored session. An unreadable slot
+    // (keychain locked, corrupt value) still settles: it counts as "no
+    // session", never as "still restoring".
+    void Promise.all([guest, restaurantSession]).then(() => setReady(true));
   }, []);
 
   /**
@@ -549,6 +566,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     () => ({
       token,
       customer,
+      ready,
       staff,
       staffToken,
       logoutStaff,
@@ -567,6 +585,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     [
       token,
       customer,
+      ready,
       staff,
       staffToken,
       logoutStaff,

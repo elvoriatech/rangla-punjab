@@ -14,6 +14,7 @@ import { fetchStaffIssues } from "../staff";
 import { BrandHeader } from "../components";
 import { IssueSheet, relativeTime } from "../issue-sheet";
 import { useI18n } from "../i18n";
+import { useLayout } from "../layout";
 import { CHEVRON_FORWARD, colors, fonts, radius } from "../theme";
 
 /**
@@ -42,6 +43,7 @@ export function IssuesScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   const { staffToken, clearStaff } = useAuth();
+  const layout = useLayout();
   const [issues, setIssues] = useState<StaffIssueSummary[]>([]);
   const [showResolved, setShowResolved] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -89,7 +91,12 @@ export function IssuesScreen({
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader title={t.issuesTitle} onBack={onBack} onMenu={onOpenOwnerMenu} />
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12 }}
+        contentContainerStyle={{
+          padding: layout.pad,
+          paddingBottom: 32,
+          gap: 12,
+          ...layout.content,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

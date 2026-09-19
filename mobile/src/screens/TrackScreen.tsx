@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as ExpoLinking from "expo-linking";
 import type { ApiTracking } from "../api";
 import {
@@ -50,6 +50,7 @@ export function TrackScreen({
   paidHint,
   note,
   rewardFailed,
+  openIssue,
   onBack,
 }: {
   orderId: string;
@@ -70,6 +71,9 @@ export function TrackScreen({
   /** The cart previewed a reward this order didn't get (expired, or
    *  already spent). One line, no action — the order itself is fine. */
   rewardFailed?: boolean;
+  /** The guest asked for the problem thread from the orders list, so it
+   *  opens with the screen instead of waiting to be found on it. */
+  openIssue?: boolean;
   onBack: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
@@ -81,7 +85,9 @@ export function TrackScreen({
   /** Client-side proof of payment (sheet success), ahead of the webhook. */
   const [confirmed, setConfirmed] = useState(Boolean(paidHint));
   /** The complaint thread, when the guest opens it. */
-  const [issueOpen, setIssueOpen] = useState(false);
+  // Opened straight away when the guest asked for the thread from the
+  // orders list rather than from this screen's own button.
+  const [issueOpen, setIssueOpen] = useState(Boolean(openIssue));
   /** The thread's status, kept in step with the sheet so the button's
    *  label and pill don't wait for the next status poll. */
   const [issueStatus, setIssueStatus] = useState<string | null>(null);
@@ -389,6 +395,25 @@ export function TrackScreen({
               <Text style={styles.receiptBtnText}>{t.receiptPdf}</Text>
             </Pressable>
 
+            {/* The ask, once the meal has actually happened. Only ever
+                on a DONE order — a cancelled one has nothing to review —
+                and only when the server sent a link, which it does only
+                for a venue that set a Place ID and left its rating on. */}
+            {tracking.status === "done" && !cancelled && tracking.review ? (
+              <Pressable
+                onPress={() => {
+                  const url = tracking.review?.url;
+                  if (url) void Linking.openURL(url).catch(() => {});
+                }}
+                accessibilityRole="link"
+                accessibilityLabel={t.reviewCta}
+                style={({ pressed }) => [styles.reviewBtn, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.reviewBtnText}>{t.reviewCta}</Text>
+                <Text style={styles.reviewBtnSub}>{t.reviewCtaSub}</Text>
+              </Pressable>
+            ) : null}
+
             {/* Something went wrong with the order itself. Offered while
                 the venue's reporting window is open, and for as long as a
                 thread exists — an answered complaint has to stay
@@ -541,6 +566,21 @@ const styles = StyleSheet.create({
   receiptBtnText: { color: colors.red, ...fonts.bodyBold, fontSize: 13 },
   // Quieter than the receipt button on purpose: reporting a problem must
   // be findable, not the thing the screen pushes you toward.
+  /** Gold, because this is the one thing on a finished order the venue
+   *  is actually asking for — and gold is the brand's "look here". */
+  reviewBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.goldSoft,
+    backgroundColor: colors.creamCard,
+    borderRadius: radius.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 44,
+    alignItems: "center",
+    gap: 2,
+  },
+  reviewBtnText: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 14.5 },
+  reviewBtnSub: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   issueBtn: {
     marginTop: 10,
     borderRadius: radius.pill,

@@ -15,6 +15,7 @@ import { useAuth } from "../auth";
 import type { StaffItem, StaffItemPatch, StaffMenuCategory } from "../staff";
 import { fetchStaffMenu, updateStaffItem } from "../staff";
 import { BrandHeader, DishRow } from "../components";
+import { useLayout } from "../layout";
 import { DishSheet } from "../dish-sheet";
 import { StaffDishRow, StaffItemSheet, staffViewOfGuestMenu } from "../staff-menu";
 import { colors, fonts, isRTL } from "../theme";
@@ -53,6 +54,7 @@ export function MenuScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   const { staffToken, clearStaff } = useAuth();
+  const layout = useLayout();
   const [activeId, setActiveId] = useState<string | null>(initialCategoryId);
   const [openDish, setOpenDish] = useState<ApiItem | null>(null);
 
@@ -228,7 +230,18 @@ export function MenuScreen({
         </>
       ) : null}
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 10 }}>
+      {/* In restaurant mode this is a settings list — one editable dish
+          per row — so it is capped and centred like the other owner
+          screens. The guest menu keeps the full width: its rows carry
+          photography, and a 720 pt gutter on a tablet would waste it. */}
+      <ScrollView
+        contentContainerStyle={{
+          padding: layout.pad,
+          paddingBottom: 32,
+          gap: 10,
+          ...(staffMode || staffPending ? layout.content : null),
+        }}
+      >
         {staffPending ? <ActivityIndicator color={colors.red} style={{ marginTop: 28 }} /> : null}
         {staffPending ? null : offersActive ? (
           // One flat list: offers cut ACROSS categories, so grouping them

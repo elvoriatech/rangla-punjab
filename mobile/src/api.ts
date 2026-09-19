@@ -101,6 +101,17 @@ export interface ApiMenu {
     enabledLocales?: string[] | null;
     logoUrl: string | null;
     hours: unknown;
+    /**
+     * Whether the kitchen is open RIGHT NOW, as the server judged it
+     * against the venue's own timezone.
+     *
+     * Optional, and deliberately never computed here: `hours` is on this
+     * payload but the venue's zone is not, and a phone roaming two
+     * timezones away must not be the thing that tells a guest the place
+     * is shut. A server that doesn't send it leaves the header's pill
+     * off entirely.
+     */
+    openNow?: boolean | null;
   };
   ordering: ApiOrdering;
   categories: ApiCategory[];
@@ -159,7 +170,13 @@ export async function fetchMenu(locale?: string): Promise<ApiMenu> {
   }));
   return {
     ...menu,
-    venue: { ...menu.venue, logoUrl: rebaseUrl(menu.venue.logoUrl) },
+    venue: {
+      ...menu.venue,
+      logoUrl: rebaseUrl(menu.venue.logoUrl),
+      // Anything that is not an actual boolean is "nobody said", not
+      // "closed" — the pill hides rather than inventing a verdict.
+      openNow: typeof menu.venue.openNow === "boolean" ? menu.venue.openNow : null,
+    },
     categories,
     offerCount: offerCountOf(menu.offerCount, categories),
     rating: asRating(menu.rating),
@@ -387,6 +404,13 @@ export interface ApiTracking {
    *  window has passed (an existing thread stays usable regardless).
    *  Absent on an older server ⇒ treated as "no". */
   canReport?: boolean;
+  /**
+   * Where to leave the venue a Google review. The SERVER decides whether
+   * to offer one at all — it is sent only when the venue has a Place ID
+   * and has not switched its rating off — so the app never assembles a
+   * Maps link of its own. Null/absent ⇒ no ask.
+   */
+  review?: { url: string } | null;
 }
 
 export async function fetchOrderStatus(orderId: string, token: string): Promise<ApiTracking> {
@@ -402,7 +426,22 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
     ...order,
     issue: asIssueSummary(order.issue),
     canReport: order.canReport === true,
+    review: asReview(order.review),
   };
+}
+
+/**
+ * The write-a-review link, read as strictly as the rating's own.
+ *
+ * http(s) only: this string goes straight to the system browser, and an
+ * app scheme arriving from the network is not something to hand the OS
+ * on a guest's behalf.
+ */
+function asReview(raw: unknown): { url: string } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const url = (raw as Record<string, unknown>).url;
+  const trimmed = typeof url === "string" ? url.trim() : "";
+  return /^https?:\/\//i.test(trimmed) ? { url: trimmed } : null;
 }
 
 /* ── Complaints (P7-10) ──────────────────────────────────────────────────

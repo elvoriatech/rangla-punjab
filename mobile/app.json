@@ -1,6 +1,6 @@
 {
   "expo": {
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "light",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -16,7 +16,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app uses your photos so you can attach a picture when you report a problem with an order."
+          "photosPermission": "The app uses your photos so you can attach a picture when you report a problem with an order.",
+          "cameraPermission": "The app uses the camera so you can photograph a problem with your order instead of describing it."
         }
       ]
     ],

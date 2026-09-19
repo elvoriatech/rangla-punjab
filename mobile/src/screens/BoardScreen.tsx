@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   Vibration,
   View,
@@ -26,6 +27,15 @@ import {
 } from "../staff";
 import { BrandHeader } from "../components";
 import { IssueSheet } from "../issue-sheet";
+import type { PrintOutcome } from "../print";
+import {
+  baselinePrinted,
+  claimUnprinted,
+  isAutoPrintOn,
+  printTicket,
+  setAutoPrintOn,
+} from "../print";
+import { useLayout } from "../layout";
 import { colors, fonts, money, radius } from "../theme";
 import { fill, localeTag, useI18n } from "../i18n";
 
@@ -156,6 +166,9 @@ export function BoardScreen({
   // A board nobody can read is no board: hold the screen on while it is
   // the visible tab, and release it the moment it isn't.
   useKeepAwake();
+  // Two columns on a tablet, three on a big one, one on a phone — and it
+  // follows a rotation without anything having to be invalidated.
+  const layout = useLayout();
 
   const [orders, setOrders] = useState<StaffOrder[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -164,7 +177,10 @@ export function BoardScreen({
   const [busyId, setBusyId] = useState<string | null>(null);
   /** Per-order footnote: the order moved on without us, or the request
    *  simply failed. Said once, then it gets out of the way. */
-  const [note, setNote] = useState<{ id: string; kind: "moved" | "failed" } | null>(null);
+  const [note, setNote] = useState<{
+    id: string;
+    kind: "moved" | "failed" | "cancelDisabled";
+  } | null>(null);
   const [fresh, setFresh] = useState<readonly string[]>([]);
   /** Which cards are open. A card is a headline until someone asks for the
    *  rest of it — the board is a list to scan, not a wall to scroll. Nothing
@@ -174,6 +190,21 @@ export function BoardScreen({
    *  board only knows an order HAS one, so the id is looked up on tap. */
   const [issueId, setIssueId] = useState<string | null>(null);
   const [issueBusy, setIssueBusy] = useState(false);
+  /** Which card's ticket is on its way to a printer, so its action can
+   *  say so instead of looking like it did nothing. */
+  const [printingId, setPrintingId] = useState<string | null>(null);
+  /**
+   * Whether new orders print themselves. Held in state AND in a ref: the
+   * switch renders from the state, but the poll — which is closed over
+   * by an interval that must not be torn down and rebuilt every time the
+   * owner flips it — reads the ref.
+   */
+  const [autoPrint, setAutoPrint] = useState(false);
+  const autoPrintRef = useRef(false);
+  autoPrintRef.current = autoPrint;
+  /** Printing talks back in one line above the board rather than on a
+   *  card: an auto-print run can cover several orders at once. */
+  const [toast, setToast] = useState<string | null>(null);
 
   /** Server clock from the last successful read — the `since` cursor. */
   const sinceRef = useRef<string | null>(null);
@@ -181,6 +212,15 @@ export function BoardScreen({
    *  read lands, so a cold start doesn't buzz for the whole board. */
   const seenRef = useRef<Set<string> | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /**
+   * The auto-print runner, reached through a ref.
+   *
+   * `load` is the poll's callback and is deliberately free of print
+   * state — rebuilding it every time the owner flips the switch would
+   * tear down and restart the polling interval mid-service. So the poll
+   * calls through this ref, which the effect below keeps current.
+   */
+  const autoPrintRunRef = useRef<(ids: readonly string[]) => void>(() => {});
 
   const tag = localeTag(lang);
   const timeOf = useCallback(
@@ -228,6 +268,9 @@ export function BoardScreen({
       });
 
       if (arrived.length > 0) {
+        // Same detection that lights the card gold and buzzes the phone
+        // drives the printer: one ticket per order, the moment it lands.
+        if (autoPrintRef.current) autoPrintRunRef.current(arrived);
         // One short buzz, not a ringtone: the kitchen is a quiet room.
         Vibration.vibrate(250);
         setFresh((prevFresh) => [...prevFresh, ...arrived]);
@@ -293,6 +336,18 @@ export function BoardScreen({
     void loadRef.current("full");
   }, [refreshKey]);
 
+  // The switch survives a restart; what it printed does too (see
+  // `print.ts`), so a relaunch mid-service picks up where it left off.
+  useEffect(() => {
+    let alive = true;
+    void isAutoPrintOn().then((on) => {
+      if (alive) setAutoPrint(on);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   useEffect(
     () => () => {
       for (const timer of timersRef.current) clearTimeout(timer);
@@ -301,8 +356,8 @@ export function BoardScreen({
     [],
   );
 
-  /** Both footnotes are news, not state — they fade on their own. */
-  const say = useCallback((id: string, kind: "moved" | "failed") => {
+  /** The footnotes are news, not state — they fade on their own. */
+  const say = useCallback((id: string, kind: "moved" | "failed" | "cancelDisabled") => {
     setNote({ id, kind });
     const timer = setTimeout(() => {
       timersRef.current = timersRef.current.filter((x) => x !== timer);
@@ -312,6 +367,89 @@ export function BoardScreen({
     }, 6_000);
     timersRef.current.push(timer);
   }, []);
+
+  /** News, not state — it fades on its own, like the per-card notes. */
+  const announce = useCallback((text: string) => {
+    setToast(text);
+    const timer = setTimeout(() => {
+      timersRef.current = timersRef.current.filter((x) => x !== timer);
+      setToast((current) => (current === text ? null : current));
+    }, 6_000);
+    timersRef.current.push(timer);
+  }, []);
+
+  /** One sentence per way printing can end. A cancelled print sheet is
+   *  the owner changing their mind, so it says nothing at all. */
+  const sayPrint = useCallback(
+    (outcome: PrintOutcome): void => {
+      if (outcome === "ok" || outcome === "cancelled") return;
+      if (outcome === "unauthorized") {
+        clearStaff();
+        return;
+      }
+      announce(outcome === "network" ? t.boardPrintOffline : t.boardPrintFailed);
+    },
+    [announce, clearStaff, t],
+  );
+
+  const printOne = useCallback(
+    async (order: StaffOrder): Promise<void> => {
+      if (!staffToken || printingId) return;
+      setPrintingId(order.id);
+      announce(t.boardPrinting);
+      const outcome = await printTicket(staffToken, order.id);
+      setPrintingId(null);
+      if (outcome === "ok") {
+        announce(t.boardPrinted);
+        return;
+      }
+      sayPrint(outcome);
+    },
+    [staffToken, printingId, announce, sayPrint, t],
+  );
+
+  /**
+   * Print the tickets for orders the poll just called new.
+   *
+   * `claimUnprinted` is what makes "once" true across restarts: the ids
+   * are recorded before the paper comes out, so a relaunch mid-service
+   * never re-spools the backlog. Failures are announced and then let go
+   * — the board is what the kitchen is actually working from, and a
+   * printer nobody plugged in must not stop it updating.
+   */
+  const runAutoPrint = useCallback(
+    async (ids: readonly string[]): Promise<void> => {
+      if (!staffToken) return;
+      const fresh = await claimUnprinted(ids);
+      if (fresh.length === 0) return;
+      let failure: PrintOutcome | null = null;
+      for (const id of fresh) {
+        const outcome = await printTicket(staffToken, id);
+        // One line however many tickets failed: a kitchen does not need
+        // the same sentence four times.
+        if (outcome !== "ok" && outcome !== "cancelled" && !failure) failure = outcome;
+      }
+      if (failure) sayPrint(failure);
+    },
+    [staffToken, sayPrint],
+  );
+  autoPrintRunRef.current = (ids) => void runAutoPrint(ids);
+
+  /**
+   * Flipping the switch on does NOT print what is already there. The
+   * open board at that moment is work in progress, not news, so it is
+   * baselined — recorded as printed without printing — and only what
+   * arrives afterwards reaches the printer.
+   */
+  const toggleAutoPrint = useCallback(
+    (next: boolean): void => {
+      setAutoPrint(next);
+      void setAutoPrintOn(next);
+      if (!next) return;
+      void baselinePrinted(orders.filter((o) => !isClosedStatus(o.status)).map((o) => o.id));
+    },
+    [orders],
+  );
 
   const toggleCard = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -364,6 +502,14 @@ export function BoardScreen({
       return;
     }
     if (res.error === "conflict") {
+      // A 409 is two different things. `cancel_disabled` is the venue's
+      // own setting — the dashboard switch is off — so re-reading the
+      // board would change nothing and "someone moved it" would be
+      // wrong. Anything else IS a stale board.
+      if (res.reason === "cancel_disabled") {
+        say(order.id, "cancelDisabled");
+        return;
+      }
       // Someone at the pass got there first — the board, not the owner,
       // was wrong. Re-read and say so in one line.
       say(order.id, "moved");
@@ -435,6 +581,21 @@ export function BoardScreen({
     .filter((o) => isClosedStatus(o.status) && isToday(o.updatedAt || o.createdAt))
     .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt));
 
+  /**
+   * One column is a plain stack; two or three wrap. `alignItems:
+   * flex-start` keeps each card its own height — a row of cards
+   * stretched to match the tallest one would put an order's action
+   * button half a screen below its items.
+   */
+  const gridStyle = layout.wide
+    ? {
+        flexDirection: "row" as const,
+        flexWrap: "wrap" as const,
+        alignItems: "flex-start" as const,
+        gap: layout.gap,
+      }
+    : { gap: layout.gap };
+
   function renderCard(order: StaffOrder, closed: boolean): React.ReactElement {
     const lit = fresh.includes(order.id);
     const expanded = expandedIds.has(order.id);
@@ -448,6 +609,7 @@ export function BoardScreen({
     const cancelTo = order.allowedNext.find((to) => isCancelTransition(to)) ?? null;
     // One transition at a time per card, whichever route asked for it.
     const busy = busyId === order.id;
+    const printing = printingId === order.id;
     const typeText =
       order.orderType === "dine_in" && order.tableNumber
         ? `${t.table} ${order.tableNumber}`
@@ -485,6 +647,9 @@ export function BoardScreen({
         key={order.id}
         style={[
           styles.card,
+          // One column: the card fills the row. Two or three: an exact
+          // width, because `gap` and percentage widths overflow.
+          layout.cardWidth ? { width: layout.cardWidth } : null,
           closed && styles.cardClosed,
           scheduled && styles.cardScheduled,
           lit && styles.cardFresh,
@@ -674,21 +839,34 @@ export function BoardScreen({
               </View>
             ) : null}
 
-            {/* Cancelling is not the next step, so it is not a button in
-                the step row — a quiet text action at the foot of the
-                opened card, still guarded by its own confirm. */}
-            {cancelTo ? (
+            {/* The foot of the opened card: printing and cancelling.
+                Neither is the next step, so neither is a button — both
+                are quiet text actions, and cancelling keeps its own
+                confirm. */}
+            <View style={styles.footActions}>
               <Text
-                onPress={busy ? undefined : () => onAction(order, cancelTo)}
+                onPress={printing ? undefined : () => void printOne(order)}
                 suppressHighlighting
                 accessibilityRole="button"
-                accessibilityLabel={t.boardCancelAction}
-                accessibilityState={{ disabled: busy }}
-                style={[styles.cancelAction, busy && { opacity: 0.5 }]}
+                accessibilityLabel={fill(t.boardPrintTicket, { number })}
+                accessibilityState={{ disabled: printing }}
+                style={[styles.printAction, printing && { opacity: 0.5 }]}
               >
-                {t.boardCancelAction}
+                {`🖨  ${printing ? t.boardPrinting : t.boardPrint}`}
               </Text>
-            ) : null}
+              {cancelTo ? (
+                <Text
+                  onPress={busy ? undefined : () => onAction(order, cancelTo)}
+                  suppressHighlighting
+                  accessibilityRole="button"
+                  accessibilityLabel={t.boardCancelAction}
+                  accessibilityState={{ disabled: busy }}
+                  style={[styles.cancelAction, busy && { opacity: 0.5 }]}
+                >
+                  {t.boardCancelAction}
+                </Text>
+              ) : null}
+            </View>
           </>
         ) : null}
 
@@ -696,7 +874,11 @@ export function BoardScreen({
 
         {cardNote ? (
           <Text style={styles.cardNote}>
-            {cardNote.kind === "moved" ? t.boardMoved : t.boardActionFailed}
+            {cardNote.kind === "moved"
+              ? t.boardMoved
+              : cardNote.kind === "cancelDisabled"
+                ? t.boardCancelDisabled
+                : t.boardActionFailed}
           </Text>
         ) : null}
       </View>
@@ -707,12 +889,30 @@ export function BoardScreen({
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader title={t.boardTitle} onMenu={onOpenOwnerMenu} />
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: layout.pad, gap: 12, paddingBottom: 32 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.red} />
         }
       >
         {offline ? <Text style={styles.offline}>{t.boardReconnecting}</Text> : null}
+        {toast ? <Text style={styles.toast}>{toast}</Text> : null}
+
+        {/* The printer switch sits above the board, not inside the owner
+            menu: it is a service-time decision the pass makes and has to
+            be able to see the state of at a glance. */}
+        <View style={styles.autoPrintCard}>
+          <View style={styles.autoPrintRow}>
+            <Text style={styles.autoPrintLabel}>{t.boardAutoPrint}</Text>
+            <Switch
+              value={autoPrint}
+              onValueChange={toggleAutoPrint}
+              accessibilityLabel={t.boardAutoPrint}
+              trackColor={{ false: colors.line, true: colors.red }}
+              thumbColor={colors.cream}
+            />
+          </View>
+          {autoPrint ? <Text style={styles.autoPrintHint}>{t.boardAutoPrintHint}</Text> : null}
+        </View>
 
         <Text style={styles.section}>
           {t.boardOpen}
@@ -728,7 +928,7 @@ export function BoardScreen({
             <ActivityIndicator color={colors.red} style={{ marginVertical: 24 }} />
           )
         ) : (
-          open.map((order) => renderCard(order, false))
+          <View style={gridStyle}>{open.map((order) => renderCard(order, false))}</View>
         )}
 
         {doneToday.length > 0 ? (
@@ -736,7 +936,7 @@ export function BoardScreen({
             <Text style={[styles.section, { marginTop: 10 }]}>
               {t.boardDone} · {doneToday.length}
             </Text>
-            {doneToday.map((order) => renderCard(order, true))}
+            <View style={gridStyle}>{doneToday.map((order) => renderCard(order, true))}</View>
           </>
         ) : null}
       </ScrollView>
@@ -758,6 +958,33 @@ const styles = StyleSheet.create({
     ...fonts.bodySemi,
     fontSize: 12.5,
     textAlign: "center",
+  },
+  /** What printing just did. Same voice as the offline line: one
+   *  centred sentence that gets out of the way by itself. */
+  toast: { color: colors.red, ...fonts.bodySemi, fontSize: 12.5, textAlign: "center" },
+  autoPrintCard: {
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    gap: 2,
+  },
+  autoPrintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    minHeight: 44,
+  },
+  autoPrintLabel: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 14.5 },
+  autoPrintHint: {
+    color: colors.inkSoft,
+    ...fonts.body,
+    fontSize: 12,
+    lineHeight: 16,
+    paddingBottom: 8,
   },
   section: {
     color: colors.inkSoft,
@@ -900,6 +1127,22 @@ const styles = StyleSheet.create({
   },
   actionIconPrimary: { backgroundColor: colors.red, borderColor: colors.red },
   actionCaption: { color: colors.red, ...fonts.bodyBold, fontSize: 10, textAlign: "center" },
+  /** Printing and cancelling share the card's last line — printing on
+   *  the reading edge because it is the one used every service. */
+  footActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  printAction: {
+    color: colors.ink,
+    ...fonts.bodyBold,
+    fontSize: 12.5,
+    paddingVertical: 10,
+    paddingEnd: 12,
+  },
   // Reachable, never prominent: no border, no fill, nothing that reads
   // as a second button — but a real target, not a 12px trap.
   cancelAction: {

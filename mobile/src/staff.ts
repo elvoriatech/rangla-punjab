@@ -216,15 +216,30 @@ export async function fetchStaffOrders(
 }
 
 /**
+ * Why a transition was refused, in the server's own vocabulary.
+ *
+ * `cancel_disabled` is the one the board has to tell apart: cancelling
+ * from the app is a per-venue switch in the web dashboard, so a 409
+ * there is a SETTING, not a stale board, and "someone got there first"
+ * would be a lie. Everything else keeps the existing reading.
+ */
+export type StaffAdvanceReason = "cancel_disabled" | "invalid_transition";
+
+export type StaffAdvanceResult =
+  | { ok: true; data: StaffOrder | null }
+  | { ok: false; error: StaffError; reason?: StaffAdvanceReason };
+
+/**
  * Move an order on. `to` always comes from that order's own `allowedNext`
  * — 409 (`invalid_transition`) therefore means the board is stale, not
- * that the app got the lifecycle wrong.
+ * that the app got the lifecycle wrong. The exception is
+ * `cancel_disabled`, which the caller reports as the setting it is.
  */
 export async function advanceStaffOrder(
   token: string,
   orderId: string,
   to: string,
-): Promise<StaffResult<StaffOrder | null>> {
+): Promise<StaffAdvanceResult> {
   const res = await staffFetch(
     token,
     `/api/v1/staff/orders/${encodeURIComponent(orderId)}/status`,
@@ -234,7 +249,13 @@ export async function advanceStaffOrder(
     },
   );
   if (!res) return { ok: false, error: "network" };
-  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  if (res.status !== 200 || !res.body) {
+    const error = failure(res.status);
+    const reason = res.body?.error;
+    return reason === "cancel_disabled" || reason === "invalid_transition"
+      ? { ok: false, error, reason }
+      : { ok: false, error };
+  }
   // A server that answers 200 without echoing the order is fine: the next
   // poll carries the truth.
   return { ok: true, data: asStaffOrder(res.body.order) };
@@ -557,6 +578,12 @@ export interface StaffMenuCategory {
 export interface StaffItemPatch {
   isAvailable?: boolean;
   priceCents?: number;
+  /** 1–120 characters, trimmed by the server. A dish with no name is
+   *  not a dish, so there is no "clear the name". */
+  name?: string;
+  /** Up to 2000 characters. `null` (or "") clears it — the one text
+   *  field on a dish a venue may legitimately want empty. */
+  description?: string | null;
   offer?: {
     priceCents: number;
     startsAt?: string | null;
@@ -759,12 +786,16 @@ function asMember(raw: unknown): StaffLoyaltyMember | null {
   };
 }
 
-/** The guests' side of the programme, as the restaurant sees it. */
-export async function fetchStaffLoyalty(token: string): Promise<StaffResult<StaffLoyalty>> {
-  const res = await staffFetch(token, "/api/v1/staff/loyalty");
-  if (!res) return { ok: false, error: "network" };
-  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
-  const body = res.body;
+/**
+ * One loyalty payload, however the server chose to nest it.
+ *
+ * `enabled` is read from BOTH places on purpose: the overview has always
+ * sent it at the top level, and the config object grew its own copy when
+ * the switch became editable (P7 owner half). Top level wins when both
+ * are present; the config's copy is the fallback, so neither shape can
+ * leave the switch stuck off.
+ */
+function asStaffLoyalty(body: Record<string, unknown>): StaffLoyalty {
   const config = (body.config && typeof body.config === "object" ? body.config : {}) as Record<
     string,
     unknown
@@ -774,25 +805,460 @@ export async function fetchStaffLoyalty(token: string): Promise<StaffResult<Staf
     unknown
   >;
   return {
-    ok: true,
-    data: {
-      enabled: bool(body.enabled),
-      config: {
-        minOrderCents: num(config.minOrderCents),
-        pointsPerOrder: num(config.pointsPerOrder),
-        rewardPoints: num(config.rewardPoints),
-        rewardValueCents: num(config.rewardValueCents),
-        voucherExpiryMonths: num(config.voucherExpiryMonths),
-      },
-      totals: {
-        members: num(totals.members),
-        pointsOutstanding: num(totals.pointsOutstanding),
-        vouchersAvailable: num(totals.vouchersAvailable),
-        vouchersRedeemed30d: num(totals.vouchersRedeemed30d),
-      },
-      members: Array.isArray(body.members)
-        ? body.members.map(asMember).filter((m): m is StaffLoyaltyMember => m !== null)
-        : [],
+    enabled: bool(body.enabled, bool(config.enabled)),
+    config: {
+      minOrderCents: num(config.minOrderCents),
+      pointsPerOrder: num(config.pointsPerOrder),
+      rewardPoints: num(config.rewardPoints),
+      rewardValueCents: num(config.rewardValueCents),
+      voucherExpiryMonths: num(config.voucherExpiryMonths),
     },
+    totals: {
+      members: num(totals.members),
+      pointsOutstanding: num(totals.pointsOutstanding),
+      vouchersAvailable: num(totals.vouchersAvailable),
+      vouchersRedeemed30d: num(totals.vouchersRedeemed30d),
+    },
+    members: Array.isArray(body.members)
+      ? body.members.map(asMember).filter((m): m is StaffLoyaltyMember => m !== null)
+      : [],
   };
+}
+
+/** The guests' side of the programme, as the restaurant sees it. */
+export async function fetchStaffLoyalty(token: string): Promise<StaffResult<StaffLoyalty>> {
+  const res = await staffFetch(token, "/api/v1/staff/loyalty");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: asStaffLoyalty(res.body) };
+}
+
+/* ------------------------------------------------------------------ *
+ * The Google rating (P7-14, owner half).
+ *
+ * Two numbers and a switch: what guests see under the restaurant's name,
+ * where it came from, and whether it is shown at all. The server keeps
+ * two sources — the value FETCHED from Google (needs a Places API key
+ * this deployment may not have) and the one the owner TYPED — and
+ * decides between them; `effective` is that verdict, and the app never
+ * re-derives it.
+ * ------------------------------------------------------------------ */
+
+/** A rating with its provenance. `source` is the server's own word for
+ *  which of the two won. */
+export interface StaffRatingValue {
+  value: number;
+  count: number;
+}
+
+export interface StaffRatingFetched extends StaffRatingValue {
+  /** When we last asked Google. */
+  fetchedAt: string | null;
+}
+
+export interface StaffRatingManual extends StaffRatingValue {
+  /** When a human last typed it. */
+  updatedAt: string | null;
+}
+
+export interface StaffRatingEffective extends StaffRatingValue {
+  source: "fetched" | "manual";
+}
+
+export interface StaffRating {
+  /** The owner's switch: off means no star line anywhere, whatever the
+   *  numbers say. Absent on an older server = on, matching the column
+   *  default. */
+  enabled: boolean;
+  placeId: string | null;
+  fetched: StaffRatingFetched | null;
+  manual: StaffRatingManual | null;
+  /** What a guest sees right now — null when nothing is shown. */
+  effective: StaffRatingEffective | null;
+  /** Google's "write a review" form, or a Maps search for the venue.
+   *  Always an http(s) URL when present. */
+  reviewUrl: string | null;
+  /** Whether the SERVER can talk to Google at all (it has a Places API
+   *  key). False turns the fetch half into a hint. */
+  canFetch: boolean;
+}
+
+/** One candidate from the Place ID search. */
+export interface StaffPlace {
+  id: string;
+  name: string;
+  address: string;
+}
+
+/**
+ * What went wrong on a lookup, in the server's own vocabulary. Each maps
+ * to one plain-language sentence in the catalogue — the same sentences
+ * the dashboard's Google card shows.
+ */
+export type StaffRatingLookupError =
+  | "no_api_key"
+  | "no_place_id"
+  | "api_not_enabled"
+  | "key_invalid"
+  | "quota"
+  | "not_found"
+  | "network"
+  | "unknown";
+
+const LOOKUP_ERRORS: readonly string[] = [
+  "no_api_key",
+  "no_place_id",
+  "api_not_enabled",
+  "key_invalid",
+  "quota",
+  "not_found",
+  "network",
+  "unknown",
+];
+
+function isLookupError(value: unknown): value is StaffRatingLookupError {
+  return typeof value === "string" && LOOKUP_ERRORS.includes(value);
+}
+
+/**
+ * The lookup routes fail in TWO vocabularies at once: the staff-wide one
+ * (`unauthorized` when the session is gone) and Google's (`quota`, …).
+ * Callers must keep handling the first — hence a result whose failure
+ * carries both, with `reason` set only when the server named one.
+ */
+export type StaffRatingResult<T> =
+  { ok: true; data: T } | { ok: false; error: StaffError; reason?: StaffRatingLookupError };
+
+function asRatingValue(raw: unknown): StaffRatingValue | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const value = num(r.value, -1);
+  // A rating outside Google's own scale is a rating we can't render —
+  // and putting a wrong number under the restaurant's name is worse than
+  // showing none. Same strictness as the guest side's `asRating`.
+  if (!(value >= 1 && value <= 5)) return null;
+  const count = num(r.count, -1);
+  if (count < 0) return null;
+  return { value, count: Math.trunc(count) };
+}
+
+function httpUrl(value: unknown): string | null {
+  const url = typeof value === "string" ? value.trim() : "";
+  return /^https?:\/\//i.test(url) ? url : null;
+}
+
+function asPlace(raw: unknown): StaffPlace | null {
+  if (!raw || typeof raw !== "object") return null;
+  const p = raw as Record<string, unknown>;
+  const id = str(p.id);
+  if (!id) return null;
+  return { id, name: str(p.name), address: str(p.address) };
+}
+
+export function asStaffRating(raw: unknown): StaffRating {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const fetchedValue = asRatingValue(r.fetched);
+  const manualValue = asRatingValue(r.manual);
+  const effectiveValue = asRatingValue(r.effective);
+  const effectiveSource = str((r.effective as Record<string, unknown> | undefined)?.source);
+  return {
+    // Absent = on: the column defaults to true, and an older server that
+    // doesn't know the flag has hidden nothing.
+    enabled: bool(r.enabled, true),
+    placeId: nullableStr(r.placeId),
+    fetched: fetchedValue
+      ? {
+          ...fetchedValue,
+          fetchedAt: nullableStr((r.fetched as Record<string, unknown>).fetchedAt),
+        }
+      : null,
+    manual: manualValue
+      ? {
+          ...manualValue,
+          updatedAt: nullableStr((r.manual as Record<string, unknown>).updatedAt),
+        }
+      : null,
+    effective: effectiveValue
+      ? {
+          ...effectiveValue,
+          // Unknown provenance is read as "typed": claiming Google said
+          // something it may not have is the worse mistake.
+          source: effectiveSource === "fetched" ? "fetched" : "manual",
+        }
+      : null,
+    // Only an http(s) link is usable — this string goes straight to the
+    // system browser, and the server is not the place to be handed an
+    // app scheme from (same test as the guest side's `asRating`).
+    reviewUrl: httpUrl(r.reviewUrl),
+    canFetch: bool(r.canFetch),
+  };
+}
+
+/** Failure shared by all four routes: the staff vocabulary, plus
+ *  Google's `error` string when the body carries one. */
+function ratingFailure(
+  status: number,
+  body: Record<string, unknown> | null,
+): { ok: false; error: StaffError; reason?: StaffRatingLookupError } {
+  const error = failure(status);
+  const reason = body ? body.error : null;
+  return isLookupError(reason) ? { ok: false, error, reason } : { ok: false, error };
+}
+
+export async function fetchStaffRating(token: string): Promise<StaffResult<StaffRating>> {
+  const res = await staffFetch(token, "/api/v1/staff/rating");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: asStaffRating(res.body.rating) };
+}
+
+/**
+ * Change one part of the rating. Only the keys present travel: an absent
+ * `manual` leaves the typed numbers alone, while `manual: null` clears
+ * them — the same "absent vs. null" contract as `StaffItemPatch`.
+ *
+ * A 400 names the offending field (`value`, `count`, `placeId`), which
+ * the screen puts next to that input rather than at the top.
+ */
+export async function updateStaffRating(
+  token: string,
+  patch: {
+    enabled?: boolean;
+    manual?: { value: number; count: number } | null;
+    placeId?: string | null;
+  },
+): Promise<StaffResult<StaffRating>> {
+  const res = await staffFetch(token, "/api/v1/staff/rating", { method: "PATCH", body: patch });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) {
+    const error = failure(res.status);
+    const field = res.body ? nullableStr(res.body.field) : null;
+    return field ? { ok: false, error, field } : { ok: false, error };
+  }
+  return { ok: true, data: asStaffRating(res.body.rating) };
+}
+
+/** Ask Google right now, instead of waiting for the once-a-day refresh —
+ *  how the owner checks that a Place ID they just saved is theirs. */
+export async function refreshStaffRating(token: string): Promise<StaffRatingResult<StaffRating>> {
+  const res = await staffFetch(token, "/api/v1/staff/rating/refresh", { method: "POST", body: {} });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return ratingFailure(res.status, res.body);
+  return { ok: true, data: asStaffRating(res.body.rating) };
+}
+
+/** Find the venue on Google by name — the whole Place ID setup without
+ *  leaving the app. An empty list is a valid answer, not an error. */
+export async function searchStaffRatingPlaces(
+  token: string,
+  query: string,
+): Promise<StaffRatingResult<StaffPlace[]>> {
+  const res = await staffFetch(token, "/api/v1/staff/rating/search", {
+    method: "POST",
+    body: { query },
+  });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return ratingFailure(res.status, res.body);
+  const raw = res.body.places;
+  return {
+    ok: true,
+    data: Array.isArray(raw) ? raw.map(asPlace).filter((p): p is StaffPlace => p !== null) : [],
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Opening hours — the week the venue is actually open.
+ *
+ * The server owns the clock: `timezone` is the VENUE's zone (not this
+ * device's, which may be a phone roaming abroad) and `openNow` is the
+ * server's own verdict against it. The app renders both and re-derives
+ * neither — a tablet with a wrong system time must not be able to tell
+ * a guest the kitchen is shut.
+ *
+ * Day keys are the server's: Monday-first, three letters, lower case.
+ * ------------------------------------------------------------------ */
+
+/** One open window. Both ends are "HH:MM", venue-local, 24-hour. */
+export interface StaffHoursSlot {
+  open: string;
+  close: string;
+}
+
+export interface StaffDayHours {
+  closed: boolean;
+  /** Empty on a closed day. Normally one window, two on a venue that
+   *  shuts between lunch and dinner. */
+  slots: StaffHoursSlot[];
+}
+
+export const HOURS_DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type StaffHoursDay = (typeof HOURS_DAYS)[number];
+export type StaffHoursWeek = Record<StaffHoursDay, StaffDayHours>;
+
+export interface StaffHours {
+  /** IANA zone, e.g. "Europe/Berlin". Shown, never used to compute. */
+  timezone: string;
+  hours: StaffHoursWeek;
+  /** The server's verdict right now. Null on a server that doesn't say,
+   *  which hides the pill rather than guessing at it. */
+  openNow: boolean | null;
+}
+
+/** "9:5" → "09:05"; anything that isn't a time of day → null. */
+function asTime(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function asSlot(raw: unknown): StaffHoursSlot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const s = raw as Record<string, unknown>;
+  const open = asTime(s.open);
+  const close = asTime(s.close);
+  // Half a window is not a window: rendering "09:00 – " invites the
+  // owner to save a shape the server will reject anyway.
+  if (!open || !close) return null;
+  return { open, close };
+}
+
+function asDayHours(raw: unknown): StaffDayHours {
+  if (!raw || typeof raw !== "object") return { closed: true, slots: [] };
+  const d = raw as Record<string, unknown>;
+  const slots = Array.isArray(d.slots)
+    ? d.slots.map(asSlot).filter((s): s is StaffHoursSlot => s !== null)
+    : [];
+  // A day with no readable window IS closed, whatever the flag says —
+  // and a day the server calls open with windows keeps them.
+  const closed = bool(d.closed, slots.length === 0) || slots.length === 0;
+  return { closed, slots: closed ? [] : slots };
+}
+
+export function asStaffHoursWeek(raw: unknown): StaffHoursWeek {
+  const h = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  // Always all seven, always in order: the editor renders a full week,
+  // so a server that omits Sunday must not drop a row off the screen.
+  return Object.fromEntries(HOURS_DAYS.map((day) => [day, asDayHours(h[day])])) as StaffHoursWeek;
+}
+
+function asStaffHours(body: Record<string, unknown>): StaffHours {
+  return {
+    timezone: str(body.timezone),
+    hours: asStaffHoursWeek(body.hours),
+    openNow: typeof body.openNow === "boolean" ? body.openNow : null,
+  };
+}
+
+export async function fetchStaffHours(token: string): Promise<StaffResult<StaffHours>> {
+  const res = await staffFetch(token, "/api/v1/staff/hours");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: asStaffHours(res.body) };
+}
+
+/**
+ * Save the whole week at once — hours are read as a table, and a
+ * per-day PATCH would let the owner leave half a change behind.
+ *
+ * A 400 names the offending DAY in `field` ("tue"), which the editor
+ * highlights on that row instead of showing a general failure.
+ */
+export async function updateStaffHours(
+  token: string,
+  hours: StaffHoursWeek,
+): Promise<StaffResult<StaffHours>> {
+  const res = await staffFetch(token, "/api/v1/staff/hours", { method: "PATCH", body: { hours } });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) {
+    const error = failure(res.status);
+    const field = res.body ? nullableStr(res.body.field) : null;
+    return field ? { ok: false, error, field } : { ok: false, error };
+  }
+  return { ok: true, data: asStaffHours(res.body) };
+}
+
+/**
+ * The programme's rules, as the owner may change them from the counter.
+ *
+ * FLAT, and only the keys present travel — the same "absent means leave
+ * it alone" contract as `StaffItemPatch` — so the switch can be saved on
+ * its own without the settings form having to round-trip five numbers it
+ * was not asked about.
+ *
+ * Every number is a non-negative INTEGER in the server's own unit: money
+ * in cents, points as points, expiry in whole months. The euro inputs
+ * the screen shows are converted before they get here, and the server
+ * takes integers only — no floats, no numeric strings.
+ */
+export type StaffLoyaltyPatch = Partial<StaffLoyaltyConfig> & { enabled?: boolean };
+
+/**
+ * The server's own limits (`src/lib/loyalty-config.ts`), mirrored so a
+ * typo is caught next to the input that made it rather than as a 400
+ * the owner has to decode. Kept in one place because the screen and any
+ * future caller must refuse exactly the same numbers the server does.
+ */
+export const LOYALTY_LIMITS: Record<keyof StaffLoyaltyConfig, number> = {
+  minOrderCents: 1_000_000,
+  pointsPerOrder: 10_000,
+  rewardPoints: 1_000_000,
+  rewardValueCents: 1_000_000,
+  voucherExpiryMonths: 60,
+};
+
+/**
+ * Change the programme. The switch is the one a venue reaches for
+ * mid-service (stop giving points now, sort the numbers out later), so
+ * it is saved on its own; the numbers are a pricing decision and travel
+ * together from the settings form.
+ *
+ * A 400 names the offending key in `field` ("rewardPoints"), which the
+ * screen puts under that input.
+ */
+export async function updateStaffLoyalty(
+  token: string,
+  patch: StaffLoyaltyPatch,
+): Promise<StaffResult<StaffLoyalty>> {
+  const res = await staffFetch(token, "/api/v1/staff/loyalty", { method: "PATCH", body: patch });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) {
+    const error = failure(res.status);
+    const field = res.body ? nullableStr(res.body.field) : null;
+    return field ? { ok: false, error, field } : { ok: false, error };
+  }
+  return { ok: true, data: asStaffLoyalty(res.body) };
+}
+
+/* ------------------------------------------------------------------ *
+ * Kitchen tickets.
+ *
+ * The ONE staff route that does not answer JSON: the server renders a
+ * self-contained HTML document (inline CSS, no external assets) and the
+ * app hands it straight to the platform's print stack. Nothing here
+ * parses or rewrites it — a ticket's layout is the server's business,
+ * which is what lets a venue change its ticket without an app release.
+ * ------------------------------------------------------------------ */
+
+export async function fetchStaffTicketHtml(
+  token: string,
+  orderId: string,
+): Promise<StaffResult<string>> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/api/v1/staff/orders/${encodeURIComponent(orderId)}/ticket`, {
+      headers: { "X-Staff-Token": token, Accept: "text/html" },
+    });
+  } catch {
+    return { ok: false, error: "network" };
+  }
+  if (!res.ok) return { ok: false, error: failure(res.status) };
+  const html = await res.text().catch(() => "");
+  // A 200 with nothing in it is a ticket nobody can print — and a blank
+  // sheet out of the kitchen printer is worse than an error on screen.
+  if (!html.trim()) return { ok: false, error: "server" };
+  return { ok: true, data: html };
 }

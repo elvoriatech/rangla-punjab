@@ -1,7 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fonts, isRTL, logo, money, radius } from "./theme";
+import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
 import { ALLERGEN_ICONS, DIET_ICONS, useI18n } from "./i18n";
 import type { ApiItem } from "./api";
 
@@ -12,17 +12,24 @@ import type { ApiItem } from "./api";
  * that opens the owner's menu, and a back arrow in place of the logo on
  * the screens that aren't tabs. A guest build passes neither, so the bar
  * is exactly the mockup's.
+ *
+ * `openNow` adds the venue's open/closed pill beside the burger. It is
+ * a THREE-state prop on purpose: `undefined`/`null` means nobody has
+ * told us, and the header then shows nothing rather than guessing — a
+ * wrong "Closed" over the restaurant's own name costs it orders.
  */
 export function BrandHeader({
   title,
   subtitle,
   onMenu,
   onBack,
+  openNow,
 }: {
   title: string;
   subtitle?: string;
   onMenu?: () => void;
   onBack?: () => void;
+  openNow?: boolean | null;
 }): React.ReactElement {
   const { t } = useI18n();
   return (
@@ -46,6 +53,7 @@ export function BrandHeader({
         <Text style={styles.headerTitle}>{title}</Text>
         {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
       </View>
+      {openNow === null || openNow === undefined ? null : <VenueStatePill open={openNow} />}
       {onMenu ? (
         <Pressable
           onPress={onMenu}
@@ -59,6 +67,35 @@ export function BrandHeader({
       ) : (
         <View style={{ width: 40 }} />
       )}
+    </View>
+  );
+}
+
+/**
+ * Open or closed, said in three ways at once: a coloured dot, a filled
+ * pill, and the WORD. The word is what makes it work for someone who
+ * cannot tell the dots apart — colour is never carrying the meaning on
+ * its own here.
+ *
+ * The pill has its own light fill rather than sitting bare on the red
+ * header: green-on-brand-red would not clear AA, and this is the one
+ * line on the screen a guest may act on.
+ */
+function VenueStatePill({ open }: { open: boolean }): React.ReactElement {
+  const { t } = useI18n();
+  const tone = open ? statusTones.open : statusTones.closed;
+  const label = open ? t.venueOpen : t.venueClosed;
+  return (
+    <View
+      style={[styles.statePill, { backgroundColor: tone.fill }]}
+      accessibilityRole="text"
+      accessibilityLabel={label}
+    >
+      {/* Decorative: the label beside it already says this. */}
+      <View style={[styles.stateDot, { backgroundColor: tone.dot }]} />
+      <Text style={[styles.stateText, { color: tone.text }]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -311,6 +348,19 @@ const styles = StyleSheet.create({
    *  never shifts the title off centre. */
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerCenter: { flex: 1, alignItems: "center" },
+  /** `flexDirection: "row"` mirrors itself in an RTL build, so the dot
+   *  stays on the reading edge with nothing to special-case. */
+  statePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    flexShrink: 1,
+  },
+  stateDot: { width: 9, height: 9, borderRadius: 5 },
+  stateText: { ...fonts.bodyHeavy, fontSize: 11, letterSpacing: 0.2 },
   headerTitle: { color: colors.onRed, fontSize: 20, ...fonts.display },
   headerSubtitle: {
     color: colors.goldSoft,

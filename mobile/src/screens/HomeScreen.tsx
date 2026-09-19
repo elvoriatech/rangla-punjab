@@ -14,7 +14,7 @@ import type { ApiMenu, ApiItem, ApiRating } from "../api";
 import { offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffOrdering } from "../staff";
-import { fetchStaffOrdering, updateStaffOrdering } from "../staff";
+import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 import { fill, localeTag, useI18n } from "../i18n";
@@ -158,8 +158,34 @@ export function HomeScreen({
   onMenuChanged?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
-  const { staffToken } = useAuth();
+  const { staffToken, clearStaff } = useAuth();
   const restaurant = staffToken !== null;
+  /**
+   * Behind the counter the header's pill should be LIVE: the owner has
+   * just edited the hours and wants to see what the change did, and the
+   * menu payload this screen was handed may be minutes old. So
+   * restaurant mode asks the hours route for the server's current
+   * verdict and falls back to the menu's when it has none.
+   *
+   * Still the server's verdict either way — nothing here reads a clock.
+   */
+  const [liveOpen, setLiveOpen] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!staffToken) {
+      setLiveOpen(null);
+      return;
+    }
+    let alive = true;
+    void fetchStaffHours(staffToken).then((res) => {
+      if (!alive) return;
+      if (res.ok) setLiveOpen(res.data.openNow);
+      else if (res.error === "unauthorized") clearStaff();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [staffToken, clearStaff]);
+  const openNow = liveOpen ?? menu.venue.openNow ?? null;
   // Signed out, programme off, or nothing won yet ⇒ no banner at all.
   const { loyalty } = useLoyalty(menu.loyalty?.enabled);
   const voucher = headlineVoucher(loyalty);
@@ -179,7 +205,12 @@ export function HomeScreen({
     .join(" · ");
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title={menu.venue.name} subtitle={t.restaurant} onMenu={onOpenOwnerMenu} />
+      <BrandHeader
+        title={menu.venue.name}
+        subtitle={t.restaurant}
+        onMenu={onOpenOwnerMenu}
+        openNow={openNow}
+      />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <HeroCarousel text={t.heroLine} />
 

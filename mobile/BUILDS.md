@@ -250,11 +250,74 @@ state; no code change is needed afterwards.
    `EXPO_ACCESS_TOKEN`). Unset, the server uses its in-memory fake
    provider and sends nothing.
 
+## Printing kitchen tickets
+
+The board prints an order's ticket to any printer the device can already
+reach: **AirPrint** on iOS, the **Android print framework** on Android,
+the browser's own print dialog on web. There is no printer driver, no
+Bluetooth pairing and no IP address to configure in the app — if the
+tablet can print a web page, it can print a ticket.
+
+The ticket itself is rendered **by the server**: `GET
+/api/v1/staff/orders/{id}/ticket` (`X-Staff-Token`) returns one
+self-contained HTML document, and `src/print.ts` hands it straight to the
+platform. Changing what a ticket looks like is therefore a server change,
+not an app release.
+
+Two ways in, both on the Board:
+
+- **🖨 Print** on an opened order card — one ticket, on demand.
+- **Auto-print new orders** — a switch above the board, **off by
+  default**. While it is on, every order the board detects as new (the
+  same detection that lights the card gold and buzzes the phone) prints
+  once. Turning it on does *not* print the orders already on the board;
+  they are baselined instead. The ids that have printed are kept in
+  AsyncStorage (capped at 200), so relaunching the app mid-service never
+  re-spools the backlog.
+
+⛔ **Native rebuild required** — `expo-print` is a native module, so the
+currently installed APK/IPA cannot print. Rebuild (see below) after
+pulling this change. Nothing else is gated: no credentials, no server
+flags, no store review implications.
+
+## Orientation: the app rotates now
+
+`app.json` → `"orientation": "default"` (was `"portrait"`).
+
+**Why.** The restaurant half of the app lives on a counter tablet, usually
+in landscape, and Expo's prebuild only ever wrote landscape into
+`UISupportedInterfaceOrientations~ipad` — so the **iPad already rotated**,
+while Android tablets were locked to portrait by
+`android:screenOrientation`. `"default"` removes the lock on both
+platforms (`UISupportedInterfaceOrientations` gains
+`LandscapeLeft`/`LandscapeRight` for iPhone, and the Android attribute
+becomes unspecified).
+
+**The trade-off, and why it was taken.** `"default"` also unlocks
+landscape on phones, including for guests. Every guest screen is already
+a `ScrollView` and degrades to "shorter, still scrollable" — except the
+launch screen, which was a centred non-scrolling stack and would have
+clipped. It scrolls now (`WelcomeScreen`), which was the only fix
+landscape needed. The alternative — keeping portrait and locking phones
+at runtime with `expo-screen-orientation` — was rejected as a second
+native module and a second source of truth for one screen's worth of
+layout.
+
+Restaurant screens use the width rather than just tolerating it
+(`src/layout.ts`): the Board is a 2-column card grid from 700 pt and 3
+from 1000 pt, owner screens cap their content at 720 pt and centre it,
+and the floating tab bar stops growing at 560 pt.
+
+⛔ **Rebuild required** — orientation is baked into `Info.plist` and
+`AndroidManifest.xml`. `mobile/ios` and `mobile/android` are generated and
+git-ignored, so this takes effect on the next `npx expo prebuild` /
+`eas build`; an existing install keeps the old lock.
+
 ## Rebuild and install for testing
 
-Native modules (Stripe payment sheet, Google sign-in, push notifications)
-are in the app now, so **Expo Go cannot run it** — every test install is a
-real build.
+Native modules (Stripe payment sheet, Google sign-in, push notifications,
+printing) are in the app now, so **Expo Go cannot run it** — every test
+install is a real build.
 
 ### iPhone plugged into this Mac (free, no Apple Developer Program)
 
@@ -358,6 +421,34 @@ Stripe key ⇒ the labelled **Simulate payment (test)** button instead.
   or the Complaints list — the guest's screen shows the reply and the pill
   turns to "Answered", and **Mark resolved** makes the thread read-only for
   the guest while the card keeps its pill.
+- **Photo source.** "Add photo" now asks **Take photo** or **Choose from
+  library**. The camera needs its own permission (`cameraPermission` in the
+  `expo-image-picker` plugin config), also asked lazily and only if the
+  camera is the source chosen — so a guest who always picks from the library
+  is never asked for the camera at all. Both paths apply the same size cap
+  and JPEG re-encode. A guest can also reach the thread straight from the
+  **Orders** list now, without opening the tracking screen first.
+
+#### Testing the owner's new screens
+
+- **Opening hours** (burger → *Opening hours*). Closed switch per day, up to
+  two open/close windows on the 15-minute grid, **Copy Monday to Tue–Fri**,
+  and an **Open now** pill that comes from the server — it is the *venue's*
+  timezone, so it will not follow a tablet whose clock is set wrong. Save,
+  then check the public menu agrees. A refused day is highlighted on its own
+  row.
+- **Loyalty** (burger → *Loyalty*). The programme switch at the top saves
+  itself the moment it moves and reverts if the server refuses. The
+  **Programme settings** below it edit the five numbers; euro fields accept
+  a comma, and a refused field is marked individually.
+- **Dish name and description** are editable in the Menu tab's edit sheet
+  (restaurant mode) — they used to point at the web dashboard.
+- **Open / Closed** now shows as a coloured dot plus the word in the header.
+  It only renders when the server says; behind the counter it reflects the
+  live state from `/api/v1/staff/hours`.
+- **Tablet.** Turn the tablet on its side: the Board should go to two
+  columns (three on a big one), the owner screens should stay a centred
+  column rather than stretching, and the tab bar should stop growing.
 
 ## Shipping to the stores
 

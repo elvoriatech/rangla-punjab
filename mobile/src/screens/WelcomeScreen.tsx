@@ -4,6 +4,7 @@ import {
   Image,
   ImageBackground,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -19,8 +20,23 @@ import { brand, colors, fonts, hero, logo, radius, scrim } from "../theme";
  * element: wave artwork, logo medallion, serif wordmark, gold flourish,
  * the four-feature icon row, a second flourish, italic Willkommen +
  * tagline, then the two entries ("Bestellung Starten" → menu,
- * "Anmelden / Registrieren" → account). Shown on every cold start while
- * the menu loads; both buttons enable the moment it has.
+ * "Anmelden / Registrieren" → account).
+ *
+ * It has TWO variants, and they are one component on purpose:
+ *
+ *  - `"start"` — the page above, for a device with no session.
+ *  - `"loading"` — the same page, button-for-button identical down to
+ *    the artwork, with a quiet spinner where the entries would be. It is
+ *    what a device that is ALREADY signed in sees between launch and the
+ *    menu arriving.
+ *
+ * The second used to be its own stripped-down screen, which meant the
+ * owner's tablet opened onto something that did not look like the app.
+ * Keeping them in one component is what stops them drifting again: every
+ * change to the launch page is a change to both.
+ *
+ * The error + retry state belongs to both variants — a signed-in device
+ * can perfectly well be the one that cannot reach the kitchen.
  */
 
 const ORNAMENT = require("../../assets/ornament.png");
@@ -35,20 +51,29 @@ function Feature({ icon, label }: { icon: React.ReactNode; label: string }): Rea
 }
 
 export function WelcomeScreen({
-  ready,
+  variant = "start",
+  ready = false,
   loadError,
   onRetry,
   onStart,
   onAccount,
 }: {
-  ready: boolean;
+  /** "loading" drops the two entries and shows a spinner instead.
+   *  Everything else on the page is identical. */
+  variant?: "start" | "loading";
+  /** Whether the menu has arrived. Meaningless while loading, which is
+   *  why it defaults rather than being required there. */
+  ready?: boolean;
   loadError: boolean;
   onRetry: () => void;
-  onStart: () => void;
-  onAccount: () => void;
+  /** Required by the "start" variant; the loading one navigates nowhere
+   *  because the shell decides where a signed-in device lands. */
+  onStart?: () => void;
+  onAccount?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
   const auth = useAuth();
+  const loading = variant === "loading";
 
   // One tap to an account, right on the launch screen — native Google
   // where the build supports it, the browser device flow otherwise.
@@ -68,7 +93,15 @@ export function WelcomeScreen({
       // of letting its intrinsic width define the layout.
       imageStyle={{ width: "100%", height: "100%" }}
     >
-      <View style={styles.scrim}>
+      {/* Scrollable because this stack is taller than a phone laid on
+          its side — and since P7 the app no longer locks to portrait.
+          `flexGrow: 1` keeps it vertically centred whenever it does
+          fit, which is every portrait phone and every tablet. */}
+      <ScrollView
+        style={styles.bg}
+        contentContainerStyle={styles.scrim}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.logoRing}>
           <Image source={logo} style={styles.logo} />
         </View>
@@ -118,10 +151,23 @@ export function WelcomeScreen({
         {loadError ? (
           <>
             <Text style={styles.error}>{t.bootError}</Text>
-            <Pressable onPress={onRetry} style={styles.secondaryBtn}>
+            <Pressable
+              onPress={onRetry}
+              accessibilityRole="button"
+              accessibilityLabel={t.bootRetry}
+              style={styles.secondaryBtn}
+            >
               <Text style={styles.secondaryText}>{t.bootRetry}</Text>
             </Pressable>
           </>
+        ) : loading ? (
+          // Where the two entries would be. Deliberately quiet: this
+          // page is on screen for a moment, and a device with a session
+          // has already made the choice those buttons offer.
+          <View style={styles.loadingSlot} accessibilityRole="progressbar">
+            <ActivityIndicator color={colors.goldSoft} />
+            <Text style={styles.loadingText}>{t.bootLoading}</Text>
+          </View>
         ) : (
           <>
             <Pressable
@@ -157,7 +203,7 @@ export function WelcomeScreen({
             </Pressable>
           </>
         )}
-      </View>
+      </ScrollView>
     </ImageBackground>
   );
 }
@@ -165,10 +211,11 @@ export function WelcomeScreen({
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: colors.red },
   scrim: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
+    paddingVertical: 24,
     backgroundColor: scrim,
   },
   logoRing: {
@@ -246,4 +293,8 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 14 },
   error: { color: colors.onRed, ...fonts.body, fontSize: 14, marginBottom: 12 },
+  // Occupies roughly the height the buttons would, so the page does not
+  // visibly reflow when a guest device shows them instead.
+  loadingSlot: { alignSelf: "stretch", alignItems: "center", gap: 10, paddingVertical: 14 },
+  loadingText: { color: colors.goldSoft, ...fonts.bodySemi, fontSize: 13 },
 });

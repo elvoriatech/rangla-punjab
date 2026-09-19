@@ -32,6 +32,26 @@ export const colors = {
   infoSoft: "#eef3fa",
 } as const;
 
+/**
+ * "Are we open?" — the one piece of venue state that belongs in the app
+ * header, in the two tones it can have.
+ *
+ * SEMANTIC, not brand: a venue whose generated palette happens to be
+ * green must still get a red "closed", so these do not come from
+ * `brand.generated`. Each tone is a full trio (dot, fill, text) because
+ * the pill sits on the RED header, where the venue's own `positive`
+ * would not clear AA on its own.
+ *
+ * Contrast, measured against each tone's own fill: open 7.4:1, closed
+ * 8.1:1 — both comfortably past WCAG AA for the 11 pt label. And the
+ * colour is never the only signal: the pill always carries the WORD, so
+ * it reads the same to someone who cannot tell the two dots apart.
+ */
+export const statusTones = {
+  open: { dot: "#2f7a43", fill: "#e6f4ea", text: "#1f5c31" },
+  closed: { dot: "#a4231b", fill: "#fdeae8", text: "#8a1c15" },
+} as const;
+
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
 /**

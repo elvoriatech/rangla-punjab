@@ -17,6 +17,7 @@ import type { ApiCategory } from "./api";
 import type { StaffItem, StaffItemPatch, StaffMenuCategory, StaffOfferWeekly } from "./staff";
 import { localeTag, useI18n } from "./i18n";
 import { colors, fonts, money, radius } from "./theme";
+import { SHEET_MAX } from "./layout";
 
 /**
  * The owner's side of the menu: one row per dish with the two things a
@@ -141,6 +142,11 @@ export function StaffDishRow({
   );
 }
 
+/** The server's limits on a dish's text (`PATCH /api/v1/staff/items/{id}`),
+ *  mirrored so a long name is refused next to the input that typed it. */
+const NAME_MAX = 120;
+const DESCRIPTION_MAX = 2000;
+
 /** "9,50" / "9.50" → 950. Null when it isn't a price at all. */
 export function parsePrice(text: string): number | null {
   const cleaned = text.trim().replace(/\s/g, "").replace(",", ".");
@@ -230,6 +236,8 @@ function StaffItemForm({
   onClose: () => void;
   onSave: (item: StaffItem, patch: StaffItemPatch) => Promise<string | null>;
 }): React.ReactElement {
+  const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? "");
   const [price, setPrice] = useState(formatPrice(item.priceCents, decimal));
   const [available, setAvailable] = useState(item.isAvailable);
   const [offerOn, setOfferOn] = useState(item.offer !== null);
@@ -255,9 +263,10 @@ function StaffItemForm({
   const [days, setDays] = useState<number[]>(item.offer?.weekly?.days ?? []);
   const [picker, setPicker] = useState<"date" | "time" | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ field: "price" | "offer" | "general"; text: string } | null>(
-    null,
-  );
+  const [error, setError] = useState<{
+    field: "name" | "description" | "price" | "offer" | "general";
+    text: string;
+  } | null>(null);
 
   const dates = useMemo(() => {
     const out: { label: string; value: string }[] = [{ label: t.staffOfferOpenEnd, value: "" }];
@@ -289,6 +298,18 @@ function StaffItemForm({
 
   async function save(): Promise<void> {
     if (busy) return;
+    const trimmedName = name.trim();
+    // The server's own limits, checked here so the message lands under
+    // the input that caused it rather than arriving as a bare 400.
+    if (trimmedName.length === 0 || trimmedName.length > NAME_MAX) {
+      setError({ field: "name", text: t.staffNameInvalid });
+      return;
+    }
+    const trimmedDescription = description.trim();
+    if (trimmedDescription.length > DESCRIPTION_MAX) {
+      setError({ field: "description", text: t.staffDescriptionInvalid });
+      return;
+    }
     const cents = parsePrice(price);
     if (cents === null) {
       setError({ field: "price", text: t.staffPriceInvalid });
@@ -331,6 +352,12 @@ function StaffItemForm({
     }
 
     const patch: StaffItemPatch = {
+      ...(trimmedName === item.name ? {} : { name: trimmedName }),
+      // An emptied description clears it; unchanged means unsent, so a
+      // dish that never had one is not "cleared" on every save.
+      ...(trimmedDescription === (item.description ?? "")
+        ? {}
+        : { description: trimmedDescription.length > 0 ? trimmedDescription : null }),
       ...(cents === item.priceCents ? {} : { priceCents: cents }),
       ...(available === item.isAvailable ? {} : { isAvailable: available }),
       ...(offer === undefined ? {} : { offer }),
@@ -348,16 +375,22 @@ function StaffItemForm({
       onClose();
       return;
     }
-    // The server names the path it refused ("offer.priceCents",
-    // "priceCents", "offer.endsAt", …) — point at that control when it is
-    // one of the two inputs, and fall back to the sheet's own line.
+    // The server names the path it refused ("name", "description",
+    // "offer.priceCents", "priceCents", "offer.endsAt", …) — point at
+    // that control when it is one of the inputs, and fall back to the
+    // sheet's own line. Order matters: "offer.priceCents" must not be
+    // read as the dish's own price.
     const field = /^offer\.(starts|ends)At/i.test(failedField)
       ? "general"
       : /offer/i.test(failedField)
         ? "offer"
-        : /price/i.test(failedField)
-          ? "price"
-          : "general";
+        : /^name$/i.test(failedField)
+          ? "name"
+          : /^description$/i.test(failedField)
+            ? "description"
+            : /price/i.test(failedField)
+              ? "price"
+              : "general";
     setError({
       field,
       text: failedField ? `${t.staffSaveFailed} (${failedField})` : t.staffSaveFailed,
@@ -390,9 +423,50 @@ function StaffItemForm({
             </View>
 
             <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
-              <View style={{ gap: 2 }}>
-                <Text style={styles.dishName}>{item.name}</Text>
-                <Text style={styles.hint}>{t.staffNameLocked}</Text>
+              {/* Name and description used to be read-only here, with a
+                  line pointing at the web dashboard. The counter is the
+                  device the owner actually has in their hand, so they
+                  are edited in place. */}
+              <View style={{ gap: 4 }}>
+                <Text style={styles.label}>{t.staffItemName}</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={(next) => {
+                    setName(next);
+                    setError(null);
+                  }}
+                  maxLength={NAME_MAX}
+                  autoCapitalize="sentences"
+                  style={[styles.input, error?.field === "name" && styles.inputBad]}
+                  accessibilityLabel={t.staffItemName}
+                />
+                {error?.field === "name" ? <Text style={styles.error}>{error.text}</Text> : null}
+              </View>
+
+              <View style={{ gap: 4 }}>
+                <Text style={styles.label}>{t.staffItemDescription}</Text>
+                <TextInput
+                  value={description}
+                  onChangeText={(next) => {
+                    setDescription(next);
+                    setError(null);
+                  }}
+                  maxLength={DESCRIPTION_MAX}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  autoCapitalize="sentences"
+                  style={[
+                    styles.input,
+                    styles.inputMultiline,
+                    error?.field === "description" && styles.inputBad,
+                  ]}
+                  accessibilityLabel={t.staffItemDescription}
+                />
+                <Text style={styles.hint}>{t.staffItemDescriptionHint}</Text>
+                {error?.field === "description" ? (
+                  <Text style={styles.error}>{error.text}</Text>
+                ) : null}
               </View>
 
               <View style={{ gap: 4 }}>
@@ -675,6 +749,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     padding: 18,
     paddingBottom: 28,
+    // A dish form stretched across a tablet is unreadable; capped and
+    // centred it stays the same shape it has on a phone.
+    width: "100%",
+    maxWidth: SHEET_MAX,
+    alignSelf: "center",
   },
   sheetHeader: {
     flexDirection: "row",
@@ -684,7 +763,6 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { color: colors.ink, ...fonts.display, fontSize: 22 },
   close: { color: colors.inkSoft, fontSize: 28, lineHeight: 30 },
-  dishName: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 17 },
   hint: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   label: { color: colors.inkSoft, fontSize: 12, ...fonts.bodySemi },
   input: {
@@ -699,6 +777,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputBad: { borderColor: colors.danger },
+  /** Three lines of room, growing with the text — a dish description is
+   *  a sentence or two, not a single-line field to scroll sideways. */
+  inputMultiline: { minHeight: 88, paddingTop: 11 },
   error: { color: colors.danger, ...fonts.bodySemi, fontSize: 12.5 },
   switchRow: {
     flexDirection: "row",

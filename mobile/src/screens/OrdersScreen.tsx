@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ApiTracking } from "../api";
 import { fetchOrderStatus } from "../api";
 import type { StoredOrder } from "../orders-store";
@@ -27,7 +27,9 @@ export function OrdersScreen({
   onOpen,
 }: {
   refreshKey: number;
-  onOpen: (order: StoredOrder) => void;
+  /** `issue` asks the tracking view to open the problem thread straight
+   *  away, rather than leaving the guest to find the button there. */
+  onOpen: (order: StoredOrder, options?: { issue?: boolean }) => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
   const [orders, setOrders] = useState<StoredOrder[]>([]);
@@ -232,6 +234,39 @@ export function OrdersScreen({
                         })}
                       </Text>
                     ) : null}
+                    {/* Reporting a problem used to live one tap deeper,
+                        on the tracking screen, where a guest had to know
+                        to go looking. It is offered here instead —
+                        nested inside the card's own Pressable, which
+                        resolves to this inner press. */}
+                    {/* Same ask as the tracking screen, on the card the
+                        guest is already looking at. Done orders only,
+                        and only when the server offered a link. */}
+                    {s?.status === "done" && !cancelled && s?.review ? (
+                      <Text
+                        onPress={() => {
+                          const url = s.review?.url;
+                          if (url) void Linking.openURL(url).catch(() => {});
+                        }}
+                        suppressHighlighting
+                        accessibilityRole="link"
+                        accessibilityLabel={t.reviewCta}
+                        style={styles.reviewAction}
+                      >
+                        {t.reviewCta}
+                      </Text>
+                    ) : null}
+                    {s?.issue || s?.canReport ? (
+                      <Text
+                        onPress={() => onOpen(order, { issue: true })}
+                        suppressHighlighting
+                        accessibilityRole="button"
+                        accessibilityLabel={s?.issue ? t.issueView : t.issueReport}
+                        style={styles.reportAction}
+                      >
+                        {s?.issue ? t.issueView : t.issueReport}
+                      </Text>
+                    ) : null}
                   </View>
                   <Text style={styles.chev}>{CHEVRON_FORWARD}</Text>
                 </View>
@@ -273,6 +308,27 @@ const styles = StyleSheet.create({
   meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, flexShrink: 1 },
   cancelledNote: { color: colors.danger, ...fonts.bodySemi, fontSize: 11.5 },
   // Reward applied but not the payment method: a quiet gold footnote.
+  /** The venue's one ask on a finished order: gold, so it reads as an
+   *  invitation rather than another status line. */
+  reviewAction: {
+    color: colors.gold,
+    ...fonts.bodyHeavy,
+    fontSize: 12.5,
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingEnd: 12,
+  },
+  /** Quiet, but a real target: an underline and a full thumb's height,
+   *  never a 12 px trap. */
+  reportAction: {
+    color: colors.red,
+    ...fonts.bodySemi,
+    fontSize: 12.5,
+    textDecorationLine: "underline",
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingEnd: 12,
+  },
   rewardOff: { color: colors.gold, ...fonts.bodySemi, fontSize: 11.5 },
   total: { color: colors.red, fontSize: 16, ...fonts.bodyHeavy },
   chev: { color: colors.inkSoft, ...fonts.body, fontSize: 22, marginStart: 2 },

@@ -1,26 +1,19 @@
 import React from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BASE_URL } from "./api";
 import { useAuth } from "./auth";
 import { useI18n } from "./i18n";
-import { openInAppBrowser } from "./payments";
 import { CHEVRON_FORWARD, colors, fonts, radius } from "./theme";
-
-/** How long to wait for an `onDismiss` that only iOS ever sends. Long
- *  enough to cover the slide-out (~300 ms), short enough that Android
- *  feels immediate. */
-const DISMISS_FALLBACK_MS = 350;
+import { SHEET_MAX } from "./layout";
 
 /**
  * The owner's menu — everything the restaurant can do that isn't a tab.
  *
  * It hangs off the burger in `BrandHeader`, which only exists while a
- * staff session does, so a guest device can never open it. The jobs it
- * lists are the ones the counter needs on the phone; anything that wants
- * a keyboard (dish text, photos, opening hours, the loyalty settings)
- * hands over to the dashboard in an in-app browser rather than growing a
- * cramped mobile form for it.
+ * staff session does, so a guest device can never open it. Every job it
+ * lists is done IN THE APP: the owner's device is the counter's device,
+ * and a handover to the web dashboard was one more thing to log into
+ * mid-service, so the rows here are the whole surface.
  */
 export function OwnerMenuSheet({
   visible,
@@ -29,6 +22,8 @@ export function OwnerMenuSheet({
   onManageMenu,
   onLoyalty,
   onIssues,
+  onRating,
+  onHours,
   openIssues = 0,
 }: {
   visible: boolean;
@@ -37,6 +32,10 @@ export function OwnerMenuSheet({
   onManageMenu: () => void;
   onLoyalty: () => void;
   onIssues: () => void;
+  /** The Google star line under the restaurant's name (P7-14). */
+  onRating: () => void;
+  /** The week the kitchen is open. */
+  onHours: () => void;
   /** Unresolved complaints; 0 hides the badge entirely. */
   openIssues?: number;
 }): React.ReactElement {
@@ -66,59 +65,8 @@ export function OwnerMenuSheet({
     action();
   };
 
-  /**
-   * Anything that presents a NATIVE screen (the in-app browser) must wait
-   * for this sheet's own view controller to finish going away.
-   *
-   * Presenting SFSafariViewController while the `<Modal>` is mid-dismissal
-   * leaves iOS with a stale presented layer that swallows every touch —
-   * the app looks frozen until it is force-quit. So the action is parked
-   * in a ref, `onClose()` starts the slide-out, and the ref is run from
-   * `onDismiss` (iOS, fires once the animation is done). Android never
-   * fires `onDismiss`, hence the timer; whichever arrives first wins and
-   * cancels the other, so the action runs exactly once.
-   */
-  const pending = React.useRef<(() => void) | null>(null);
-  const fallback = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const runPending = React.useCallback((): void => {
-    if (fallback.current !== null) {
-      clearTimeout(fallback.current);
-      fallback.current = null;
-    }
-    const action = pending.current;
-    pending.current = null;
-    action?.();
-  }, []);
-
-  // Unmounting (signing out drops the whole owner UI) must not fire a
-  // queued action into a tree that is no longer there.
-  React.useEffect(
-    () => () => {
-      if (fallback.current !== null) clearTimeout(fallback.current);
-      fallback.current = null;
-      pending.current = null;
-    },
-    [],
-  );
-
-  const goAfterDismiss = (action: () => void): void => {
-    // A second tap while one is already queued is a no-op, not a second
-    // present.
-    if (pending.current !== null) return;
-    pending.current = action;
-    onClose();
-    fallback.current = setTimeout(runPending, DISMISS_FALLBACK_MS);
-  };
-
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-      onDismiss={runPending}
-    >
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t.close}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.header}>
@@ -141,11 +89,8 @@ export function OwnerMenuSheet({
             badge={openIssues}
             onPress={() => go(onIssues)}
           />
-          <Row
-            icon="open-outline"
-            label={t.ownerDashboard}
-            onPress={() => goAfterDismiss(() => void openInAppBrowser(`${BASE_URL}/dashboard`))}
-          />
+          <Row icon="star-outline" label={t.ownerRating} onPress={() => go(onRating)} />
+          <Row icon="time-outline" label={t.ownerHours} onPress={() => go(onHours)} />
           <View style={styles.rule} />
           <Row icon="log-out-outline" label={t.signOutStaff} danger onPress={confirmSignOut} />
         </Pressable>
@@ -196,6 +141,11 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 28,
     gap: 2,
+    // Capped and centred on a tablet: a column of seven rows does not
+    // get wider just because the glass did.
+    width: "100%",
+    maxWidth: SHEET_MAX,
+    alignSelf: "center",
   },
   header: {
     flexDirection: "row",

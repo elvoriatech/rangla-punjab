@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -26,6 +26,7 @@ import type { PushTarget } from "./src/push";
 import { registerForStaffPush, usePushRouting } from "./src/push";
 import { fetchStaffSummary } from "./src/staff";
 import { colors, fonts } from "./src/theme";
+import { TAB_BAR_MAX } from "./src/layout";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { MenuScreen } from "./src/screens/MenuScreen";
 import { CartScreen } from "./src/screens/CartScreen";
@@ -35,6 +36,8 @@ import { AccountScreen } from "./src/screens/AccountScreen";
 import { BoardScreen } from "./src/screens/BoardScreen";
 import { LoyaltyStaffScreen } from "./src/screens/LoyaltyStaffScreen";
 import { IssuesScreen } from "./src/screens/IssuesScreen";
+import { RatingOwnerScreen } from "./src/screens/RatingOwnerScreen";
+import { HoursOwnerScreen } from "./src/screens/HoursOwnerScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { OwnerMenuSheet } from "./src/owner-menu";
 
@@ -52,9 +55,23 @@ import { OwnerMenuSheet } from "./src/owner-menu";
  * never both — `auth.staff` is the whole switch.
  */
 
-/** "loyalty" and "issues" have no tab button: they are reached from the
- *  owner's burger and carry their own back arrow, like the tracking view. */
-type Tab = "home" | "menu" | "cart" | "orders" | "board" | "loyalty" | "issues" | "info";
+/** "loyalty", "issues", "rating" and "hours" have no tab button: they
+ *  are reached from the owner's burger and carry their own back arrow,
+ *  like the tracking view. */
+type Tab =
+  | "home"
+  | "menu"
+  | "cart"
+  | "orders"
+  | "board"
+  | "loyalty"
+  | "issues"
+  | "rating"
+  | "hours"
+  | "info";
+
+/** The owner-only views, which a guest device must never be left on. */
+const OWNER_ONLY: readonly Tab[] = ["board", "loyalty", "issues", "rating", "hours"];
 interface TrackTarget {
   orderId: string;
   token: string;
@@ -68,6 +85,9 @@ interface TrackTarget {
   /** The cart previewed a reward the server didn't end up applying (it
    *  expired, or was spent elsewhere) — said once, then dismissed. */
   rewardFailed?: boolean;
+  /** Open the order's problem thread with the screen: the guest asked
+   *  for it from the orders list, not from the tracking view. */
+  issue?: boolean;
 }
 
 function Shell(): React.ReactElement {
@@ -84,6 +104,10 @@ function Shell(): React.ReactElement {
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
   const [welcomed, setWelcomed] = useState(false);
+  /** Decided once, the moment auth restoration settles: a device that is
+   *  already signed in never sees the welcome screen — not even while the
+   *  menu is still loading. */
+  const [skipWelcome, setSkipWelcome] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [presetType, setPresetType] = useState<OrderType | null>(null);
   const [track, setTrack] = useState<TrackTarget | null>(null);
@@ -126,11 +150,26 @@ function Shell(): React.ReactElement {
       setWelcomed(true);
       setTab((current) => (current === "menu" || current === "info" ? current : "board"));
     } else {
-      setTab((current) =>
-        current === "board" || current === "loyalty" || current === "issues" ? "home" : current,
-      );
+      setTab((current) => (OWNER_ONLY.includes(current) ? "home" : current));
     }
   }, [restaurant]);
+
+  // Opening the app when there is already a session — the owner's counter
+  // tablet, or a guest who signed in on an earlier run — goes straight to
+  // the menu. Runs ONCE, on the render where `auth.ready` first turns
+  // true: after that the owner (and the guest) navigate freely, and a
+  // sign-in performed inside the app leaves the user where they are.
+  const authReady = auth.ready;
+  const hasSession = auth.staff !== null || auth.token !== null;
+  const decided = useRef(false);
+  useEffect(() => {
+    if (decided.current || !authReady) return;
+    decided.current = true;
+    if (!hasSession) return;
+    setSkipWelcome(true);
+    setWelcomed(true);
+    setTab("menu");
+  }, [authReady, hasSession]);
 
   // The Board tab's badge. Cheap enough to keep running from any tab —
   // that is the point: the owner should see work arrive while they are
@@ -209,11 +248,31 @@ function Shell(): React.ReactElement {
     },
     [],
   );
-  const onOpenStored = useCallback((order: StoredOrder) => {
-    setTrack({ orderId: order.orderId, token: order.receiptToken, payment: order.payment });
+  const onOpenStored = useCallback((order: StoredOrder, options?: { issue?: boolean }) => {
+    setTrack({
+      orderId: order.orderId,
+      token: order.receiptToken,
+      payment: order.payment,
+      issue: options?.issue,
+    });
   }, []);
 
   if (!menu || !welcomed) {
+    // Either we don't yet know whether this device has a session, or we
+    // know it has one: both are "not the welcome INVITATION". The launch
+    // page's loading variant stands in — same artwork, no entries — so
+    // nothing flashes past on the way to the menu.
+    // `hasSession` is read here rather than waiting for `skipWelcome`,
+    // which an effect sets only AFTER the first paint — one frame of
+    // Willkommen is exactly what this is meant to prevent. `skipWelcome`
+    // then holds the decision even if the restored token turns out to be
+    // stale and is dropped while the menu is still loading.
+    if (!authReady || hasSession || skipWelcome) {
+      // The SAME launch page a guest sees, minus the two entries: a
+      // device with a session opens onto the app's own face rather than
+      // a stripped-down holding screen (see `WelcomeScreen`).
+      return <WelcomeScreen variant="loading" loadError={loadError} onRetry={load} />;
+    }
     return (
       <WelcomeScreen
         ready={Boolean(menu)}
@@ -243,6 +302,7 @@ function Shell(): React.ReactElement {
         paidHint={track.paid}
         note={track.note}
         rewardFailed={track.rewardFailed}
+        openIssue={track.issue}
         onBack={() => setTrack(null)}
       />
     );
@@ -315,6 +375,19 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
+        {tab === "rating" && restaurant ? (
+          <RatingOwnerScreen
+            venueName={menu.venue.name}
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
+        {tab === "hours" && restaurant ? (
+          <HoursOwnerScreen
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
         {tab === "info" ? (
           <AccountScreen
             menu={menu}
@@ -324,55 +397,60 @@ function Shell(): React.ReactElement {
         ) : null}
       </View>
 
-      <View style={[styles.tabBar, { marginBottom: Math.max(insets.bottom, 12) }]}>
-        <TabButton
-          label={t.tabStart}
-          icon="home"
-          active={tab === "home"}
-          onPress={() => setTab("home")}
-        />
-        <TabButton
-          label={t.tabMenu}
-          icon="grid"
-          // What is on offer right now — the one number on this bar that
-          // is about the menu rather than about this device (P7-12).
-          badge={offerCount > 0 ? offerCount : undefined}
-          active={tab === "menu"}
-          onPress={() => setTab("menu")}
-        />
-        {/* The middle of the bar is whichever job this device has: the
-            guest's basket + receipts, or the restaurant's board. */}
-        {restaurant ? (
+      {/* The wrapper owns the side inset so the bar's own `width: 100%`
+          resolves inside it — a maxWidth plus a horizontal margin would
+          overflow by exactly the margin on a narrow phone. */}
+      <View style={[styles.tabBarWrap, { marginBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.tabBar}>
           <TabButton
-            label={t.tabBoard}
-            icon="restaurant"
-            badge={openOrders > 0 ? openOrders : undefined}
-            active={tab === "board"}
-            onPress={() => setTab("board")}
+            label={t.tabStart}
+            icon="home"
+            active={tab === "home"}
+            onPress={() => setTab("home")}
           />
-        ) : (
-          <>
+          <TabButton
+            label={t.tabMenu}
+            icon="grid"
+            // What is on offer right now — the one number on this bar that
+            // is about the menu rather than about this device (P7-12).
+            badge={offerCount > 0 ? offerCount : undefined}
+            active={tab === "menu"}
+            onPress={() => setTab("menu")}
+          />
+          {/* The middle of the bar is whichever job this device has: the
+            guest's basket + receipts, or the restaurant's board. */}
+          {restaurant ? (
             <TabButton
-              label={t.tabCart}
-              icon="cart"
-              badge={cart.count > 0 ? cart.count : undefined}
-              active={tab === "cart"}
-              onPress={() => setTab("cart")}
+              label={t.tabBoard}
+              icon="restaurant"
+              badge={openOrders > 0 ? openOrders : undefined}
+              active={tab === "board"}
+              onPress={() => setTab("board")}
             />
-            <TabButton
-              label={t.tabOrders}
-              icon="receipt"
-              active={tab === "orders"}
-              onPress={() => setTab("orders")}
-            />
-          </>
-        )}
-        <TabButton
-          label={t.tabAccount}
-          icon="person"
-          active={tab === "info"}
-          onPress={() => setTab("info")}
-        />
+          ) : (
+            <>
+              <TabButton
+                label={t.tabCart}
+                icon="cart"
+                badge={cart.count > 0 ? cart.count : undefined}
+                active={tab === "cart"}
+                onPress={() => setTab("cart")}
+              />
+              <TabButton
+                label={t.tabOrders}
+                icon="receipt"
+                active={tab === "orders"}
+                onPress={() => setTab("orders")}
+              />
+            </>
+          )}
+          <TabButton
+            label={t.tabAccount}
+            icon="person"
+            active={tab === "info"}
+            onPress={() => setTab("info")}
+          />
+        </View>
       </View>
 
       {/* Everything the restaurant can do that isn't a tab. Mounted only
@@ -393,6 +471,8 @@ function Shell(): React.ReactElement {
             setOpenIssueId(null);
             setTab("issues");
           }}
+          onRating={() => setTab("rating")}
+          onHours={() => setTab("hours")}
           openIssues={openIssues}
         />
       ) : null}
@@ -466,39 +546,17 @@ export default function App(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  boot: {
-    flex: 1,
-    backgroundColor: colors.red,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    padding: 24,
-  },
-  bootBrand: { color: colors.onRed, fontSize: 30, ...fonts.bodyHeavy },
-  bootSub: { color: colors.goldSoft, ...fonts.body, fontSize: 12, letterSpacing: 4 },
-  bootState: {
-    color: colors.onRed,
-    opacity: 0.85,
-    marginTop: 20,
-    ...fonts.body,
-    fontSize: 14,
-  },
-  bootRetry: {
-    marginTop: 14,
-    borderWidth: 1.5,
-    borderColor: colors.goldSoft,
-    borderRadius: 999,
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-  },
-  bootRetryText: { color: colors.goldSoft, ...fonts.bodyBold },
   // The mockup's floating pill bar: inset from the screen edges with a
   // long rounded arc on every corner, buttons drawn in toward each other.
+  tabBarWrap: { paddingHorizontal: 12, marginTop: 6 },
   tabBar: {
     flexDirection: "row",
     backgroundColor: colors.red,
-    marginHorizontal: 12,
-    marginTop: 6,
+    // On a tablet the bar stops growing and centres: five buttons
+    // stretched across 1366 pt is a ribbon nobody's thumb can work.
+    width: "100%",
+    maxWidth: TAB_BAR_MAX,
+    alignSelf: "center",
     borderRadius: 28,
     paddingTop: 12,
     paddingBottom: 14,

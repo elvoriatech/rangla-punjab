@@ -211,7 +211,25 @@ export function IssueSheet({
   const canWrite = target?.mode === "staff" ? Boolean(thread) : thread ? !resolved : canReport;
   const windowClosed = target?.mode === "guest" && !thread && !canReport && loaded && !failed;
 
-  async function pickPhoto(): Promise<void> {
+  /**
+   * Ask where the photo should come from, then take it there.
+   *
+   * A guest reporting a cold curry is standing over it — the camera is
+   * the obvious source and used to be unreachable, so the action now
+   * offers both and the library stays the second option rather than the
+   * only one. Both paths share every rule below (size cap, type
+   * normalisation, one photo per message); only the capture differs.
+   */
+  function choosePhotoSource(): void {
+    if (picking.current) return;
+    Alert.alert(t.issueAddPhoto, undefined, [
+      { text: t.issuePhotoCamera, onPress: () => void pickPhoto("camera") },
+      { text: t.issuePhotoLibrary, onPress: () => void pickPhoto("library") },
+      { text: t.signInCancel, style: "cancel" },
+    ]);
+  }
+
+  async function pickPhoto(source: "camera" | "library"): Promise<void> {
     // NOTE: this presents the system picker while the sheet is still
     // VISIBLE, which is safe — iOS is happy to stack a presenter on a
     // settled modal. What is NOT safe is closing the sheet and
@@ -221,18 +239,28 @@ export function IssueSheet({
     picking.current = true;
     setError(null);
     try {
-      // Asked LAZILY, on the first tap: a guest who never attaches a
-      // photo is never asked for their library at all.
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // Asked LAZILY, on the first tap, and only for the source that was
+      // actually chosen: a guest who picks from their library is never
+      // asked for the camera, and vice versa.
+      const permission =
+        source === "camera"
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        setError(t.issuePhotoDenied);
+        setError(source === "camera" ? t.issueCameraDenied : t.issuePhotoDenied);
         return;
       }
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+      const options = {
+        mediaTypes: ["images"] as ImagePicker.MediaType[],
         allowsEditing: false,
+        // Identical on both paths: the size cap and the JPEG
+        // re-encode below depend on it.
         quality: 0.8,
-      });
+      };
+      const picked =
+        source === "camera"
+          ? await ImagePicker.launchCameraAsync(options)
+          : await ImagePicker.launchImageLibraryAsync(options);
       if (picked.canceled || picked.assets.length === 0) return;
       const asset = picked.assets[0];
       if (typeof asset.fileSize === "number" && asset.fileSize > MAX_PHOTO_BYTES) {
@@ -503,7 +531,7 @@ export function IssueSheet({
                           staff reply route takes text. */}
                       {target?.mode === "guest" ? (
                         <Pressable
-                          onPress={() => void pickPhoto()}
+                          onPress={choosePhotoSource}
                           disabled={busy}
                           accessibilityRole="button"
                           accessibilityLabel={t.issueAddPhoto}
