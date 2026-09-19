@@ -89,14 +89,10 @@ export function CartScreen({
     if (menu.ordering.paypal) list.push({ key: "paypal", label: t.methodPaypal, emoji: "🅿️" });
     const cash = (menu.ordering.acceptedPayments ?? []).includes("cash");
     if (cash || list.length === 0) {
-      list.push({
-        key: "cash",
-        label: orderType === "delivery" ? t.methodCashDelivery : t.methodCash,
-        emoji: "💶",
-      });
+      list.push({ key: "cash", label: t.methodCash, emoji: "💶" });
     }
     return list;
-  }, [menu.ordering, orderType, t]);
+  }, [menu.ordering, t]);
 
   const [payMethod, setPayMethod] = useState<PayMethod>(() =>
     menu.ordering.onlinePayment ? "card" : menu.ordering.paypal ? "paypal" : "cash",
@@ -567,19 +563,19 @@ export function CartScreen({
               {payOptions.length > 1 ? (
                 <View style={{ gap: 6, marginTop: 4 }}>
                   <Text style={styles.fieldLabel}>{t.paymentMethod}</Text>
-                  <View style={[styles.typeRow, { marginTop: 0 }]}>
+                  <View style={styles.payRow}>
                     {payOptions.map((option) => (
                       <Pressable
                         key={option.key}
                         onPress={() => setPayMethod(option.key)}
                         accessibilityRole="radio"
                         accessibilityState={{ selected: payMethod === option.key }}
-                        style={[styles.typeChip, payMethod === option.key && styles.typeChipActive]}
+                        style={[styles.payCard, payMethod === option.key && styles.payCardActive]}
                       >
-                        <Text style={{ ...fonts.body, fontSize: 18 }}>{option.emoji}</Text>
+                        <Text style={{ ...fonts.body, fontSize: 30 }}>{option.emoji}</Text>
                         <Text
                           style={[
-                            styles.typeChipText,
+                            styles.payCardText,
                             payMethod === option.key && { color: colors.red },
                           ]}
                           numberOfLines={1}
@@ -706,6 +702,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
   },
   typeChipActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
+  // Payment choice: the same family as the order-type chips, drawn as
+  // proper cards — the guest is choosing how money moves, so it gets the
+  // biggest tap target on the screen.
+  payRow: { flexDirection: "row", gap: 10 },
+  payCard: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    minHeight: 104,
+    borderWidth: 2,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    backgroundColor: colors.creamCard,
+  },
+  payCardActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
+  payCardText: { color: colors.inkSoft, fontSize: 15, ...fonts.bodyBold },
   dropdown: {
     flexDirection: "row",
     alignItems: "center",
