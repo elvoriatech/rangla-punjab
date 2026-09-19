@@ -405,7 +405,15 @@ export interface ReceiptOrder extends OrderFulfilment {
   totalCents: number;
   currency: string;
   createdAt: Date;
-  venue: { name: string; slug: string; logoKey: string | null; defaultLocale: string };
+  venue: {
+    name: string;
+    slug: string;
+    logoKey: string | null;
+    /** Optional: the emails' header banner + band colour (Settings → branding). */
+    bannerKey?: string | null;
+    primaryColor?: string | null;
+    defaultLocale: string;
+  };
   items: { name: string; priceCents: number; quantity: number }[];
 }
 
@@ -440,14 +448,21 @@ export async function getOrderForReceipt(
       },
     });
     if (!order) return null;
-    const branding = order.venue.branding as { logoKey?: unknown } | null;
+    const branding = order.venue.branding as {
+      logoKey?: unknown;
+      bannerKey?: unknown;
+      primaryColor?: unknown;
+    } | null;
+    const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
     return {
       ...order,
       deliveryAddress: order.deliveryAddress as ReceiptOrder["deliveryAddress"],
       venue: {
         name: order.venue.name,
         slug: order.venue.slug,
-        logoKey: typeof branding?.logoKey === "string" ? branding.logoKey : null,
+        logoKey: str(branding?.logoKey),
+        bannerKey: str(branding?.bannerKey),
+        primaryColor: str(branding?.primaryColor),
         defaultLocale: order.venue.defaultLocale,
       },
     };

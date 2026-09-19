@@ -486,3 +486,59 @@ export async function verifyOrderPayment(
   log.info("payment.verified", { orderId, tenantId, settled });
   return { ok: true, paid: true, status: "succeeded" };
 }
+
+/**
+ * Owner-side sweep: settle every recent Stripe order still "pending" whose
+ * PaymentIntent Stripe reports as succeeded. Runs when the dashboard's
+ * Orders page loads, so an owner never stares at "Card · not confirmed"
+ * for a guest who did pay while the webhook was down. Bounded (recent,
+ * capped) — it is a page load, not a batch job. Returns how many settled.
+ */
+export async function reconcilePendingPayments(userId: string): Promise<number> {
+  const shared = await getStripeProvider();
+  const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const found = await asUser(userId, async (tx) => {
+    const tenant = await tx.tenant.findFirstOrThrow({
+      select: {
+        id: true,
+        stripeOwnEnabled: true,
+        stripeOwnSecretEnc: true,
+        stripeOwnWebhookEnc: true,
+      },
+    });
+    const pending = await tx.order.findMany({
+      where: {
+        paymentStatus: "pending",
+        paymentProvider: "stripe",
+        paymentRef: { not: null },
+        createdAt: { gte: since },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { id: true, paymentRef: true, totalCents: true, currency: true },
+    });
+    if (pending.length === 0) return null;
+    const direct = await selectDirectChargeProvider(tenant, shared);
+    if (!direct) return null;
+    const settleable: string[] = [];
+    for (const o of pending) {
+      const state = await direct.provider.retrievePaymentIntent(o.paymentRef!);
+      if (
+        state &&
+        state.status === "succeeded" &&
+        state.amountCents === o.totalCents &&
+        state.currency.toUpperCase() === o.currency.toUpperCase()
+      ) {
+        settleable.push(o.id);
+      }
+    }
+    return { tenantId: tenant.id, settleable };
+  });
+  if (!found) return 0;
+  let settled = 0;
+  for (const orderId of found.settleable) {
+    if (await markOrderPaid(found.tenantId, orderId)) settled += 1;
+  }
+  if (settled > 0) log.info("payment.reconciled", { tenantId: found.tenantId, settled });
+  return settled;
+}

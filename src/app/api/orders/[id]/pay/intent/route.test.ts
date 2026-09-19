@@ -7,6 +7,7 @@ import { placeOrder } from "@/lib/order-service";
 import { POST as CONFIRM } from "../confirm/route";
 import { POST as VERIFY } from "../verify/route";
 import { getStripeProvider } from "@/lib/stripe";
+import { reconcilePendingPayments } from "@/lib/connect-service";
 import { POST } from "./route";
 
 /**
@@ -26,6 +27,7 @@ const ip = `10.7.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() *
 
 async function fixture(): Promise<{
   tenantId: string;
+  userId: string;
   venueId: string;
   publishedVersionId: string;
   itemId: string;
@@ -74,6 +76,7 @@ async function fixture(): Promise<{
     });
     return {
       tenantId: s.tenantId,
+      userId: s.userId,
       venueId: venue.id,
       publishedVersionId: version.id,
       itemId: item.id,
@@ -83,6 +86,7 @@ async function fixture(): Promise<{
 
 async function placedOrder(): Promise<{
   tenantId: string;
+  userId: string;
   orderId: string;
   receiptToken: string;
 }> {
@@ -95,6 +99,7 @@ async function placedOrder(): Promise<{
   if (!placed.ok) throw new Error("order failed");
   return {
     tenantId: fx.tenantId,
+    userId: fx.userId,
     orderId: placed.value.orderId,
     receiptToken: placed.value.receiptToken,
   };
@@ -251,6 +256,22 @@ describe("POST /api/orders/{id}/pay/intent", () => {
     const after = await VERIFY(verifyReq(), context(orderId));
     expect(after.status).toBe(200);
     expect(await after.json()).toEqual({ paid: true, status: "succeeded" });
+    const row = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
+    );
+    expect(row.paymentStatus).toBe("paid");
+  });
+
+  it("the owner's dashboard sweep settles a webhook-less success too", async () => {
+    const { tenantId, userId, orderId, receiptToken } = await placedOrder();
+    const minted = await POST(request(orderId, { token: receiptToken }), context(orderId));
+    const { ref } = (await minted.json()) as { ref: string };
+    expect(await reconcilePendingPayments(userId)).toBe(0);
+    const provider = (await getStripeProvider()) as unknown as {
+      settleOrderCheckout(ref: string): unknown;
+    };
+    provider.settleOrderCheckout(ref);
+    expect(await reconcilePendingPayments(userId)).toBe(1);
     const row = await asTenant(tenantId, (tx) =>
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
     );

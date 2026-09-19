@@ -3,6 +3,7 @@ import { formatPrice } from "@/lib/public-menu";
 import { receiptCopy } from "@/lib/i18n/emails";
 import { dirFor, type UiLocale } from "@/lib/locales";
 import { vatFromGross } from "@/lib/vat";
+import { Button, EmailShell, Pill, styles, venueBrand } from "./layout";
 
 /**
  * The guest's receipt by email — same numbers as the PDF (gross prices,
@@ -54,62 +55,96 @@ export function ReceiptEmail({
         timeZone: "Europe/Berlin",
       }).format(order.requestedFor)
     : t.asap;
-  const cell = { padding: "6px 0", verticalAlign: "top" as const };
-  // The amount column follows the reading direction, so an Arabic receipt
-  // puts it on the left the way the rest of the layout mirrors.
   const amountAlign = dirFor(locale) === "rtl" ? ("left" as const) : ("right" as const);
-  const right = { ...cell, textAlign: amountAlign, whiteSpace: "nowrap" as const };
+  const right = { ...styles.itemCell, textAlign: amountAlign, whiteSpace: "nowrap" as const };
+  const typeIcon =
+    order.orderType === "delivery" ? "🛵" : order.orderType === "takeaway" ? "🛍️" : "🍽️";
+  const whereLine =
+    order.orderType === "dine_in"
+      ? order.tableNumber
+        ? `${t.table} ${order.tableNumber}`
+        : null
+      : `${order.orderType === "delivery" ? t.delivery : t.pickup} · ${t.planned} ${when}`;
 
   return (
-    <html lang={locale} dir={dirFor(locale)}>
-      <body style={{ fontFamily: "Georgia, serif", color: "#1f1a17", lineHeight: 1.5 }}>
-        <p style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-          {order.venue.name}
-        </p>
-        <h1 style={{ fontSize: 24, margin: "4px 0 12px" }}>{t.heading(orderNo(order))}</h1>
-        <p>{t.thanks}</p>
-        <p style={{ fontSize: 14 }}>
-          {order.orderType === "dine_in"
-            ? order.tableNumber
-              ? `🍽️ ${t.table} ${order.tableNumber}`
-              : null
-            : `${order.orderType === "delivery" ? "🛵" : "🛍️"} ${order.orderType === "delivery" ? t.delivery : t.pickup} · 🕒 ${t.planned} ${when}`}
-        </p>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-          <tbody>
-            {order.items.map((item, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid #e6dfd6" }}>
-                <td style={cell}>
-                  {item.quantity}× {item.name}
-                </td>
-                <td style={right}>{money(item.priceCents * item.quantity)}</td>
-              </tr>
-            ))}
-            <tr>
-              <td style={{ ...cell, color: "#6b625a" }}>{t.net}</td>
-              <td style={{ ...right, color: "#6b625a" }}>{money(net)}</td>
-            </tr>
-            <tr>
-              <td style={{ ...cell, color: "#6b625a" }}>{t.vat}</td>
-              <td style={{ ...right, color: "#6b625a" }}>{money(vat)}</td>
-            </tr>
-            <tr style={{ fontWeight: 700, borderTop: "2px solid #1f1a17" }}>
-              <td style={cell}>{t.total}</td>
-              <td style={right}>{money(order.totalCents)}</td>
-            </tr>
-          </tbody>
-        </table>
-        <p style={{ fontSize: 12, color: "#6b625a" }}>{t.vatNote}</p>
-        <p>
-          <strong>{paymentLine}</strong>
-        </p>
-        <p>
-          <a href={receiptUrl}>{t.pdf}</a>
+    <EmailShell
+      lang={locale}
+      dir={dirFor(locale)}
+      brand={venueBrand(order.venue)}
+      title={t.heading(orderNo(order))}
+      footer={
+        <>
+          {t.notInvoice}
           <br />
-          <a href={trackUrl}>{t.track}</a>
+          {order.venue.name}
+        </>
+      }
+    >
+      <p style={styles.eyebrow}>{order.venue.name}</p>
+      <h1 style={styles.h1}>{t.heading(orderNo(order))}</h1>
+      <p style={styles.lead}>{t.thanks}</p>
+
+      {whereLine ? (
+        <p style={{ margin: "0 0 6px", fontSize: 15 }}>
+          {typeIcon} {whereLine}
         </p>
-        <p style={{ fontSize: 12, color: "#6b625a" }}>{t.notInvoice}</p>
-      </body>
-    </html>
+      ) : null}
+      <p style={{ margin: "0 0 18px" }}>
+        <Pill text={paymentLine} tone={paid ? "ok" : "warn"} />
+      </p>
+
+      <table
+        role="presentation"
+        width="100%"
+        cellPadding={0}
+        cellSpacing={0}
+        style={{ borderCollapse: "collapse" }}
+      >
+        <tbody>
+          {order.items.map((item, i) => (
+            <tr key={i}>
+              <td style={styles.itemCell}>
+                <strong>{item.quantity}×</strong> {item.name}
+              </td>
+              <td style={right}>{money(item.priceCents * item.quantity)}</td>
+            </tr>
+          ))}
+          <tr>
+            <td style={{ ...styles.value, ...styles.muted, paddingTop: 12 }}>{t.net}</td>
+            <td
+              style={{ ...styles.value, ...styles.muted, paddingTop: 12, textAlign: amountAlign }}
+            >
+              {money(net)}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ ...styles.value, ...styles.muted }}>{t.vat}</td>
+            <td style={{ ...styles.value, ...styles.muted, textAlign: amountAlign }}>
+              {money(vat)}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ ...styles.totalCell, borderTop: "2px solid #360a0a" }}>{t.total}</td>
+            <td
+              style={{
+                ...styles.totalCell,
+                borderTop: "2px solid #360a0a",
+                textAlign: amountAlign,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {money(order.totalCents)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p style={{ ...styles.muted, margin: "6px 0 0", fontSize: 12 }}>{t.vatNote}</p>
+
+      <hr style={styles.hr} />
+      <div>
+        <Button href={receiptUrl} label={t.pdf} tone="outline" />
+        <Button href={trackUrl} label={t.track} />
+      </div>
+    </EmailShell>
   );
 }

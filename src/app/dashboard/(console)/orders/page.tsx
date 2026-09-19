@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { reconcilePendingPayments } from "@/lib/connect-service";
 import { getSessionUserId } from "@/lib/auth";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
@@ -78,6 +79,11 @@ export default async function OrdersPage({
   // Open orders always show in full; the completed list paginates.
   // listRecentOrders caps at 100 — history beyond that ages out of this
   // screen (it's a working surface, not an archive).
+  // Belt to the webhook's braces: any recent card payment Stripe says
+  // succeeded but the webhook never confirmed is settled before the list
+  // renders, so "Card · not confirmed" only ever means "really not paid".
+  // Failure here must not take the page down.
+  await reconcilePendingPayments(userId).catch(() => 0);
   const orders = await listRecentOrders(userId, 100);
   const open = orders.filter((o) => isOpenStatus(o.status));
   const done = orders.filter((o) => !isOpenStatus(o.status));

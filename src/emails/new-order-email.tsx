@@ -2,14 +2,15 @@ import type { ReceiptOrder } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
 import { newOrderCopy } from "@/lib/i18n/emails";
 import { dirFor, type UiLocale } from "@/lib/locales";
+import { Button, EmailShell, Pill, styles, venueBrand } from "./layout";
 
 /**
  * The owner's "new order" alert — the kitchen ticket in an inbox. Built to
  * be read on a phone between two other orders: the subject alone says what
  * came in, where it goes and what it's worth; the body is the ticket
  * (items, how the guest wants it, how they're paying) and one link to the
- * kitchen board. Same plain-HTML discipline as the receipt: no images, no
- * CSS that a mail client can strip.
+ * kitchen board. Table layout + inline styles in the shared branded shell
+ * (`layout.tsx`) — what survives every mail client.
  *
  * The words live in `src/lib/i18n/emails.ts`; this file is layout only.
  */
@@ -69,88 +70,102 @@ export function NewOrderEmail({
   const addressLine = addr
     ? [addr.street, [addr.zip, addr.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")
     : null;
-  const cell = { padding: "6px 0", verticalAlign: "top" as const };
-  // Amounts follow the reading direction, so an Arabic ticket mirrors
-  // rather than stranding the prices on the wrong edge.
-  const amountAlign = dirFor(locale) === "rtl" ? ("left" as const) : ("right" as const);
-  const right = { ...cell, textAlign: amountAlign, whiteSpace: "nowrap" as const };
-  // The label column's gutter is on the inner edge, which swaps in RTL.
-  const gutter = dirFor(locale) === "rtl" ? { paddingLeft: 12 } : { paddingRight: 12 };
-  const label = { ...cell, ...gutter, color: "#6b625a", whiteSpace: "nowrap" as const };
+  const rtl = dirFor(locale) === "rtl";
+  const amountAlign = rtl ? ("left" as const) : ("right" as const);
+  const right = { ...styles.itemCell, textAlign: amountAlign, whiteSpace: "nowrap" as const };
+  const label = { ...styles.label, ...(rtl ? { padding: "6px 0 6px 12px" } : {}) };
+  const rows: { icon: string; label: string; value: React.ReactNode }[] = [
+    ...(order.customerName ? [{ icon: "👤", label: t.guest, value: order.customerName }] : []),
+    ...(order.customerPhone
+      ? [
+          {
+            icon: "📞",
+            label: t.phone,
+            value: (
+              <a href={`tel:${order.customerPhone}`} style={{ color: "#8f1a1a" }}>
+                {order.customerPhone}
+              </a>
+            ),
+          },
+        ]
+      : []),
+    ...(addressLine ? [{ icon: "📍", label: t.address, value: addressLine }] : []),
+    ...(addr?.note ? [{ icon: "📝", label: t.addressNote, value: addr.note }] : []),
+    { icon: "🕒", label: t.placedAt, value: fmt.format(order.createdAt) },
+  ];
 
   return (
-    <html lang={locale} dir={dirFor(locale)}>
-      <body style={{ fontFamily: "Georgia, serif", color: "#1f1a17", lineHeight: 1.5 }}>
-        <p style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-          {order.venue.name}
-        </p>
-        <h1 style={{ fontSize: 24, margin: "4px 0 12px" }}>{t.heading(orderNo(order))}</h1>
-        <p style={{ fontSize: 18, fontWeight: 700, margin: "0 0 12px" }}>
-          {typeIcon(order.orderType)} {whereLine(order, locale)}
-          {order.orderType === "dine_in" && !order.tableNumber ? ` (${t.noTable})` : null}
-          {order.orderType !== "dine_in" ? ` · ${t.planned} ${when}` : null}
-        </p>
+    <EmailShell
+      lang={locale}
+      dir={dirFor(locale)}
+      brand={venueBrand(order.venue)}
+      title={newOrderSubject(order, locale)}
+      footer={t.footer}
+    >
+      <p style={styles.eyebrow}>{order.venue.name}</p>
+      <h1 style={styles.h1}>{t.heading(orderNo(order))}</h1>
+      <p style={{ margin: "0 0 6px", fontSize: 19, fontWeight: 700 }}>
+        {typeIcon(order.orderType)} {whereLine(order, locale)}
+        {order.orderType === "dine_in" && !order.tableNumber ? ` (${t.noTable})` : null}
+        {order.orderType !== "dine_in" ? ` · ${t.planned} ${when}` : null}
+      </p>
+      <p style={{ margin: "0 0 18px" }}>
+        <Pill text={paymentLine} tone={paid ? "ok" : "warn"} />
+      </p>
 
-        <table style={{ borderCollapse: "collapse", fontSize: 14, marginBottom: 12 }}>
-          <tbody>
-            {order.customerName ? (
-              <tr>
-                <td style={label}>👤 {t.guest}</td>
-                <td style={cell}>{order.customerName}</td>
-              </tr>
-            ) : null}
-            {order.customerPhone ? (
-              <tr>
-                <td style={label}>📞 {t.phone}</td>
-                <td style={cell}>
-                  <a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a>
-                </td>
-              </tr>
-            ) : null}
-            {addressLine ? (
-              <tr>
-                <td style={label}>📍 {t.address}</td>
-                <td style={cell}>{addressLine}</td>
-              </tr>
-            ) : null}
-            {addr?.note ? (
-              <tr>
-                <td style={label}>📝 {t.addressNote}</td>
-                <td style={cell}>{addr.note}</td>
-              </tr>
-            ) : null}
-            <tr>
-              <td style={label}>🕒 {t.placedAt}</td>
-              <td style={cell}>{fmt.format(order.createdAt)}</td>
+      <table
+        role="presentation"
+        cellPadding={0}
+        cellSpacing={0}
+        style={{ borderCollapse: "collapse", marginBottom: 6 }}
+      >
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <td style={label}>
+                {r.icon} {r.label}
+              </td>
+              <td style={styles.value}>{r.value}</td>
             </tr>
-          </tbody>
-        </table>
+          ))}
+        </tbody>
+      </table>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16 }}>
-          <tbody>
-            {order.items.map((item, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid #e6dfd6" }}>
-                <td style={cell}>
-                  <strong>{item.quantity}×</strong> {item.name}
-                </td>
-                <td style={right}>{money(item.priceCents * item.quantity)}</td>
-              </tr>
-            ))}
-            <tr style={{ fontWeight: 700, borderTop: "2px solid #1f1a17" }}>
-              <td style={cell}>{t.total}</td>
-              <td style={right}>{money(order.totalCents)}</td>
+      <hr style={styles.hr} />
+      <table
+        role="presentation"
+        width="100%"
+        cellPadding={0}
+        cellSpacing={0}
+        style={{ borderCollapse: "collapse" }}
+      >
+        <tbody>
+          {order.items.map((item, i) => (
+            <tr key={i}>
+              <td style={{ ...styles.itemCell, fontSize: 16 }}>
+                <strong>{item.quantity}×</strong> {item.name}
+              </td>
+              <td style={{ ...right, fontSize: 16 }}>{money(item.priceCents * item.quantity)}</td>
             </tr>
-          </tbody>
-        </table>
+          ))}
+          <tr>
+            <td style={{ ...styles.totalCell, borderTop: "2px solid #360a0a" }}>{t.total}</td>
+            <td
+              style={{
+                ...styles.totalCell,
+                borderTop: "2px solid #360a0a",
+                textAlign: amountAlign,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {money(order.totalCents)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-        <p style={{ fontSize: 16 }}>
-          <strong>{paymentLine}</strong>
-        </p>
-        <p>
-          <a href={kitchenUrl}>{t.open}</a>
-        </p>
-        <p style={{ fontSize: 12, color: "#6b625a" }}>{t.footer}</p>
-      </body>
-    </html>
+      <hr style={styles.hr} />
+      <Button href={kitchenUrl} label={t.open} />
+    </EmailShell>
   );
 }

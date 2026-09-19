@@ -81,9 +81,9 @@ export default async function OrderTicketPage({
         ? "ABHOLUNG / PICKUP"
         : `IM RESTAURANT${order.tableNumber ? ` — TISCH ${order.tableNumber}` : ""}`;
 
-  // ASCII labels, not emoji: thermal printers print them reliably. The
-  // small vector glyph beside each label prints as graphics, which thermal
-  // drivers handle fine (unlike colour emoji fonts).
+  // Vector glyphs, not emoji: thermal drivers print SVG as graphics but
+  // choke on colour emoji fonts. `icon` is the ASCII word kept as the
+  // glyph's accessible label.
   const infoRows: { icon: string; glyph: keyof typeof GLYPHS; text: string; bold?: boolean }[] = [
     ...(order.requestedFor
       ? [
@@ -138,11 +138,12 @@ export default async function OrderTicketPage({
                 key={`${row.icon}${row.text}`}
                 className={row.bold ? "flex gap-2 font-bold" : "flex gap-2"}
               >
-                <span className="flex w-14 shrink-0 items-center gap-1 font-bold">
-                  <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+                {/* Icon only — the glyph says name / phone / address on its
+                    own; the ASCII word stays as the accessible label. */}
+                <span className="flex w-5 shrink-0 items-start justify-center pt-0.5">
+                  <svg viewBox="0 0 24 24" width="14" height="14" role="img" aria-label={row.icon}>
                     <path d={GLYPHS[row.glyph]} fill="currentColor" />
                   </svg>
-                  {row.icon}:
                 </span>
                 <span className="min-w-0 break-words">{row.text}</span>
               </p>
