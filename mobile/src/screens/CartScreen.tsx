@@ -17,7 +17,7 @@ import { payPageUrl, placeOrder, startHostedPayment, verifyPayment } from "../ap
 import { confirmFakePayment, openPayPage, payWithCard } from "../payments";
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
-import { useI18n } from "../i18n";
+import { fill, useI18n } from "../i18n";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, PrimaryButton, QtyStepper } from "../components";
 import { GoogleButton } from "../google-button";
@@ -121,6 +121,13 @@ export function CartScreen({
   const grandTotal = cart.totalCents + deliveryFee;
   const belowMinimum =
     orderType === "delivery" && areaMin > 0 && cart.totalCents > 0 && cart.totalCents < areaMin;
+  // Loyalty is earned on the FOOD subtotal — a delivery fee never buys
+  // points. Absent config or a basket below the threshold: no line.
+  const loyalty = menu.loyalty;
+  const earnsPoints =
+    Boolean(loyalty?.enabled) &&
+    cart.totalCents > 0 &&
+    cart.totalCents >= (loyalty?.minOrderCents ?? 0);
   // Signed-in guests don't retype what the server already knows. Only
   // EMPTY fields are seeded, and only from the profile — anything the
   // guest typed wins, on every re-render and on a later sign-in.
@@ -570,6 +577,19 @@ export function CartScreen({
                 <Row label={t.total} value={money(grandTotal, menu.venue.currency)} bold />
               </View>
 
+              {/* What this basket is worth in points, said where the
+                  guest is already reading the money. Signed out it
+                  doubles as the reason to sign in — the Google button
+                  itself is already offered above, so this stays one
+                  quiet line rather than a second call to action. */}
+              {earnsPoints && loyalty ? (
+                <Text style={styles.earnLine}>
+                  {fill(auth.token ? t.cartEarnPoints : t.cartEarnSignIn, {
+                    points: loyalty.pointsPerOrder,
+                  })}
+                </Text>
+              ) : null}
+
               {/* One option = no choice to make; the hint below still says
                   what will happen. */}
               {payOptions.length > 1 ? (
@@ -778,6 +798,13 @@ const styles = StyleSheet.create({
   modalOptionText: { color: colors.ink, ...fonts.body, fontSize: 15 },
   typeChipText: { color: colors.inkSoft, fontSize: 12, ...fonts.bodyBold },
   signInNudge: { gap: 6, marginTop: 2, marginBottom: 2 },
+  earnLine: {
+    color: colors.gold,
+    ...fonts.bodySemi,
+    fontSize: 12.5,
+    marginTop: 6,
+    marginHorizontal: 2,
+  },
   fieldLabel: { color: colors.inkSoft, fontSize: 12, ...fonts.bodySemi },
   input: {
     backgroundColor: colors.creamCard,

@@ -8,6 +8,7 @@ import { menuThemeStyle, resolveMenuTheme } from "@/lib/menu-themes";
 import { categoryIcon } from "@/lib/category-icons";
 import { menuImageSrcSet, menuImageUrl, TRANSPARENT_PIXEL } from "@/lib/menu-images";
 import type { EffectiveOrdering } from "@/lib/ordering-config";
+import type { LoyaltyConfig } from "@/lib/loyalty-config";
 import type { OpeningHours, OpenState } from "@/lib/opening-hours";
 import { acceptedPaymentIds, PaymentMarks } from "./payment-marks";
 import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
@@ -96,6 +97,7 @@ export function MenuView({
   orderingModes,
   onlinePayment,
   paypalPayment,
+  loyalty,
   openNow,
   requestSlots,
   orderingPaused,
@@ -108,6 +110,9 @@ export function MenuView({
   orderingModes?: EffectiveOrdering;
   onlinePayment?: boolean;
   paypalPayment?: boolean;
+  /** Owner's loyalty switches — the cart's "earn N points" line. Absent
+   *  or disabled and the guest hears nothing about points. */
+  loyalty?: LoyaltyConfig;
   openNow?: OpenState;
   requestSlots?: string[];
   /** P2-4: operator kill switch — menu stays visible, ordering is closed. */
@@ -381,6 +386,15 @@ export function MenuView({
           requestSlots={requestSlots ?? []}
           onlinePayment={Boolean(onlinePayment)}
           paypalPayment={Boolean(paypalPayment)}
+          loyalty={
+            loyalty?.enabled
+              ? {
+                  enabled: true,
+                  minOrderCents: loyalty.minOrderCents,
+                  pointsPerOrder: loyalty.pointsPerOrder,
+                }
+              : undefined
+          }
         />
       ) : null}
       {/* Card reveal: ~600 bytes of inline JS. A scroll-scrubbed CSS

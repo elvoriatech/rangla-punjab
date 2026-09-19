@@ -110,6 +110,7 @@ export default async function LocalisedPublicMenuPage({
       activeDiets={diets}
       orderingModes={access.modes}
       onlinePayment={access.onlinePayment}
+      loyalty={access.loyalty}
       orderingPaused={!siteActive}
       openNow={currentOpenState(menu.venue.hours, menu.venue.timezone)}
       requestSlots={currentTodaySlotTimes(menu.venue.hours, menu.venue.timezone)}

@@ -10,8 +10,9 @@ import {
 } from "react-native";
 import type { ApiMenu, ApiItem } from "../api";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
-import { CHEVRON_FORWARD, colors, fonts, hero, radius, scrim } from "../theme";
-import { useI18n } from "../i18n";
+import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
+import { fill, useI18n } from "../i18n";
+import { headlineVoucher, useLoyalty } from "../loyalty";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
 import { DishSheet } from "../dish-sheet";
 
@@ -92,14 +93,20 @@ export function HomeScreen({
   onOpenCategory,
   onBrowseAll,
   onStartOrder,
+  onOpenAccount,
 }: {
   menu: ApiMenu;
   onAdd: (item: ApiItem) => void;
   onOpenCategory: (categoryId: string) => void;
   onBrowseAll: () => void;
   onStartOrder: (type: "takeaway" | "delivery") => void;
+  /** Switches to the Account tab, where the Rewards card lives. */
+  onOpenAccount: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  // Signed out, programme off, or nothing won yet ⇒ no banner at all.
+  const { loyalty } = useLoyalty(menu.loyalty?.enabled);
+  const voucher = headlineVoucher(loyalty);
   const [reserveOpen, setReserveOpen] = useState(false);
   const [openDish, setOpenDish] = useState<ApiItem | null>(null);
   const popular = menu.categories
@@ -137,6 +144,24 @@ export function HomeScreen({
             <View style={{ flex: 1 }}>
               <Text style={styles.modeTitle}>{t.reserveBtn}</Text>
               <Text style={styles.modeSub}>{t.reserveSub}</Text>
+            </View>
+            <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
+          </Pressable>
+        ) : null}
+
+        {/* A reward already won is the one thing on this screen worth
+            interrupting the browse for — gold-edged, above the
+            categories, and gone the moment it's spent. */}
+        {voucher ? (
+          <Pressable style={styles.rewardBanner} onPress={onOpenAccount} accessibilityRole="button">
+            <Text style={styles.rewardEmoji}>🎁</Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.rewardTitle}>
+                {fill(t.rewardsBanner, {
+                  value: money(voucher.valueCents, menu.venue.currency),
+                })}
+              </Text>
+              <Text style={styles.rewardCta}>{t.rewardsBannerCta}</Text>
             </View>
             <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
           </Pressable>
@@ -246,6 +271,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
+  rewardBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1.5,
+    borderColor: colors.goldSoft,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  rewardEmoji: { ...fonts.body, fontSize: 24 },
+  rewardTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
+  rewardCta: { color: colors.gold, ...fonts.bodyBold, fontSize: 12 },
   modeEmoji: { ...fonts.body, fontSize: 26 },
   modeTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
   modeSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11 },

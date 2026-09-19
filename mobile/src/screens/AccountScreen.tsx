@@ -11,11 +11,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type { ApiMenu } from "../api";
+import type { ApiLoyaltyEntry, ApiMenu } from "../api";
 import { BASE_URL } from "../api";
 import { GOOGLE_NATIVE, useAuth, type AccountOrder } from "../auth";
 import { GoogleButton } from "../google-button";
-import { LANGS, localeTag, useI18n } from "../i18n";
+import { fill, LANGS, localeTag, useI18n } from "../i18n";
+import { isOfferable, PointsBar, RewardSheet, shortDate, useLoyalty } from "../loyalty";
+import { PrimaryButton } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
 /**
@@ -38,6 +40,10 @@ export function AccountScreen({
   const [authPassword, setAuthPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  // Refetched on mount (the tab shell rebuilds this screen every time
+  // the tab is opened, so that is also "on focus") and after arming.
+  const { loyalty, reload: reloadLoyalty } = useLoyalty(menu.loyalty?.enabled);
+  const [rewardOpen, setRewardOpen] = useState(false);
 
   useEffect(() => {
     void auth.refreshProviders();
@@ -70,6 +76,24 @@ export function AccountScreen({
       minute: "2-digit",
     })}`;
   };
+  // The account payload is the fresher config; the menu's copy covers
+  // the moment before it lands (and the signed-out case, where the card
+  // isn't rendered at all).
+  const loyaltyConfig = loyalty ?? menu.loyalty;
+  const showRewards = Boolean(auth.token && menu.loyalty?.enabled && loyaltyConfig);
+  const vouchers = (loyalty?.vouchers ?? []).filter(isOfferable);
+  const currency = menu.venue.currency;
+  const historyLabel = (entry: ApiLoyaltyEntry): string => {
+    if (entry.reason === "reversal") return t.rewardsCancelled;
+    if (entry.reason === "voucher") return t.rewardsReward;
+    if (entry.reason === "order") {
+      return entry.orderNumber === null
+        ? t.rewardsOrder
+        : `${t.rewardsOrder} #${String(entry.orderNumber).padStart(4, "0")}`;
+    }
+    return t.rewardsAdjust;
+  };
+
   const providerLabel = (id: string): string => (id === "google" ? t.signInGoogle : t.signInDev);
 
   // One tap: native Google when the build has the client ids, otherwise
@@ -264,6 +288,80 @@ export function AccountScreen({
           )}
         </View>
 
+        {/* Rewards — signed in, and only where the venue runs a
+            programme. Everything below reads from the server's own
+            numbers, so a venue with different thresholds needs no
+            change here. */}
+        {showRewards && loyaltyConfig ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t.rewardsTitle}</Text>
+
+            <View style={styles.pointsHead}>
+              <Text style={styles.pointsBalance}>{loyalty?.balance ?? 0}</Text>
+              <Text style={styles.pointsUnit}>{t.rewardsPoints}</Text>
+            </View>
+            <PointsBar have={loyalty?.balance ?? 0} need={loyaltyConfig.rewardPoints} />
+            <Text style={styles.pointsProgress}>
+              {loyalty?.balance ?? 0} / {loyaltyConfig.rewardPoints}
+            </Text>
+            <Text style={styles.pointsRule}>
+              {fill(t.rewardsEarnLine, {
+                min: money(loyaltyConfig.minOrderCents, currency),
+                points: loyaltyConfig.pointsPerOrder,
+              })}
+            </Text>
+
+            {vouchers.length > 0 ? (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <Text style={styles.subLabel}>{t.rewardsWaiting}</Text>
+                {vouchers.map((v) => {
+                  const until = shortDate(v.expiresAt, tag);
+                  return (
+                    <View key={v.id} style={styles.voucherRow}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.voucherText}>
+                          {fill(t.rewardsMeal, { value: money(v.valueCents, currency) })}
+                          {until ? ` · ${fill(t.rewardsValidUntil, { date: until })}` : ""}
+                        </Text>
+                        {v.status === "armed" ? (
+                          <Text style={styles.armedPill}>{t.rewardsArmedPill}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            <View style={{ marginTop: 12 }}>
+              <PrimaryButton label={t.rewardsCheck} onPress={() => setRewardOpen(true)} />
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 16 }]}>{t.rewardsHistory}</Text>
+            {(loyalty?.history ?? []).length === 0 ? (
+              <Text style={styles.mutedText}>{t.rewardsHistoryEmpty}</Text>
+            ) : (
+              (loyalty?.history ?? []).slice(0, 6).map((entry) => {
+                const when = shortDate(entry.createdAt, tag);
+                return (
+                  <View key={entry.id} style={styles.historyRow}>
+                    <Text
+                      style={[styles.historyDelta, entry.delta < 0 && { color: colors.inkSoft }]}
+                    >
+                      {entry.delta < 0 ? "−" : "+"}
+                      {Math.abs(entry.delta)}
+                    </Text>
+                    <Text style={styles.historyLabel} numberOfLines={1}>
+                      {historyLabel(entry)}
+                    </Text>
+                    {when ? <Text style={styles.historyDate}>{when}</Text> : null}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        ) : null}
+
         {/* Hours */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t.hours}</Text>
@@ -299,6 +397,22 @@ export function AccountScreen({
 
         <Text style={styles.footer}>{t.footer}</Text>
       </ScrollView>
+      <RewardSheet
+        visible={rewardOpen}
+        loyalty={loyalty}
+        config={
+          loyaltyConfig ?? {
+            enabled: false,
+            minOrderCents: 0,
+            pointsPerOrder: 0,
+            rewardPoints: 0,
+            rewardValueCents: 0,
+          }
+        }
+        currency={currency}
+        onClose={() => setRewardOpen(false)}
+        onChanged={reloadLoyalty}
+      />
     </View>
   );
 }
@@ -401,6 +515,47 @@ const styles = StyleSheet.create({
   orderNo: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 14 },
   orderMeta: { color: colors.inkSoft, ...fonts.body, fontSize: 11, marginTop: 1 },
   orderTotal: { color: colors.red, ...fonts.bodyHeavy, fontSize: 13 },
+  pointsHead: { flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 8 },
+  pointsBalance: { color: colors.red, ...fonts.displayHeavy, fontSize: 40, lineHeight: 44 },
+  pointsUnit: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 14 },
+  pointsProgress: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12, marginTop: 6 },
+  pointsRule: { color: colors.ink, ...fonts.body, fontSize: 13, marginTop: 6, lineHeight: 19 },
+  subLabel: {
+    color: colors.inkSoft,
+    ...fonts.bodySemi,
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  voucherRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.cream,
+    borderWidth: 1.5,
+    borderColor: colors.goldSoft,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  voucherText: { color: colors.ink, ...fonts.bodySemi, fontSize: 13.5 },
+  armedPill: { color: colors.gold, ...fonts.bodyBold, fontSize: 11 },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderTopWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 8,
+  },
+  historyDelta: {
+    color: colors.positive,
+    ...fonts.bodyHeavy,
+    fontSize: 13,
+    minWidth: 34,
+  },
+  historyLabel: { color: colors.ink, ...fonts.body, fontSize: 13, flex: 1 },
+  historyDate: { color: colors.inkSoft, ...fonts.body, fontSize: 11.5 },
   hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   hoursDay: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
   hoursTime: { color: colors.ink, fontSize: 13, ...fonts.bodySemi },

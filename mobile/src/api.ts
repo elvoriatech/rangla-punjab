@@ -69,6 +69,24 @@ export interface ApiOrdering {
    *  so the app can only offer what /api/reservations accepts. */
   reservationSlots?: { date: string; times: string[] }[];
 }
+/**
+ * The venue's loyalty programme as the MENU advertises it — config only,
+ * no personal data, so it rides the public menu payload. Absent on an
+ * older server or when the venue never switched the programme on; every
+ * loyalty surface in the app stays hidden in that case.
+ */
+export interface ApiLoyaltyConfig {
+  enabled: boolean;
+  /** Food subtotal an order must reach to earn anything. */
+  minOrderCents: number;
+  /** Points a qualifying order is worth. */
+  pointsPerOrder: number;
+  /** Points that buy one reward. */
+  rewardPoints: number;
+  /** What that reward is worth. */
+  rewardValueCents: number;
+}
+
 export interface ApiMenu {
   ok: true;
   venue: {
@@ -86,6 +104,8 @@ export interface ApiMenu {
   };
   ordering: ApiOrdering;
   categories: ApiCategory[];
+  /** Absent on an older server ⇒ no rewards UI anywhere. */
+  loyalty?: ApiLoyaltyConfig;
 }
 
 /** The server emits absolute image URLs against its own origin; in dev
@@ -399,6 +419,142 @@ export async function createReservation(
       return { ok: false, error: body.error ?? `http_${res.status}` };
     }
     return { ok: true };
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+/* ── Loyalty ─────────────────────────────────────────────────────────────
+ *
+ * Points the guest collects on qualifying orders, and the vouchers those
+ * points turn into. Everything here is account-scoped, so it needs the
+ * customer token — and every field is read defensively: a build can meet
+ * a server that predates the programme, or one that has grown a voucher
+ * state this build never heard of.
+ *
+ * "Armed" means only "the guest switched this voucher on for their next
+ * order". Actually discounting an order is a separate, server-side step.
+ */
+
+/** The voucher lifecycle this build knows. A newer server may grow it,
+ *  so the field below stays widened to `string` — the UI offers a
+ *  voucher only when it recognises the state as available or armed. */
+export type ApiVoucherStatus = "available" | "armed" | "redeemed" | "expired" | "revoked";
+
+export interface ApiVoucher {
+  id: string;
+  valueCents: number;
+  status: ApiVoucherStatus | (string & {});
+  /** ISO timestamp; always shown to the guest, never silently dropped. */
+  expiresAt: string;
+}
+
+/** Why the balance moved. `orderNumber` is set for order-shaped rows. */
+export type ApiLoyaltyReason = "order" | "reversal" | "voucher" | "adjust";
+
+export interface ApiLoyaltyEntry {
+  id: string;
+  delta: number;
+  reason: ApiLoyaltyReason | (string & {});
+  orderNumber: number | null;
+  createdAt: string;
+}
+
+export interface ApiLoyalty extends ApiLoyaltyConfig {
+  balance: number;
+  vouchers: ApiVoucher[];
+  history: ApiLoyaltyEntry[];
+}
+
+function asVoucher(raw: unknown): ApiVoucher | null {
+  const v = raw as Partial<ApiVoucher> | null;
+  if (!v || typeof v.id !== "string") return null;
+  return {
+    id: v.id,
+    valueCents: Number(v.valueCents ?? 0),
+    status: typeof v.status === "string" ? v.status : "available",
+    expiresAt: typeof v.expiresAt === "string" ? v.expiresAt : "",
+  };
+}
+
+/**
+ * This customer's points, vouchers and recent movements.
+ *
+ * Null for every "no rewards to show" case — signed out, 401, offline,
+ * a server without the route — so callers have one thing to check and
+ * the UI simply doesn't appear. Never throws.
+ */
+export async function fetchLoyalty(token: string | null): Promise<ApiLoyalty | null> {
+  if (!token) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/me/loyalty`, {
+      headers: { "X-Customer-Token": token },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      loyalty?: Partial<ApiLoyalty>;
+    } | null;
+    const l = body?.loyalty;
+    if (!body?.ok || !l) return null;
+    return {
+      enabled: l.enabled !== false,
+      balance: Number(l.balance ?? 0),
+      rewardPoints: Number(l.rewardPoints ?? 0),
+      rewardValueCents: Number(l.rewardValueCents ?? 0),
+      minOrderCents: Number(l.minOrderCents ?? 0),
+      pointsPerOrder: Number(l.pointsPerOrder ?? 0),
+      vouchers: (Array.isArray(l.vouchers) ? l.vouchers : [])
+        .map(asVoucher)
+        .filter((v): v is ApiVoucher => v !== null),
+      history: (Array.isArray(l.history) ? l.history : [])
+        .map((raw) => {
+          const e = raw as Partial<ApiLoyaltyEntry> | null;
+          if (!e || typeof e.id !== "string") return null;
+          return {
+            id: e.id,
+            delta: Number(e.delta ?? 0),
+            reason: typeof e.reason === "string" ? e.reason : "adjust",
+            orderNumber: typeof e.orderNumber === "number" ? e.orderNumber : null,
+            createdAt: typeof e.createdAt === "string" ? e.createdAt : "",
+          } satisfies ApiLoyaltyEntry;
+        })
+        .filter((e): e is ApiLoyaltyEntry => e !== null),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Switch a voucher on (or off) for the guest's next order. The server
+ * owns the rule that only one can be armed at a time, so the caller
+ * re-reads `fetchLoyalty` afterwards rather than patching state locally.
+ */
+export async function setVoucherArmed(
+  token: string | null,
+  voucherId: string,
+  armed: boolean,
+): Promise<{ ok: true; voucher: ApiVoucher } | { ok: false; error: string }> {
+  if (!token) return { ok: false, error: "unauthorized" };
+  try {
+    const res = await fetch(
+      `${BASE_URL}/api/v1/me/loyalty/vouchers/${encodeURIComponent(voucherId)}/arm`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Customer-Token": token },
+        body: JSON.stringify({ armed }),
+      },
+    );
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      voucher?: unknown;
+      error?: string;
+    } | null;
+    const voucher = asVoucher(body?.voucher);
+    if (!res.ok || !voucher)
+      return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+    return { ok: true, voucher };
   } catch {
     return { ok: false, error: "network" };
   }

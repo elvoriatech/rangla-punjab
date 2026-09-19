@@ -142,6 +142,8 @@ model Tenant {
 
   @@map("tenants")
   customers Customer[]
+  loyaltyLedger   LoyaltyLedger[]
+  loyaltyVouchers LoyaltyVoucher[]
 }
 
 model MenuTemplate {
@@ -248,6 +250,9 @@ model Venue {
   ordering       Json        @default("{}")
   // Weekly opening hours (src/lib/opening-hours.ts); {} = not set.
   hours          Json        @default("{}")
+  // Owner-side loyalty switches (src/lib/loyalty-config.ts); {} = defaults,
+  // and the default is OFF, so an untouched venue shows guests nothing.
+  loyalty        Json        @default("{}")
   status         VenueStatus @default(active)
 
   createdAt DateTime  @default(now())
@@ -520,6 +525,14 @@ model Order {
   /// NULL for orders placed without a key (older clients, internal
   /// seeds) — Postgres treats NULLs as distinct, so they never collide.
   clientRequestId String? @map("client_request_id")
+  /// Loyalty voucher applied to this order, in cents. Round ONE never
+  /// writes anything but 0 — earning ships first, redemption (round two)
+  /// is what fills these two columns. They exist now so the column add is
+  /// not a second migration on a live orders table.
+  discountCents Int     @default(0) @map("discount_cents")
+  /// `loyalty_vouchers.id` the discount above came from. Plain reference,
+  /// no FK: round two decides the delete/restore semantics.
+  voucherId     String? @map("voucher_id")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -527,6 +540,7 @@ model Order {
   tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   venue  Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
   items  OrderItem[]
+  loyaltyLedger LoyaltyLedger[]
 
   @@unique([venueId, orderNumber])
   @@unique([venueId, clientRequestId])
@@ -646,10 +660,76 @@ model Customer {
   tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tokens CustomerToken[]
   orders Order[]
+  loyaltyLedger   LoyaltyLedger[]
+  loyaltyVouchers LoyaltyVoucher[]
 
   @@unique([tenantId, provider, providerSub])
   @@index([tenantId, email])
   @@map("customers")
+}
+
+/// Every points movement, append-only. The customer's balance is the SUM
+/// of their deltas — there is no cached total to drift out of sync.
+///
+/// `reason` is a plain string (not an enum) so round two can add
+/// "refund"/"promo" without a migration on a hot table; the four the app
+/// writes today are "order" (earned), "reversal" (a cancelled order gives
+/// the points back), "voucher" (debited to mint a reward) and "adjust"
+/// (a human correction).
+///
+/// The unique on (order_id, reason) is the idempotency guarantee that
+/// makes earning safe on a path reached by webhooks, /pay/verify AND the
+/// dashboard reconcile: all three race, exactly one INSERT wins. Postgres
+/// treats NULLs as distinct, so voucher/adjust rows (order_id NULL) are
+/// unaffected.
+model LoyaltyLedger {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  customerId String   @map("customer_id")
+  orderId    String?  @map("order_id")
+  /// Signed: positive earns, negative spends.
+  delta      Int
+  reason     String
+
+  createdAt DateTime @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order    Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([orderId, reason])
+  @@index([tenantId, customerId])
+  @@map("loyalty_ledger")
+}
+
+/// One reward the guest has already earned: a free meal worth
+/// `valueCents`, bought with `pointsSpent` points.
+///
+/// `status` is a plain string for the same reason as the ledger's reason.
+/// "available" → the guest holds it; "armed" → they flagged it for their
+/// next order (round two reads this); "redeemed"/"expired"/"revoked" are
+/// terminal. Expiry is applied LAZILY on read rather than by a cron, so a
+/// voucher is never silently expired by a job nobody is watching.
+model LoyaltyVoucher {
+  id              String    @id @default(cuid())
+  tenantId        String    @map("tenant_id")
+  customerId      String    @map("customer_id")
+  valueCents      Int       @map("value_cents")
+  pointsSpent     Int       @map("points_spent")
+  status          String    @default("available")
+  expiresAt       DateTime  @map("expires_at")
+  armedAt         DateTime? @map("armed_at")
+  /// Set by round two when the voucher is actually spent. Plain reference.
+  redeemedOrderId String?   @map("redeemed_order_id")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId])
+  @@map("loyalty_vouchers")
 }
 
 model CustomerToken {

@@ -417,6 +417,40 @@ export async function updateVenueOrdering(userId: string, input: unknown): Promi
 }
 
 /* ------------------------------------------------------------------ */
+/* Loyalty settings                                                    */
+/* ------------------------------------------------------------------ */
+
+import { loyaltyConfigSchema, parseLoyaltyConfig, type LoyaltyConfig } from "./loyalty-config";
+
+/** The owner's loyalty switches, for the Settings page. */
+export async function getLoyaltySettings(userId: string): Promise<ServiceResult<LoyaltyConfig>> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { loyalty: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    return { ok: true as const, value: parseLoyaltyConfig(venue.loyalty) };
+  });
+}
+
+/** Save the owner's loyalty switches. Same shape as the ordering save:
+ *  the schema is the validator, so a garbage field never lands in JSONB. */
+export async function updateVenueLoyalty(userId: string, input: unknown): Promise<ServiceResult> {
+  const parsed = loyaltyConfigSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    await tx.venue.update({ where: { id: venue.id }, data: { loyalty: parsed.data } });
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Opening hours (P8)                                                  */
 /* ------------------------------------------------------------------ */
 

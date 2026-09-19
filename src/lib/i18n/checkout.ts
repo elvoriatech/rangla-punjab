@@ -30,6 +30,10 @@ const en = {
   remove: "Remove",
   total: "Total",
   vatIncluded: (rate: string, amount: string) => `incl. ${rate}% VAT ${amount}`,
+  /* Loyalty — one line under the total; shown only when the restaurant
+     collects points and this basket already qualifies. */
+  loyaltyEarn: (points: string) => `You'll earn ${points} points with this order`,
+  loyaltySignIn: (points: string) => `Sign in to earn ${points} points on this order`,
   clearCart: "Clear cart",
   addItems: "Add items",
 
@@ -137,6 +141,8 @@ const de: CheckoutCopy = {
   remove: "Entfernen",
   total: "Gesamt",
   vatIncluded: (rate, amount) => `inkl. ${rate} % MwSt. ${amount}`,
+  loyaltyEarn: (points) => `Sie sammeln ${points} Punkte mit dieser Bestellung`,
+  loyaltySignIn: (points) => `Anmelden und ${points} Punkte für diese Bestellung sammeln`,
   clearCart: "Bestellung leeren",
   addItems: "Weitere Artikel",
 
@@ -237,6 +243,8 @@ const es: CheckoutCopy = {
   remove: "Quitar",
   total: "Total",
   vatIncluded: (rate, amount) => `IVA ${rate} % incluido ${amount}`,
+  loyaltyEarn: (points) => `Ganarás ${points} puntos con este pedido`,
+  loyaltySignIn: (points) => `Inicia sesión y gana ${points} puntos con este pedido`,
   clearCart: "Vaciar el pedido",
   addItems: "Añadir platos",
 
@@ -334,6 +342,8 @@ const it: CheckoutCopy = {
   remove: "Rimuovi",
   total: "Totale",
   vatIncluded: (rate, amount) => `IVA ${rate}% inclusa ${amount}`,
+  loyaltyEarn: (points) => `Guadagnerai ${points} punti con questo ordine`,
+  loyaltySignIn: (points) => `Accedi e guadagna ${points} punti con questo ordine`,
   clearCart: "Svuota l'ordine",
   addItems: "Aggiungi piatti",
 
@@ -433,6 +443,8 @@ const ar: CheckoutCopy = {
   remove: "إزالة",
   total: "الإجمالي",
   vatIncluded: (rate, amount) => `شامل ضريبة القيمة المضافة ${rate}% ${amount}`,
+  loyaltyEarn: (points) => `ستحصل على ${points} نقطة مع هذا الطلب`,
+  loyaltySignIn: (points) => `سجّل الدخول لتحصل على ${points} نقطة مع هذا الطلب`,
   clearCart: "إفراغ الطلب",
   addItems: "إضافة أصناف",
 

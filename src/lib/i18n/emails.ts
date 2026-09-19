@@ -276,3 +276,93 @@ export const NEW_ORDER_COPY: Record<UiLocale, NewOrderCopy> = {
 
 export const newOrderCopy = (locale?: string | null): NewOrderCopy =>
   NEW_ORDER_COPY[uiLocale(locale)];
+
+/* ------------------------------------------------------------------ */
+/* Loyalty: "you've earned a free meal"                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Sent once, the moment a customer's points convert into a voucher. The
+ * value and the expiry date are pre-formatted by the caller (`formatPrice`
+ * / `Intl.DateTimeFormat` in the venue's timezone), so these strings never
+ * do money or calendar maths.
+ */
+const rewardEn = {
+  subject: (value: string) => `Hurra! You've earned a ${value} meal`,
+  eyebrow: "Your reward",
+  heading: "A meal on us 🎉",
+  lead: (value: string) =>
+    `You've collected enough points for a free meal worth ${value}. Thank you for eating with us!`,
+  whereToFind:
+    "Your voucher is waiting in the app under Account → Rewards. Open it when you order and we'll take it from there.",
+  expiry: (date: string) => `Valid until ${date}.`,
+  cta: "See my rewards",
+  keepGoing: "Points keep adding up — the next order starts the next reward.",
+  footer: "You're getting this because you collect points when you order with us.",
+};
+
+export type RewardCopy = typeof rewardEn;
+
+const rewardDe: RewardCopy = {
+  subject: (value) => `Hurra! Sie haben ein Essen im Wert von ${value} verdient`,
+  eyebrow: "Ihre Belohnung",
+  heading: "Ein Essen geht auf uns 🎉",
+  lead: (value) =>
+    `Sie haben genug Punkte für ein Gratis-Essen im Wert von ${value} gesammelt. Danke, dass Sie bei uns essen!`,
+  whereToFind:
+    "Ihr Gutschein liegt in der App unter Konto → Belohnungen bereit. Öffnen Sie ihn beim Bestellen — um den Rest kümmern wir uns.",
+  expiry: (date) => `Gültig bis ${date}.`,
+  cta: "Meine Belohnungen ansehen",
+  keepGoing: "Punkte sammeln weiter — mit der nächsten Bestellung beginnt die nächste Belohnung.",
+  footer: "Sie erhalten diese E-Mail, weil Sie bei Ihren Bestellungen Punkte sammeln.",
+};
+
+const rewardEs: RewardCopy = {
+  subject: (value) => `¡Hurra! Has ganado una comida de ${value}`,
+  eyebrow: "Tu recompensa",
+  heading: "Una comida invita la casa 🎉",
+  lead: (value) =>
+    `Has reunido puntos suficientes para una comida gratis de ${value}. ¡Gracias por comer con nosotros!`,
+  whereToFind:
+    "Tu vale te espera en la app, en Cuenta → Recompensas. Ábrelo al hacer el pedido y nosotros nos encargamos del resto.",
+  expiry: (date) => `Válido hasta el ${date}.`,
+  cta: "Ver mis recompensas",
+  keepGoing: "Los puntos siguen sumando: el próximo pedido empieza la próxima recompensa.",
+  footer: "Recibes este correo porque acumulas puntos cuando pides con nosotros.",
+};
+
+const rewardIt: RewardCopy = {
+  subject: (value) => `Evviva! Hai guadagnato un pasto da ${value}`,
+  eyebrow: "Il tuo premio",
+  heading: "Un pasto offerto da noi 🎉",
+  lead: (value) =>
+    `Hai raccolto punti sufficienti per un pasto gratuito da ${value}. Grazie per aver mangiato da noi!`,
+  whereToFind:
+    "Il tuo buono ti aspetta nell'app in Account → Premi. Aprilo quando ordini: al resto pensiamo noi.",
+  expiry: (date) => `Valido fino al ${date}.`,
+  cta: "Vedi i miei premi",
+  keepGoing: "I punti continuano ad accumularsi: il prossimo ordine avvia il prossimo premio.",
+  footer: "Ricevi questa email perché accumuli punti quando ordini da noi.",
+};
+
+const rewardAr: RewardCopy = {
+  subject: (value) => `مبروك! لقد ربحت وجبة بقيمة ${value}`,
+  eyebrow: "مكافأتك",
+  heading: "وجبة على حسابنا 🎉",
+  lead: (value) => `لقد جمعت نقاطًا تكفي لوجبة مجانية بقيمة ${value}. شكرًا لتناولك الطعام لدينا!`,
+  whereToFind: "قسيمتك بانتظارك في التطبيق ضمن الحساب ← المكافآت. افتحها عند الطلب وسنتولى الباقي.",
+  expiry: (date) => `صالحة حتى ${date}.`,
+  cta: "عرض مكافآتي",
+  keepGoing: "النقاط تتراكم باستمرار — الطلب التالي يبدأ المكافأة التالية.",
+  footer: "تصلك هذه الرسالة لأنك تجمع نقاطًا عند الطلب لدينا.",
+};
+
+export const REWARD_COPY: Record<UiLocale, RewardCopy> = {
+  en: rewardEn,
+  de: rewardDe,
+  es: rewardEs,
+  it: rewardIt,
+  ar: rewardAr,
+};
+
+export const rewardCopy = (locale?: string | null): RewardCopy => REWARD_COPY[uiLocale(locale)];

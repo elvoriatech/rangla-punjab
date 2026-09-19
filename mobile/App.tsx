@@ -155,6 +155,7 @@ function Shell(): React.ReactElement {
               setPresetType(type);
               setTab("menu");
             }}
+            onOpenAccount={() => setTab("info")}
           />
         ) : null}
         {tab === "menu" ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { MessagePopup } from "@/components/message-popup";
@@ -102,6 +103,15 @@ export interface DrawerModes {
   deliveryAreas: DrawerDeliveryArea[];
   deliveryFeeCents: number;
   deliveryMinCents: number;
+}
+
+/** What the drawer needs to talk about points. Mirrors the `loyalty`
+ *  block of `/api/v1/menu`, minus the reward numbers the cart never
+ *  mentions. */
+export interface DrawerLoyalty {
+  enabled: boolean;
+  minOrderCents: number;
+  pointsPerOrder: number;
 }
 
 /** The label is a catalogue KEY — the words come from `checkoutCopy`, so
@@ -328,6 +338,7 @@ export function CartDrawer({
   requestSlots = [],
   onlinePayment,
   paypalPayment = false,
+  loyalty,
 }: {
   slug: string;
   currency: string;
@@ -338,6 +349,9 @@ export function CartDrawer({
   requestSlots?: string[];
   onlinePayment: boolean;
   paypalPayment?: boolean;
+  /** Loyalty, round one: absent or disabled = the drawer says nothing
+   *  about points, which is the default for every venue. */
+  loyalty?: DrawerLoyalty;
 }): React.ReactElement | null {
   const lines = useSyncExternalStore(
     subscribeToCart,
@@ -397,6 +411,9 @@ export function CartDrawer({
    * Not signed in (401), offline, or a response without the newer fields:
    * nothing happens and the guest types as before.
    */
+  // null = not asked yet. The loyalty line stays hidden until we know,
+  // rather than flashing "sign in" at someone who already is.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const prefilled = useRef(false);
   useEffect(() => {
     if (!open || prefilled.current) return;
@@ -410,9 +427,13 @@ export function CartDrawer({
     void (async () => {
       try {
         const res = await fetch("/api/v1/me", { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!cancelled) setSignedIn(false);
+          return;
+        }
         const body = (await res.json()) as { customer?: CustomerProfile } | null;
         const me = body?.customer;
+        if (!cancelled) setSignedIn(Boolean(me));
         if (!me) return;
         fillIfEmpty(setCustomerName, me.name);
         fillIfEmpty(setCustomerEmail, me.email);
@@ -463,6 +484,13 @@ export function CartDrawer({
         (orderType === "delivery" &&
           (!street.trim() || !zip.trim() || (hasAreas && !selectedArea)));
   const money = (cents: number): string => formatCents(cents, currency, locale);
+  // Points are per ORDER and earned on the FOOD subtotal — the delivery
+  // fee never counts, which is why this reads `itemsTotal`, not `total`.
+  const earnsPoints =
+    Boolean(loyalty?.enabled) &&
+    (loyalty?.pointsPerOrder ?? 0) > 0 &&
+    itemsTotal >= (loyalty?.minOrderCents ?? 0);
+  const loyaltyPoints = String(loyalty?.pointsPerOrder ?? 0);
 
   if (count === 0 && !placed) return null;
 
@@ -818,6 +846,20 @@ export function CartDrawer({
               <p className="mt-1 text-end text-[11px] text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                 {t.vatIncluded(VAT_RATE_LABEL, money(vatFromGross(total)))}
               </p>
+              {earnsPoints && signedIn !== null ? (
+                <p className="mt-1.5 text-end text-[11px] text-[var(--menu-surface-accent,var(--menu-accent))]">
+                  {signedIn ? (
+                    <>★ {t.loyaltyEarn(loyaltyPoints)}</>
+                  ) : (
+                    <Link
+                      href="/account"
+                      className="underline decoration-1 underline-offset-4 hover:opacity-80"
+                    >
+                      ★ {t.loyaltySignIn(loyaltyPoints)}
+                    </Link>
+                  )}
+                </p>
+              ) : null}
 
               {/* Cart actions: empty the whole order, or hop back to the
                   menu to add more — both icon + label, no-JS-safe. */}

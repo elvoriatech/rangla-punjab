@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { clientIp } from "@/lib/client-ip";
@@ -7,9 +6,9 @@ import {
   CUSTOMER_COOKIE,
   revokeCustomerToken,
   updateCustomerProfile,
-  verifyCustomerToken,
   type CustomerProfile,
 } from "@/lib/customer-auth";
+import { authenticateCustomer, customerToken } from "@/lib/customer-request";
 import { resolvePreviewContext } from "@/lib/preview-context";
 import { checkRateLimit, type RateLimitConfig } from "@/lib/rate-limit";
 import { getRestaurantSlug } from "@/lib/restaurant";
@@ -42,15 +41,6 @@ const PROFILE_WRITE_IP: RateLimitConfig = {
   failOpen: true,
 };
 
-async function bearerOrCookie(req: NextRequest): Promise<string | null> {
-  const header = req.headers.get("x-customer-token");
-  if (header) return header;
-  const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  const store = await cookies();
-  return store.get(CUSTOMER_COOKIE)?.value ?? null;
-}
-
 function profileBody(customer: CustomerProfile) {
   return {
     id: customer.id,
@@ -61,28 +51,21 @@ function profileBody(customer: CustomerProfile) {
   };
 }
 
-/** Token → (tenant, customer), or the response to send instead. */
+/** Token → (tenant, customer), or the response to send instead. The
+ *  resolver is shared with the loyalty endpoints (`customer-request.ts`);
+ *  the wire errors below are this route's own, shipped contract. */
 async function authenticate(
   req: NextRequest,
 ): Promise<
   { ok: true; tenantId: string; customer: CustomerProfile } | { ok: false; res: NextResponse }
 > {
-  const token = await bearerOrCookie(req);
-  const context = await resolvePreviewContext(await getRestaurantSlug(), null);
-  if (!context) {
-    return {
-      ok: false,
-      res: withCors(NextResponse.json({ ok: false, error: "unavailable" }, { status: 503 })),
-    };
-  }
-  const customer = await verifyCustomerToken(context.tenantId, token);
-  if (!customer) {
-    return {
-      ok: false,
-      res: withCors(NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 })),
-    };
-  }
-  return { ok: true, tenantId: context.tenantId, customer };
+  const auth = await authenticateCustomer(req);
+  if (auth.ok) return auth;
+  const status = auth.reason === "unavailable" ? 503 : 401;
+  return {
+    ok: false,
+    res: withCors(NextResponse.json({ ok: false, error: auth.reason }, { status })),
+  };
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -188,7 +171,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const token = await bearerOrCookie(req);
+  const token = await customerToken(req);
   const slug = await getRestaurantSlug();
   const context = await resolvePreviewContext(slug, null);
   if (context && token) await revokeCustomerToken(context.tenantId, token);

@@ -8,8 +8,10 @@ import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
 import { resolveTenantAccess } from "./plan-state";
 import { openState, parseOpeningHours, todayLocalTimeToDate } from "./opening-hours";
+import { parseLoyaltyConfig } from "./loyalty-config";
 import {
   deliveryQuote,
+  DELIVERY_FEE_LINE_NAME,
   effectiveOrdering,
   orderTypeAllowed,
   parseOrderingConfig,
@@ -341,7 +343,7 @@ export async function placeOrder(
                   {
                     tenantId: context.tenantId,
                     itemId: null,
-                    name: "Delivery fee",
+                    name: DELIVERY_FEE_LINE_NAME,
                     priceCents: feeCents,
                     quantity: 1,
                   },
@@ -575,24 +577,55 @@ export async function markOrderDone(userId: string, orderId: string): Promise<{ 
  * authority; the optimistic `status: current` guard makes two staff
  * tapping at once resolve to one winner instead of a lost update.
  */
+
+/**
+ * Statuses that give earned loyalty points back.
+ *
+ * `cancelled` is NOT part of the forward-only lifecycle today (see
+ * `order-status.ts`: placed → preparing → ready → [out_for_delivery] →
+ * done), so `advanceOrderStatus` refuses it before this set is ever
+ * consulted. It is declared here anyway so that adding a cancel
+ * transition is a one-line change to `ORDER_STATUSES` rather than someone
+ * remembering, months later, that a money path also owes the guest their
+ * points back. `reverseOrderCredit` is a public, tested entry point in
+ * the meantime.
+ */
+const REVERSING_STATUSES: ReadonlySet<string> = new Set(["cancelled"]);
 export async function advanceOrderStatus(
   userId: string,
   orderId: string,
   to: string,
 ): Promise<{ ok: boolean }> {
   if (!isOrderStatus(to)) return { ok: false };
-  return asUser(userId, async (tx) => {
+  const moved = await asUser(userId, async (tx) => {
     const order = await tx.order.findFirst({
       where: { id: orderId },
-      select: { status: true, orderType: true },
+      select: { status: true, orderType: true, tenantId: true, paymentStatus: true },
     });
-    if (!order || !canTransition(order.status, to, order.orderType)) return { ok: false };
+    if (!order || !canTransition(order.status, to, order.orderType)) return null;
     const updated = await tx.order.updateMany({
       where: { id: orderId, status: order.status },
       data: { status: to },
     });
-    return { ok: updated.count > 0 };
+    return updated.count > 0
+      ? { tenantId: order.tenantId, paymentStatus: order.paymentStatus }
+      : null;
   });
+  if (!moved) return { ok: false };
+
+  // Loyalty (round one). A CASH order has no settlement webhook, so the
+  // kitchen ticking it "done" is the moment it is worth points; online
+  // orders were already credited by markOrderPaid and the ledger's unique
+  // index makes a second attempt a no-op either way. Fire-and-forget: a
+  // loyalty hiccup must never block the kitchen board.
+  if (to === "done" && moved.paymentStatus !== "paid") {
+    const { creditOrderIfEligible } = await import("./loyalty-service");
+    void creditOrderIfEligible(moved.tenantId, orderId).catch(() => undefined);
+  } else if (REVERSING_STATUSES.has(to)) {
+    const { reverseOrderCredit } = await import("./loyalty-service");
+    void reverseOrderCredit(moved.tenantId, orderId).catch(() => undefined);
+  }
+  return { ok: true };
 }
 
 export interface OrderTracking {
@@ -714,6 +747,9 @@ export interface PublicVenueAccess {
   onlinePayment: boolean;
   /** Guests can pay with PayPal (restaurant's own account; fake in dev). */
   paypalPayment: boolean;
+  /** Owner's loyalty switches. `enabled: false` is the default, and every
+   *  guest surface treats that as "loyalty does not exist here". */
+  loyalty: import("./loyalty-config").LoyaltyConfig;
 }
 
 /** Effective guest-facing access (plan/trial state ∧ owner switches),
@@ -740,7 +776,10 @@ export async function getPublicVenueAccess(
           paypalSecretEnc: true,
         },
       }),
-      tx.venue.findFirstOrThrow({ where: { id: venueId }, select: { ordering: true } }),
+      tx.venue.findFirstOrThrow({
+        where: { id: venueId },
+        select: { ordering: true, loyalty: true },
+      }),
     ]);
     const access = resolveTenantAccess(tenant);
     // Single-restaurant build: card payment is offered whenever SOME Stripe
@@ -757,6 +796,7 @@ export async function getPublicVenueAccess(
       onlinePayment:
         tenant.stripeChargesEnabled || ownStripe || (await stripeDirectChargeAvailable(false)),
       paypalPayment: paypalAvailable(ownPayPal),
+      loyalty: parseLoyaltyConfig(venue.loyalty),
     };
   });
 }

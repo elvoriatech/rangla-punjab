@@ -9,6 +9,7 @@ import { categoryIcon } from "@/lib/category-icons";
 import { siteUrl } from "@/lib/site-url";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 import { isLocaleCode } from "@/lib/locales";
+import { publicLoyalty } from "@/lib/loyalty-config";
 
 /**
  * GET /api/v1/menu[?locale=de]
@@ -96,6 +97,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               }))
             : [],
         },
+        // Loyalty (round one): the numbers the app needs to say "Sign in
+        // to earn 5 points" on the cart. Always present, `enabled: false`
+        // when the owner has not switched it on — the app shows nothing.
+        loyalty: publicLoyalty(access.loyalty),
         categories: menu.categories.map((cat) => ({
           id: cat.id,
           name: cat.name,

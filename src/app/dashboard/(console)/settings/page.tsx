@@ -3,6 +3,7 @@ import { FlashMessage } from "@/components/flash-message";
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import {
+  getLoyaltySettings,
   getOrderingSettings,
   getVenueHours,
   getVenueForUser,
@@ -23,6 +24,7 @@ import {
   saveLocalizationAction,
   saveHoursAction,
   saveLogoAction,
+  saveLoyaltyAction,
   saveOrderingAction,
   saveVenueNameAction,
 } from "./actions";
@@ -64,6 +66,10 @@ const MESSAGES: Record<string, { saved: string; error: string }> = {
     saved: "Ordering settings saved. Guests see the new options immediately.",
     error: "Couldn't save ordering settings — check the delivery values and try again.",
   },
+  loyalty: {
+    saved: "Loyalty saved. Guests see the points line on the cart as soon as it's switched on.",
+    error: "Couldn't save loyalty — check the points and amounts and try again.",
+  },
   halal: {
     saved: "Saved. The Halal filter and badge now match your choice on the public menu.",
     error: "Couldn't save the Halal setting — try again.",
@@ -90,6 +96,8 @@ export default async function SettingsPage({
   const hoursResult = await getVenueHours(userId);
   const venueHours = hoursResult.ok ? hoursResult.value : null;
   const ordering = orderingResult.ok ? orderingResult.value : null;
+  const loyaltyResult = await getLoyaltySettings(userId);
+  const loyalty = loyaltyResult.ok ? loyaltyResult.value : null;
   const { saved, error } = await searchParams;
 
   const banner = saved
@@ -597,6 +605,129 @@ export default async function SettingsPage({
             className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
           >
             Save ordering
+          </SubmitButton>
+        </form>
+      ) : null}
+
+      {/* Loyalty */}
+      {loyalty ? (
+        <form action={saveLoyaltyAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
+          <p className="text-sm font-medium">Loyalty</p>
+          <p className="mt-1 text-xs text-muted">
+            Reward regulars with points. Points are earned per <em>order</em>, not per dish — one
+            qualifying order is worth the same whether it&apos;s one curry or five. Guests must be
+            signed in to collect; everyone else just sees an invitation to sign in.
+          </p>
+
+          <label className="mt-4 flex cursor-pointer items-center justify-between gap-4 text-sm">
+            <span>
+              Collect points
+              <span className="block text-xs text-muted">
+                Off means guests see nothing at all — no cart line, no rewards card.
+              </span>
+            </span>
+            <span className="relative inline-flex shrink-0">
+              <input
+                type="checkbox"
+                name="loyaltyEnabled"
+                defaultChecked={loyalty.enabled}
+                className="peer sr-only"
+              />
+              <span
+                aria-hidden="true"
+                className="h-6 w-11 rounded-full bg-ink/25 transition-colors peer-checked:bg-orange peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-orange motion-reduce:transition-none"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 motion-reduce:transition-none"
+              />
+            </span>
+          </label>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 border-t border-ink/10 pt-4 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="font-medium">Minimum order to earn (€)</span>
+              <input
+                type="number"
+                name="loyaltyMinOrder"
+                min={0}
+                step="0.50"
+                defaultValue={(loyalty.minOrderCents / 100).toFixed(2)}
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+              <span className="mt-1 block text-xs text-muted">
+                Food only — the delivery fee never counts towards this.
+              </span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Points per qualifying order</span>
+              <input
+                type="number"
+                name="loyaltyPointsPerOrder"
+                min={0}
+                step="1"
+                defaultValue={loyalty.pointsPerOrder}
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+              <span className="mt-1 block text-xs text-muted">
+                A flat number, however big the order is.
+              </span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Points needed for a reward</span>
+              <input
+                type="number"
+                name="loyaltyRewardPoints"
+                min={1}
+                step="1"
+                defaultValue={loyalty.rewardPoints}
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+              <span className="mt-1 block text-xs text-muted">
+                {loyalty.pointsPerOrder > 0
+                  ? `About ${Math.ceil(loyalty.rewardPoints / loyalty.pointsPerOrder)} orders at today's rate.`
+                  : "Set points per order above first."}
+              </span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Reward is worth (€)</span>
+              <input
+                type="number"
+                name="loyaltyRewardValue"
+                min={0}
+                step="0.50"
+                defaultValue={(loyalty.rewardValueCents / 100).toFixed(2)}
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+              <span className="mt-1 block text-xs text-muted">
+                The free-meal value of one voucher.
+              </span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Voucher expires after</span>
+              <select
+                name="loyaltyExpiryMonths"
+                defaultValue={String(loyalty.voucherExpiryMonths)}
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              >
+                <option value="0">End of the month it was earned</option>
+                <option value="1">End of the following month</option>
+                <option value="2">End of the month after that</option>
+                <option value="3">3 months later</option>
+                <option value="6">6 months later</option>
+                <option value="12">12 months later</option>
+              </select>
+              <span className="mt-1 block text-xs text-muted">
+                Always the last second of that month, in your restaurant&apos;s timezone.
+              </span>
+            </label>
+          </div>
+
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+          >
+            Save loyalty
           </SubmitButton>
         </form>
       ) : null}

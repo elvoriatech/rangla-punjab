@@ -8,6 +8,7 @@ import { getRestaurantSlug } from "@/lib/restaurant";
 import { signReceiptToken } from "@/lib/receipt-token";
 import { asTenant } from "@/lib/tenant";
 import { formatPrice } from "@/lib/public-menu";
+import { getLoyaltySummary } from "@/lib/loyalty-service";
 import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } from "./actions";
 
 /**
@@ -54,7 +55,28 @@ export default async function AccountPage({
         )
       : [];
 
+  // Loyalty, round one: read-only. Earning happens on the order paths;
+  // this card just shows what the guest has. Hidden entirely when the
+  // owner has not switched loyalty on.
+  const loyalty =
+    context && customer ? await getLoyaltySummary(context.tenantId, customer.id) : null;
+  const showLoyalty = Boolean(loyalty?.enabled);
+
   const dt = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" });
+  const dOnly = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" });
+  const voucherStatus: Record<string, string> = {
+    available: "verfügbar / available",
+    armed: "vorgemerkt / armed",
+    redeemed: "eingelöst / redeemed",
+    expired: "abgelaufen / expired",
+    revoked: "zurückgezogen / revoked",
+  };
+  const reasonLabel: Record<string, string> = {
+    order: "Bestellung / order",
+    reversal: "Storno / reversal",
+    voucher: "Gutschein / voucher",
+    adjust: "Korrektur / adjustment",
+  };
   const typeLabel: Record<string, string> = {
     dine_in: "Im Restaurant",
     takeaway: "Abholung",
@@ -174,6 +196,99 @@ export default async function AccountPage({
               </button>
             </form>
           </div>
+
+          {showLoyalty && loyalty ? (
+            <section aria-label="Rewards" className="mt-8 border border-ink/15 bg-card px-5 py-4">
+              <h2 className="font-serif text-2xl">Treuepunkte · Rewards</h2>
+              <p className="mt-1 text-sm text-muted">
+                {loyalty.pointsPerOrder} Punkte pro Bestellung ab{" "}
+                {formatPrice(loyalty.minOrderCents, "EUR", "de")} · {loyalty.rewardPoints} Punkte
+                ergeben {formatPrice(loyalty.rewardValueCents, "EUR", "de")} geschenkt.
+              </p>
+
+              <p className="mt-4 font-serif text-3xl tabular-nums">
+                {loyalty.balance}{" "}
+                <span className="font-sans text-sm text-muted">
+                  / {loyalty.rewardPoints} Punkte
+                </span>
+              </p>
+              {/* Two divs rather than <progress>: the native element's
+                  fill can only be themed through vendor pseudo-elements,
+                  and it shipped as browser-default green against the
+                  cream/gold identity. ARIA supplies everything the native
+                  element would have, and it still needs no JS. */}
+              <div
+                role="progressbar"
+                aria-valuenow={Math.min(loyalty.balance, loyalty.rewardPoints)}
+                aria-valuemin={0}
+                aria-valuemax={loyalty.rewardPoints}
+                aria-label="Fortschritt zur nächsten Belohnung / progress to your next reward"
+                className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink/10"
+              >
+                <div
+                  className="h-full rounded-full bg-orange"
+                  style={{
+                    width: `${loyalty.rewardPoints > 0 ? Math.min(100, (loyalty.balance / loyalty.rewardPoints) * 100) : 0}%`,
+                  }}
+                />
+              </div>
+
+              <h3 className="mt-6 text-xs uppercase tracking-[0.2em] text-gold-dark">
+                Gutscheine / vouchers
+              </h3>
+              {loyalty.vouchers.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">Noch keine Gutscheine. / No vouchers yet.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-ink/10 border border-ink/15">
+                  {loyalty.vouchers.map((v) => (
+                    <li
+                      key={v.id}
+                      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm"
+                    >
+                      <span className="font-semibold tabular-nums">
+                        {formatPrice(v.valueCents, "EUR", "de")}
+                      </span>
+                      <span className="text-muted">
+                        gültig bis {dOnly.format(new Date(v.expiresAt))}
+                      </span>
+                      <span className="ml-auto rounded-full border border-ink/15 px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted">
+                        {voucherStatus[v.status] ?? v.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h3 className="mt-6 text-xs uppercase tracking-[0.2em] text-gold-dark">
+                Verlauf / history
+              </h3>
+              {loyalty.history.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">
+                  Noch keine Punktebewegungen. / No points movements yet.
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-ink/10 border border-ink/15">
+                  {loyalty.history.map((h) => (
+                    <li
+                      key={h.id}
+                      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm"
+                    >
+                      <span className="font-semibold tabular-nums">
+                        {h.delta > 0 ? `+${h.delta}` : h.delta}
+                      </span>
+                      <span className="text-muted">{reasonLabel[h.reason] ?? h.reason}</span>
+                      {h.orderNumber !== null ? (
+                        <span className="text-muted">
+                          #{String(h.orderNumber).padStart(4, "0")}
+                        </span>
+                      ) : null}
+                      <span className="ml-auto text-muted">{dt.format(new Date(h.createdAt))}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ) : null}
 
           <h2 className="mt-8 font-serif text-2xl">Meine Bestellungen · My orders</h2>
           {orders.length === 0 ? (

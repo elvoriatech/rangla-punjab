@@ -406,6 +406,12 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
       void sendReceiptEmailForOrder(tenantId, orderId);
       const { sendNewOrderNotification } = await import("./order-notification");
       void sendNewOrderNotification(tenantId, orderId);
+      // Loyalty points are earned when the money actually moves. Same
+      // fire-and-forget posture as the mails above, and idempotent at the
+      // database, so the webhook / /pay/verify / dashboard-reconcile race
+      // credits the order exactly once.
+      const { creditOrderIfEligible } = await import("./loyalty-service");
+      void creditOrderIfEligible(tenantId, orderId).catch(() => undefined);
     }
     return settled;
   });

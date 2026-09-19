@@ -10,6 +10,7 @@ import {
   updateVenueHalalFilter,
   updateVenueLocalization,
   updateVenueLogo,
+  updateVenueLoyalty,
   updateVenueName,
   venueAdminBase,
 } from "@/lib/venue-service";
@@ -129,6 +130,25 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     notifyEmails: String(form.get("notifyEmails") ?? ""),
   });
   return finish(userId, result.ok, "ordering");
+}
+
+export async function saveLoyaltyAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  // Euro inputs arrive as decimal strings; store integer cents. Same
+  // tolerance as the ordering save — a blank or fat-fingered field falls
+  // back to the schema default rather than failing the whole section.
+  const cents = (v: FormDataEntryValue | null): number =>
+    Math.round(parseFloat(String(v ?? "").replace(",", ".")) * 100);
+  const whole = (v: FormDataEntryValue | null): number => parseInt(String(v ?? ""), 10);
+  const result = await updateVenueLoyalty(userId, {
+    enabled: form.get("loyaltyEnabled") === "on",
+    minOrderCents: cents(form.get("loyaltyMinOrder")),
+    pointsPerOrder: whole(form.get("loyaltyPointsPerOrder")),
+    rewardPoints: whole(form.get("loyaltyRewardPoints")),
+    rewardValueCents: cents(form.get("loyaltyRewardValue")),
+    voucherExpiryMonths: whole(form.get("loyaltyExpiryMonths")),
+  });
+  return finish(userId, result.ok, "loyalty");
 }
 
 export async function saveLocalizationAction(form: FormData): Promise<void> {

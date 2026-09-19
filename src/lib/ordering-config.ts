@@ -134,6 +134,30 @@ export function parseOrderingConfig(raw: unknown): OrderingConfig {
   return config;
 }
 
+/**
+ * Name of the snapshot order line the delivery fee rides on (`itemId`
+ * null). Exported because two callers have to agree on it: `placeOrder`
+ * writes it, and loyalty earning subtracts it to get the order's FOOD
+ * value — nobody should collect points for a delivery fee.
+ */
+export const DELIVERY_FEE_LINE_NAME = "Delivery fee";
+
+/**
+ * The part of an order's total that is actually food: the stored total
+ * minus the delivery-fee snapshot line. Menu lines always carry an
+ * `itemId`; the fee line is the only one that does not, so the pair
+ * (no itemId, fee name) identifies it without a schema change.
+ */
+export function foodValueCents(order: {
+  totalCents: number;
+  items: { itemId: string | null; name: string; priceCents: number; quantity: number }[];
+}): number {
+  const fee = order.items
+    .filter((i) => i.itemId === null && i.name === DELIVERY_FEE_LINE_NAME)
+    .reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
+  return Math.max(0, order.totalCents - fee);
+}
+
 export type OrderType = "dine_in" | "takeaway" | "delivery";
 export const ORDER_TYPES: readonly OrderType[] = ["dine_in", "takeaway", "delivery"];
 
