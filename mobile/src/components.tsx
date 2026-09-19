@@ -13,10 +13,17 @@ import type { ApiItem } from "./api";
  * the screens that aren't tabs. A guest build passes neither, so the bar
  * is exactly the mockup's.
  *
- * `openNow` adds the venue's open/closed pill beside the burger. It is
- * a THREE-state prop on purpose: `undefined`/`null` means nobody has
- * told us, and the header then shows nothing rather than guessing — a
- * wrong "Closed" over the restaurant's own name costs it orders.
+ * `openNow` adds the venue's open/closed pill on its OWN line, tucked
+ * under the burger at the end edge. It used to share the first row, and
+ * on a phone that row could not hold logo + burger + pill + a real venue
+ * name: "Rangla Punjab · Konstanz" was left fighting the pill for what
+ * was left. The name now gets the whole first row back, and the pill
+ * gets a line of its own where nothing can squeeze it.
+ *
+ * It is a THREE-state prop on purpose: `undefined`/`null` means nobody
+ * has told us, and the header then shows nothing — not even the second
+ * line — rather than guessing: a wrong "Closed" over the restaurant's
+ * own name costs it orders.
  */
 export function BrandHeader({
   title,
@@ -32,41 +39,56 @@ export function BrandHeader({
   openNow?: boolean | null;
 }): React.ReactElement {
   const { t } = useI18n();
+  const showState = openNow !== null && openNow !== undefined;
   return (
-    <View style={styles.header}>
-      {onBack ? (
-        <Pressable
-          onPress={onBack}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t.back}
-          style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
-        >
-          {/* Ionicons don't mirror themselves: pick the arrow that points
-              "back" in the current reading direction. */}
-          <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={22} color={colors.onRed} />
-        </Pressable>
-      ) : (
-        <Image source={logo} style={styles.headerLogo} />
-      )}
-      <View style={styles.headerCenter}>
-        <Text style={styles.headerTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+    <View style={styles.headerWrap}>
+      <View style={styles.header}>
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t.back}
+            style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
+          >
+            {/* Ionicons don't mirror themselves: pick the arrow that points
+                "back" in the current reading direction. */}
+            <Ionicons
+              name={isRTL ? "arrow-forward" : "arrow-back"}
+              size={22}
+              color={colors.onRed}
+            />
+          </Pressable>
+        ) : (
+          <Image source={logo} style={styles.headerLogo} />
+        )}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>{title}</Text>
+          {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+        </View>
+        {onMenu ? (
+          <Pressable
+            onPress={onMenu}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t.ownerMenuOpen}
+            style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="menu" size={26} color={colors.onRed} />
+          </Pressable>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
-      {openNow === null || openNow === undefined ? null : <VenueStatePill open={openNow} />}
-      {onMenu ? (
-        <Pressable
-          onPress={onMenu}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t.ownerMenuOpen}
-          style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
-        >
-          <Ionicons name="menu" size={26} color={colors.onRed} />
-        </Pressable>
-      ) : (
-        <View style={{ width: 40 }} />
-      )}
+      {/* Second line: the pill alone, hugging the end edge so it lands
+          directly beneath the burger (and beneath the back arrow's
+          mirror image in an RTL build — `flex-end` follows the writing
+          direction, so there is nothing to special-case). */}
+      {showState ? (
+        <View style={styles.headerStateRow}>
+          <VenueStatePill open={openNow} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -335,13 +357,31 @@ export function QtyStepper({
 }
 
 const styles = StyleSheet.create({
-  header: {
+  /** The red slab. It owns the padding and the colour so the rows
+   *  inside it are pure layout — and so the status line, when it is
+   *  there, sits inside the same red rather than under it. */
+  headerWrap: {
     backgroundColor: colors.red,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  /** `gap: 8` rather than the old 12: "Rangla Punjab · Konstanz" at 20 pt
+   *  needs 235 pt and a 375 pt phone left it 237 — two points from
+   *  wrapping. Eight points either side of a 40 pt icon still reads as
+   *  space, and buys the longest venue name room it can be trusted with. */
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  /** The pill's own line. `flex-end` puts it on the END edge — under the
+   *  burger in LTR, under the mirrored one in RTL — and the row is only
+   *  rendered at all when there is a pill to put in it, so a header
+   *  without one keeps exactly its old height. */
+  headerStateRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 8,
   },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
