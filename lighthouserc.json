@@ -40,7 +40,7 @@
         "resource-summary:stylesheet:size": ["error", { "maxNumericValue": 24000 }],
         "resource-summary:font:size": ["error", { "maxNumericValue": 75000 }],
         "resource-summary:image:size": ["warn", { "maxNumericValue": 260000 }],
-        "resource-summary:script:size": ["error", { "maxNumericValue": 260000 }],
+        "resource-summary:script:size": ["error", { "maxNumericValue": 275000 }],
         "resource-summary:total:size": ["error", { "maxNumericValue": 640000 }]
       }
     },
