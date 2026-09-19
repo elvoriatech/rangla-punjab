@@ -58,7 +58,9 @@ async function main(): Promise<void> {
         name: "Elvoria Demo Restaurant",
         slug: DEMO_VENUE_SLUG,
         defaultLocale: "en",
-        enabledLocales: ["en", "de"],
+        // `ar` is on so the CI axe spec can scan the RTL render of /ar
+        // (e2e/axe-public-menu.spec.ts); without it that route 404s.
+        enabledLocales: ["en", "de", "ar"],
         currency: "EUR",
         branding: { primaryColor: "#1f3b2e", logoKey: null },
       },

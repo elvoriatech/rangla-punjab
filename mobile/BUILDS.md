@@ -149,20 +149,71 @@ Stripe account.
    `src/payments.ts`.
 5. Rebuild and resubmit: the entitlement is part of the binary.
 
-## Android APK (sideloadable, no store needed)
+## Rebuild and install for testing
+
+Native modules (Stripe payment sheet, Google sign-in) are in the app now, so
+**Expo Go cannot run it** — every test install is a real build.
+
+### iPhone plugged into this Mac (free, no Apple Developer Program)
+
+Xcode 26 + CocoaPods are installed and the Mac holds one "Apple Development"
+certificate, so a personal-team build installs on a paired iPhone:
+
 ```bash
 cd mobile
-npx eas-cli login          # free Expo account
-npx eas-cli build -p android --profile preview
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8          # CocoaPods crashes without a UTF-8 locale
+xcrun xctrace list devices                          # copy the phone's UDID (00008101-…)
+EXPO_PUBLIC_API_URL=https://rangla-punjab-restaurant.de \
+  npx expo run:ios --device 00008101-00120C411AD8001E --configuration Release --no-bundler
 ```
-Result: a download link + QR. Open on the phone, tap the APK, allow
-"install from unknown sources". `preview` builds an APK (sideloadable);
-the Play Store later wants the `production` profile (AAB).
 
-## iOS
-An iPhone install needs an Apple Developer account ($99/yr) — build with
-`npx eas-cli build -p ios --profile preview`, install via the link.
-Simulator/dev testing needs none: `npx expo start` + Expo Go (what we run locally).
+- `--configuration Release` embeds the JS bundle, so the phone runs the app
+  without Metro. Drop `--no-bundler` and use `Debug` only when you want live
+  reload from this Mac.
+- The phone must be **unlocked** for the install step. On the very first
+  install iOS refuses to launch until you trust the developer: Settings →
+  General → VPN & Device Management → Developer App → Trust.
+- A personal-team signature expires after **7 days**; rerun the command to
+  reinstall. A paid Apple Developer account lifts that to a year.
+- `EXPO_PUBLIC_API_URL` is baked into the binary. For the Mac's dev server
+  use `http://<mac-lan-ip>:<port>` (`ipconfig getifaddr en0`; the port
+  `pnpm dev` picked) with the phone on the same Wi-Fi.
+- `expo run:ios` regenerates the gitignored `mobile/ios/` folder and rewrites
+  the `ios`/`android` scripts in `mobile/package.json` to `expo run:*`; revert
+  that file (`git checkout -- mobile/package.json`) before committing.
+- Pods are cached after the first run; a rebuild takes a few minutes, the
+  first one closer to twenty (CocoaPods clones the Stripe iOS repo).
+
+### Android APK from the cloud (EAS, free Expo account)
+
+```bash
+cd mobile
+npx eas-cli login                                   # once; zahoor1989 is already logged in here
+npx eas-cli build -p android --profile preview --no-wait
+npx eas-cli build:list --platform android --limit 1 # status + download link when done
+```
+
+The result is a build page on expo.dev with a **download link and QR code**;
+open it on the phone, install the APK, allow "install from unknown sources".
+The `preview` profile already points at production
+(`EXPO_PUBLIC_API_URL=https://rangla-punjab-restaurant.de`) and reuses the
+keystore EAS holds for this project, so every APK updates the previous one
+in place. Empty-string values are not allowed in `eas.json` `env` — leave a
+variable out rather than setting it to `""`.
+
+### iOS build from the cloud
+
+Needs the Apple Developer Program ($99/yr):
+`npx eas-cli build -p ios --profile preview`, then install via the link.
+
+### What to test after installing
+
+Cart → pick **Card / Google Pay**, **PayPal** or **Cash** → Pay. With Stripe
+test keys on the server the card sheet opens; test card `4242 4242 4242 4242`,
+any future date, any CVC. `4000 0025 0000 3155` forces a 3-D Secure challenge
+and must return to the app. The order must flip to "Paid" on the tracking
+screen and the kitchen ticket email must arrive only then. Server without any
+Stripe key ⇒ the labelled **Simulate payment (test)** button instead.
 
 ## Shipping to the stores
 
@@ -203,8 +254,35 @@ a signing credential:
 | Google Play Console account | Play submit | one-off $25 |
 | Play service-account JSON | `eas submit -p android` | goes in `submit.production.android.serviceAccountKeyPath` |
 | Store listing | both | screenshots, description, privacy-policy URL, content rating |
+| Privacy policy URL | both | Must cover Stripe, PayPal, Google sign-in and the order data the app sends; the `/legal/*` pages still carry `TODO: legal review` and need counsel sign-off first |
+| Play **Data safety** form | Play | Declares: name, phone, email, delivery address, payment info handled by Stripe/PayPal, no ads, data encrypted in transit |
+| Apple **App Privacy** labels | App Store | Same categories as above, entered in App Store Connect |
+| Stripe **live** keys on the server | both | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY` in `prod.env` (or Dashboard → Payments); webhook subscribed to `checkout.session.completed` + `payment_intent.succeeded`; one €0.50 live order before release |
+| Google Pay production access | Play | Google Pay & Wallet Console: register the app (package + release SHA-1), pass the integration review; until then Google Pay works only with test cards |
+| Apple Pay | App Store | Merchant ID `merchant.com.elvoria.ranglapunjab` + Apple Pay certificate in Stripe, then `merchantIdentifier` in `app.config.js` — see "Payments in the app" |
+| Google OAuth clients | both | Web + iOS + Android client ids in `eas.json`, `GOOGLE_MOBILE_CLIENT_IDS` on the server — see "One-tap Google sign-in"; without them the app uses browser sign-in |
+| PayPal live app | both | Live client id/secret + webhook id in Dashboard → Payments, `PAYPAL_ENV=live` |
 
 `submit.production` in eas.json is intentionally empty until those exist.
+
+### App-side changes for a store release
+
+- **Version:** `pnpm brand:mobile --venue rangla-punjab --version 1.1.0` in the
+  repo root, commit `brand.generated.json`. Build numbers are EAS-managed.
+- **Profiles:** `production` builds an AAB (Play) / IPA (App Store); `preview`
+  builds a sideloadable APK. Both bake `https://rangla-punjab-restaurant.de`.
+- **Server first:** the app calls `POST /api/orders/{id}/pay/intent`, which
+  must be deployed before a build that relies on it reaches guests (older
+  servers make the app fall back to the hosted checkout page, so a mismatch
+  degrades rather than breaks).
+- **Play:** the first upload must be done by hand in the Play Console (create
+  the app, upload the first AAB, fill Data safety + content rating); after
+  that `eas submit -p android --latest` works with the service-account JSON.
+- **App Store:** create the app record with bundle id
+  `com.elvoria.ranglapunjab`, upload screenshots for 6.7" and 6.1" iPhones,
+  set the age rating, then `eas submit -p ios --latest`.
+- **Review notes:** give both stores a test login and say the Cash option
+  lets a reviewer place an order without paying.
 
 **Decide the publisher before the first submit.** Both ids are
 `com.elvoria.ranglapunjab` — the platform's prefix, not the restaurant's. A

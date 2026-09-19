@@ -55,6 +55,10 @@ const FALL_BACK_TO_HOSTED = new Set([
   "publishable_key_missing",
   "network",
   "rate_limited",
+  // A server that predates this endpoint (version skew during a deploy)
+  // answers with its HTML 404 — the hosted checkout it does have still
+  // takes the payment.
+  "http_404",
 ]);
 
 export async function payWithCard(
