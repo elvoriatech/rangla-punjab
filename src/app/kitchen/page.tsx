@@ -5,7 +5,7 @@ import { BRAND } from "@/lib/brand";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
 import { advanceOrderAction } from "../dashboard/(console)/orders/actions";
-import { advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
+import { advanceIcon, advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { AutoRefresh } from "../dashboard/(console)/orders/auto-refresh";
 import { FullscreenButton } from "./fullscreen-button";
@@ -28,6 +28,21 @@ export const metadata = { title: `Kitchen — ${BRAND.name}` };
  *  fresh on every 7 s refresh, so it never goes stale on screen. */
 function ageMinutes(createdAt: Date): number {
   return Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / 60_000));
+}
+
+/** Cool-toned treatment for an order the guest asked us to have ready
+ *  LATER. It keeps its place on the board — nothing about ordering, the
+ *  chime or the flash changes — but a glance tells the pass it is not
+ *  cooking now. Indigo is the one hue this board uses for nothing else:
+ *  amber is "waiting", red is "late", emerald is "paid". */
+const SCHEDULED_CARD =
+  "border-y-2 border-e-2 border-s-4 border-y-[#a5b4fc]/40 border-e-[#a5b4fc]/40 border-s-[#a5b4fc] bg-[#a5b4fc]/[0.08]";
+const SCHEDULED_TIME_LINE = "mt-1 text-lg font-bold text-[#a5b4fc]";
+
+/** Still in the future at render time. Once the slot passes, the ticket
+ *  is simply due and renders with the normal urgency colours. */
+function isScheduled(order: { requestedFor: Date | null }): boolean {
+  return order.requestedFor !== null && order.requestedFor > new Date();
 }
 
 export default async function KitchenPage(): Promise<React.ReactElement> {
@@ -131,11 +146,14 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                   : ageMin >= 10
                     ? "border-amber-400/80"
                     : "border-white/15";
+              const scheduled = isScheduled(order);
               return (
                 <li
                   key={order.id}
                   data-order-id={order.id}
-                  className={`flex flex-col rounded-lg border-2 ${urgency} bg-white/[0.06] p-5`}
+                  className={`flex flex-col rounded-lg p-5 ${
+                    scheduled ? SCHEDULED_CARD : `border-2 ${urgency} bg-white/[0.06]`
+                  }`}
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="font-serif text-3xl tabular-nums">
@@ -156,19 +174,39 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                           : "Cash"}
                       </span>
                     </p>
-                    <p className="text-sm tabular-nums text-white/50">
-                      {time.format(order.createdAt)} ·{" "}
-                      <span className={ageMin >= 10 ? "font-bold text-amber-300" : ""}>
-                        {ageMin} min
+                    {/* Cancel is text, not a button: the owner asked for one
+                        status button per ticket, and on a wall tablet the
+                        destructive action must never sit where a thumb
+                        lands. Same server action, same confirm dialog. */}
+                    <span className="flex items-baseline gap-3 whitespace-nowrap text-sm tabular-nums text-white/50">
+                      <span>
+                        {time.format(order.createdAt)} ·{" "}
+                        <span className={ageMin >= 10 ? "font-bold text-amber-300" : ""}>
+                          {ageMin} min
+                        </span>
                       </span>
-                    </p>
+                      <form action={advanceOrderAction} className="inline">
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <input type="hidden" name="to" value="cancelled" />
+                        <ConfirmSubmit
+                          message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
+                          pendingLabel="Cancelling…"
+                          title="Cancel this order"
+                          className="text-[11px] text-white/50 underline-offset-2 hover:text-red-300 hover:underline"
+                        >
+                          Cancel order
+                        </ConfirmSubmit>
+                      </form>
+                    </span>
                   </div>
                   {fulfilmentLines(order).map((line, i) => (
                     <p
                       key={line}
                       className={
                         i === 0
-                          ? "mt-1 text-lg font-semibold text-amber-200"
+                          ? scheduled
+                            ? SCHEDULED_TIME_LINE
+                            : "mt-1 text-lg font-semibold text-amber-200"
                           : "text-sm text-amber-100/80"
                       }
                     >
@@ -186,42 +224,28 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                     ))}
                   </ul>
                   {/* mt-auto pins the action row to the card's bottom edge so
-                      it sits at the same height on every card in the row. */}
+                      it sits at the same height on every card in the row.
+                      Exactly ONE button lives here: the status control. It
+                      carries the icon of the step it moves the ticket to, so
+                      there is nothing else to read — no "(now: …)" tail, no
+                      pill, no second button competing for the same thumb. */}
                   <div className="mt-auto flex items-stretch gap-2 pt-5">
-                    <form action={advanceOrderAction} className="flex-1">
-                      <input type="hidden" name="orderId" value={order.id} />
-                      <input
-                        type="hidden"
-                        name="to"
-                        value={nextStatus(order.status, order.orderType) ?? "done"}
-                      />
-                      <button
-                        type="submit"
-                        className="w-full rounded-md bg-white/90 py-3 text-sm font-bold uppercase tracking-[0.18em] text-[#14100c] transition-colors hover:bg-white"
-                      >
-                        {advanceLabel(nextStatus(order.status, order.orderType) ?? "done")}
-                        {order.status !== "placed" ? (
-                          <span className="ml-2 font-normal normal-case text-[#14100c]/60">
-                            (now: {order.status.replaceAll("_", " ")})
-                          </span>
-                        ) : null}
-                      </button>
-                    </form>
-                    {/* Destructive, so: outlined not filled, narrow not wide,
-                        and behind a confirm. On a wall tablet the advance
-                        button is hit at a glance — this one must not be. */}
-                    <form action={advanceOrderAction} className="shrink-0">
-                      <input type="hidden" name="orderId" value={order.id} />
-                      <input type="hidden" name="to" value="cancelled" />
-                      <ConfirmSubmit
-                        message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
-                        pendingLabel="…"
-                        title="Cancel this order"
-                        className="h-full rounded-md border border-white/25 px-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/60 transition-colors hover:border-red-400/70 hover:text-red-300"
-                      >
-                        {advanceLabel("cancelled")}
-                      </ConfirmSubmit>
-                    </form>
+                    {(() => {
+                      const to = nextStatus(order.status, order.orderType) ?? "done";
+                      return (
+                        <form action={advanceOrderAction} className="flex-1">
+                          <input type="hidden" name="orderId" value={order.id} />
+                          <input type="hidden" name="to" value={to} />
+                          <button
+                            type="submit"
+                            title={advanceLabel(to)}
+                            className="w-full rounded-md bg-white/90 py-3 text-sm font-bold uppercase tracking-[0.18em] text-[#14100c] transition-colors hover:bg-white"
+                          >
+                            {advanceIcon(to)} {advanceLabel(to)}
+                          </button>
+                        </form>
+                      );
+                    })()}
                   </div>
                 </li>
               );

@@ -7,7 +7,14 @@ import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders, VOUCHER_PROVIDER } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
 import { advanceOrderAction } from "./actions";
-import { advanceLabel, isCancelledStatus, isOpenStatus, nextStatus } from "@/lib/order-status";
+import {
+  advanceIcon,
+  advanceLabel,
+  isCancelledStatus,
+  isOpenStatus,
+  nextStatus,
+  type OrderStatus,
+} from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
 import { NewOrderChime } from "../../../kitchen/new-order-chime";
 import { AutoPrint } from "./auto-print";
@@ -22,20 +29,36 @@ import { SubmitButton } from "@/components/submit-button";
  */
 
 /** Compact advance-button label for the order card's one-line action row —
- *  "Out for delivery" would wrap; the kitchen screen keeps the full words. */
-function advanceCompact(to: string): string {
-  switch (to) {
-    case "preparing":
-      return "🍳 Prepare";
-    case "ready":
-      return "🔔 Ready";
-    case "out_for_delivery":
-      return "🛵 Out";
-    case "done":
-      return "✓ Done";
-    default:
-      return to;
-  }
+ *  "Out for delivery" would wrap; the kitchen screen keeps the full words.
+ *  The glyph comes from `advanceIcon` so the card's single status control
+ *  and the kitchen board can never disagree about which icon a step wears. */
+function advanceCompact(to: OrderStatus): string {
+  const word =
+    to === "preparing"
+      ? "Prepare"
+      : to === "ready"
+        ? "Ready"
+        : to === "out_for_delivery"
+          ? "Out"
+          : to === "done"
+            ? "Done"
+            : to;
+  return `${advanceIcon(to)} ${word}`.trim();
+}
+
+/** Cool-toned treatment for an order the guest asked us to have ready
+ *  LATER. It keeps its place in the list (sorting, chime, auto-print all
+ *  ignore it) but reads as "not now" at arm's length. Indigo is used for
+ *  nothing else on this screen — orange means "live", red means "problem",
+ *  green means "paid" — so the tint carries no other meaning. */
+const SCHEDULED_CARD =
+  "border-y-2 border-e-2 border-s-4 border-y-[#3a5ba0]/35 border-e-[#3a5ba0]/35 border-s-[#3a5ba0] bg-[#3a5ba0]/[0.07]";
+const SCHEDULED_TIME_LINE = "font-bold text-[#3a5ba0]";
+
+/** Still in the future at render time. Once the slot passes, the order is
+ *  simply due now and renders like every other card — no stale tint. */
+function isScheduled(order: { requestedFor: Date | null }): boolean {
+  return order.requestedFor !== null && order.requestedFor > new Date();
 }
 
 /** The complaint pill that rides on an order card. It stays after the
@@ -220,7 +243,9 @@ export default async function OrdersPage({
             {open.map((order) => (
               <li
                 key={order.id}
-                className="flex flex-col border-2 border-orange/60 bg-card px-5 py-4"
+                className={`flex flex-col px-5 py-4 ${
+                  isScheduled(order) ? SCHEDULED_CARD : "border-2 border-orange/60 bg-card"
+                }`}
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-serif text-2xl">
@@ -235,17 +260,37 @@ export default async function OrdersPage({
                       {paymentBadge(order)}
                     </span>
                     {fulfilmentLines(order)[0] ? (
-                      <span className="ml-3 text-lg text-orange-dark">
+                      <span
+                        className={`ml-3 text-lg ${
+                          isScheduled(order) ? SCHEDULED_TIME_LINE : "text-orange-dark"
+                        }`}
+                      >
                         {fulfilmentLines(order)[0]}
                       </span>
                     ) : null}
                   </p>
-                  <p className="text-sm tabular-nums text-muted">
+                  {/* Cancel lives up here, deliberately as text and not a
+                      button: the owner asked for no extra buttons on the
+                      card, and a destructive action should never look like
+                      the thing a thumb reaches for. Same server action. */}
+                  <span className="flex items-baseline gap-3 whitespace-nowrap text-sm tabular-nums text-muted">
                     {new Intl.DateTimeFormat("de-DE", {
                       timeStyle: "short",
                       timeZone: "Europe/Berlin",
                     }).format(order.createdAt)}
-                  </p>
+                    <form action={advanceOrderAction} className="inline">
+                      <input type="hidden" name="orderId" value={order.id} />
+                      <input type="hidden" name="to" value="cancelled" />
+                      <ConfirmSubmit
+                        message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
+                        pendingLabel="Cancelling…"
+                        title="Cancel this order"
+                        className="text-[11px] text-muted underline-offset-2 hover:text-[#b3261e] hover:underline"
+                      >
+                        Cancel order
+                      </ConfirmSubmit>
+                    </form>
+                  </span>
                 </div>
                 <ul className="mt-3 flex-1 space-y-1 text-sm">
                   {order.items.map((item, i) => (
@@ -255,28 +300,29 @@ export default async function OrdersPage({
                     </li>
                   ))}
                 </ul>
-                {/* Action row: pinned to the card's bottom edge (mt-auto on a
-                    flex-col card) and locked to ONE line — buttons must sit in
-                    the same place on every card regardless of item count. */}
-                <div className="mt-auto flex items-center gap-2 pt-4">
-                  <p className="mr-auto whitespace-nowrap text-sm font-bold tabular-nums">
-                    {formatPrice(order.totalCents, order.currency, "de")}
+                {/* Total gets its own line under the items, where a bill's
+                    total belongs. It used to ride in the action row, but in
+                    the 2-column grid that row overflows and the price was the
+                    thing that broke out — orphaned between items and buttons. */}
+                <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-ink/15 pt-3">
+                  <span className="text-xs uppercase tracking-[0.18em] text-muted">Total</span>
+                  <span className="whitespace-nowrap text-right text-sm font-bold tabular-nums">
                     {order.discountCents > 0 ? (
-                      <span className="ml-2 text-xs font-normal text-orange-dark">
+                      <span className="mr-2 text-xs font-normal text-orange-dark">
                         −{formatPrice(order.discountCents, order.currency, "de")} reward
                       </span>
                     ) : null}
-                  </p>
+                    {formatPrice(order.totalCents, order.currency, "de")}
+                  </span>
+                </div>
+                {/* Action row: issue pill, View, Print, and exactly ONE
+                    status button — the one that advances the order, wearing
+                    the icon of the step it moves to. No status pill beside
+                    it (the icon is the status) and no Cancel button (that
+                    moved to the header as a text link). */}
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-3">
                   {issues.get(order.id) ? (
                     <IssuePill orderId={order.id} status={issues.get(order.id)!} />
-                  ) : null}
-                  {order.status !== "placed" ? (
-                    <span
-                      title={order.status.replaceAll("_", " ")}
-                      className="whitespace-nowrap rounded-full border border-ink/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-muted"
-                    >
-                      {statusCompact(order.status)}
-                    </span>
                   ) : null}
                   <a
                     href={`/print/order/${order.id}`}
@@ -294,22 +340,6 @@ export default async function OrdersPage({
                   >
                     🖨 Print
                   </a>
-                  {/* Cancel sits BEFORE the advance button and carries none
-                      of its weight: same server action, opposite intent, so
-                      it must never be the thing a thumb lands on by
-                      accident. The dialog names the order number. */}
-                  <form action={advanceOrderAction} className="shrink-0">
-                    <input type="hidden" name="orderId" value={order.id} />
-                    <input type="hidden" name="to" value="cancelled" />
-                    <ConfirmSubmit
-                      message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
-                      pendingLabel="Cancelling…"
-                      title="Cancel this order"
-                      className="whitespace-nowrap border border-ink/20 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-muted hover:border-[#b3261e]/60 hover:text-[#b3261e]"
-                    >
-                      Cancel
-                    </ConfirmSubmit>
-                  </form>
                   {nextStatus(order.status, order.orderType) ? (
                     <form action={advanceOrderAction} className="shrink-0">
                       <input type="hidden" name="orderId" value={order.id} />

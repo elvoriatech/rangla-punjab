@@ -10,7 +10,27 @@ import { I18nManager, type TextStyle } from "react-native";
  * One source of truth for every screen; no other hex belongs in the app, and
  * nothing brand-shaped should be hand-edited here.
  */
-export { colors, brand, logo, hero, scrim } from "./brand.generated";
+import { colors as generated } from "./brand.generated";
+
+export { brand, logo, hero, scrim } from "./brand.generated";
+
+/**
+ * The generated palette, plus the few SEMANTIC colours that are not the
+ * venue's brand and must therefore survive a re-generation.
+ *
+ * `info` / `infoSoft` mean "scheduled for later" on the restaurant board:
+ * a pre-order that isn't due yet. Every other colour on that screen is
+ * already spoken for — red is live, gold is "just arrived", green is
+ * settled, `danger` is a cancellation — so a cool blue is the only tint
+ * the counter cannot misread. Both pairings clear WCAG AA on the card:
+ * ink-blue on the tint is 7.8:1, and the app's muted ink still reads
+ * 5.3:1 against it.
+ */
+export const colors = {
+  ...generated,
+  info: "#1f4e79",
+  infoSoft: "#eef3fa",
+} as const;
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 

@@ -35,10 +35,11 @@ import { fill, localeTag, useI18n } from "../i18n";
  *
  * Rules it lives by:
  *
- *  - The SERVER owns the lifecycle. Each card renders one button per
- *    entry in that order's `allowedNext`; the app never derives the chain,
- *    so a venue that grows "out for delivery" (or drops it) needs no
- *    release here.
+ *  - The SERVER owns the lifecycle. A card carries exactly ONE status
+ *    button: the next step of `allowedNext`, so a venue that grows "out
+ *    for delivery" (or drops it) needs no release here. Cancelling is
+ *    not a step in that chain — it lives in the opened card as a quiet
+ *    text action, never as a second button beside the one the pass taps.
  *  - A 409 is not an error the owner caused: someone else already moved
  *    that order on. Say so quietly and re-read the board.
  *  - Never go blank. Offline keeps the last list under a "Reconnecting…"
@@ -63,9 +64,9 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 /**
- * The status each action MOVES the order to, as a glyph. The buttons are
- * icon-first so a card's actions cost one line instead of three — the
- * translated label stays as the caption underneath and as the
+ * The status the card's button MOVES the order to, as a glyph. The
+ * button is icon-first so the action costs one line instead of three —
+ * the translated label stays as the caption underneath and as the
  * accessibility label, because a flame alone is not a verb.
  *
  * A status this build has never heard of still gets a button (the server
@@ -77,10 +78,6 @@ const ACTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   ready: "checkmark-circle-outline",
   out_for_delivery: "bicycle-outline",
   done: "checkmark-done-outline",
-  // Not in the brief's list, but an arrow on "Cancel" would point the
-  // wrong way at the one action nobody may mis-tap.
-  cancelled: "close-circle-outline",
-  canceled: "close-circle-outline",
 };
 
 const METHOD_ICONS: Record<string, string> = {
@@ -96,6 +93,37 @@ const METHOD_ICONS: Record<string, string> = {
  *  older deployment may still say "canceled". */
 function isCancelTransition(to: string): boolean {
   return to === "cancelled" || to === "canceled";
+}
+
+/**
+ * The lifecycle in reading order. It is NOT the app deciding what may
+ * happen — the server's `allowedNext` still is — only which of the steps
+ * it offers comes first, so the card can carry one button instead of a
+ * rack of them. A step this build has never heard of keeps its turn in
+ * the order the server sent it.
+ */
+const ADVANCE_CHAIN = ["preparing", "ready", "out_for_delivery", "done"] as const;
+
+/** The single status a card's button advances to, or null when the order
+ *  can only be cancelled from here (or moves nowhere at all). */
+function nextStatusOf(allowedNext: readonly string[]): string | null {
+  const forward = allowedNext.filter((to) => !isCancelTransition(to));
+  for (const step of ADVANCE_CHAIN) {
+    if (forward.includes(step)) return step;
+  }
+  return forward[0] ?? null;
+}
+
+/**
+ * A pre-order whose slot has not come round yet. Deliberately computed
+ * on every render rather than stored: the board re-renders on each poll,
+ * so the card's "scheduled" treatment drops by itself the moment the
+ * requested time passes, with nothing to invalidate.
+ */
+function isScheduled(requestedFor: string | null): boolean {
+  if (!requestedFor) return false;
+  const at = new Date(requestedFor).getTime();
+  return Number.isFinite(at) && at > Date.now();
 }
 
 /** Same day in the DEVICE's timezone — "today" is the restaurant's day. */
@@ -413,6 +441,13 @@ export function BoardScreen({
     const number = `#${String(order.orderNumber).padStart(4, "0")}`;
     const placed = timeOf(order.createdAt);
     const planned = order.requestedFor ? timeOf(order.requestedFor) : "";
+    // Due later, not now: a calmer card, re-judged on every poll.
+    const scheduled = isScheduled(order.requestedFor);
+    // One step forward, and — separately — the way out of the lifecycle.
+    const nextTo = nextStatusOf(order.allowedNext);
+    const cancelTo = order.allowedNext.find((to) => isCancelTransition(to)) ?? null;
+    // One transition at a time per card, whichever route asked for it.
+    const busy = busyId === order.id;
     const typeText =
       order.orderType === "dine_in" && order.tableNumber
         ? `${t.table} ${order.tableNumber}`
@@ -448,7 +483,12 @@ export function BoardScreen({
     return (
       <View
         key={order.id}
-        style={[styles.card, closed && styles.cardClosed, lit && styles.cardFresh]}
+        style={[
+          styles.card,
+          closed && styles.cardClosed,
+          scheduled && styles.cardScheduled,
+          lit && styles.cardFresh,
+        ]}
       >
         {/* The headline: everything the pass needs to triage at a glance,
             and the tap target that reveals the rest. */}
@@ -521,7 +561,13 @@ export function BoardScreen({
             </Text>
             <Text style={styles.meta} numberOfLines={1}>
               {placed}
-              {planned ? ` · ${fill(t.boardPlanned, { time: planned })}` : ""}
+              {planned ? (
+                // Nested so only the slot itself carries the colour: the
+                // time it was PLACED is not the news on a pre-order.
+                <Text style={scheduled ? styles.metaPlanned : undefined}>
+                  {` · ${fill(t.boardPlanned, { time: planned })}`}
+                </Text>
+              ) : null}
             </Text>
           </View>
         </Pressable>
@@ -598,60 +644,50 @@ export function BoardScreen({
               </Text>
             ) : null}
 
-            {order.allowedNext.length > 0 ? (
+            {nextTo || busy ? (
+              // The whole step row: the one button this card offers, and
+              // the spinner for whichever transition is in flight (a
+              // cancel from below included).
               <View style={styles.actions}>
-                {busyId === order.id ? <ActivityIndicator color={colors.red} /> : null}
-                {order.allowedNext.map((to, index) => {
-                  // Cancelling is destructive, not merely secondary: it
-                  // wears the danger colour so a mis-tap is a visibly
-                  // different button, never a quieter version of "next".
-                  const destructive = isCancelTransition(to);
-                  // The first step that isn't a cancel is the one the pass
-                  // will actually tap — it gets the filled button.
-                  const primary =
-                    !destructive &&
-                    index === order.allowedNext.findIndex((x) => !isCancelTransition(x));
-                  const busy = busyId === order.id;
-                  const label = statusShort[to] ?? to;
-                  return (
-                    <Pressable
-                      key={`${order.id}-${to}`}
-                      onPress={() => onAction(order, to)}
-                      disabled={busy}
-                      accessibilityRole="button"
-                      accessibilityLabel={label}
-                      accessibilityState={{ disabled: busy }}
-                      style={({ pressed }) => [
-                        styles.action,
-                        (busy || pressed) && { opacity: 0.6 },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.actionIcon,
-                          primary
-                            ? styles.actionIconPrimary
-                            : destructive
-                              ? styles.actionIconDanger
-                              : styles.actionIconOutline,
-                        ]}
-                      >
-                        <Ionicons
-                          name={ACTION_ICONS[to] ?? "arrow-forward-outline"}
-                          size={20}
-                          color={primary ? colors.onRed : destructive ? colors.danger : colors.red}
-                        />
-                      </View>
-                      <Text
-                        style={[styles.actionCaption, destructive && styles.actionCaptionDanger]}
-                        numberOfLines={2}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {busy ? <ActivityIndicator color={colors.red} /> : null}
+                {nextTo ? (
+                  <Pressable
+                    onPress={() => onAction(order, nextTo)}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    accessibilityLabel={statusShort[nextTo] ?? nextTo}
+                    accessibilityState={{ disabled: busy }}
+                    style={({ pressed }) => [styles.action, (busy || pressed) && { opacity: 0.6 }]}
+                  >
+                    <View style={[styles.actionIcon, styles.actionIconPrimary]}>
+                      <Ionicons
+                        name={ACTION_ICONS[nextTo] ?? "arrow-forward-outline"}
+                        size={20}
+                        color={colors.onRed}
+                      />
+                    </View>
+                    <Text style={styles.actionCaption} numberOfLines={2}>
+                      {statusShort[nextTo] ?? nextTo}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
+            ) : null}
+
+            {/* Cancelling is not the next step, so it is not a button in
+                the step row — a quiet text action at the foot of the
+                opened card, still guarded by its own confirm. */}
+            {cancelTo ? (
+              <Text
+                onPress={busy ? undefined : () => onAction(order, cancelTo)}
+                suppressHighlighting
+                accessibilityRole="button"
+                accessibilityLabel={t.boardCancelAction}
+                accessibilityState={{ disabled: busy }}
+                style={[styles.cancelAction, busy && { opacity: 0.5 }]}
+              >
+                {t.boardCancelAction}
+              </Text>
             ) : null}
           </>
         ) : null}
@@ -765,6 +801,18 @@ const styles = StyleSheet.create({
   cardClosed: { backgroundColor: colors.cream, opacity: 0.75 },
   /** Just arrived: the gold the brand uses for "look here". */
   cardFresh: { borderColor: colors.goldSoft, borderWidth: 2, backgroundColor: "#fdf6e3" },
+  /**
+   * Due later: the card keeps its place in the queue (the pass still
+   * reads the board in the order things were taken) and says so in
+   * colour instead — a cool bar down the reading edge and a tint no
+   * other state on this screen wears. `borderStart` so it stays on the
+   * reading edge in an RTL layout.
+   */
+  cardScheduled: {
+    backgroundColor: colors.infoSoft,
+    borderStartWidth: 4,
+    borderStartColor: colors.info,
+  },
   header: { gap: 6 },
   headRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   headMain: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 },
@@ -779,6 +827,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   meta: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5, flexShrink: 1 },
+  /** The slot a pre-order is due in — the one fact that makes the card
+   *  different, so it carries the card's own colour and weight. */
+  metaPlanned: { color: colors.info, ...fonts.bodyBold },
   items: { gap: 3, borderTopWidth: 1, borderColor: colors.line, paddingTop: 8 },
   itemRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   itemQty: { color: colors.red, ...fonts.bodyHeavy, fontSize: 14, minWidth: 26 },
@@ -827,8 +878,9 @@ const styles = StyleSheet.create({
   },
   dirChipText: { color: colors.ink, ...fonts.bodyBold, fontSize: 12.5 },
   contactNote: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5 },
-  // Compact, icon-first, and pushed to the END of the card: the actions
-  // are a tool rail, not a row of slabs competing with the order itself.
+  // Compact, icon-first, and pushed to the END of the card: one step
+  // button (plus the spinner while it is in flight), not a row of slabs
+  // competing with the order itself.
   actions: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -847,10 +899,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   actionIconPrimary: { backgroundColor: colors.red, borderColor: colors.red },
-  actionIconOutline: { backgroundColor: colors.creamCard, borderColor: colors.red },
-  actionIconDanger: { backgroundColor: colors.creamCard, borderColor: colors.danger },
   actionCaption: { color: colors.red, ...fonts.bodyBold, fontSize: 10, textAlign: "center" },
-  actionCaptionDanger: { color: colors.danger },
+  // Reachable, never prominent: no border, no fill, nothing that reads
+  // as a second button — but a real target, not a 12px trap.
+  cancelAction: {
+    color: colors.inkSoft,
+    ...fonts.bodySemi,
+    fontSize: 12.5,
+    textDecorationLine: "underline",
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingEnd: 12,
+  },
   cardNote: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
   // Money the venue still owes a guest: loud enough to be acted on, and
   // it stays on the card for as long as the cancelled order is listed.

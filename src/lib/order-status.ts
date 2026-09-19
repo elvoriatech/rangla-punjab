@@ -109,6 +109,34 @@ export function advanceLabel(to: OrderStatus): string {
   }
 }
 
+/** The glyph that rides on the button advancing an order TO `to`.
+ *
+ *  Staff cards carry ONE status control: the button that moves the order
+ *  on, wearing the icon of the step it moves to. There is no separate
+ *  status pill next to it — the icon IS the status, so this map must
+ *  cover every step in the chain, delivery leg and `done` included. */
+export function advanceIcon(to: OrderStatus): string {
+  switch (to) {
+    // Never an advance target — `nextStatus` cannot return the chain's
+    // first step — but the map stays total so no caller can be handed an
+    // iconless button by adding a status later.
+    case "placed":
+      return "🧾";
+    case "preparing":
+      return "🍳";
+    case "ready":
+      return "🔔";
+    case "out_for_delivery":
+      return "🛵";
+    case "done":
+      return "✓";
+    case "cancelled":
+      return "✕";
+    default:
+      return "";
+  }
+}
+
 /** Which entry of `postOrderCopy(locale).steps` words a tracker step. One
  *  status can have several wordings — "ready" is "Ready for pickup" on a
  *  takeaway order and plain "Ready" on a dine-in one. */
