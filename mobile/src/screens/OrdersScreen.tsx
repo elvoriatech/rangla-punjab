@@ -67,23 +67,28 @@ export function OrdersScreen({
     return `${d.toLocaleDateString(locale)} · ${d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}`;
   };
 
-  /** The server's own step label: German for German guests, English for
-   *  every other language (the server only ships those two). */
-  const stepLabel = (s: ApiTracking): string => {
-    if (s.status === "done") return t.orderDone;
+  /** Icon + one-word status. Unknown statuses (a newer server) fall back
+   *  to the server's own step label, so nothing renders blank. */
+  const STATUS_ICONS: Record<string, string> = {
+    placed: "🕒",
+    preparing: "🍳",
+    ready: "🛎️",
+    done: "✅",
+    cancelled: "✖️",
+  };
+  const statusShort = t.statusShort as Record<string, string>;
+  const statusBadge = (s: ApiTracking): { icon: string; text: string } => {
+    const short = statusShort[s.status];
+    if (short) return { icon: STATUS_ICONS[s.status] ?? "•", text: short };
     const step = s.steps[s.currentStepIndex] ?? s.steps.find((x) => !x.reached);
-    if (!step) return t.orderConfirmed;
-    return lang === "de" ? step.labelDe : step.labelEn;
+    return { icon: "•", text: step ? (lang === "de" ? step.labelDe : step.labelEn) : s.status };
   };
 
-  const methodLabel = (payment: StoredOrder["payment"]): string | null =>
-    payment === "card"
-      ? t.methodCard
-      : payment === "paypal"
-        ? t.methodPaypal
-        : payment === "cash"
-          ? t.methodCash
-          : null;
+  const METHOD_ICONS: Record<NonNullable<StoredOrder["payment"]>, string> = {
+    card: "💳",
+    paypal: "🅿️",
+    cash: "💶",
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -99,18 +104,18 @@ export function OrdersScreen({
           orders.map((order) => {
             const s = status[order.orderId];
             const paid = s?.paymentStatus === "paid";
-            const method = methodLabel(order.payment);
             const done = s?.status === "done" || s?.status === "cancelled";
-            const payText = paid
-              ? method
-                ? `${t.paidOnline} · ${method}`
-                : t.paidOnline
-              : order.payment === "cash"
-                ? t.methodCash
-                : done
-                  ? t.paidAtRest
-                  : method
-                    ? `${t.payNotYet} · ${method}`
+            const payShort = t.payShort as { paid: string; unpaid: string };
+            const methodIcon = order.payment ? METHOD_ICONS[order.payment] : "💶";
+            // Paid online → the method's icon + "Paid"; cash or a closed
+            // order → settled at the counter; otherwise still open.
+            const pay =
+              paid || done
+                ? { icon: paid ? methodIcon : "💶", text: payShort.paid, settled: true }
+                : order.payment === "cash"
+                  ? { icon: "💶", text: t.methodCash, settled: false }
+                  : order.payment
+                    ? { icon: methodIcon, text: payShort.unpaid, settled: false }
                     : null;
             return (
               <Pressable
@@ -122,14 +127,16 @@ export function OrdersScreen({
               >
                 <View style={styles.cardTop}>
                   <View style={{ flex: 1, gap: 4 }}>
-                    {/* Status sits right beside the number — the first
-                        thing a guest looks for on a glance. */}
+                    {/* Number, then both badges on the same line: where the
+                        order is, and whether it is paid — each an icon and
+                        one word so the row survives a small phone. */}
                     <View style={styles.numberRow}>
                       <Text style={styles.number}>
                         #{String(order.orderNumber).padStart(4, "0")}
                       </Text>
                       {s ? (
                         <View style={[styles.pill, done ? styles.pillDone : styles.pillActive]}>
+                          <Text style={styles.pillIcon}>{statusBadge(s).icon}</Text>
                           <Text
                             style={[
                               styles.pillText,
@@ -137,7 +144,23 @@ export function OrdersScreen({
                             ]}
                             numberOfLines={1}
                           >
-                            {stepLabel(s)}
+                            {statusBadge(s).text}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {pay ? (
+                        <View
+                          style={[styles.pill, pay.settled ? styles.pillDone : styles.pillNeutral]}
+                        >
+                          <Text style={styles.pillIcon}>{pay.icon}</Text>
+                          <Text
+                            style={[
+                              styles.pillText,
+                              pay.settled ? styles.pillTextDone : styles.pillTextNeutral,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {pay.text}
                           </Text>
                         </View>
                       ) : null}
@@ -149,20 +172,6 @@ export function OrdersScreen({
                   <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
                   <Text style={styles.chev}>{CHEVRON_FORWARD}</Text>
                 </View>
-                {payText ? (
-                  <View style={styles.pills}>
-                    <View style={[styles.pill, paid ? styles.pillDone : styles.pillNeutral]}>
-                      <Text
-                        style={[
-                          styles.pillText,
-                          paid ? styles.pillTextDone : styles.pillTextNeutral,
-                        ]}
-                      >
-                        {payText}
-                      </Text>
-                    </View>
-                  </View>
-                ) : null}
               </Pressable>
             );
           })
@@ -190,19 +199,23 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 10 },
-  numberRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  numberRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   number: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy },
   meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 3 },
   total: { color: colors.red, fontSize: 16, ...fonts.bodyHeavy },
   chev: { color: colors.inkSoft, ...fonts.body, fontSize: 22, marginStart: 2 },
-  pills: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     borderRadius: 999,
     borderWidth: 1,
-    paddingVertical: 5,
-    paddingHorizontal: 11,
+    paddingVertical: 3,
+    paddingStart: 7,
+    paddingEnd: 9,
   },
-  pillText: { fontSize: 12, ...fonts.bodyBold },
+  pillIcon: { fontSize: 11, lineHeight: 14 },
+  pillText: { fontSize: 11.5, ...fonts.bodyBold },
   // Kitchen progress: brand red on the warm tint used for the active chip.
   pillActive: { backgroundColor: "#fdeee6", borderColor: colors.red },
   pillTextActive: { color: colors.red },
