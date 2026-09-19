@@ -22,8 +22,12 @@ const order: TrackerOrder = {
   items: [{ name: "Butter Chicken", priceCents: 1190, quantity: 2 }],
 };
 
-const render = (o: TrackerOrder, locale: "en" | "de" | "es" | "it" | "ar"): string =>
-  renderToStaticMarkup(OrderTrackerCard({ order: o, locale, themeStyle: {} }));
+const render = (
+  o: TrackerOrder,
+  locale: "en" | "de" | "es" | "it" | "ar",
+  pauseRefresh = false,
+): string =>
+  renderToStaticMarkup(OrderTrackerCard({ order: o, locale, themeStyle: {}, pauseRefresh }));
 
 describe("order tracker", () => {
   it("renders Spanish only — no German or English leaking through", () => {
@@ -75,5 +79,14 @@ describe("order tracker", () => {
     const done = render({ ...order, status: "done" }, "en");
     expect(done).not.toContain('content="15"');
     expect(done).toContain(POST_ORDER_COPY.en.steps.pickedUp);
+  });
+
+  it("drops the refresh — and the promise of one — while a complaint is being written", () => {
+    const paused = render(order, "en", true);
+    expect(paused).not.toContain('content="15"');
+    // The page must not claim it refreshes itself when it doesn't.
+    expect(paused).not.toContain(POST_ORDER_COPY.en.autoRefresh);
+    // Still the same tracker otherwise.
+    expect(paused).toContain(POST_ORDER_COPY.en.steps.preparing);
   });
 });

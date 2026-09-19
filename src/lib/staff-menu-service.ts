@@ -364,11 +364,16 @@ export interface StaffOrdering {
   dineIn: boolean;
   takeaway: boolean;
   delivery: boolean;
+  /** How long after an order a guest may open a complaint thread, in
+   *  whole hours (P7-10). Minimum 1, no ceiling — a restaurant that wants
+   *  a week has a reason we do not need to know about. */
+  issueWindowHours: number;
 }
 
 export const staffOrderingPatchSchema = z.object({
   takeaway: z.boolean().optional(),
   delivery: z.boolean().optional(),
+  issueWindowHours: z.number().int().min(1).optional(),
 });
 
 /**
@@ -383,7 +388,12 @@ export async function getStaffOrdering(tenantId: string): Promise<StaffOrdering>
       select: { ordering: true },
     });
     const config = parseOrderingConfig(venue?.ordering);
-    return { dineIn: config.dineIn, takeaway: config.takeaway, delivery: config.delivery };
+    return {
+      dineIn: config.dineIn,
+      takeaway: config.takeaway,
+      delivery: config.delivery,
+      issueWindowHours: config.issueWindowHours,
+    };
   });
 }
 
@@ -416,11 +426,19 @@ export async function updateStaffOrdering(
       ...current,
       ...(parsed.data.takeaway === undefined ? {} : { takeaway: parsed.data.takeaway }),
       ...(parsed.data.delivery === undefined ? {} : { delivery: parsed.data.delivery }),
+      ...(parsed.data.issueWindowHours === undefined
+        ? {}
+        : { issueWindowHours: parsed.data.issueWindowHours }),
     });
     await tx.venue.update({ where: { id: venue.id }, data: { ordering: next } });
     return {
       ok: true,
-      value: { dineIn: next.dineIn, takeaway: next.takeaway, delivery: next.delivery },
+      value: {
+        dineIn: next.dineIn,
+        takeaway: next.takeaway,
+        delivery: next.delivery,
+        issueWindowHours: next.issueWindowHours,
+      },
     };
   });
 

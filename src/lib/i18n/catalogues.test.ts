@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { UI_LOCALES } from "@/lib/locales";
 import { CHECKOUT_COPY, checkoutCopy } from "./checkout";
 import { POST_ORDER_COPY, postOrderCopy } from "./post-order";
-import { NEW_ORDER_COPY, RECEIPT_COPY, REWARD_COPY, newOrderCopy, receiptCopy } from "./emails";
+import {
+  NEW_ISSUE_COPY,
+  NEW_ORDER_COPY,
+  RECEIPT_COPY,
+  REWARD_COPY,
+  newOrderCopy,
+  receiptCopy,
+} from "./emails";
 import { PDF_COPY, pdfCopy, pdfLocale } from "./pdf";
 
 /**
@@ -59,6 +66,7 @@ const NAMESPACES = {
   postOrder: POST_ORDER_COPY,
   receipt: RECEIPT_COPY,
   newOrder: NEW_ORDER_COPY,
+  newIssue: NEW_ISSUE_COPY,
   reward: REWARD_COPY,
   pdf: PDF_COPY,
 } as const;

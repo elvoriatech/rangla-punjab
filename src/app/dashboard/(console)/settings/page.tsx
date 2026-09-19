@@ -600,6 +600,29 @@ export default async function SettingsPage({
             </label>
           </div>
 
+          <div className="mt-4 border-t border-ink/10 pt-4">
+            <label className="block text-sm">
+              <span className="font-medium">Problem reports</span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Guests can report a problem within this many hours after the order (or after its
+                scheduled time, for a pre-order). A conversation that is already open stays usable
+                afterwards — this only limits how long a new one can be started.
+              </span>
+              <span className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  name="issueWindowHours"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  defaultValue={ordering.config.issueWindowHours}
+                  className="w-24 border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                />
+                <span className="text-sm text-muted">hours</span>
+              </span>
+            </label>
+          </div>
+
           <SubmitButton
             pendingLabel="Saving…"
             className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"

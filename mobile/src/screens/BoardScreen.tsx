@@ -16,8 +16,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useKeepAwake } from "expo-keep-awake";
 import { useAuth } from "../auth";
 import type { StaffOrder } from "../staff";
-import { advanceStaffOrder, fetchStaffOrders, isClosedStatus } from "../staff";
+import {
+  advanceStaffOrder,
+  fetchStaffIssues,
+  fetchStaffOrders,
+  isClosedStatus,
+  isOpenIssue,
+} from "../staff";
 import { BrandHeader } from "../components";
+import { IssueSheet } from "../issue-sheet";
 import { colors, fonts, money, radius } from "../theme";
 import { fill, localeTag, useI18n } from "../i18n";
 
@@ -122,6 +129,10 @@ export function BoardScreen({
    *  rest of it — the board is a list to scan, not a wall to scroll. Nothing
    *  is persisted: closing the app gives the quiet default back. */
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set<string>());
+  /** The complaint thread the counter opened from a card's pill. The
+   *  board only knows an order HAS one, so the id is looked up on tap. */
+  const [issueId, setIssueId] = useState<string | null>(null);
+  const [issueBusy, setIssueBusy] = useState(false);
 
   /** Server clock from the last successful read — the `since` cursor. */
   const sinceRef = useRef<string | null>(null);
@@ -290,6 +301,36 @@ export function BoardScreen({
     say(order.id, "failed");
   }
 
+  /**
+   * Open the complaint on this order. The board's payload normally names
+   * the thread outright; a server that predates `issueId` sends only the
+   * status, and the id is then found by matching the complaints list on
+   * the order (resolved included — a settled complaint is still readable).
+   */
+  async function openIssue(order: StaffOrder): Promise<void> {
+    if (!staffToken || issueBusy) return;
+    if (order.issueId) {
+      setIssueId(order.issueId);
+      return;
+    }
+    setIssueBusy(true);
+    const res = await fetchStaffIssues(staffToken, true);
+    setIssueBusy(false);
+    if (!res.ok) {
+      if (res.error === "unauthorized") clearStaff();
+      else say(order.id, "failed");
+      return;
+    }
+    const match = res.data.find((issue) => issue.orderId === order.id);
+    if (!match) {
+      // The board says there is one and the list disagrees: stale card.
+      say(order.id, "failed");
+      void load("full");
+      return;
+    }
+    setIssueId(match.id);
+  }
+
   function callPhone(phone: string): void {
     void Linking.openURL(`tel:${phone.replace(/[^+\d]/g, "")}`).catch(() => {});
   }
@@ -313,6 +354,7 @@ export function BoardScreen({
   const statusShort = t.statusShort as Record<string, string>;
   const typeLabels = t.typeLabels as Record<string, string>;
   const payShort = t.payShort as { paid: string; unpaid: string };
+  const issueStatusLabels = t.issueStatusLabels as Record<string, string>;
 
   const open = orders
     .filter((o) => !isClosedStatus(o.status))
@@ -393,6 +435,30 @@ export function BoardScreen({
                   {pay.text}
                 </Text>
               </View>
+              {/* A guest is waiting on an answer. Tapping it opens the
+                  thread rather than expanding the card — nested presses
+                  resolve to the inner one. */}
+              {isOpenIssue(order.issueStatus) ? (
+                <Pressable
+                  onPress={() => void openIssue(order)}
+                  disabled={issueBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t.issuePill}: ${
+                    issueStatusLabels[order.issueStatus ?? ""] ?? order.issueStatus ?? ""
+                  }`}
+                  style={({ pressed }) => [
+                    styles.pill,
+                    styles.pillProblem,
+                    (pressed || issueBusy) && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={styles.pillIcon}>⚠️</Text>
+                  <Text style={[styles.pillText, styles.pillTextProblem]} numberOfLines={1}>
+                    {t.issuePill} ·{" "}
+                    {issueStatusLabels[order.issueStatus ?? ""] ?? order.issueStatus}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
             <View style={styles.headEnd}>
               <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
@@ -587,6 +653,14 @@ export function BoardScreen({
           </>
         ) : null}
       </ScrollView>
+
+      <IssueSheet
+        target={issueId && staffToken ? { mode: "staff", token: staffToken, issueId } : null}
+        onClose={() => setIssueId(null)}
+        // Replying or resolving changes the card's pill: re-read the
+        // board rather than patching one order in place.
+        onChanged={() => void load("full")}
+      />
     </View>
   );
 }
@@ -745,4 +819,8 @@ const styles = StyleSheet.create({
   pillTextDone: { color: "#3f7030" },
   pillNeutral: { backgroundColor: colors.cream, borderColor: colors.line },
   pillTextNeutral: { color: colors.inkSoft },
+  // A complaint waiting on the restaurant — the one pill on the card
+  // that is an action, not a state.
+  pillProblem: { backgroundColor: "#fdeee6", borderColor: colors.danger },
+  pillTextProblem: { color: colors.danger },
 });

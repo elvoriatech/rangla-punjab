@@ -6,7 +6,10 @@ import { menuThemeStyle } from "@/lib/menu-themes";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 import { isLocaleCode, uiLocale } from "@/lib/locales";
 import { asTenant } from "@/lib/tenant";
+import { getGuestIssueState } from "@/lib/issue-service";
 import { OrderTrackerCard } from "./tracker-card";
+import { IssueSection } from "./issue-section";
+import { reportIssueAction } from "./actions";
 
 /**
  * Guest order tracker. Server-rendered, zero JS, token-authorized
@@ -48,12 +51,24 @@ export default async function OrderStatusPage({
   searchParams,
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ token?: string; locale?: string }>;
+  searchParams: Promise<{ token?: string; locale?: string; issue?: string; compose?: string }>;
 }): Promise<React.ReactElement> {
   const { orderId } = await params;
-  const { token, locale: localeParam } = await searchParams;
+  const {
+    token,
+    locale: localeParam,
+    issue: issueResult,
+    compose: composeParam,
+  } = await searchParams;
+  // `?compose=1` is the guest opening the complaint box. It is also what
+  // switches the tracker's 15-second meta refresh off, so a half-typed
+  // message survives; the action's redirect drops it again.
+  const composing = composeParam === "1";
   const claim = token ? verifyReceiptToken(token) : null;
-  if (!claim || claim.orderId !== orderId) notFound();
+  // `!token` is redundant with `!claim` at runtime — it is there so the
+  // token is a `string` below, where the issue section echoes it into the
+  // form and into every photo URL.
+  if (!token || !claim || claim.orderId !== orderId) notFound();
 
   const order = await getOrderTracking(claim.tenantId, orderId);
   if (!order) notFound();
@@ -70,24 +85,46 @@ export default async function OrderStatusPage({
     branding.headingColor,
   );
 
+  // The complaint thread lives on the same page, below the tracker: the
+  // guest already has the link in their hand, so reporting a problem must
+  // not need a second one.
+  const issueState = await getGuestIssueState(claim.tenantId, orderId);
+
   return (
-    <OrderTrackerCard
-      locale={locale}
-      themeStyle={themeStyle}
-      order={{
-        orderNumber: order.orderNumber,
-        status: order.status,
-        orderType: order.orderType,
-        paymentStatus: order.paymentStatus,
-        paymentProvider: order.paymentProvider,
-        discountCents: order.discountCents,
-        totalCents: order.totalCents,
-        currency: order.currency,
-        createdAt: order.createdAt,
-        tableNumber: order.tableNumber,
-        timezone: order.venue.timezone,
-        items: order.items,
-      }}
-    />
+    <>
+      <OrderTrackerCard
+        locale={locale}
+        themeStyle={themeStyle}
+        pauseRefresh={composing}
+        order={{
+          orderNumber: order.orderNumber,
+          status: order.status,
+          orderType: order.orderType,
+          paymentStatus: order.paymentStatus,
+          paymentProvider: order.paymentProvider,
+          discountCents: order.discountCents,
+          totalCents: order.totalCents,
+          currency: order.currency,
+          createdAt: order.createdAt,
+          tableNumber: order.tableNumber,
+          timezone: order.venue.timezone,
+          items: order.items,
+        }}
+      />
+      {issueState ? (
+        <IssueSection
+          locale={locale}
+          themeStyle={themeStyle}
+          orderId={orderId}
+          token={token}
+          timezone={order.venue.timezone}
+          state={issueState}
+          result={issueResult ?? null}
+          action={reportIssueAction}
+          compose={composing}
+          liveTracking={order.status !== "done"}
+        />
+      ) : null}
+    </>
   );
 }

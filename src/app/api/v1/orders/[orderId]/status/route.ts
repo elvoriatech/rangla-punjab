@@ -3,6 +3,7 @@ import { corsPreflight, withCors } from "@/lib/cors";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getOrderTracking } from "@/lib/order-service";
 import { guestSteps, statusChain, stepIndex } from "@/lib/order-status";
+import { getGuestIssueState } from "@/lib/issue-service";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 
 /**
@@ -25,7 +26,10 @@ export async function GET(
     return withCors(NextResponse.json({ ok: false, error: "invalid_token" }, { status: 401 }));
   }
 
-  const order = await getOrderTracking(claim.tenantId, orderId);
+  const [order, issueState] = await Promise.all([
+    getOrderTracking(claim.tenantId, orderId),
+    getGuestIssueState(claim.tenantId, orderId),
+  ]);
   if (!order)
     return withCors(NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }));
 
@@ -76,6 +80,18 @@ export async function GET(
           requestedFor: order.requestedFor ? order.requestedFor.toISOString() : null,
           placedAt: order.createdAt.toISOString(),
         },
+        // P7-10. Two fields rather than the whole thread: this is the
+        // polling endpoint, and all a tracking screen needs to know is
+        // whether to draw a pill and whether to offer the button. The
+        // messages come from `/issue` when the guest opens it.
+        //
+        // The pill is deliberately sticky — a complaint survives the
+        // order reaching `done`, which is precisely when most of them
+        // are written.
+        issue: issueState?.issue
+          ? { status: issueState.issue.status, updatedAt: issueState.issue.updatedAt }
+          : null,
+        canReport: issueState?.canReport ?? false,
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
     ),

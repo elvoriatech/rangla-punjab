@@ -4,8 +4,8 @@ import { getStaffOrdering, updateStaffOrdering } from "@/lib/staff-menu-service"
 import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
 
 /**
- * GET  /api/v1/staff/ordering        → { ok, ordering: { dineIn, takeaway, delivery } }
- * PATCH /api/v1/staff/ordering       { takeaway?, delivery? }
+ * GET  /api/v1/staff/ordering  → { ok, ordering: { dineIn, takeaway, delivery, issueWindowHours } }
+ * PATCH /api/v1/staff/ordering       { takeaway?, delivery?, issueWindowHours? }
  *
  * "Stop taking delivery orders, we're swamped." The GET exists so the app can
  * draw the switches from the owner's stored config rather than from the
@@ -15,6 +15,10 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  *
  * `dineIn` is reported but not settable here: turning the room off is a
  * closing-the-restaurant decision, and it stays in the dashboard.
+ *
+ * `issueWindowHours` (P7-10) rides along because it is the same kind of
+ * setting — an owner switch the app draws and can change on the spot —
+ * and because the dashboard's Settings form writes the identical key.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const gate = await requireStaff(req);

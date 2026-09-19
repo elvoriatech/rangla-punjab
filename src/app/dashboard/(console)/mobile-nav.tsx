@@ -19,7 +19,7 @@ export function MobileNav({
   logoUrl,
   railStyle,
 }: {
-  items: readonly { href: string; label: string; newTab?: boolean }[];
+  items: readonly { href: string; label: string; newTab?: boolean; count?: number }[];
   venueName: string;
   logoUrl: string | null;
   railStyle: React.CSSProperties;
@@ -92,7 +92,7 @@ export function MobileNav({
                     rel={item.newTab ? "noreferrer" : undefined}
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className={`block px-3 py-2.5 text-xs uppercase tracking-[0.18em] ${
+                    className={`flex items-center gap-2 px-3 py-2.5 text-xs uppercase tracking-[0.18em] ${
                       active
                         ? "text-[var(--menu-accent)]"
                         : "text-[var(--menu-text-soft)] hover:text-[var(--menu-text)]"
@@ -100,6 +100,19 @@ export function MobileNav({
                   >
                     {item.label}
                     {item.newTab ? <span aria-hidden> ↗</span> : null}
+                    {item.count && item.count > 0 ? (
+                      <>
+                        <span
+                          aria-hidden
+                          className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#b3261e] px-1 text-[10px] font-bold leading-none text-white"
+                        >
+                          {item.count > 99 ? "99+" : item.count}
+                        </span>
+                        <span className="sr-only">
+                          {item.count} unresolved {item.count === 1 ? "complaint" : "complaints"}
+                        </span>
+                      </>
+                    ) : null}
                   </Link>
                 </li>
               );

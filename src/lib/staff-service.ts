@@ -1,6 +1,7 @@
+import { issueRefByOrder, type IssueRef, type IssueStatus } from "./issue-service";
 import { getKitchenOrder, listRecentOrders, type KitchenOrder } from "./order-service";
 import { ORDER_STATUSES, canTransition } from "./order-status";
-import { asUser } from "./tenant";
+import { asUser, resolveActiveTenantId } from "./tenant";
 
 /**
  * The orders board the restaurant sees inside the guest app.
@@ -47,6 +48,13 @@ export interface StaffOrder {
   discountCents: number;
   currency: string;
   items: StaffOrderItem[];
+  /** The complaint thread on this order, if there is one (P7-10). The
+   *  board draws a pill from it, and deliberately keeps drawing it after
+   *  the order reaches `done` — a complaint outlives the cooking. */
+  issueStatus: IssueStatus | null;
+  /** That thread's id, so a card can open it without first asking which
+   *  thread belongs to this order. Null exactly when `issueStatus` is. */
+  issueId: string | null;
 }
 
 /** The stored address is a sparse JSON blob; the wire shape always
@@ -61,8 +69,10 @@ function toAddress(address: KitchenOrder["deliveryAddress"]): StaffOrderAddress 
   };
 }
 
-export function toStaffOrder(order: KitchenOrder): StaffOrder {
+export function toStaffOrder(order: KitchenOrder, issue: IssueRef | null = null): StaffOrder {
   return {
+    issueStatus: issue ? issue.status : null,
+    issueId: issue ? issue.id : null,
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
@@ -106,15 +116,29 @@ export async function listStaffOrders(userId: string, since?: Date): Promise<Sta
     scope: "closed",
     updatedSince: since,
   });
-  return [...open, ...closed]
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .map(toStaffOrder);
+  const orders = [...open, ...closed].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  // ONE query for the whole board rather than one per card: complaints
+  // are rare, so almost every id in here will come back empty — which is
+  // exactly the shape a per-card lookup would waste a round trip on.
+  const tenantId = await resolveActiveTenantId(userId);
+  const issues = tenantId
+    ? await issueRefByOrder(
+        tenantId,
+        orders.map((o) => o.id),
+      )
+    : new Map<string, IssueRef>();
+
+  return orders.map((order) => toStaffOrder(order, issues.get(order.id) ?? null));
 }
 
 /** One order, reshaped — what the status endpoint answers with. */
 export async function getStaffOrder(userId: string, orderId: string): Promise<StaffOrder | null> {
   const order = await getKitchenOrder(userId, orderId);
-  return order ? toStaffOrder(order) : null;
+  if (!order) return null;
+  const tenantId = await resolveActiveTenantId(userId);
+  const issues = tenantId ? await issueRefByOrder(tenantId, [order.id]) : null;
+  return toStaffOrder(order, issues?.get(order.id) ?? null);
 }
 
 export interface StaffSummary {
@@ -124,6 +148,9 @@ export interface StaffSummary {
   unpaidOnline: number;
   /** Reservations still awaiting a confirm/decline. */
   pendingReservations: number;
+  /** Complaint threads the restaurant still owes an answer or a close
+   *  on — everything that is not `resolved` (P7-10). */
+  openIssues: number;
 }
 
 export async function getStaffSummary(userId: string): Promise<StaffSummary> {
@@ -135,6 +162,7 @@ export async function getStaffSummary(userId: string): Promise<StaffSummary> {
     const pendingReservations = await tx.reservation.count({
       where: { deletedAt: null, status: "requested" },
     });
-    return { openOrders, unpaidOnline, pendingReservations };
+    const openIssues = await tx.orderIssue.count({ where: { status: { not: "resolved" } } });
+    return { openOrders, unpaidOnline, pendingReservations, openIssues };
   });
 }

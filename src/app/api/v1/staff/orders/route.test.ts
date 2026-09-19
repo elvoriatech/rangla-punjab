@@ -33,6 +33,7 @@ interface OrdersBody {
   openOrders?: number;
   unpaidOnline?: number;
   pendingReservations?: number;
+  openIssues?: number;
 }
 
 describe("/api/v1/staff/*", () => {
@@ -168,6 +169,9 @@ describe("/api/v1/staff/*", () => {
       currency: "EUR",
       deliveryAddress: null,
       requestedFor: null,
+      // No complaint on this order — the board draws no pill (P7-10).
+      issueStatus: null,
+      issueId: null,
     });
     // dine-in never walks the courier leg.
     expect(order?.allowedNext).toEqual(["preparing", "ready", "done"]);
@@ -295,6 +299,7 @@ describe("/api/v1/staff/*", () => {
       openOrders: open,
       unpaidOnline: open,
       pendingReservations: 1,
+      openIssues: 0,
     });
 
     const guestRes = await SUMMARY(request("/api/v1/staff/summary", guestToken));

@@ -223,3 +223,16 @@ export const STAFF_IP: RateLimitConfig = {
   windowSec: 60,
   failOpen: true,
 };
+// Complaint messages (P7-10). Anonymous like ordering — the receipt token
+// authorizes the write, so per-IP is the only handle on someone spraying
+// posts at a guessed order id. 10 per 10 minutes is far above a real
+// conversation (a guest writes two or three messages, maybe with a photo)
+// and well below anything that could fill the disk with normalized images.
+// failOpen: a Redis blip must not stop an angry guest being heard — the
+// in-process fallback keeps the same ceiling for the outage.
+export const ISSUE_IP: RateLimitConfig = {
+  scope: "issue:ip",
+  limit: 10,
+  windowSec: 600,
+  failOpen: true,
+};

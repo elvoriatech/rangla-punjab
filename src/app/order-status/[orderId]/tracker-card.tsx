@@ -36,15 +36,21 @@ export function OrderTrackerCard({
   order,
   locale,
   themeStyle,
+  pauseRefresh = false,
 }: {
   order: TrackerOrder;
   locale: UiLocale;
   themeStyle: CSSProperties;
+  /** The guest is writing a complaint below: a 15-second meta refresh
+   *  would wipe the half-typed message, so the page asks for it to be
+   *  left out while the composer is open. */
+  pauseRefresh?: boolean;
 }): React.ReactElement {
   const t = postOrderCopy(locale);
   const steps = guestSteps(order.orderType);
   const current = stepIndex(order.status, order.orderType);
   const isDone = order.status === "done";
+  const live = !isDone && !pauseRefresh;
   const money = new Intl.NumberFormat(locale, { style: "currency", currency: order.currency });
   const time = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
@@ -59,7 +65,7 @@ export function OrderTrackerCard({
       className="flex min-h-screen flex-col items-center bg-[var(--menu-bg)] px-4 py-10 text-[var(--menu-text)]"
     >
       {/* meta refresh: live without JavaScript */}
-      {!isDone ? <meta httpEquiv="refresh" content="15" /> : null}
+      {live ? <meta httpEquiv="refresh" content="15" /> : null}
       <div className="w-full max-w-md rounded-2xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.5)]">
         {/* Arabic is cursive — `uppercase`/`letter-spacing` only damage it. */}
         <p className="text-center text-xs uppercase tracking-[0.28em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
@@ -167,7 +173,9 @@ export function OrderTrackerCard({
           </div>
         </div>
 
-        {!isDone ? (
+        {/* The promise and the meta tag travel together — a paused page
+            must not claim it refreshes itself. */}
+        {live ? (
           <p className="mt-4 text-center text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {t.autoRefresh}
           </p>

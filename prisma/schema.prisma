@@ -144,6 +144,8 @@ model Tenant {
   customers Customer[]
   loyaltyLedger   LoyaltyLedger[]
   loyaltyVouchers LoyaltyVoucher[]
+  orderIssues        OrderIssue[]
+  orderIssueMessages OrderIssueMessage[]
 }
 
 model MenuTemplate {
@@ -264,6 +266,7 @@ model Venue {
   redirects    SlugRedirect[]
   orders       Order[]
   reservations Reservation[]
+  orderIssues  OrderIssue[]
 
   @@index([tenantId])
   @@map("venues")
@@ -549,6 +552,8 @@ model Order {
   venue  Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
   items  OrderItem[]
   loyaltyLedger LoyaltyLedger[]
+  /// At most one complaint thread per order (P7-10).
+  issue  OrderIssue?
 
   @@unique([venueId, orderNumber])
   @@unique([venueId, clientRequestId])
@@ -671,6 +676,7 @@ model Customer {
   loyaltyLedger   LoyaltyLedger[]
   loyaltyVouchers LoyaltyVoucher[]
   reservations    Reservation[]
+  orderIssues     OrderIssue[]
 
   @@unique([tenantId, provider, providerSub])
   @@index([tenantId, email])
@@ -804,4 +810,74 @@ model Reservation {
   @@index([tenantId, at])
   @@index([tenantId, customerId])
   @@map("reservations")
+}
+
+/// One complaint thread, one order. The guest opens it from the tracking
+/// page or the app ("report a problem"), the restaurant answers, and the
+/// pair of them keep talking in the same place until it is resolved.
+///
+/// `order_id` is UNIQUE on purpose: "my food was cold AND the drink was
+/// missing" is one conversation, not two tickets. Reporting IS creating
+/// the thread with its first message, so a thread never exists empty.
+///
+/// The three statuses are a conversation, not a workflow: a guest message
+/// makes it `open` (the restaurant owes an answer), a restaurant reply
+/// makes it `answered`, and only the restaurant may close it as
+/// `resolved` — after which the guest side is read-only but the
+/// restaurant may still add a note.
+///
+/// `customer_id` is SetNull, like reservations: deleting an account must
+/// not erase the complaint the restaurant handled.
+model OrderIssue {
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  venueId    String    @map("venue_id")
+  orderId    String    @unique @map("order_id")
+  customerId String?   @map("customer_id")
+  /// open | answered | resolved — CHECK-constrained in the migration.
+  status     String    @default("open")
+  resolvedAt DateTime? @map("resolved_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venue    Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  order    Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  messages OrderIssueMessage[]
+
+  @@index([tenantId])
+  @@index([tenantId, status, updatedAt])
+  @@map("order_issues")
+}
+
+/// One turn in the conversation. `author` says which side wrote it;
+/// `author_user_id` records WHICH member of the restaurant replied (plain
+/// reference, no FK — a departed staff account must not cascade a guest's
+/// complaint away).
+///
+/// At most one photo per message, stored through `image-storage` under
+/// `{tenantId}/issues/{uuid}` and served ONLY by the token-gated photo
+/// route — never by `/img`, which is public and immutable-cached.
+model OrderIssueMessage {
+  id           String  @id @default(cuid())
+  tenantId     String  @map("tenant_id")
+  issueId      String  @map("issue_id")
+  /// guest | restaurant — CHECK-constrained in the migration.
+  author       String
+  authorUserId String? @map("author_user_id")
+  body         String
+  photoKey     String? @map("photo_key")
+  photoType    String? @map("photo_type")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  issue  OrderIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([issueId, createdAt])
+  @@map("order_issue_messages")
 }

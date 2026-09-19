@@ -77,6 +77,32 @@ const notifyEmailsField = z.preprocess((v) => {
   return out;
 }, z.array(z.string()).max(MAX_NOTIFY_EMAILS));
 
+/**
+ * How long after an order a guest may still open a complaint thread
+ * (P7-10), in WHOLE hours. Measured from the later of the order's
+ * placement and its requested time, so a table booked for 20:00 and
+ * ordered at 17:00 still gets its full window after the food arrives.
+ *
+ * Default 3: long enough to get home and notice the missing naan, short
+ * enough that a kitchen is not answering for last Tuesday. Minimum 1 —
+ * a zero-hour window is just "off", and switching the feature off is not
+ * something this task ships. NO product ceiling: a restaurant that wants
+ * a week has a reason we do not need to know about, so the only maximum
+ * is int32, purely so the column and the number stay in the same
+ * universe.
+ *
+ * Tolerant like the cents fields: a half-filled settings form (empty
+ * input → "", a stray null) falls back to the default rather than
+ * failing the whole parse and taking delivery areas down with it.
+ */
+export const DEFAULT_ISSUE_WINDOW_HOURS = 3;
+const MAX_INT32 = 2_147_483_647;
+const issueWindowHoursField = z.preprocess((v) => {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_ISSUE_WINDOW_HOURS;
+  return Math.min(MAX_INT32, Math.max(1, Math.round(n)));
+}, z.number().int().min(1).max(MAX_INT32).catch(DEFAULT_ISSUE_WINDOW_HOURS));
+
 export const orderingConfigSchema = z.object({
   dineIn: z.boolean().default(true),
   takeaway: z.boolean().default(true),
@@ -96,6 +122,10 @@ export const orderingConfigSchema = z.object({
   // Owner-side only — never reaches EffectiveOrdering, which is what the
   // public menu and /api/v1/menu see.
   notifyEmails: notifyEmailsField,
+  // Owner-side only, same reason: the guest's tracking page reads it from
+  // the venue directly, and the public menu has no business knowing how
+  // long the complaint window is.
+  issueWindowHours: issueWindowHoursField.default(DEFAULT_ISSUE_WINDOW_HOURS),
   // Shown in the public menu footer. Per-item sanitised (one unknown
   // value never nukes the list): legacy "credit" expands to
   // Visa + Mastercard, junk is dropped, absent → German-typical default.

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deliveryQuote,
   effectiveOrdering,
+  orderingConfigSchema,
   parseOrderingConfig,
   type EffectiveOrdering,
 } from "./ordering-config";
@@ -144,5 +145,36 @@ describe("new-order notification emails", () => {
   it("caps the list at five", () => {
     const many = Array.from({ length: 8 }, (_, i) => `p${i}@ex.de`);
     expect(parseOrderingConfig({ notifyEmails: many }).notifyEmails).toHaveLength(5);
+  });
+});
+
+describe("complaint window (issueWindowHours)", () => {
+  it("defaults to three hours on a venue that never set it", () => {
+    expect(parseOrderingConfig({}).issueWindowHours).toBe(3);
+    expect(parseOrderingConfig(null).issueWindowHours).toBe(3);
+  });
+
+  it("keeps whole hours and has no product ceiling", () => {
+    expect(parseOrderingConfig({ issueWindowHours: 1 }).issueWindowHours).toBe(1);
+    expect(parseOrderingConfig({ issueWindowHours: 168 }).issueWindowHours).toBe(168);
+    // The settings form posts a string; a fraction rounds to whole hours.
+    expect(parseOrderingConfig({ issueWindowHours: "24" }).issueWindowHours).toBe(24);
+    expect(parseOrderingConfig({ issueWindowHours: 2.6 }).issueWindowHours).toBe(3);
+  });
+
+  it("clamps or falls back rather than failing the whole save", () => {
+    // A half-filled form must not take delivery areas down with it.
+    for (const raw of [undefined, null, "", "abc", NaN]) {
+      expect(parseOrderingConfig({ issueWindowHours: raw }).issueWindowHours).toBe(3);
+    }
+    // Below the floor is "off", which this setting does not express.
+    expect(parseOrderingConfig({ issueWindowHours: 0 }).issueWindowHours).toBe(1);
+    expect(parseOrderingConfig({ issueWindowHours: -5 }).issueWindowHours).toBe(1);
+  });
+
+  it("survives a round trip that only touches the switches", () => {
+    const config = parseOrderingConfig({ issueWindowHours: 12, takeaway: false });
+    const next = orderingConfigSchema.parse({ ...config, takeaway: true });
+    expect(next.issueWindowHours).toBe(12);
   });
 });

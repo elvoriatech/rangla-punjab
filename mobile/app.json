@@ -11,7 +11,15 @@
     "android": {
       "predictiveBackGestureEnabled": false
     },
-    "plugins": ["expo-font"],
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app uses your photos so you can attach a picture when you report a problem with an order."
+        }
+      ]
+    ],
     "extra": {
       "brand": {
         "venueSlug": "rangla-punjab",

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { reconcilePendingPayments } from "@/lib/connect-service";
 import { getSessionUserId } from "@/lib/auth";
+import { resolveActiveTenantId } from "@/lib/tenant";
+import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
@@ -33,6 +35,35 @@ function advanceCompact(to: string): string {
     default:
       return to;
   }
+}
+
+/** The complaint pill that rides on an order card. It stays after the
+ *  order is done — a resolved problem is still part of that order's
+ *  history, and the owner should be able to find the thread again. */
+function IssuePill({
+  orderId,
+  status,
+  className = "",
+}: {
+  orderId: string;
+  status: IssueStatus;
+  className?: string;
+}): React.ReactElement {
+  const tone =
+    status === "open"
+      ? "border-[#b3261e]/50 bg-[#b3261e]/10 text-[#b3261e]"
+      : status === "answered"
+        ? "border-orange/60 bg-orange/10 text-orange-dark"
+        : "border-ink/20 bg-ink/5 text-muted";
+  return (
+    <a
+      href={`/dashboard/orders/${orderId}/issue`}
+      title="Open the complaint thread"
+      className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] ${tone} ${className}`}
+    >
+      Problem · {status}
+    </a>
+  );
 }
 
 /** Compact current-status pill for the same row. */
@@ -91,6 +122,22 @@ export default async function OrdersPage({
   const open = orders.filter((o) => isOpenStatus(o.status));
   const done = orders.filter((o) => !isOpenStatus(o.status));
 
+  // One lookup for the whole screen — both lists read their pills out of
+  // this map rather than asking per card.
+  const tenantId = await resolveActiveTenantId(userId);
+  const issues = tenantId
+    ? await issueStatusByOrder(
+        tenantId,
+        orders.map((o) => o.id),
+      )
+    : new Map<string, IssueStatus>();
+  // `orders` is newest-first, so the first unresolved one is the freshest
+  // complaint — that's where the header line points.
+  const unresolved = orders.filter((o) => {
+    const status = issues.get(o.id);
+    return status !== undefined && status !== "resolved";
+  });
+
   const { page: pageParam, size: sizeParam } = await searchParams;
   const SIZES = [10, 25, 50] as const;
   const size = SIZES.includes(Number(sizeParam) as (typeof SIZES)[number]) ? Number(sizeParam) : 10;
@@ -106,6 +153,17 @@ export default async function OrdersPage({
         <div>
           <p className="mb-2 text-xs uppercase tracking-[0.28em] text-gold-dark">Front of house</p>
           <h1 className="font-serif text-4xl leading-tight">Orders</h1>
+          {unresolved.length > 0 ? (
+            <p className="mt-2 text-sm">
+              <a
+                href={`/dashboard/orders/${unresolved[0].id}/issue`}
+                className="font-medium text-[#b3261e] underline underline-offset-4 hover:text-ink"
+              >
+                {unresolved.length} unresolved{" "}
+                {unresolved.length === 1 ? "complaint" : "complaints"} →
+              </a>
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-2">
           <NewOrderChime openCount={open.length} />
@@ -190,6 +248,9 @@ export default async function OrdersPage({
                       </span>
                     ) : null}
                   </p>
+                  {issues.get(order.id) ? (
+                    <IssuePill orderId={order.id} status={issues.get(order.id)!} />
+                  ) : null}
                   {order.status !== "placed" ? (
                     <span
                       title={order.status.replaceAll("_", " ")}
@@ -259,6 +320,13 @@ export default async function OrdersPage({
                   >
                     {paymentBadge(order)}
                   </span>
+                  {issues.get(order.id) ? (
+                    <IssuePill
+                      orderId={order.id}
+                      status={issues.get(order.id)!}
+                      className="ms-2 inline-block"
+                    />
+                  ) : null}
                 </span>
                 <span className="col-start-2 whitespace-nowrap tabular-nums sm:col-start-3 sm:text-right">
                   {(() => {

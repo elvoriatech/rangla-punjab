@@ -258,6 +258,18 @@ Stripe key ⇒ the labelled **Simulate payment (test)** button instead.
 - `expo-keep-awake` was added for the Board (it keeps a counter tablet's screen
   on). It is a **native module**, so an existing install has to be rebuilt —
   a JS-only reload won't pick it up.
+- **Complaints** (guest: "Report a problem" on the tracking screen; owner:
+  the burger's **Complaints** entry and the ⚠️ pill on a Board card). The
+  guest can attach one photo per message, which means `expo-image-picker` —
+  a **native module** with an iOS photo-library usage string, so an existing
+  install has to be **rebuilt** (`expo run:ios` / an EAS build); an OTA
+  update cannot deliver it. The permission is asked lazily, on the first tap
+  of "Add photo", so a guest who never attaches one is never asked. To test:
+  place an order, open it from **Orders**, tap **Report a problem**, send text
+  and a photo, then sign in as the restaurant and answer from the Board pill
+  or the Complaints list — the guest's screen shows the reply and the pill
+  turns to "Answered", and **Mark resolved** makes the thread read-only for
+  the guest while the card keeps its pill.
 
 ## Shipping to the stores
 

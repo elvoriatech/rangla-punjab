@@ -225,8 +225,7 @@ Shipped after the phase was opened:
 - [x] (P7-9) PayPal from the app opens PayPal directly (approve URL from `/pay/paypal`) in
   an in-app session and returns via `/auth/app-return?status=…`, skipping the web pay page. (b60858e)
 
-Next, in this order (decisions already taken in brackets):
-- [ ] (P7-10) Complaint thread on an order: `order_issues` + `order_issue_messages` (guest
+- [x] (P7-10) Complaint thread on an order: `order_issues` + `order_issue_messages` (guest
   text + optional photo, restaurant replies, statuses open → answered → resolved); guest
   endpoints authorised by the receipt token; photo upload JPEG/PNG/WebP ≤ 5 MB served
   only through a token-gated route; owner email on new issue; dashboard badge + thread
@@ -234,6 +233,15 @@ Next, in this order (decisions already taken in brackets):
   Orders card pill stays even after completion. [Owner setting "guests can report within
   N hours", whole hours, default 3, min 1, NO ceiling; an open thread stays usable after
   the window.]
+  Note: one thread per order; window = `max(placed, requestedFor) + issueWindowHours`
+  (`venues.ordering.issueWindowHours`, Dashboard → Settings → Ordering, also via
+  `/api/v1/staff/ordering`); guest is read-only once resolved; owner email on every guest
+  message. Photos are EXIF-stripped and served only by
+  `/api/v1/orders/{id}/issue/photo/{messageId}` (receipt token · X-Staff-Token · dashboard
+  cookie). The zero-JS tracking page pauses its 15 s refresh only while `?compose=1`.
+  App: `expo-image-picker` added → native rebuild required (see `mobile/BUILDS.md`).
+
+Next, in this order (decisions already taken in brackets):
 - [ ] (P7-11) Push notifications to the owner's phone for new orders (and later issues):
   expo-notifications, `POST /api/v1/staff/devices`, send on order placement/settlement.
   ⛔ needs-human: Apple push key, Firebase project.

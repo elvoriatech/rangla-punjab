@@ -17,6 +17,7 @@ import {
   payWithPaypal,
 } from "../payments";
 import { BrandHeader } from "../components";
+import { IssueSheet } from "../issue-sheet";
 import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
 import { useI18n } from "../i18n";
 
@@ -66,6 +67,11 @@ export function TrackScreen({
   const [fakeRef, setFakeRef] = useState<string | null>(null);
   /** Client-side proof of payment (sheet success), ahead of the webhook. */
   const [confirmed, setConfirmed] = useState(Boolean(paidHint));
+  /** The complaint thread, when the guest opens it. */
+  const [issueOpen, setIssueOpen] = useState(false);
+  /** The thread's status, kept in step with the sheet so the button's
+   *  label and pill don't wait for the next status poll. */
+  const [issueStatus, setIssueStatus] = useState<string | null>(null);
   const confirmedRef = useRef(confirmed);
   confirmedRef.current = confirmed;
   const reloadRef = useRef<() => void>(() => {});
@@ -88,6 +94,10 @@ export function TrackScreen({
         const next = await fetchOrderStatus(orderId, token);
         if (!alive) return;
         setTracking(next);
+        // A thread is never un-created: keep what the sheet already knows
+        // rather than flashing back to "no thread" on a poll that raced
+        // the guest's first message.
+        setIssueStatus((prev) => next.issue?.status ?? prev);
         setError(false);
         // Waiting on the webhook after a confirmed payment: poll fast so
         // "Paid" settles within seconds, not at the next 10 s tick.
@@ -343,9 +353,37 @@ export function TrackScreen({
             >
               <Text style={styles.receiptBtnText}>{t.receiptPdf}</Text>
             </Pressable>
+
+            {/* Something went wrong with the order itself. Offered while
+                the venue's reporting window is open, and for as long as a
+                thread exists — an answered complaint has to stay
+                reachable long after the window has closed. */}
+            {issueStatus || tracking.canReport ? (
+              <Pressable
+                onPress={() => setIssueOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={issueStatus ? t.issueView : t.issueReport}
+                style={({ pressed }) => [styles.issueBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.issueBtnText}>
+                  {issueStatus ? t.issueView : t.issueReport}
+                </Text>
+                {issueStatus ? (
+                  <Text style={styles.issueBtnStatus}>
+                    {(t.issueStatusLabels as Record<string, string>)[issueStatus] ?? issueStatus}
+                  </Text>
+                ) : null}
+              </Pressable>
+            ) : null}
           </View>
         )}
       </ScrollView>
+
+      <IssueSheet
+        target={issueOpen ? { mode: "guest", orderId, token } : null}
+        onClose={() => setIssueOpen(false)}
+        onChanged={setIssueStatus}
+      />
     </View>
   );
 }
@@ -456,4 +494,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   receiptBtnText: { color: colors.red, ...fonts.bodyBold, fontSize: 13 },
+  // Quieter than the receipt button on purpose: reporting a problem must
+  // be findable, not the thing the screen pushes you toward.
+  issueBtn: {
+    marginTop: 10,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.cream,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  issueBtnText: { color: colors.ink, ...fonts.bodyBold, fontSize: 13 },
+  issueBtnStatus: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 11 },
 });

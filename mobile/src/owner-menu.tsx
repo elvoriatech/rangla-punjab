@@ -23,12 +23,17 @@ export function OwnerMenuSheet({
   onBoard,
   onManageMenu,
   onLoyalty,
+  onIssues,
+  openIssues = 0,
 }: {
   visible: boolean;
   onClose: () => void;
   onBoard: () => void;
   onManageMenu: () => void;
   onLoyalty: () => void;
+  onIssues: () => void;
+  /** Unresolved complaints; 0 hides the badge entirely. */
+  openIssues?: number;
 }): React.ReactElement {
   const { t } = useI18n();
   const { logoutStaff } = useAuth();
@@ -73,6 +78,12 @@ export function OwnerMenuSheet({
           />
           <Row icon="gift-outline" label={t.ownerLoyalty} onPress={() => go(onLoyalty)} />
           <Row
+            icon="alert-circle-outline"
+            label={t.ownerIssues}
+            badge={openIssues}
+            onPress={() => go(onIssues)}
+          />
+          <Row
             icon="open-outline"
             label={t.ownerDashboard}
             onPress={() => go(() => void openInAppBrowser(`${BASE_URL}/dashboard`))}
@@ -90,21 +101,29 @@ function Row({
   label,
   onPress,
   danger,
+  badge = 0,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   onPress: () => void;
   danger?: boolean;
+  /** A count of work waiting behind this row. 0 renders nothing. */
+  badge?: number;
 }): React.ReactElement {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={badge > 0 ? `${label} (${badge})` : label}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: "#fdeee6" }]}
     >
       <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.red} />
       <Text style={[styles.rowText, danger && { color: colors.danger }]}>{label}</Text>
+      {badge > 0 ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge > 99 ? "99" : badge}</Text>
+        </View>
+      ) : null}
       {danger ? null : <Text style={styles.chevron}>{CHEVRON_FORWARD}</Text>}
     </Pressable>
   );
@@ -140,4 +159,14 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 15.5 },
   chevron: { color: colors.inkSoft, ...fonts.body, fontSize: 18 },
   rule: { height: 1, backgroundColor: colors.line, marginVertical: 8 },
+  badge: {
+    backgroundColor: colors.danger,
+    borderRadius: radius.pill,
+    minWidth: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: { color: colors.onRed, fontSize: 11, ...fonts.bodyHeavy },
 });

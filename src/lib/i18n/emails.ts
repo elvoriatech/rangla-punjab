@@ -298,6 +298,114 @@ export const newOrderCopy = (locale?: string | null): NewOrderCopy =>
   NEW_ORDER_COPY[uiLocale(locale)];
 
 /* ------------------------------------------------------------------ */
+/* Owner alert: a guest reported a problem                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Sent on every GUEST message in a complaint thread — the first one and
+ * every follow-up — to the same inboxes the kitchen ticket goes to. Never
+ * on the restaurant's own replies.
+ *
+ * Written to be answerable from a phone: the subject names the order, the
+ * body carries the guest's own words verbatim and one button into the
+ * thread. It deliberately does NOT try to summarise or triage — the
+ * person reading it is the one who cooked the food.
+ */
+const newIssueEn = {
+  subject: (n: string) => `Problem reported on order #${n}`,
+  eyebrow: "Guest complaint",
+  heading: (n: string) => `A problem with order #${n}`,
+  lead: "A guest says something went wrong with their order. They are waiting to hear back.",
+  pill: "Needs an answer",
+  guest: "Guest",
+  phone: "Phone",
+  placedAt: "Order placed",
+  reportedAt: "Reported",
+  message: "What the guest wrote",
+  photo: "The guest attached a photo — open the thread to see it.",
+  open: "Open the complaint",
+  footer: "This alert goes to the addresses under Dashboard → Settings → Ordering.",
+};
+
+export type NewIssueCopy = typeof newIssueEn;
+
+const newIssueDe: NewIssueCopy = {
+  subject: (n) => `Problem zu Bestellung Nr. ${n} gemeldet`,
+  eyebrow: "Reklamation",
+  heading: (n) => `Ein Problem mit Bestellung Nr. ${n}`,
+  lead: "Ein Gast meldet, dass bei seiner Bestellung etwas schiefgelaufen ist, und wartet auf Antwort.",
+  pill: "Antwort nötig",
+  guest: "Gast",
+  phone: "Telefon",
+  placedAt: "Bestellt am",
+  reportedAt: "Gemeldet",
+  message: "Das schreibt der Gast",
+  photo: "Der Gast hat ein Foto angehängt — im Verlauf ansehen.",
+  open: "Reklamation öffnen",
+  footer:
+    "Diese Benachrichtigung geht an die Adressen unter Dashboard → Einstellungen → Bestellungen.",
+};
+
+const newIssueEs: NewIssueCopy = {
+  subject: (n) => `Problema notificado en el pedido n.º ${n}`,
+  eyebrow: "Reclamación",
+  heading: (n) => `Un problema con el pedido n.º ${n}`,
+  lead: "Un cliente dice que algo salió mal con su pedido y espera una respuesta.",
+  pill: "Necesita respuesta",
+  guest: "Cliente",
+  phone: "Teléfono",
+  placedAt: "Pedido realizado",
+  reportedAt: "Notificado",
+  message: "Lo que escribe el cliente",
+  photo: "El cliente adjuntó una foto: ábrela en la conversación.",
+  open: "Abrir la reclamación",
+  footer: "Este aviso se envía a las direcciones de Panel → Ajustes → Pedidos.",
+};
+
+const newIssueIt: NewIssueCopy = {
+  subject: (n) => `Problema segnalato sull'ordine n. ${n}`,
+  eyebrow: "Reclamo",
+  heading: (n) => `Un problema con l'ordine n. ${n}`,
+  lead: "Un cliente segnala che qualcosa è andato storto con il suo ordine e attende una risposta.",
+  pill: "Serve una risposta",
+  guest: "Cliente",
+  phone: "Telefono",
+  placedAt: "Ordine effettuato",
+  reportedAt: "Segnalato",
+  message: "Cosa scrive il cliente",
+  photo: "Il cliente ha allegato una foto: aprila nella conversazione.",
+  open: "Apri il reclamo",
+  footer: "Questo avviso arriva agli indirizzi in Dashboard → Impostazioni → Ordini.",
+};
+
+const newIssueAr: NewIssueCopy = {
+  subject: (n) => `تم الإبلاغ عن مشكلة في الطلب رقم ${n}`,
+  eyebrow: "شكوى ضيف",
+  heading: (n) => `مشكلة في الطلب رقم ${n}`,
+  lead: "يقول أحد الضيوف إن شيئًا ما لم يكن على ما يرام في طلبه، وهو بانتظار ردّكم.",
+  pill: "بحاجة إلى ردّ",
+  guest: "الضيف",
+  phone: "الهاتف",
+  placedAt: "تاريخ الطلب",
+  reportedAt: "تم الإبلاغ",
+  message: "ما كتبه الضيف",
+  photo: "أرفق الضيف صورة — افتح المحادثة لعرضها.",
+  open: "فتح الشكوى",
+  footer: "يصل هذا التنبيه إلى العناوين المحددة في لوحة التحكم ← الإعدادات ← الطلبات.",
+};
+
+export const NEW_ISSUE_COPY: Record<UiLocale, NewIssueCopy> = {
+  en: newIssueEn,
+  de: newIssueDe,
+  es: newIssueEs,
+  it: newIssueIt,
+  ar: newIssueAr,
+};
+
+export const newIssueCopy = (locale?: string | null): NewIssueCopy =>
+  NEW_ISSUE_COPY[uiLocale(locale)];
+
+/* ------------------------------------------------------------------ */
 /* Loyalty: "you've earned a free meal"                                */
 /* ------------------------------------------------------------------ */
 

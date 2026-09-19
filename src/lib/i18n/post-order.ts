@@ -83,6 +83,49 @@ const en = {
     declined: "The restaurant couldn't take this one. Please try another time.",
     cancelled: "This reservation was cancelled.",
   },
+
+  /* Problem reports — the complaint thread under the tracker. One thread
+     per order: the guest opens it, the restaurant answers in the same
+     place, and the status line says who is waiting for whom. */
+  issue: {
+    title: "Something not right?",
+    intro: "Tell the restaurant. They see it straight away and answer right here.",
+    threadTitle: "Your report",
+    bodyLabel: "Your message",
+    placeholder: "What went wrong with this order?",
+    addPhoto: "Add a photo (optional)",
+    photoHint: "JPG, PNG or WebP, up to 5 MB.",
+    send: "Send to the restaurant",
+    replyLabel: "Your reply",
+    replyPlaceholder: "Add something to this report…",
+    replySend: "Send reply",
+    reportLink: "Report a problem",
+    replyLink: "Reply",
+    pausedNote: "Live updates are paused while you write.",
+    backToTracking: "Back to live tracking",
+    youLabel: "You",
+    restaurantLabel: "Restaurant",
+    photoAlt: (who: string) => `Photo attached by ${who}`,
+    statusLabels: {
+      open: "Waiting for the restaurant",
+      answered: "The restaurant replied",
+      resolved: "Resolved",
+    },
+    sent: "Thank you — your message is with the restaurant.",
+    windowClosed:
+      "The time for reporting a problem with this order has passed — please call the restaurant.",
+    resolvedNote:
+      "The restaurant marked this report as resolved. Please call them if something is still wrong.",
+    errors: {
+      invalid: "Please write a message first (2000 characters at most).",
+      invalidPhoto: "The photo has to be a JPG, PNG or WebP image.",
+      tooLarge: "That photo is larger than 5 MB — please send a smaller one.",
+      windowClosed: "The time for reporting a problem with this order has passed.",
+      resolved: "This report is closed. Please call the restaurant.",
+      notFound: "We couldn't find this order.",
+      failed: "Your message didn't go through — please try again.",
+    },
+  },
 };
 
 export type PostOrderCopy = typeof en;
@@ -151,6 +194,46 @@ const de: PostOrderCopy = {
       "Das Restaurant konnte diesen Termin nicht annehmen. Bitte wählen Sie eine andere Zeit.",
     cancelled: "Diese Reservierung wurde storniert.",
   },
+
+  issue: {
+    title: "Stimmt etwas nicht?",
+    intro: "Sagen Sie es dem Restaurant. Es sieht Ihre Nachricht sofort und antwortet hier.",
+    threadTitle: "Ihre Meldung",
+    bodyLabel: "Ihre Nachricht",
+    placeholder: "Was ist mit dieser Bestellung schiefgelaufen?",
+    addPhoto: "Foto hinzufügen (optional)",
+    photoHint: "JPG, PNG oder WebP, bis 5 MB.",
+    send: "An das Restaurant senden",
+    replyLabel: "Ihre Antwort",
+    replyPlaceholder: "Etwas zu dieser Meldung ergänzen…",
+    replySend: "Antwort senden",
+    reportLink: "Problem melden",
+    replyLink: "Antworten",
+    pausedNote: "Die Live-Aktualisierung pausiert, solange Sie schreiben.",
+    backToTracking: "Zurück zur Live-Verfolgung",
+    youLabel: "Sie",
+    restaurantLabel: "Restaurant",
+    photoAlt: (who) => `Foto von ${who}`,
+    statusLabels: {
+      open: "Warten auf das Restaurant",
+      answered: "Das Restaurant hat geantwortet",
+      resolved: "Erledigt",
+    },
+    sent: "Danke — Ihre Nachricht liegt beim Restaurant.",
+    windowClosed:
+      "Die Frist, ein Problem zu dieser Bestellung zu melden, ist abgelaufen — bitte rufen Sie das Restaurant an.",
+    resolvedNote:
+      "Das Restaurant hat diese Meldung als erledigt markiert. Bitte rufen Sie an, falls noch etwas offen ist.",
+    errors: {
+      invalid: "Bitte schreiben Sie zuerst eine Nachricht (höchstens 2000 Zeichen).",
+      invalidPhoto: "Das Foto muss ein JPG-, PNG- oder WebP-Bild sein.",
+      tooLarge: "Dieses Foto ist größer als 5 MB — bitte senden Sie ein kleineres.",
+      windowClosed: "Die Frist, ein Problem zu dieser Bestellung zu melden, ist abgelaufen.",
+      resolved: "Diese Meldung ist abgeschlossen. Bitte rufen Sie das Restaurant an.",
+      notFound: "Diese Bestellung wurde nicht gefunden.",
+      failed: "Ihre Nachricht wurde nicht gesendet — bitte erneut versuchen.",
+    },
+  },
 };
 
 const es: PostOrderCopy = {
@@ -216,6 +299,46 @@ const es: PostOrderCopy = {
     declined: "El restaurante no ha podido aceptarla. Prueba con otra hora.",
     cancelled: "Esta reserva se ha cancelado.",
   },
+
+  issue: {
+    title: "¿Algo no está bien?",
+    intro: "Díselo al restaurante. Lo ve al instante y te responde aquí mismo.",
+    threadTitle: "Tu aviso",
+    bodyLabel: "Tu mensaje",
+    placeholder: "¿Qué ha ido mal con este pedido?",
+    addPhoto: "Añadir una foto (opcional)",
+    photoHint: "JPG, PNG o WebP, hasta 5 MB.",
+    send: "Enviar al restaurante",
+    replyLabel: "Tu respuesta",
+    replyPlaceholder: "Añade algo a este aviso…",
+    replySend: "Enviar respuesta",
+    reportLink: "Informar de un problema",
+    replyLink: "Responder",
+    pausedNote: "La actualización automática está en pausa mientras escribes.",
+    backToTracking: "Volver al seguimiento en vivo",
+    youLabel: "Tú",
+    restaurantLabel: "Restaurante",
+    photoAlt: (who) => `Foto enviada por ${who}`,
+    statusLabels: {
+      open: "Esperando al restaurante",
+      answered: "El restaurante ha respondido",
+      resolved: "Resuelto",
+    },
+    sent: "Gracias: el restaurante ya tiene tu mensaje.",
+    windowClosed:
+      "El plazo para avisar de un problema con este pedido ha terminado: llama al restaurante.",
+    resolvedNote:
+      "El restaurante ha marcado este aviso como resuelto. Llámales si sigue habiendo algo mal.",
+    errors: {
+      invalid: "Escribe primero un mensaje (2000 caracteres como máximo).",
+      invalidPhoto: "La foto tiene que ser una imagen JPG, PNG o WebP.",
+      tooLarge: "Esa foto pesa más de 5 MB: envía una más pequeña.",
+      windowClosed: "El plazo para avisar de un problema con este pedido ha terminado.",
+      resolved: "Este aviso está cerrado. Llama al restaurante.",
+      notFound: "No hemos encontrado este pedido.",
+      failed: "Tu mensaje no se ha enviado: inténtalo de nuevo.",
+    },
+  },
 };
 
 const it: PostOrderCopy = {
@@ -279,6 +402,46 @@ const it: PostOrderCopy = {
     declined: "Il ristorante non ha potuto accettarla. Prova con un altro orario.",
     cancelled: "Questa prenotazione è stata annullata.",
   },
+
+  issue: {
+    title: "Qualcosa non va?",
+    intro: "Dillo al ristorante. Lo vede subito e ti risponde qui.",
+    threadTitle: "La tua segnalazione",
+    bodyLabel: "Il tuo messaggio",
+    placeholder: "Che cosa è andato storto con questo ordine?",
+    addPhoto: "Aggiungi una foto (facoltativo)",
+    photoHint: "JPG, PNG o WebP, fino a 5 MB.",
+    send: "Invia al ristorante",
+    replyLabel: "La tua risposta",
+    replyPlaceholder: "Aggiungi qualcosa a questa segnalazione…",
+    replySend: "Invia la risposta",
+    reportLink: "Segnala un problema",
+    replyLink: "Rispondi",
+    pausedNote: "Gli aggiornamenti automatici sono in pausa mentre scrivi.",
+    backToTracking: "Torna al monitoraggio in tempo reale",
+    youLabel: "Tu",
+    restaurantLabel: "Ristorante",
+    photoAlt: (who) => `Foto inviata da ${who}`,
+    statusLabels: {
+      open: "In attesa del ristorante",
+      answered: "Il ristorante ha risposto",
+      resolved: "Risolta",
+    },
+    sent: "Grazie: il ristorante ha ricevuto il tuo messaggio.",
+    windowClosed:
+      "Il tempo per segnalare un problema su questo ordine è scaduto: chiama il ristorante.",
+    resolvedNote:
+      "Il ristorante ha segnato questa segnalazione come risolta. Chiamali se qualcosa non va ancora.",
+    errors: {
+      invalid: "Scrivi prima un messaggio (al massimo 2000 caratteri).",
+      invalidPhoto: "La foto deve essere un'immagine JPG, PNG o WebP.",
+      tooLarge: "Questa foto supera i 5 MB: inviane una più piccola.",
+      windowClosed: "Il tempo per segnalare un problema su questo ordine è scaduto.",
+      resolved: "Questa segnalazione è chiusa. Chiama il ristorante.",
+      notFound: "Non abbiamo trovato questo ordine.",
+      failed: "Il messaggio non è stato inviato: riprova.",
+    },
+  },
 };
 
 const ar: PostOrderCopy = {
@@ -341,6 +504,44 @@ const ar: PostOrderCopy = {
     confirmed: "تم حجز طاولتك — نراك قريبًا.",
     declined: "لم يتمكن المطعم من قبول هذا الموعد. جرّب وقتًا آخر.",
     cancelled: "تم إلغاء هذا الحجز.",
+  },
+
+  issue: {
+    title: "هل هناك خطأ ما؟",
+    intro: "أخبر المطعم. سيرى رسالتك فورًا ويردّ عليك هنا.",
+    threadTitle: "بلاغك",
+    bodyLabel: "رسالتك",
+    placeholder: "ما الذي حدث في هذا الطلب؟",
+    addPhoto: "إضافة صورة (اختياري)",
+    photoHint: "JPG أو PNG أو WebP، حتى 5 ميغابايت.",
+    send: "إرسال إلى المطعم",
+    replyLabel: "ردّك",
+    replyPlaceholder: "أضف شيئًا إلى هذا البلاغ…",
+    replySend: "إرسال الرد",
+    reportLink: "الإبلاغ عن مشكلة",
+    replyLink: "الرد",
+    pausedNote: "التحديث التلقائي متوقف مؤقتًا أثناء الكتابة.",
+    backToTracking: "العودة إلى التتبّع المباشر",
+    youLabel: "أنت",
+    restaurantLabel: "المطعم",
+    photoAlt: (who) => `صورة أرسلها ${who}`,
+    statusLabels: {
+      open: "في انتظار ردّ المطعم",
+      answered: "ردّ المطعم",
+      resolved: "تم الحل",
+    },
+    sent: "شكرًا — وصلت رسالتك إلى المطعم.",
+    windowClosed: "انتهت مهلة الإبلاغ عن مشكلة في هذا الطلب — يُرجى الاتصال بالمطعم.",
+    resolvedNote: "اعتبر المطعم هذا البلاغ منتهيًا. اتصل بهم إذا بقي شيء غير صحيح.",
+    errors: {
+      invalid: "اكتب رسالة أولًا (2000 حرف كحد أقصى).",
+      invalidPhoto: "يجب أن تكون الصورة بصيغة JPG أو PNG أو WebP.",
+      tooLarge: "حجم هذه الصورة يتجاوز 5 ميغابايت — أرسل صورة أصغر.",
+      windowClosed: "انتهت مهلة الإبلاغ عن مشكلة في هذا الطلب.",
+      resolved: "هذا البلاغ مغلق. يُرجى الاتصال بالمطعم.",
+      notFound: "لم نعثر على هذا الطلب.",
+      failed: "لم تُرسل رسالتك — حاول مرة أخرى.",
+    },
   },
 };
 

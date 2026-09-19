@@ -128,6 +128,9 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     // Comma/newline-separated textarea; the schema splits, dedupes and
     // drops anything that isn't an address.
     notifyEmails: String(form.get("notifyEmails") ?? ""),
+    // Whole hours, at least one, no ceiling — a blank or fat-fingered
+    // box falls back to the schema default instead of failing the save.
+    issueWindowHours: parseInt(String(form.get("issueWindowHours") ?? ""), 10),
   });
   return finish(userId, result.ok, "ordering");
 }

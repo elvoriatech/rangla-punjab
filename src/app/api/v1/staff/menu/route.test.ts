@@ -363,6 +363,8 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       dineIn: true,
       takeaway: true,
       delivery: true,
+      // Never set on this venue, so the config default answers (P7-10).
+      issueWindowHours: 3,
     });
 
     const res = await PATCH_ORDERING(
@@ -373,6 +375,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       dineIn: true,
       takeaway: true,
       delivery: false,
+      issueWindowHours: 3,
     });
 
     const stored = await asTenant(tenantId, (tx) =>
@@ -394,7 +397,33 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       dineIn: true,
       takeaway: false,
       delivery: true,
+      issueWindowHours: 3,
     });
+  });
+
+  it("sets the complaint window and leaves the switches alone (P7-10)", async () => {
+    const res = await PATCH_ORDERING(
+      request("/api/v1/staff/ordering", staffToken, { issueWindowHours: 48 }),
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as MenuBody).ordering).toMatchObject({
+      issueWindowHours: 48,
+      takeaway: false,
+      delivery: true,
+    });
+
+    const stored = await asTenant(tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ where: { id: venueId }, select: { ordering: true } }),
+    );
+    expect((stored.ordering as Record<string, unknown>).issueWindowHours).toBe(48);
+
+    // There is no product ceiling, but there IS a floor: a zero-hour
+    // window is "off", which this setting does not express.
+    const zero = await PATCH_ORDERING(
+      request("/api/v1/staff/ordering", staffToken, { issueWindowHours: 0 }),
+    );
+    expect(zero.status).toBe(400);
+    expect(await zero.json()).toMatchObject({ ok: false, error: "invalid" });
   });
 
   it("answers the loyalty overview with the programme's totals and its regulars", async () => {

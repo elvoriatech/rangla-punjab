@@ -52,12 +52,23 @@ export interface StaffOrder {
   discountCents: number;
   currency: string;
   items: StaffOrderItem[];
+  /** The complaint thread on this order — "open" | "answered" |
+   *  "resolved", or null when the guest never reported anything (and on
+   *  a server that predates complaints). */
+  issueStatus: string | null;
+  /** That thread's id, so the board can open it without looking it up.
+   *  Null alongside a non-null `issueStatus` means an older server: the
+   *  caller falls back to matching the complaints list on `orderId`. */
+  issueId: string | null;
 }
 
 export interface StaffSummary {
   openOrders: number;
   unpaidOnline: number;
   pendingReservations: number;
+  /** Complaint threads not yet resolved. 0 on an older server, which
+   *  keeps the badge off rather than inventing one. */
+  openIssues: number;
 }
 
 /**
@@ -143,6 +154,8 @@ export function asStaffOrder(raw: unknown): StaffOrder | null {
     items: Array.isArray(o.items)
       ? o.items.map(asItem).filter((i): i is StaffOrderItem => i !== null)
       : [],
+    issueStatus: nullableStr(o.issueStatus),
+    issueId: nullableStr(o.issueId),
   };
 }
 
@@ -237,8 +250,205 @@ export async function fetchStaffSummary(token: string): Promise<StaffResult<Staf
       openOrders: num(res.body.openOrders),
       unpaidOnline: num(res.body.unpaidOnline),
       pendingReservations: num(res.body.pendingReservations),
+      openIssues: num(res.body.openIssues),
     },
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Complaints (P7-10) — the restaurant's side of a guest's problem
+ * thread. Same posture as everything above: never throws, every field
+ * read defensively, 401 means the session is gone.
+ * ------------------------------------------------------------------ */
+
+export interface StaffIssueMessage {
+  id: string;
+  author: "guest" | "restaurant";
+  body: string;
+  /** Absolute; the app must send `X-Staff-Token` as an image header to
+   *  fetch it. Null when the message carries no photo. */
+  photoUrl: string | null;
+  createdAt: string;
+}
+
+/** One row of the complaints list. */
+export interface StaffIssueSummary {
+  id: string;
+  orderId: string;
+  orderNumber: number;
+  orderType: string;
+  status: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  messageCount: number;
+  lastMessage: { author: "guest" | "restaurant"; body: string; createdAt: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One thread in full, with enough of the order to make sense of it. */
+export interface StaffIssue {
+  id: string;
+  orderId: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+  messages: StaffIssueMessage[];
+  orderNumber: number;
+  orderType: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  orderTotalCents: number;
+  currency: string;
+  orderCreatedAt: string;
+}
+
+/** Unresolved is anything the restaurant still owes an answer or a
+ *  verdict on — the badge and the default list both key on this. */
+export function isOpenIssue(status: string | null | undefined): boolean {
+  return status === "open" || status === "answered";
+}
+
+function asAuthor(value: unknown): "guest" | "restaurant" {
+  // Never attribute an unknown author to the guest: misquoting the
+  // customer is the worse of the two mistakes.
+  return value === "guest" ? "guest" : "restaurant";
+}
+
+function asIssueMessage(raw: unknown): StaffIssueMessage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const m = raw as Record<string, unknown>;
+  const id = str(m.id);
+  if (!id) return null;
+  return {
+    id,
+    author: asAuthor(m.author),
+    body: str(m.body),
+    photoUrl: rebaseUrl(nullableStr(m.photoUrl)),
+    createdAt: str(m.createdAt),
+  };
+}
+
+function asIssueSummary(raw: unknown): StaffIssueSummary | null {
+  if (!raw || typeof raw !== "object") return null;
+  const i = raw as Record<string, unknown>;
+  const id = str(i.id);
+  if (!id) return null;
+  const last = (i.lastMessage && typeof i.lastMessage === "object" ? i.lastMessage : null) as
+    | Record<string, unknown>
+    | null;
+  return {
+    id,
+    orderId: str(i.orderId),
+    orderNumber: num(i.orderNumber),
+    orderType: str(i.orderType, "takeaway"),
+    status: str(i.status, "open"),
+    customerName: nullableStr(i.customerName),
+    customerPhone: nullableStr(i.customerPhone),
+    messageCount: num(i.messageCount),
+    lastMessage: last
+      ? {
+          author: asAuthor(last.author),
+          body: str(last.body),
+          createdAt: str(last.createdAt),
+        }
+      : null,
+    createdAt: str(i.createdAt),
+    updatedAt: str(i.updatedAt, str(i.createdAt)),
+  };
+}
+
+export function asStaffIssue(raw: unknown): StaffIssue | null {
+  if (!raw || typeof raw !== "object") return null;
+  const i = raw as Record<string, unknown>;
+  const id = str(i.id);
+  if (!id) return null;
+  return {
+    id,
+    orderId: str(i.orderId),
+    status: str(i.status, "open"),
+    createdAt: str(i.createdAt),
+    updatedAt: str(i.updatedAt, str(i.createdAt)),
+    resolvedAt: nullableStr(i.resolvedAt),
+    messages: Array.isArray(i.messages)
+      ? i.messages.map(asIssueMessage).filter((m): m is StaffIssueMessage => m !== null)
+      : [],
+    orderNumber: num(i.orderNumber),
+    orderType: str(i.orderType, "takeaway"),
+    customerName: nullableStr(i.customerName),
+    customerPhone: nullableStr(i.customerPhone),
+    orderTotalCents: num(i.orderTotalCents),
+    currency: str(i.currency, "EUR"),
+    orderCreatedAt: str(i.orderCreatedAt),
+  };
+}
+
+/** Newest activity first, as the server orders them. `all` also brings
+ *  back the resolved threads; without it the list is the work queue. */
+export async function fetchStaffIssues(
+  token: string,
+  all = false,
+): Promise<StaffResult<StaffIssueSummary[]>> {
+  const res = await staffFetch(token, `/api/v1/staff/issues${all ? "?all=1" : ""}`);
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const raw = res.body.issues;
+  return {
+    ok: true,
+    data: Array.isArray(raw)
+      ? raw.map(asIssueSummary).filter((i): i is StaffIssueSummary => i !== null)
+      : [],
+  };
+}
+
+export async function fetchStaffIssue(
+  token: string,
+  issueId: string,
+): Promise<StaffResult<StaffIssue>> {
+  const res = await staffFetch(token, `/api/v1/staff/issues/${encodeURIComponent(issueId)}`);
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const issue = asStaffIssue(res.body.issue);
+  // A 200 without a thread in it is a server we can't render — treat it
+  // as the 404 it behaves like rather than showing an empty panel.
+  if (!issue) return { ok: false, error: "notfound" };
+  return { ok: true, data: issue };
+}
+
+/** Answering moves the thread to "answered"; on a resolved thread the
+ *  server keeps the status and just appends. */
+export async function replyStaffIssue(
+  token: string,
+  issueId: string,
+  body: string,
+): Promise<StaffResult<StaffIssue>> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/issues/${encodeURIComponent(issueId)}/messages`,
+    { method: "POST", body: { body } },
+  );
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 && res.status !== 201) return { ok: false, error: failure(res.status) };
+  const issue = asStaffIssue(res.body?.issue);
+  if (!issue) return { ok: false, error: "server" };
+  return { ok: true, data: issue };
+}
+
+export async function resolveStaffIssue(
+  token: string,
+  issueId: string,
+): Promise<StaffResult<StaffIssue>> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/issues/${encodeURIComponent(issueId)}/resolve`,
+    { method: "POST", body: {} },
+  );
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200) return { ok: false, error: failure(res.status) };
+  const issue = asStaffIssue(res.body?.issue);
+  if (!issue) return { ok: false, error: "server" };
+  return { ok: true, data: issue };
 }
 
 /** Best effort: the local session is cleared whatever the server says. */

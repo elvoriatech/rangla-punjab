@@ -84,6 +84,8 @@ export function OrdersScreen({
     return { icon: "•", text: step ? (lang === "de" ? step.labelDe : step.labelEn) : s.status };
   };
 
+  const issueStatusLabels = t.issueStatusLabels as Record<string, string>;
+
   const METHOD_ICONS: Record<NonNullable<StoredOrder["payment"]>, string> = {
     card: "💳",
     paypal: "🅿️",
@@ -171,6 +173,33 @@ export function OrdersScreen({
                           </Text>
                         </View>
                       ) : null}
+                      {/* A reported problem outlives the order: this pill
+                          stays on the card after "done", because that is
+                          exactly when the guest goes looking for it. */}
+                      {s?.issue ? (
+                        <View
+                          style={[
+                            styles.pill,
+                            s.issue.status === "resolved"
+                              ? styles.pillNeutral
+                              : styles.pillProblem,
+                          ]}
+                        >
+                          <Text style={styles.pillIcon}>⚠️</Text>
+                          <Text
+                            style={[
+                              styles.pillText,
+                              s.issue.status === "resolved"
+                                ? styles.pillTextNeutral
+                                : styles.pillTextProblem,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {t.issuePill} ·{" "}
+                            {issueStatusLabels[s.issue.status] ?? s.issue.status}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     {/* Date · type on the left, the amount on the right. */}
                     <View style={styles.metaRow}>
@@ -250,4 +279,8 @@ const styles = StyleSheet.create({
   // Cash / not paid yet: quiet.
   pillNeutral: { backgroundColor: colors.cream, borderColor: colors.line },
   pillTextNeutral: { color: colors.inkSoft },
+  // An unresolved complaint — the one thing on the card that is still
+  // waiting on somebody.
+  pillProblem: { backgroundColor: "#fdeee6", borderColor: colors.danger },
+  pillTextProblem: { color: colors.danger },
 });

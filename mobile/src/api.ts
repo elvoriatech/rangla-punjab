@@ -298,6 +298,13 @@ export interface ApiTracking {
   currency: string;
   tableNumber: string | null;
   placedAt: string;
+  /** The complaint thread on this order, when one exists. Absent on a
+   *  server that predates P7-10 ⇒ no problem has been reported. */
+  issue?: { status: string; updatedAt: string } | null;
+  /** May the guest still OPEN a thread? False once the venue's reporting
+   *  window has passed (an existing thread stays usable regardless).
+   *  Absent on an older server ⇒ treated as "no". */
+  canReport?: boolean;
 }
 
 export async function fetchOrderStatus(orderId: string, token: string): Promise<ApiTracking> {
@@ -306,7 +313,218 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
   );
   const body = (await res.json().catch(() => null)) as { ok?: boolean; order?: ApiTracking } | null;
   if (!res.ok || !body?.ok || !body.order) throw new Error(`status ${res.status}`);
-  return body.order;
+  const order = body.order;
+  // The two P7-10 fields are read defensively: an older server sends
+  // neither, and the app then shows no complaint surface at all.
+  return {
+    ...order,
+    issue: asIssueSummary(order.issue),
+    canReport: order.canReport === true,
+  };
+}
+
+/* ── Complaints (P7-10) ──────────────────────────────────────────────────
+ *
+ * One thread per order, authorised by the same receipt token the tracking
+ * screen already holds. Everything here is tolerant in the house style:
+ * nothing throws, every field is read defensively, and an unknown status
+ * renders as itself rather than blanking the thread.
+ */
+
+/** open → answered (restaurant replied) → resolved. Widened, because the
+ *  server owns this machine and may grow a state after this build. */
+export type ApiIssueStatus = "open" | "answered" | "resolved" | (string & {});
+
+export interface ApiIssueMessage {
+  id: string;
+  /** Who wrote it. Anything the app doesn't recognise is shown as the
+   *  restaurant, never as the guest — attributing a stranger's words to
+   *  the guest is the worse mistake. */
+  author: "guest" | "restaurant";
+  body: string;
+  /** Absolute, token-carrying URL of the attached photo; null when the
+   *  message has none. */
+  photoUrl: string | null;
+  createdAt: string;
+}
+
+export interface ApiIssue {
+  id: string;
+  orderId: string;
+  status: ApiIssueStatus;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+  /** Oldest first, as the server sends them. */
+  messages: ApiIssueMessage[];
+}
+
+export interface ApiIssueState {
+  /** May the guest open a thread right now? An EXISTING thread stays
+   *  usable even when this is false — the window only gates creation. */
+  canReport: boolean;
+  /** ISO; when the reporting window closes. */
+  windowEndsAt: string;
+  issue: ApiIssue | null;
+}
+
+/** Everything a guest post can be refused for, plus the transport's own
+ *  failure. One union so the sheet has a single thing to translate. */
+export type IssuePostError =
+  | "window_closed"
+  | "resolved"
+  | "too_large"
+  | "invalid_photo"
+  | "invalid"
+  | "invalid_token"
+  | "not_found"
+  /** The route is rate-limited per IP; a shared café Wi-Fi can hit it. */
+  | "rate_limited"
+  | "network";
+
+const ISSUE_ERRORS: readonly IssuePostError[] = [
+  "window_closed",
+  "resolved",
+  "too_large",
+  "invalid_photo",
+  "invalid",
+  "invalid_token",
+  "not_found",
+  "rate_limited",
+  "network",
+];
+
+/** Anything the server names that this build doesn't know becomes the
+ *  generic "invalid" — a wrong message beats a blank one. */
+function asIssueError(raw: unknown): IssuePostError {
+  return ISSUE_ERRORS.includes(raw as IssuePostError) ? (raw as IssuePostError) : "invalid";
+}
+
+function asIssueSummary(raw: unknown): { status: string; updatedAt: string } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const i = raw as Record<string, unknown>;
+  if (typeof i.status !== "string" || !i.status) return null;
+  return { status: i.status, updatedAt: typeof i.updatedAt === "string" ? i.updatedAt : "" };
+}
+
+function asIssueMessage(raw: unknown): ApiIssueMessage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const m = raw as Record<string, unknown>;
+  const id = typeof m.id === "string" ? m.id : "";
+  if (!id) return null;
+  return {
+    id,
+    author: m.author === "guest" ? "guest" : "restaurant",
+    body: typeof m.body === "string" ? m.body : "",
+    // Dev/CI serves photos off our own origin, which an Android emulator
+    // reaches on 10.0.2.2 — same rebase as every other image URL.
+    photoUrl:
+      typeof m.photoUrl === "string" && m.photoUrl ? rebaseUrl(m.photoUrl) : null,
+    createdAt: typeof m.createdAt === "string" ? m.createdAt : "",
+  };
+}
+
+export function asIssue(raw: unknown): ApiIssue | null {
+  if (!raw || typeof raw !== "object") return null;
+  const i = raw as Record<string, unknown>;
+  const id = typeof i.id === "string" ? i.id : "";
+  if (!id) return null;
+  return {
+    id,
+    orderId: typeof i.orderId === "string" ? i.orderId : "",
+    status: typeof i.status === "string" ? i.status : "open",
+    createdAt: typeof i.createdAt === "string" ? i.createdAt : "",
+    updatedAt: typeof i.updatedAt === "string" ? i.updatedAt : "",
+    resolvedAt: typeof i.resolvedAt === "string" ? i.resolvedAt : null,
+    messages: Array.isArray(i.messages)
+      ? i.messages.map(asIssueMessage).filter((m): m is ApiIssueMessage => m !== null)
+      : [],
+  };
+}
+
+/**
+ * The thread on this order, and whether the guest may still start one.
+ *
+ * Null for every "nothing to show" case — a bad token, an order this
+ * device no longer owns, offline, a server without the route — so the
+ * caller has one thing to check. Never throws.
+ */
+export async function fetchIssue(orderId: string, token: string): Promise<ApiIssueState | null> {
+  if (!orderId || !token) return null;
+  try {
+    const res = await fetch(
+      `${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}/issue?token=${encodeURIComponent(token)}`,
+    );
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || body.ok !== true) return null;
+    return {
+      canReport: body.canReport === true,
+      windowEndsAt: typeof body.windowEndsAt === "string" ? body.windowEndsAt : "",
+      issue: asIssue(body.issue),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Report a problem, or add to the thread already open on this order.
+ *
+ * With a photo the request is `multipart/form-data` — React Native's
+ * `FormData` takes a `{ uri, name, type }` stand-in for a File and the
+ * bridge streams the file off disk, so a 5 MB photo never passes through
+ * JS. Without one it is plain JSON, which is cheaper and keeps the
+ * text-only path working on web, where the RN file shape doesn't exist.
+ *
+ * `Content-Type` is deliberately NOT set on the multipart branch: the
+ * runtime has to add its own boundary, and naming the type by hand is the
+ * classic way to get a 400 the server can't explain.
+ */
+export async function postIssueMessage(
+  orderId: string,
+  token: string,
+  body: string,
+  photo?: { uri: string; name: string; type: string } | null,
+): Promise<{ ok: true; issue: ApiIssue; created: boolean } | { ok: false; error: IssuePostError }> {
+  try {
+    const url = `${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}/issue`;
+    let res: Response;
+    if (photo) {
+      const form = new FormData();
+      form.append("token", token);
+      form.append("body", body);
+      // The RN file descriptor: not a browser File, which is why this
+      // cast exists at all.
+      form.append("photo", photo as unknown as Blob);
+      res = await fetch(url, { method: "POST", body: form });
+    } else {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, body }),
+      });
+    }
+    const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!res.ok || !payload || payload.ok !== true) {
+      // Prefer the server's own code; fall back to the status when it
+      // sent none (a proxy's 413, say).
+      const named = payload?.error;
+      if (typeof named === "string") return { ok: false, error: asIssueError(named) };
+      if (res.status === 429) return { ok: false, error: "rate_limited" };
+      if (res.status === 413) return { ok: false, error: "too_large" };
+      if (res.status === 401) return { ok: false, error: "invalid_token" };
+      if (res.status === 404) return { ok: false, error: "not_found" };
+      if (res.status === 403) return { ok: false, error: "window_closed" };
+      if (res.status === 409) return { ok: false, error: "resolved" };
+      return { ok: false, error: "invalid" };
+    }
+    const issue = asIssue(payload.issue);
+    if (!issue) return { ok: false, error: "invalid" };
+    return { ok: true, issue, created: payload.created === true };
+  } catch {
+    return { ok: false, error: "network" };
+  }
 }
 
 /**

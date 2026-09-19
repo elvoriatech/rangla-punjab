@@ -4,14 +4,36 @@
     {
       "name": "rangla-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
-      "port": 3000
+      "runtimeArgs": [
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": true
     },
     {
       "name": "rangla-mobile",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "mobile", "run", "web", "--", "--port", "8082"],
+      "runtimeArgs": [
+        "--prefix",
+        "mobile",
+        "run",
+        "web",
+        "--",
+        "--port",
+        "8082"
+      ],
       "port": 8082
+    },
+    {
+      "name": "fastapi-ai-chat",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/zahoor/Downloads/Work/TuringCollege/fastapi-ai-chat",
+        "run",
+        "dev"
+      ],
+      "port": 3000
     }
   ]
 }

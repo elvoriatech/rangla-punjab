@@ -32,6 +32,7 @@ import { TrackScreen } from "./src/screens/TrackScreen";
 import { AccountScreen } from "./src/screens/AccountScreen";
 import { BoardScreen } from "./src/screens/BoardScreen";
 import { LoyaltyStaffScreen } from "./src/screens/LoyaltyStaffScreen";
+import { IssuesScreen } from "./src/screens/IssuesScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { OwnerMenuSheet } from "./src/owner-menu";
 
@@ -49,9 +50,9 @@ import { OwnerMenuSheet } from "./src/owner-menu";
  * never both — `auth.staff` is the whole switch.
  */
 
-/** "loyalty" has no tab button: it is reached from the owner's burger
- *  and carries its own back arrow, like the tracking view. */
-type Tab = "home" | "menu" | "cart" | "orders" | "board" | "loyalty" | "info";
+/** "loyalty" and "issues" have no tab button: they are reached from the
+ *  owner's burger and carry their own back arrow, like the tracking view. */
+type Tab = "home" | "menu" | "cart" | "orders" | "board" | "loyalty" | "issues" | "info";
 interface TrackTarget {
   orderId: string;
   token: string;
@@ -74,6 +75,9 @@ function Shell(): React.ReactElement {
   const insets = useSafeAreaInsets();
   const restaurant = auth.staff !== null;
   const [openOrders, setOpenOrders] = useState(0);
+  /** Complaints the restaurant still owes an answer or a verdict on —
+   *  the owner menu's badge. Same 30 s loop as the board's count. */
+  const [openIssues, setOpenIssues] = useState(0);
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
@@ -115,7 +119,9 @@ function Shell(): React.ReactElement {
       setWelcomed(true);
       setTab((current) => (current === "menu" || current === "info" ? current : "board"));
     } else {
-      setTab((current) => (current === "board" || current === "loyalty" ? "home" : current));
+      setTab((current) =>
+        current === "board" || current === "loyalty" || current === "issues" ? "home" : current,
+      );
     }
   }, [restaurant]);
 
@@ -127,13 +133,17 @@ function Shell(): React.ReactElement {
   useEffect(() => {
     if (!staffToken) {
       setOpenOrders(0);
+      setOpenIssues(0);
       return;
     }
     let alive = true;
     const tick = async (): Promise<void> => {
       const res = await fetchStaffSummary(staffToken);
       if (!alive) return;
-      if (res.ok) setOpenOrders(res.data.openOrders);
+      if (res.ok) {
+        setOpenOrders(res.data.openOrders);
+        setOpenIssues(res.data.openIssues);
+      }
       else if (res.error === "unauthorized") clearStaff();
       // Offline: keep the last count rather than flashing a zero.
     };
@@ -249,6 +259,12 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
+        {tab === "issues" && restaurant ? (
+          <IssuesScreen
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
         {tab === "info" ? (
           <AccountScreen
             menu={menu}
@@ -318,6 +334,8 @@ function Shell(): React.ReactElement {
             setTab("menu");
           }}
           onLoyalty={() => setTab("loyalty")}
+          onIssues={() => setTab("issues")}
+          openIssues={openIssues}
         />
       ) : null}
     </View>

@@ -41,12 +41,14 @@ interface RailItem {
   icon: LucideIcon;
   exact?: boolean;
   newTab?: boolean;
+  /** Attention chip (unresolved complaints on Orders). 0 = no chip. */
+  count?: number;
 }
 
-function buildNav(base: string): RailItem[] {
+function buildNav(base: string, openIssues: number): RailItem[] {
   return [
     { href: base, label: "Overview", icon: LayoutDashboard, exact: true },
-    { href: `${base}/orders`, label: "Orders", icon: ReceiptText },
+    { href: `${base}/orders`, label: "Orders", icon: ReceiptText, count: openIssues },
     { href: `${base}/reservations`, label: "Reservations", icon: CalendarCheck },
     { href: "/kitchen", label: "Kitchen", icon: ChefHat, newTab: true },
     { href: `${base}/categories`, label: "Menu", icon: BookOpenText },
@@ -66,11 +68,14 @@ export function DashboardRail({
   everPublished,
   venues,
   activeVenueId,
+  openIssues = 0,
 }: {
   base: string;
   venueName: string;
   logoUrl: string | null;
   railStyle: React.CSSProperties;
+  /** Complaints still waiting on the restaurant — chip on Orders. */
+  openIssues?: number;
   /** Draft holds edits guests can't see → the Publish button lights up. */
   canPublish: boolean;
   everPublished: boolean;
@@ -110,7 +115,7 @@ export function DashboardRail({
     });
   };
 
-  const NAV = buildNav(base);
+  const NAV = buildNav(base, openIssues);
   const itemBase = collapsed
     ? "flex items-center justify-center px-0 py-2.5"
     : "flex items-center gap-3 border-l-2 px-3 py-2";
@@ -234,7 +239,7 @@ export function DashboardRail({
         </div>
         <nav aria-label="Dashboard" className="px-3 py-4">
           <ul className="space-y-1">
-            {NAV.map(({ href, label, icon: Icon, exact, newTab }) => {
+            {NAV.map(({ href, label, icon: Icon, exact, newTab, count }) => {
               const active = exact
                 ? pathname === href
                 : pathname === href || pathname.startsWith(`${href}/`);
@@ -245,6 +250,25 @@ export function DashboardRail({
                 : active
                   ? "border-[var(--menu-accent)] bg-[var(--menu-surface)] text-[var(--menu-accent)]"
                   : "border-transparent text-[var(--menu-text-soft)] transition-colors hover:border-[var(--menu-accent)]/40 hover:text-[var(--menu-text)]";
+              // The chip is the one thing that must read the same way
+              // collapsed or expanded: a number over the icon, and the
+              // count spelled out for screen readers either way.
+              const chip =
+                count && count > 0 ? (
+                  <>
+                    <span
+                      aria-hidden
+                      className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#b3261e] px-1 text-[10px] font-bold leading-none text-white ${
+                        collapsed ? "absolute -end-0.5 -top-0.5" : "ms-auto"
+                      }`}
+                    >
+                      {count > 99 ? "99+" : count}
+                    </span>
+                    <span className="sr-only">
+                      {count} unresolved {count === 1 ? "complaint" : "complaints"}
+                    </span>
+                  </>
+                ) : null;
               const label11 = (
                 <span className="text-[12px] uppercase tracking-[0.22em]">
                   {label}
@@ -269,10 +293,11 @@ export function DashboardRail({
                       href={href}
                       title={collapsed ? label : undefined}
                       aria-current={active ? "page" : undefined}
-                      className={`${itemBase} ${stateClass}`}
+                      className={`relative ${itemBase} ${stateClass}`}
                     >
                       <Icon className="h-4 w-4 shrink-0" aria-hidden />
                       {collapsed ? <span className="sr-only">{label}</span> : label11}
+                      {chip}
                     </Link>
                   )}
                 </li>

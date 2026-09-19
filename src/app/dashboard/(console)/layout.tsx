@@ -8,6 +8,7 @@ import { uploadedImageUrl } from "@/lib/menu-images";
 import { menuThemeStyle } from "@/lib/menu-themes";
 import { prisma } from "@/lib/db";
 import { getMenuStatus } from "@/lib/menu-versions-service";
+import { countOpenIssues } from "@/lib/issue-service";
 import { DashboardRail } from "./rail";
 import { MobileNav } from "./mobile-nav";
 import { ImpersonationBanner } from "./impersonation";
@@ -21,10 +22,10 @@ import { VerifyEmailBanner } from "./verify-banner";
  * here once so every page under /dashboard inherits the guard.
  */
 
-function buildNav(base: string) {
+function buildNav(base: string, openIssues: number) {
   return [
     { href: base, label: "Overview", exact: true },
-    { href: `${base}/orders`, label: "Orders" },
+    { href: `${base}/orders`, label: "Orders", count: openIssues },
     { href: "/kitchen", label: "Kitchen", newTab: true },
     { href: `${base}/categories`, label: "Menu" },
     { href: `${base}/appearance`, label: "Appearance" },
@@ -68,7 +69,10 @@ export default async function DashboardLayout({
     listOwnerVenues(userId),
     getActiveVenueId(userId),
   ]);
-  const NAV = buildNav("/dashboard");
+  // Complaints waiting on the restaurant — the rail's Orders chip. A
+  // failure here must not take the whole console down.
+  const openIssues = await countOpenIssues(userId).catch(() => 0);
+  const NAV = buildNav("/dashboard", openIssues);
   // The rail dresses itself in the venue's chosen menu theme.
   const railStyle = menuThemeStyle(venue.branding.theme, venue.branding.texture);
   const logoUrl = venue.branding.logoKey ? uploadedImageUrl(venue.branding.logoKey, 96) : null;
@@ -96,6 +100,7 @@ export default async function DashboardLayout({
           everPublished={Boolean(menuStatus.publishedAt)}
           venues={venues}
           activeVenueId={activeVenueId}
+          openIssues={openIssues}
         />
 
         {/* Mobile top bar — hamburger toggles the nav drawer. */}
@@ -105,6 +110,7 @@ export default async function DashboardLayout({
               href: i.href,
               label: i.label,
               newTab: "newTab" in i ? i.newTab : undefined,
+              count: "count" in i ? i.count : undefined,
             }))}
             venueName={venue.name}
             logoUrl={logoUrl}
