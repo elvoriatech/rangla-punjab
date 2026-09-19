@@ -185,6 +185,72 @@ Everything else — code, schema, local docker, seeds, tests, config UI — proc
 - [ ] (P6-3) ⛔ needs-human — Paste **live** Stripe platform key + webhook secret; restaurant completes
   Connect onboarding; run a real €0.50 order smoke test; then go live. [deps: P6-2, P5-5]
 
+## Phase 7 — Owner & guest experience in the app (started 2026-09-19)
+
+Owner-directed work from the 2026-09-19 session. Convention for this phase: Fable
+architects + reviews, **Opus agents implement** (server + app in parallel against a
+written contract), every task ends green (lint · tsc · vitest · mobile tsc), commit
+locally, push only when the owner says so (a push = CI + auto-deploy to prod), then
+rebuild the iPhone (`mobile/BUILDS.md`) and queue the Android APK on EAS.
+
+Done (pushed, live on prod):
+- [x] (P7-1) Native Stripe PaymentSheet + in-app browser checkout; payment method chosen
+  before placing; `/pay/intent`, `/pay/verify`, dashboard reconcile; kitchen ticket only
+  once paid. (f544093, f16dea2, 40c2ffe)
+- [x] (P7-2) Branded emails (shared shell), receipt/ticket icons, Orders cards, allergen
+  badges, category icons, compact payment cards. (faa0d23 … 3ffd48a, 208084c, 33803c6)
+- [x] (P7-3) Reservation party size as ± stepper (web + app). (7e1d3e3)
+- [x] (P7-4) Finished launcher icon via `brand:mobile --icon` / `public/brand/<slug>-mobile-app-icon.*`. (761e606)
+- [x] (P7-5) Loyalty: per-order points, vouchers, Hurra email, Rewards card + popup, redemption
+  at checkout (app only), reward line on every receipt surface. Owner settings in
+  Dashboard → Settings → Loyalty. (c63ad0e, 541f0c2)
+- [x] (P7-6) Restaurant mode: shared sign-in returns `kind`, dashboard owner account is the
+  only restaurant login (no staff accounts, no token table), `/api/v1/staff/*`, Board tab
+  with status actions, call/directions, badge; collapsed cards, name|phone row. (37736c6, bcb5760)
+- [x] (P7-7) Reservation status for guests (Konto + web /account), browser sign-in returns
+  to the app via `/auth/app-return`, cart shows a placing panel instead of an empty cart,
+  obvious Sign out button. (a80fff2, 5f8dde9)
+
+In progress (Opus agents, uncommitted at the time of writing):
+- [ ] (P7-8) Owner management in the app: header burger → owner menu (Board, Manage menu,
+  Loyalty, Open dashboard, Sign out); Menu screen shows pencil + on/off switch per dish;
+  edit sheet (price, availability, offer price + until date/time); Home shows 🛍️ Pickup /
+  🛵 Delivery switches opposite the open pill (on by default); Loyalty overview for the
+  owner. Server: `Item.sourceItemId` so app edits update BOTH the published and the draft
+  item (live, no publish) + backfill; `GET/PATCH /api/v1/staff/{menu,items/{id},ordering}`,
+  `GET /api/v1/staff/loyalty`. Board status buttons become small icon-only.
+- [ ] (P7-9) PayPal from the app opens PayPal directly (approve URL from `/pay/paypal`) in
+  an in-app session and returns via `/auth/app-return?status=…`, skipping the web pay page.
+
+Next, in this order (decisions already taken in brackets):
+- [ ] (P7-10) Complaint thread on an order: `order_issues` + `order_issue_messages` (guest
+  text + optional photo, restaurant replies, statuses open → answered → resolved); guest
+  endpoints authorised by the receipt token; photo upload JPEG/PNG/WebP ≤ 5 MB served
+  only through a token-gated route; owner email on new issue; dashboard badge + thread
+  panel with reply / resolve; app + web tracking get "Report a problem" and the thread;
+  Orders card pill stays even after completion. [Owner setting "guests can report within
+  N hours", whole hours, default 3, min 1, NO ceiling; an open thread stays usable after
+  the window.]
+- [ ] (P7-11) Push notifications to the owner's phone for new orders (and later issues):
+  expo-notifications, `POST /api/v1/staff/devices`, send on order placement/settlement.
+  ⛔ needs-human: Apple push key, Firebase project.
+- [ ] (P7-12) Offers as a destination: "Angebote" tab on the web menu; app Offers screen +
+  Home card + Menu-tab badge while any offer is live; all hidden when none.
+- [ ] (P7-13) Checkout in the style of the owner's mockup: address card with "Ändern",
+  Sofort / Geplant radio with a ± time stepper (web + app), payment list with brand marks
+  incl. Apple Pay / Google Pay as direct platform-pay buttons. [Keep Card as a row unless
+  the owner says otherwise.] ⛔ Apple Pay merchant setup; Google Pay production approval.
+- [ ] (P7-14) Google rating + review link (Places API, Place ID, daily cache, link to
+  write-a-review). ⛔ needs-human: API key, Place ID, billing.
+- [ ] (P7-15) Guest password reset (forgot → email → reset page; app link opens it in-app).
+- [ ] (P7-16) Ship only the active locale's guest-copy catalogue to the browser and lower the
+  Lighthouse script budget back to 260 kB (raised to 275 kB in 7167674). Task chip exists.
+- [ ] (P7-17) "cancelled" order status in the kitchen lifecycle (loyalty reversal + voucher
+  restore are already wired to it).
+
+Human-gated, unchanged: live Stripe keys (P6-3), legal `TODO: legal review` markers before
+the stores' privacy-policy link, Google OAuth iOS/Android client ids for native one-tap.
+
 ---
 
 ### Progress log
@@ -192,3 +258,4 @@ Everything else — code, schema, local docker, seeds, tests, config UI — proc
 - 2026-07-22 — Removed PgBouncer everywhere; app connects directly to the remote Postgres (dev/CI keep a local container). **P4-1 done**: de-tiered billing to a single `support` plan, decoupled features from billing (`plan-state` always all-on), built the in-app monthly support-fee subscription with a warn-only overdue banner. Typecheck clean; targeted test suites green on the local DB.
 - 2026-07-22 — **P1-3 verified done** (template picker already implemented). **AI menu-import removed** (feature + worker + model/migration). **Images moved to local disk** (`public/uploads` + `/img` sharp resize; dropped S3/MinIO/imgproxy/@aws-sdk). Full vitest suite green (434) on the local DB; typecheck + lint clean. All work committed to local branch `rangla` (not pushed).
 - 2026-07-22 — **Remaining phases cleared** (branch `rangla`): P4-2 (removed public signup + onboarding wizard + `/platform` marketing + `/admin/onboarding` funnel), P1-4 (branch switcher + active-venue cookie), P2-5 (order→pay e2e incl. kitchen visibility), P3-2 (operator Provision-Restaurant form + owner invite email), P3-3 (backups/runbooks folded into `/admin`), P4-4 (no k6 to prune; tier-price/AI/aws-sdk already gone). **P5 security pass verified**: RLS isolation test green (prod runs RLS-off as owner by decision), webhook 400s unsigned, `/admin`→isPlatformAdmin + `/dashboard`→membership, rate limits on order/pay/auth, guest-bundle check present. **P6-1**: prod compose validates (app + caddy + redis + remote DB + uploads volume; no pgbouncer/imgproxy/minio). Full suite green (437). Only ⛔ P6-2/P6-3 (VPS/DNS/live-Stripe) remain — human-gated. **Action for operator: rotate the live Stripe key currently in `.env`.**
+- 2026-09-19 — **Phase 7 opened** (owner & guest experience in the app). P7-1…P7-7 shipped and live on prod (`5f8dde9`, `bcb5760`); P7-8/P7-9 in progress; P7-10…P7-17 queued with decisions recorded above. Working mode for this phase: Opus agents implement, Fable architects/reviews; pushes only on the owner's say-so.
