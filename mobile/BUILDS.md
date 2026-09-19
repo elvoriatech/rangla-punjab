@@ -178,9 +178,19 @@ EXPO_PUBLIC_API_URL=https://rangla-punjab-restaurant.de \
 - `EXPO_PUBLIC_API_URL` is baked into the binary. For the Mac's dev server
   use `http://<mac-lan-ip>:<port>` (`ipconfig getifaddr en0`; the port
   `pnpm dev` picked) with the phone on the same Wi-Fi.
-- `expo run:ios` regenerates the gitignored `mobile/ios/` folder and rewrites
-  the `ios`/`android` scripts in `mobile/package.json` to `expo run:*`; revert
-  that file (`git checkout -- mobile/package.json`) before committing.
+- **Changing that URL between two builds needs a clean Metro cache.** The
+  value is inlined into `main.jsbundle` at bundle time and Metro's transform
+  cache does not key on it, so a Release rebuild happily reuses the file
+  with the previous URL inside (Xcode also skips the bundle phase when its
+  inputs look unchanged). Before rebuilding with a different URL:
+  `rm -rf "$TMPDIR/metro-cache"` and
+  `rm -rf ~/Library/Developer/Xcode/DerivedData/RanglaPunjab-*/Build/Products/Release-iphoneos/RanglaPunjab.app/{main.jsbundle,assets}`.
+  Always check what got baked before trusting an install:
+  `grep -a -o 'https://rangla-punjab-restaurant.de\|http://192[0-9.:]*' …/RanglaPunjab.app/main.jsbundle`.
+- If `expo run:ios` sits on "Connecting to: <phone>" after "Build Succeeded",
+  stop it and install the built app directly:
+  `xcrun devicectl device install app --device <UDID> …/Release-iphoneos/RanglaPunjab.app`
+  then `xcrun devicectl device process launch --terminate-existing --device <UDID> com.elvoria.ranglapunjab`.
 - Pods are cached after the first run; a rebuild takes a few minutes, the
   first one closer to twenty (CocoaPods clones the Stripe iOS repo).
 
