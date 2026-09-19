@@ -340,9 +340,12 @@ export async function updateVenueName(
 
 import {
   parseCachedRating,
+  parseManualRating,
+  parseManualRatingInput,
   refreshVenueRatingNow,
   reviewUrl,
   type CachedRating,
+  type ManualRating,
   type RatingError,
 } from "./google-rating";
 
@@ -352,6 +355,13 @@ export interface VenueGoogleSettings {
   /** Last rating read from Google — null until the first refresh runs
    *  (which needs the ⛔ human-gated API key). */
   rating: CachedRating | null;
+  /** The owner's switch for the guest-facing line. True by default — a
+   *  venue that has never touched it shows whatever rating it has. */
+  enabled: boolean;
+  /** The number the owner typed themselves, or null. Shown on the menu
+   *  only while `rating` above is empty — the fetched value always wins,
+   *  and the card says so when both exist. */
+  manual: ManualRating | null;
   /** Where the guest-facing "Write a review" link points. Null without a
    *  Place ID; shown in Settings so the owner can check it themselves. */
   reviewUrl: string | null;
@@ -370,14 +380,21 @@ export async function getVenueGoogle(userId: string): Promise<ServiceResult<Venu
   return asUser(userId, async (tx) => {
     const venue = await tx.venue.findFirst({
       where: { deletedAt: null },
-      select: { googlePlaceId: true, googleRating: true },
+      select: {
+        googlePlaceId: true,
+        googleRating: true,
+        googleRatingManual: true,
+        googleRatingEnabled: true,
+      },
     });
     if (!venue) return { ok: false, error: "no_venue" as const };
     return {
       ok: true as const,
       value: {
         placeId: venue.googlePlaceId,
+        enabled: venue.googleRatingEnabled,
         rating: parseCachedRating(venue.googleRating),
+        manual: parseManualRating(venue.googleRatingManual),
         reviewUrl: venue.googlePlaceId ? reviewUrl(venue.googlePlaceId) : null,
       },
     };
@@ -416,6 +433,81 @@ export async function updateVenueGooglePlaceId(
         // `null` there would be the JSON value `null`, which is not the
         // same thing and would not read back as "no rating".
         ...(placeId === venue.googlePlaceId ? {} : { googleRating: Prisma.DbNull }),
+      },
+    });
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/**
+ * The owner's on/off switch for the guest-facing rating line.
+ *
+ * Deliberately not "clear the numbers": an owner turning the line off for
+ * a fortnight — a disputed review, a refurbishment, a bad week — gets it
+ * back by flicking the switch, with the Place ID and the hand-typed
+ * numbers exactly where they left them. Off also stops the background
+ * refresher, so a hidden line costs nothing at Google either.
+ */
+export async function updateVenueGoogleRatingEnabled(
+  userId: string,
+  enabled: boolean,
+): Promise<ServiceResult> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    await tx.venue.update({
+      where: { id: venue.id },
+      data: { googleRatingEnabled: enabled },
+    });
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/**
+ * Save — or clear — the rating the owner typed in themselves.
+ *
+ * The fallback for every deployment without a Places API key, which is
+ * most of them: the owner reads the two numbers off their own Google
+ * Business profile and types them here. Nothing refreshes this value and
+ * nothing expires it; a fetched rating simply outranks it the moment one
+ * exists (see `publicRating`), so the two can coexist without a race.
+ *
+ * Both fields are required together. A rating with no count is a star
+ * with nothing behind it, and a count with no rating is a number nobody
+ * can read — so an EMPTY form is the clear, and a half-filled one is a
+ * mistake worth refusing rather than guessing at.
+ */
+export async function updateVenueGoogleManualRating(
+  userId: string,
+  input: { rating: string; count: string },
+): Promise<ServiceResult> {
+  const rating = input.rating.trim();
+  const count = input.count.trim();
+  const clearing = rating.length === 0 && count.length === 0;
+  const parsed = clearing ? null : parseManualRatingInput(rating, count);
+  if (!clearing && !parsed) return { ok: false, error: "invalid" };
+
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    await tx.venue.update({
+      where: { id: venue.id },
+      data: {
+        // `Prisma.DbNull` is SQL NULL in a nullable JSONB column; a bare
+        // `null` would store the JSON value `null`, which reads back as a
+        // present-but-unparsable rating rather than as no rating.
+        googleRatingManual: parsed
+          ? ({
+              ...parsed,
+              updatedAt: new Date().toISOString(),
+            } as unknown as Prisma.InputJsonObject)
+          : Prisma.DbNull,
       },
     });
     return { ok: true as const, value: undefined };

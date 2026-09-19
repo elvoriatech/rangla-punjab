@@ -10,6 +10,29 @@ import { siteUrl } from "@/lib/site-url";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 import { isLocaleCode } from "@/lib/locales";
 import { publicLoyalty } from "@/lib/loyalty-config";
+import { mapsSearchUrl } from "@/lib/google-rating";
+import type { PublicMenu } from "@/lib/public-menu";
+
+/**
+ * The rating as the APP wants it, which is not quite the shape the web
+ * page gets.
+ *
+ * The web menu renders the number with no link when the venue has no
+ * Place ID (the owner typed the rating by hand and never ran the Place ID
+ * search). The app cannot: its `asRating()` discards any rating whose
+ * `reviewUrl` is not an http(s) URL, so a null there would hide a number
+ * the owner deliberately entered. Rather than ship an app update to every
+ * installed copy, the server keeps its side of that contract and sends a
+ * Google Maps search for the venue name — a real URL that opens the right
+ * place page — whenever there is no Place ID to build a review link from.
+ */
+function appRating(
+  rating: PublicMenu["rating"],
+  venueName: string,
+): { value: number; count: number; reviewUrl: string } | null {
+  if (!rating) return null;
+  return { ...rating, reviewUrl: rating.reviewUrl ?? mapsSearchUrl(venueName) };
+}
 
 /**
  * GET /api/v1/menu[?locale=de]
@@ -107,9 +130,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         offerCount: menu.offerCount,
         // P7-14: the venue's Google rating and the link to Google's own
         // review form. Explicitly null — never absent — when the venue has
-        // no Place ID or the deployment has no Places API key, so the app
+        // no rating at all (neither fetched nor owner-typed), so the app
         // has one thing to test and hides the line on it.
-        rating: menu.rating ?? null,
+        rating: appRating(menu.rating, menu.venue.name),
         categories: menu.categories.map((cat) => ({
           id: cat.id,
           name: cat.name,

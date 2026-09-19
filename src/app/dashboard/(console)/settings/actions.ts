@@ -12,7 +12,9 @@ import { checkRateLimit, GOOGLE_LOOKUP_IP } from "@/lib/rate-limit";
 import { searchPlaces } from "@/lib/google-rating";
 import {
   refreshVenueGoogleRating,
+  updateVenueGoogleManualRating,
   updateVenueGooglePlaceId,
+  updateVenueGoogleRatingEnabled,
   updateVenueHalalFilter,
   updateVenueLocalization,
   updateVenueLogo,
@@ -167,6 +169,40 @@ export async function saveGoogleAction(form: FormData): Promise<void> {
   const userId = await requireUser();
   const result = await updateVenueGooglePlaceId(userId, String(form.get("googlePlaceId") ?? ""));
   return finish(userId, result.ok, "google");
+}
+
+/** P7-14 — "Show the Google rating to guests". An unchecked checkbox
+ *  sends nothing at all, which is exactly the `off` we want; the line
+ *  disappears from every surface while both stored numbers survive. */
+export async function saveGoogleRatingEnabledAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateVenueGoogleRatingEnabled(userId, form.get("ratingEnabled") === "on");
+  return finish(userId, result.ok, "google_rating_visibility");
+}
+
+/**
+ * P7-14 — the rating the owner types in themselves, for a deployment with
+ * no Places API key. Both boxes are required together; both empty is the
+ * clear, which is why the same service call backs the Clear button below.
+ * `finish(ok: true)` purges the CDN, because this number is on every
+ * cached copy of the public menu.
+ */
+export async function saveGoogleManualRatingAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateVenueGoogleManualRating(userId, {
+    rating: String(form.get("manualRating") ?? ""),
+    count: String(form.get("manualCount") ?? ""),
+  });
+  return finish(userId, result.ok, "google_manual");
+}
+
+/** The same write with both fields empty — a button rather than "delete
+ *  the text in two boxes and press Save", because that is what the owner
+ *  actually means by "stop showing this". */
+export async function clearGoogleManualRatingAction(): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateVenueGoogleManualRating(userId, { rating: "", count: "" });
+  return finish(userId, result.ok, "google_manual_cleared");
 }
 
 /** Redirect back to Settings with query params that aren't the

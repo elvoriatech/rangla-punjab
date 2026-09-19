@@ -241,29 +241,37 @@ model Membership {
 // ---------- venues & menus ----------
 
 model Venue {
-  id             String      @id @default(cuid())
-  tenantId       String      @map("tenant_id")
-  name           String
-  slug           String      @unique // immutable; renames create SlugRedirect
-  timezone       String      @default("Europe/Berlin")
-  currency       String      @default("EUR")
-  defaultLocale  String      @default("en") @map("default_locale")
-  enabledLocales String[]    @default(["en"]) @map("enabled_locales")
-  branding       Json        @default("{}")
+  id                  String      @id @default(cuid())
+  tenantId            String      @map("tenant_id")
+  name                String
+  slug                String      @unique // immutable; renames create SlugRedirect
+  timezone            String      @default("Europe/Berlin")
+  currency            String      @default("EUR")
+  defaultLocale       String      @default("en") @map("default_locale")
+  enabledLocales      String[]    @default(["en"]) @map("enabled_locales")
+  branding            Json        @default("{}")
   // Owner-side ordering switches + delivery zones (src/lib/ordering-config.ts).
-  ordering       Json        @default("{}")
+  ordering            Json        @default("{}")
   // Weekly opening hours (src/lib/opening-hours.ts); {} = not set.
-  hours          Json        @default("{}")
+  hours               Json        @default("{}")
   // Owner-side loyalty switches (src/lib/loyalty-config.ts); {} = defaults,
   // and the default is OFF, so an untouched venue shows guests nothing.
-  loyalty        Json        @default("{}")
+  loyalty             Json        @default("{}")
   // Google rating + review link (P7-14, src/lib/google-rating.ts). The
-  // Place ID is the owner's own setting; the rating is a CACHE of what the
-  // Places API last answered — `{ rating, count, fetchedAt }`, refreshed at
-  // most once a day on menu load. Both null ⇒ no rating anywhere.
-  googlePlaceId  String?     @map("google_place_id")
-  googleRating   Json?       @map("google_rating")
-  status         VenueStatus @default(active)
+  // Place ID is the owner's own setting; `google_rating` is a CACHE of what
+  // the Places API last answered — `{ rating, count, fetchedAt }`, refreshed
+  // at most once a day on menu load. `google_rating_manual` is the owner's
+  // own fallback — `{ rating, count, updatedAt }`, typed by hand in Settings
+  // for a deployment with no Places API key. The fetched cache always wins
+  // when it exists; the manual value is what shows when it doesn't. All
+  // three null ⇒ no rating anywhere. `google_rating_enabled` is the owner's
+  // on/off switch for the line itself: false hides it without losing either
+  // number, so switching it back on needs no retyping.
+  googlePlaceId       String?     @map("google_place_id")
+  googleRating        Json?       @map("google_rating")
+  googleRatingManual  Json?       @map("google_rating_manual")
+  googleRatingEnabled Boolean     @default(true) @map("google_rating_enabled")
+  status              VenueStatus @default(active)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

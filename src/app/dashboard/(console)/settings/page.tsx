@@ -19,11 +19,14 @@ import { siteUrl } from "@/lib/public-menu";
 import { DeliveryAreasEditor } from "./delivery-areas-editor";
 import type { PlaceSuggestion } from "@/lib/google-rating";
 import {
+  clearGoogleManualRatingAction,
   refreshGoogleRatingAction,
   removeBannerAction,
   removeLogoAction,
   saveBannerAction,
   saveGoogleAction,
+  saveGoogleManualRatingAction,
+  saveGoogleRatingEnabledAction,
   searchGooglePlaceAction,
   saveHalalAction,
   saveLocalizationAction,
@@ -121,6 +124,19 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   },
   google_rate_limited: {
     error: "Too many Google lookups from here. Wait a few minutes and try again.",
+  },
+  google_manual: {
+    saved: "Rating saved. Guests see it under your restaurant name right away.",
+    error:
+      "Enter a rating between 1.0 and 5.0 (one decimal, e.g. 4.7) and a whole number of reviews — or leave both empty to show nothing.",
+  },
+  google_rating_visibility: {
+    saved: "Saved. Your menu now matches whether the star line should be shown.",
+    error: "Couldn't change the rating's visibility — try again.",
+  },
+  google_manual_cleared: {
+    saved: "Rating removed. Your menu shows no star line until you enter one again.",
+    error: "Couldn't remove the rating — try again.",
   },
   localization: {
     saved:
@@ -357,6 +373,31 @@ export default async function SettingsPage({
           ID empty to show nothing.
         </p>
 
+        {/* The switch governs everything below it, so it reads first. Its
+            own form, because it is a different post from the search, the
+            save and the refresh — and HTML has no nested forms. */}
+        <form action={saveGoogleRatingEnabledAction} className="mt-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="ratingEnabled"
+              defaultChecked={google?.enabled ?? true}
+              className="accent-orange"
+            />
+            <span>Show the Google rating to guests</span>
+          </label>
+          <p className="mt-1 text-xs text-muted">
+            Off hides the star line everywhere without losing your Place ID or the numbers below —
+            switch it back on and they return as they were.
+          </p>
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="mt-3 border border-ink/30 px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] hover:bg-cream"
+          >
+            Save visibility
+          </SubmitButton>
+        </form>
+
         {/* Find my Place ID — the whole setup without leaving this page */}
         <form action={searchGooglePlaceAction} className="mt-4">
           <label className="block text-sm">
@@ -487,6 +528,85 @@ export default async function SettingsPage({
             </span>
           </form>
         ) : null}
+
+        {/* The fallback: type the number in yourself. Every deployment
+            without a ⛔ human-gated Places API key lands here, so this is
+            the path that actually gets used — it is last in the card only
+            because the fetched number is the better one when available. */}
+        <div className="mt-5 border-t border-ink/10 pt-5">
+          <p className="text-sm font-medium">Enter the rating yourself</p>
+          <p className="mt-1 text-xs text-muted">
+            Shown when no fetched Google rating is available. Use the exact numbers from your Google
+            Business profile.
+          </p>
+          {google && !google.enabled ? (
+            <p className="mt-2 text-xs text-muted">
+              The star line is switched off at the top of this card, so guests see nothing at all
+              right now — whatever you save here.
+            </p>
+          ) : null}
+          {google?.rating ? (
+            <p className="mt-2 text-xs text-muted">
+              Right now the rating fetched from Google ({google.rating.rating.toFixed(1)} ·{" "}
+              {google.rating.count} reviews) is what guests see — it always wins over the numbers
+              below.
+            </p>
+          ) : null}
+
+          <form action={saveGoogleManualRatingAction} className="mt-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="font-medium">Rating</span>
+                <input
+                  type="text"
+                  name="manualRating"
+                  inputMode="decimal"
+                  maxLength={4}
+                  autoComplete="off"
+                  placeholder="4.7"
+                  defaultValue={google?.manual ? google.manual.rating.toFixed(1) : ""}
+                  className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                />
+                <span className="mt-1 block text-xs text-muted">
+                  Between 1.0 and 5.0, one decimal.
+                </span>
+              </label>
+              <label className="block text-sm">
+                <span className="font-medium">Reviews</span>
+                <input
+                  type="text"
+                  name="manualCount"
+                  inputMode="numeric"
+                  maxLength={8}
+                  autoComplete="off"
+                  placeholder="440"
+                  defaultValue={google?.manual ? String(google.manual.count) : ""}
+                  className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                />
+                <span className="mt-1 block text-xs text-muted">
+                  How many reviews that average is from.
+                </span>
+              </label>
+            </div>
+            <SubmitButton
+              pendingLabel="Saving…"
+              className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+            >
+              Save rating
+            </SubmitButton>
+          </form>
+
+          {google?.manual ? (
+            <form action={clearGoogleManualRatingAction} className="mt-3">
+              <SubmitButton
+                pendingLabel="Removing…"
+                className="border border-ink/30 px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] hover:bg-cream"
+              >
+                Clear rating
+              </SubmitButton>
+            </form>
+          ) : null}
+        </div>
       </section>
 
       {/* Currency + languages */}

@@ -178,8 +178,10 @@ function formatRatingCount(count: number, locale: string): string {
 /**
  * "★ 4.6 (312) · Write a review →" — the venue's Google rating, directly
  * under its name (P7-14). Server-rendered, zero JS, and absent entirely
- * unless the server actually has a rating: no Place ID, no Places API key,
- * or nothing read yet all arrive here as `null` and render nothing.
+ * unless the server actually has a rating: a venue whose owner has neither
+ * saved a Place ID nor typed a rating by hand arrives here as `null` and
+ * renders nothing. The "Write a review" half needs a Place ID of its own
+ * and drops out without one.
  *
  * Accessibility: the star and the bracketed count are decoration and mean
  * nothing read aloud, so the visual run is `aria-hidden` and a screen
@@ -219,16 +221,24 @@ function RatingLine({
         <span className="text-[var(--menu-accent)]">★</span> {value} ({count})
       </span>
       <span className="sr-only">{t.rating.summary(value, count)}</span>
-      <span aria-hidden="true">·</span>
-      <a
-        href={rating.reviewUrl}
-        target="_blank"
-        rel="noopener"
-        aria-label={t.rating.writeAria}
-        className="whitespace-nowrap underline decoration-[var(--menu-accent)]/60 underline-offset-2 hover:decoration-[var(--menu-accent)]"
-      >
-        {t.rating.write} <span aria-hidden="true">→</span>
-      </a>
+      {/* No Place ID means no review form to send anyone to — the owner
+          typed this number in themselves. The figure still stands on its
+          own, so the line renders without the link (and without the
+          separator that would otherwise dangle after it). */}
+      {rating.reviewUrl ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <a
+            href={rating.reviewUrl}
+            target="_blank"
+            rel="noopener"
+            aria-label={t.rating.writeAria}
+            className="whitespace-nowrap underline decoration-[var(--menu-accent)]/60 underline-offset-2 hover:decoration-[var(--menu-accent)]"
+          >
+            {t.rating.write} <span aria-hidden="true">→</span>
+          </a>
+        </>
+      ) : null}
     </p>
   );
 }

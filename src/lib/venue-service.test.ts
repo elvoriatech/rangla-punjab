@@ -9,6 +9,8 @@ import {
   getVenueForUser,
   getVenueGoogle,
   refreshVenueGoogleRating,
+  updateVenueGoogleManualRating,
+  updateVenueGoogleRatingEnabled,
   updateVenueGooglePlaceId,
   updateVenueAppearance,
   updateVenueLocalization,
@@ -169,7 +171,13 @@ describe("venue-service (owner dashboard)", () => {
 
     const empty = await getVenueGoogle(userId);
     if (!empty.ok) throw new Error("no venue");
-    expect(empty.value).toEqual({ placeId: null, rating: null, reviewUrl: null });
+    expect(empty.value).toEqual({
+      placeId: null,
+      enabled: true,
+      rating: null,
+      manual: null,
+      reviewUrl: null,
+    });
 
     expect((await updateVenueGooglePlaceId(userId, `  ${PLACE}  `)).ok).toBe(true);
     const saved = await getVenueGoogle(userId);
@@ -201,7 +209,13 @@ describe("venue-service (owner dashboard)", () => {
     expect((await updateVenueGooglePlaceId(userId, "   ")).ok).toBe(true);
     const cleared = await getVenueGoogle(userId);
     if (!cleared.ok) throw new Error("no venue");
-    expect(cleared.value).toEqual({ placeId: null, rating: null, reviewUrl: null });
+    expect(cleared.value).toEqual({
+      placeId: null,
+      enabled: true,
+      rating: null,
+      manual: null,
+      reviewUrl: null,
+    });
 
     // Anything that is not Place-ID-shaped is refused rather than stored.
     for (const bad of ["abc", "has spaces", "https://maps.google.com/?cid=1", "x".repeat(256)]) {
@@ -241,6 +255,101 @@ describe("venue-service (owner dashboard)", () => {
     __fakeRating().next = { rating: 4.8, count: 441 };
     const again = await refreshVenueGoogleRating(userId);
     expect(again.ok && again.rating).toMatchObject({ rating: 4.8, count: 441 });
+    __fakeRating().reset();
+  });
+
+  it("updateVenueGoogleManualRating saves, clears, and refuses half-answers (P7-14)", async () => {
+    const { userId } = await signupWithVenue();
+
+    // The comma decimal is what a German keyboard's own Google profile
+    // shows, so it has to be accepted, not corrected.
+    expect((await updateVenueGoogleManualRating(userId, { rating: "4,7", count: "440" })).ok).toBe(
+      true,
+    );
+    const saved = await getVenueGoogle(userId);
+    if (!saved.ok) throw new Error("no venue");
+    expect(saved.value.manual).toMatchObject({ rating: 4.7, count: 440 });
+    expect(Number.isNaN(Date.parse(saved.value.manual!.updatedAt))).toBe(false);
+    // It is a SEPARATE column from the fetched cache — saving one never
+    // touches the other.
+    expect(saved.value.rating).toBeNull();
+
+    // Both boxes empty is the Clear button's write.
+    expect((await updateVenueGoogleManualRating(userId, { rating: "", count: "" })).ok).toBe(true);
+    const cleared = await getVenueGoogle(userId);
+    if (!cleared.ok) throw new Error("no venue");
+    expect(cleared.value.manual).toBeNull();
+
+    // Half an answer, a two-decimal rating, an out-of-range star, a
+    // fractional review count: refused rather than stored or guessed at.
+    for (const bad of [
+      { rating: "4.7", count: "" },
+      { rating: "", count: "440" },
+      { rating: "4.65", count: "440" },
+      { rating: "0.9", count: "440" },
+      { rating: "5.1", count: "440" },
+      { rating: "four", count: "440" },
+      { rating: "4.7", count: "44.5" },
+      { rating: "4.7", count: "-3" },
+      { rating: "4.7", count: "10000001" },
+    ]) {
+      expect((await updateVenueGoogleManualRating(userId, bad)).ok, JSON.stringify(bad)).toBe(
+        false,
+      );
+    }
+    // …and a refused save left the column exactly as it was.
+    const after = await getVenueGoogle(userId);
+    if (!after.ok) throw new Error("no venue");
+    expect(after.value.manual).toBeNull();
+  });
+
+  it("updateVenueGoogleRatingEnabled hides the line without losing the numbers (P7-14)", async () => {
+    const { userId } = await signupWithVenue();
+    const PLACE = "ChIJN1t_tDeuEmsRUsoyG83frY4";
+
+    // A venue nobody has touched shows its rating — the switch defaults on.
+    const fresh = await getVenueGoogle(userId);
+    if (!fresh.ok) throw new Error("no venue");
+    expect(fresh.value.enabled).toBe(true);
+
+    expect((await updateVenueGooglePlaceId(userId, PLACE)).ok).toBe(true);
+    expect((await updateVenueGoogleManualRating(userId, { rating: "4.7", count: "440" })).ok).toBe(
+      true,
+    );
+    expect((await updateVenueGoogleRatingEnabled(userId, false)).ok).toBe(true);
+
+    // Off — and both stored values are exactly where the owner left them,
+    // which is the point of a switch rather than a delete.
+    const off = await getVenueGoogle(userId);
+    if (!off.ok) throw new Error("no venue");
+    expect(off.value.enabled).toBe(false);
+    expect(off.value.placeId).toBe(PLACE);
+    expect(off.value.manual).toMatchObject({ rating: 4.7, count: 440 });
+
+    expect((await updateVenueGoogleRatingEnabled(userId, true)).ok).toBe(true);
+    const on = await getVenueGoogle(userId);
+    if (!on.ok) throw new Error("no venue");
+    expect(on.value.enabled).toBe(true);
+    expect(on.value.manual).toMatchObject({ rating: 4.7, count: 440 });
+  });
+
+  it("a fetched rating outranks the owner's typed one on the Google card (P7-14)", async () => {
+    const { userId } = await signupWithVenue();
+    const PLACE = "ChIJN1t_tDeuEmsRUsoyG83frY4";
+    __fakeRating().reset();
+
+    expect((await updateVenueGoogleManualRating(userId, { rating: "3.1", count: "7" })).ok).toBe(
+      true,
+    );
+    expect((await updateVenueGooglePlaceId(userId, PLACE)).ok).toBe(true);
+    __fakeRating().next = { rating: 4.7, count: 440 };
+    expect((await refreshVenueGoogleRating(userId)).ok).toBe(true);
+
+    // Both values are on the card — the page says which one is live.
+    const card = await getVenueGoogle(userId);
+    if (!card.ok) throw new Error("no venue");
+    expect(card.value.rating).toMatchObject({ rating: 4.7, count: 440 });
+    expect(card.value.manual).toMatchObject({ rating: 3.1, count: 7 });
     __fakeRating().reset();
   });
 });

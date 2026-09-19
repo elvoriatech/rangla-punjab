@@ -47,21 +47,44 @@ export interface CachedRating extends PlaceRating {
   fetchedAt: string;
 }
 
+/** What `venues.google_rating_manual` holds — the number the owner typed
+ *  themselves, plus when they typed it.
+ *
+ *  Deliberately `updatedAt` rather than `fetchedAt`: those two words mean
+ *  different things ("a human last entered this" vs "we last asked
+ *  Google"), and only the second one may ever feed the staleness test. A
+ *  hand-entered rating never goes stale, because nothing is going to
+ *  refresh it. */
+export interface ManualRating extends PlaceRating {
+  /** ISO 8601, in UTC. */
+  updatedAt: string;
+}
+
 /** What the public surfaces render. `reviewUrl` is derived, never stored:
  *  it is a pure function of the Place ID, so a changed URL format is a
- *  code change and not a data migration. */
+ *  code change and not a data migration. Null when the rating came from
+ *  the owner's own typing and they never saved a Place ID — there is a
+ *  number to show but nowhere for "write a review" to go. */
 export interface PublicRating {
   value: number;
   count: number;
-  reviewUrl: string;
+  reviewUrl: string | null;
 }
 
 /** The venue columns this module reads. Callers that already hold the row
  *  (the public menu loader does) pass it instead of paying for a second
- *  query. */
+ *  query. `googleRatingManual` is optional so a hand-built fixture from
+ *  before the fallback existed still type-checks; absent reads as "no
+ *  manual rating", same as null. */
 export interface VenueRatingRow {
   googlePlaceId: string | null;
   googleRating: unknown;
+  googleRatingManual?: unknown;
+  /** The owner's switch for the whole line. Optional, and ABSENT MEANS ON
+   *  — the column is `NOT NULL DEFAULT true` and every venue that predates
+   *  the switch was showing its rating, so a fixture that doesn't mention
+   *  it must not accidentally hide one. Only an explicit `false` hides. */
+  googleRatingEnabled?: boolean;
 }
 
 /**
@@ -399,6 +422,23 @@ export function reviewUrl(placeId: string): string {
 }
 
 /**
+ * "Find this restaurant on Google Maps" — the fallback destination for a
+ * venue that has a rating but no Place ID (the owner typed the number
+ * themselves and never ran the Place ID search).
+ *
+ * It exists for the MOBILE app specifically. The web menu simply renders
+ * no link in that case, but the app's `asRating()` treats a `reviewUrl`
+ * that is not an http(s) URL as "there is no rating here" and hides the
+ * whole line — so sending it `null` would throw away the number the owner
+ * just typed. A Maps search for the venue's name is a real, openable URL
+ * that lands the guest on the right place page in one tap, which is close
+ * enough to the review form to be worth far more than a hidden line.
+ */
+export function mapsSearchUrl(venueName: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueName.trim())}`;
+}
+
+/**
  * Read a cached rating out of whatever JSONB holds. Strict on purpose —
  * the same strictness the app applies on its side: a rating outside 1–5, a
  * negative count, or a missing timestamp is not a rating, it's a bug, and
@@ -421,19 +461,100 @@ function parsePlaceRating(rating: unknown, count: unknown): PlaceRating | null {
   return { rating, count: Math.trunc(count) };
 }
 
+/** Nobody has ten million Google reviews; a number past this is a paste
+ *  accident or a zero held down, and "★ 4.7 (999999999)" under a
+ *  restaurant's name reads as a broken page. */
+export const MANUAL_COUNT_MAX = 10_000_000;
+
+/**
+ * The numeric gate for a hand-entered rating, used in both directions: on
+ * the way in from the Settings form, and on the way back out of the
+ * column. One function so a value that was storable can never become
+ * unreadable (or vice versa) by the two rules drifting apart.
+ *
+ * Stricter than {@link parsePlaceRating} on purpose. Google itself only
+ * ever publishes a rating to one decimal, so "4.65" is not a number the
+ * owner is copying off their Business profile — it is a typo, and
+ * rounding it silently would put a figure on the menu nobody chose.
+ */
+export function normaliseManualRating(rating: unknown, count: unknown): PlaceRating | null {
+  if (typeof rating !== "number" || !Number.isFinite(rating)) return null;
+  if (rating < 1 || rating > 5) return null;
+  // `4.7 * 10` is 46.99999999999999 in binary floating point, so the
+  // integrality test has to be on the rounded value with a tolerance,
+  // never on `rating * 10 % 1`.
+  const tenths = Math.round(rating * 10);
+  if (Math.abs(rating * 10 - tenths) > 1e-6) return null;
+  if (typeof count !== "number" || !Number.isInteger(count)) return null;
+  if (count < 0 || count > MANUAL_COUNT_MAX) return null;
+  return { rating: tenths / 10, count };
+}
+
+/** Read an owner-typed rating out of `venues.google_rating_manual`. Same
+ *  strictness as {@link parseCachedRating}: anything that isn't a whole
+ *  well-formed value reads as no value at all. */
+export function parseManualRating(raw: unknown): ManualRating | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const base = normaliseManualRating(r.rating, r.count);
+  if (!base) return null;
+  const updatedAt = typeof r.updatedAt === "string" ? r.updatedAt : null;
+  if (!updatedAt || Number.isNaN(Date.parse(updatedAt))) return null;
+  return { ...base, updatedAt };
+}
+
+/**
+ * The two Settings inputs — both raw strings — turned into a storable
+ * rating, or null when either is not what it claims to be.
+ *
+ * A comma decimal is accepted because half this app's owners type on a
+ * German keyboard and "4,7" is what their own Google profile shows them;
+ * refusing it would be refusing the correct answer. The review count is
+ * digits only: "1,204" is ambiguous across the very locales we just
+ * accommodated (one thousand two hundred, or one point two?), so the
+ * field asks for a plain integer and means it.
+ */
+export function parseManualRatingInput(rating: string, count: string): PlaceRating | null {
+  const r = rating.trim().replace(",", ".");
+  const c = count.trim().replace(/\s/g, "");
+  if (!/^\d+(\.\d+)?$/.test(r) || !/^\d+$/.test(c)) return null;
+  return normaliseManualRating(Number(r), Number(c));
+}
+
 /**
  * The rating a public surface renders, from a venue row already in hand.
- * Null whenever anything is missing — no Place ID, no cache, or a cache
- * that doesn't parse. Note it does NOT consult the API key: a number
- * already read stays on screen if the key is later rotated out, it just
- * stops being refreshed. Hiding it would be a worse lie than showing
- * yesterday's average.
+ *
+ * Precedence, in one place so every surface agrees:
+ *
+ * 0. The owner's on/off switch. Off ⇒ nothing, whatever is stored.
+ * 1. The FETCHED cache, whenever a Place ID and a parsable cache are both
+ *    there. It is Google's own current answer, so it outranks anything a
+ *    human typed — including a human who typed something else yesterday.
+ *    An owner who starts with a hand-entered number and later gets the
+ *    API key configured watches the live number take over by itself.
+ *    (The cache is gated on the Place ID because without one it is
+ *    orphaned: it was read for a place the owner has since cleared.)
+ * 2. The MANUAL value — the number the owner read off their own Google
+ *    Business profile and typed into Settings. It needs no Place ID and
+ *    no API key, which is the entire point of it.
+ * 3. Nothing at all.
+ *
+ * Note it does NOT consult the API key: a number already read stays on
+ * screen if the key is later rotated out, it just stops being refreshed.
+ * Hiding it would be a worse lie than showing yesterday's average.
  */
 export function publicRating(row: VenueRatingRow): PublicRating | null {
-  if (!row.googlePlaceId) return null;
-  const cached = parseCachedRating(row.googleRating);
-  if (!cached) return null;
-  return { value: cached.rating, count: cached.count, reviewUrl: reviewUrl(row.googlePlaceId) };
+  // The owner's switch comes first, before either source is even read: it
+  // means "show no rating line", not "forget the numbers". Both columns
+  // keep their values, so switching it back on needs no retyping — which
+  // is the whole reason it is a column of its own and not a delete.
+  if (row.googleRatingEnabled === false) return null;
+  const link = row.googlePlaceId ? reviewUrl(row.googlePlaceId) : null;
+  const cached = row.googlePlaceId ? parseCachedRating(row.googleRating) : null;
+  if (cached) return { value: cached.rating, count: cached.count, reviewUrl: link };
+  const manual = parseManualRating(row.googleRatingManual);
+  if (manual) return { value: manual.rating, count: manual.count, reviewUrl: link };
+  return null;
 }
 
 /** Older than the TTL, or never read at all. */
@@ -522,6 +643,10 @@ export function scheduleVenueRatingRefresh(
 ): boolean {
   const placeId = row.googlePlaceId;
   if (!placeId || !env.GOOGLE_PLACES_API_KEY) return false;
+  // Switched off ⇒ nobody is looking at the number, so nobody should be
+  // paying Google to keep it current. It resumes refreshing the moment
+  // the owner switches the line back on.
+  if (row.googleRatingEnabled === false) return false;
   if (!isRatingStale(parseCachedRating(row.googleRating), now)) return false;
   // One in-flight refresh per venue. Without this, a burst of cold-cache
   // requests (exactly what a QR code at a busy table produces) would each
@@ -554,7 +679,12 @@ export async function getVenueRating(
     const row = await asTenantRead(tenantId, (tx) =>
       tx.venue.findFirst({
         where: { id: venueId, deletedAt: null },
-        select: { googlePlaceId: true, googleRating: true },
+        select: {
+          googlePlaceId: true,
+          googleRating: true,
+          googleRatingManual: true,
+          googleRatingEnabled: true,
+        },
       }),
     );
     if (!row) return null;

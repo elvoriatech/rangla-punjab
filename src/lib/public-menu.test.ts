@@ -178,9 +178,65 @@ describe("public menu loader", () => {
     });
 
     // A rating cached against a Place ID the owner has since cleared is
-    // not a rating: there would be nowhere for "write a review" to go.
+    // not a rating: it was read for a place this venue no longer claims.
     await asUser(userId, (tx) => tx.venue.updateMany({ data: { googlePlaceId: null } }));
     expect((await loadPublicMenu(context!))?.rating ?? null).toBeNull();
+  });
+
+  it("falls back to the rating the owner typed in themselves (P7-14)", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+
+    // No Place ID and no API key — the deployment this fallback exists
+    // for. The number shows; the review link has nowhere to go.
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          googleRatingManual: { rating: 4.7, count: 440, updatedAt: new Date().toISOString() },
+        },
+      }),
+    );
+    expect((await loadPublicMenu(context!))?.rating).toEqual({
+      value: 4.7,
+      count: 440,
+      reviewUrl: null,
+    });
+
+    // Once a real Place ID and a fetched number arrive, they take over by
+    // themselves — nothing for the owner to clean up.
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          googlePlaceId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+          googleRating: { rating: 4.6, count: 312, fetchedAt: new Date().toISOString() },
+        },
+      }),
+    );
+    expect((await loadPublicMenu(context!))?.rating).toEqual({
+      value: 4.6,
+      count: 312,
+      reviewUrl: "https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4",
+    });
+  });
+
+  it("drops the rating line entirely while the owner has it switched off (P7-14)", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          googlePlaceId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+          googleRating: { rating: 4.6, count: 312, fetchedAt: new Date().toISOString() },
+          googleRatingEnabled: false,
+        },
+      }),
+    );
+    expect((await loadPublicMenu(context!))?.rating ?? null).toBeNull();
+
+    // …and comes straight back, unchanged, when it is switched on again.
+    await asUser(userId, (tx) => tx.venue.updateMany({ data: { googleRatingEnabled: true } }));
+    expect((await loadPublicMenu(context!))?.rating).toMatchObject({ value: 4.6, count: 312 });
   });
 
   it("resolves ?cat=offers only while something is on offer", async () => {

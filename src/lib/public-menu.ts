@@ -89,9 +89,11 @@ export interface PublicMenu {
    *  the menu re-derive from the items they actually render. */
   offerCount: number;
   /** The venue's Google rating + review link (P7-14), or null — which is
-   *  what a venue with no Place ID, or a deployment with no Places API
-   *  key, always gets. Optional so a hand-built fixture needn't carry it;
-   *  every surface treats absent and null identically: no rating line. */
+   *  what a venue whose owner has neither saved a Place ID nor typed a
+   *  rating by hand always gets. `reviewUrl` is null when the number came
+   *  from the owner's own typing and there is no Place ID to link to.
+   *  Optional so a hand-built fixture needn't carry it; every surface
+   *  treats absent and null identically: no rating line. */
   rating?: PublicRating | null;
 }
 
@@ -148,6 +150,8 @@ export async function loadPublicMenu(
         branding: true,
         googlePlaceId: true,
         googleRating: true,
+        googleRatingManual: true,
+        googleRatingEnabled: true,
       },
     });
     if (!venue) return null;

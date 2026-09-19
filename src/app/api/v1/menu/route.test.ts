@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
@@ -182,6 +183,28 @@ describe("GET /api/v1/menu — ?locale", () => {
       value: 4.6,
       count: 312,
       reviewUrl: "https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4",
+    });
+  });
+
+  it("sends a Maps search as the link for an owner-typed rating (P7-14)", async () => {
+    const fx = await fixture();
+    // No Place ID, so there is no review form to link to. The app's
+    // `asRating()` throws away a rating whose `reviewUrl` is not an http
+    // URL, so the server sends a Maps search for the venue name rather
+    // than a null that would hide the number entirely.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          googlePlaceId: null,
+          googleRating: Prisma.DbNull,
+          googleRatingManual: { rating: 4.7, count: 440, updatedAt: new Date().toISOString() },
+        },
+      }),
+    );
+    expect((await read(fx.slug)).rating).toEqual({
+      value: 4.7,
+      count: 440,
+      reviewUrl: "https://www.google.com/maps/search/?api=1&query=Locale%20Venue",
     });
   });
 

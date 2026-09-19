@@ -13,7 +13,10 @@ import {
   getVenueRating,
   isRatingStale,
   mapPlacesError,
+  mapsSearchUrl,
   parseCachedRating,
+  parseManualRating,
+  parseManualRatingInput,
   publicRating,
   refreshVenueRating,
   refreshVenueRatingNow,
@@ -36,6 +39,11 @@ const PLACE_ID = "ChIJN1t_tDeuEmsRUsoyG83frY4";
 
 function cached(ageMs: number, rating = 4.6, count = 312): Prisma.InputJsonObject {
   return { rating, count, fetchedAt: new Date(Date.now() - ageMs).toISOString() };
+}
+
+/** What `venues.google_rating_manual` holds after the owner types it. */
+function manual(rating: number, count: number): Prisma.InputJsonObject {
+  return { rating, count, updatedAt: new Date().toISOString() };
 }
 
 describe("reviewUrl", () => {
@@ -281,6 +289,147 @@ describe("publicRating", () => {
     const old = publicRating({ googlePlaceId: PLACE_ID, googleRating: cached(RATING_TTL_MS * 9) });
     expect(old).toMatchObject({ value: 4.6 });
   });
+
+  it("lets a FETCHED rating outrank the owner's own number", () => {
+    expect(
+      publicRating({
+        googlePlaceId: PLACE_ID,
+        googleRating: cached(0),
+        googleRatingManual: manual(3.1, 7),
+      }),
+    ).toEqual({ value: 4.6, count: 312, reviewUrl: reviewUrl(PLACE_ID) });
+  });
+
+  it("falls back to the owner's number when nothing has been fetched", () => {
+    expect(
+      publicRating({
+        googlePlaceId: PLACE_ID,
+        googleRating: null,
+        googleRatingManual: manual(4.7, 440),
+      }),
+    ).toEqual({ value: 4.7, count: 440, reviewUrl: reviewUrl(PLACE_ID) });
+
+    // …and also when the fetched cache is there but unparsable.
+    expect(
+      publicRating({
+        googlePlaceId: PLACE_ID,
+        googleRating: { rating: "nope" },
+        googleRatingManual: manual(4.7, 440),
+      }),
+    ).toMatchObject({ value: 4.7 });
+  });
+
+  it("shows a hand-entered rating with NO review link when there is no Place ID", () => {
+    expect(
+      publicRating({
+        googlePlaceId: null,
+        googleRating: cached(0),
+        googleRatingManual: manual(4.7, 440),
+      }),
+    ).toEqual({ value: 4.7, count: 440, reviewUrl: null });
+  });
+
+  it("shows nothing at all while the owner has the line switched off", () => {
+    // Off outranks BOTH sources, and the stored numbers survive it — the
+    // switch hides the line, it does not forget anything.
+    expect(
+      publicRating({
+        googlePlaceId: PLACE_ID,
+        googleRating: cached(0),
+        googleRatingManual: manual(4.7, 440),
+        googleRatingEnabled: false,
+      }),
+    ).toBeNull();
+    // Absent means ON: every venue that predates the switch was showing
+    // its rating and must keep doing so.
+    expect(publicRating({ googlePlaceId: PLACE_ID, googleRating: cached(0) })).toMatchObject({
+      value: 4.6,
+    });
+    expect(
+      publicRating({
+        googlePlaceId: PLACE_ID,
+        googleRating: cached(0),
+        googleRatingEnabled: true,
+      }),
+    ).toMatchObject({ value: 4.6 });
+  });
+
+  it("is still null when neither source has anything readable", () => {
+    expect(
+      publicRating({ googlePlaceId: null, googleRating: null, googleRatingManual: null }),
+    ).toBeNull();
+    expect(
+      publicRating({
+        googlePlaceId: PLACE_ID,
+        googleRating: null,
+        googleRatingManual: { rating: 4.7, count: 440 },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("parseManualRating", () => {
+  const ok = (rating: number, count: number): Record<string, unknown> => ({
+    rating,
+    count,
+    updatedAt: new Date().toISOString(),
+  });
+
+  it("accepts one-decimal ratings in range and rejects anything else", () => {
+    expect(parseManualRating(ok(4.7, 440))).toMatchObject({ rating: 4.7, count: 440 });
+    expect(parseManualRating(ok(1, 0))).toMatchObject({ rating: 1, count: 0 });
+    expect(parseManualRating(ok(5, 10_000_000))).toMatchObject({ rating: 5, count: 10_000_000 });
+    for (const bad of [
+      null,
+      "4.7",
+      {},
+      { rating: 4.7, count: 440 },
+      { rating: 4.7, count: 440, updatedAt: "whenever" },
+      // Two decimals is not a number Google publishes — a typo, refused
+      // rather than silently rounded onto somebody's menu.
+      ok(4.65, 440),
+      ok(0.9, 10),
+      ok(5.1, 10),
+      ok(4.7, -1),
+      ok(4.7, 1.5),
+      ok(4.7, 10_000_001),
+    ]) {
+      expect(parseManualRating(bad), JSON.stringify(bad)).toBeNull();
+    }
+  });
+});
+
+describe("parseManualRatingInput", () => {
+  it("takes what an owner actually types, comma decimal included", () => {
+    expect(parseManualRatingInput("4.7", "440")).toEqual({ rating: 4.7, count: 440 });
+    // A German keyboard's own Google profile reads "4,7"; refusing it
+    // would be refusing the correct answer.
+    expect(parseManualRatingInput(" 4,7 ", " 440 ")).toEqual({ rating: 4.7, count: 440 });
+    expect(parseManualRatingInput("5", "0")).toEqual({ rating: 5, count: 0 });
+  });
+
+  it("refuses half-answers and anything that isn't a number", () => {
+    for (const [r, c] of [
+      ["", "440"],
+      ["4.7", ""],
+      ["four", "440"],
+      ["4.7", "4.4"],
+      ["4.7", "1,204"],
+      ["-4.7", "440"],
+      ["4.65", "440"],
+      ["6", "440"],
+    ]) {
+      expect(parseManualRatingInput(r!, c!), `${r}/${c}`).toBeNull();
+    }
+  });
+});
+
+describe("mapsSearchUrl", () => {
+  it("escapes the venue name into an openable Maps search", () => {
+    expect(mapsSearchUrl(" Rangla Punjab & Co ")).toBe(
+      "https://www.google.com/maps/search/?api=1&query=Rangla%20Punjab%20%26%20Co",
+    );
+  });
 });
 
 describe("isRatingStale", () => {
@@ -295,6 +444,16 @@ describe("isRatingStale", () => {
 describe("scheduleVenueRatingRefresh", () => {
   // No API key in this process, so the scheduler must refuse every case —
   // which is exactly the un-keyed deployment's behaviour: zero requests.
+  it("refuses to spend a Google call on a line nobody can see", () => {
+    expect(
+      scheduleVenueRatingRefresh("t1", "v1", {
+        googlePlaceId: PLACE_ID,
+        googleRating: null,
+        googleRatingEnabled: false,
+      }),
+    ).toBe(false);
+  });
+
   it("never schedules anything without an API key", () => {
     expect(
       scheduleVenueRatingRefresh("t1", "v1", { googlePlaceId: PLACE_ID, googleRating: null }),

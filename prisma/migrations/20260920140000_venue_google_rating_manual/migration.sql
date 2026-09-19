@@ -1,0 +1,41 @@
+-- Owner-typed Google rating, the fallback half of P7-14.
+--
+-- The fetched rating (`google_rating`, added in 20260920130000) needs a
+-- billable Places API key that most deployments of this app will never
+-- have. Without one the star line is simply absent — honest, but it also
+-- means an owner with a real 4.7 on Google has no way to show it. This
+-- column is that way: the number the owner reads off their own Google
+-- Business profile and types into Settings.
+--
+-- `{ rating, count, updatedAt }` — deliberately NOT the same shape as
+-- `google_rating`: `fetchedAt` is "when we last asked Google", while
+-- `updatedAt` is "when a human last typed this", and conflating the two
+-- would make the staleness test (which must only ever apply to the fetched
+-- cache) silently start firing on hand-entered numbers.
+--
+-- Precedence is settled in `publicRating()`: a fetched cache wins whenever
+-- it exists, because it is Google's own current answer; the manual value
+-- fills in underneath it. So an owner who types a number today and later
+-- gets an API key configured sees the live number take over by itself,
+-- with nothing to clean up.
+--
+-- Nullable with no default, like its sibling: absent IS the default state,
+-- and a `{}` default would have to be told apart from a real value on
+-- every read. No RLS work — `venues` has tenant isolation enabled, forced
+-- and policed since P1-2, and adding a column does not touch its policies.
+ALTER TABLE "venues" ADD COLUMN "google_rating_manual" JSONB;
+
+-- The owner's on/off switch for the whole line.
+--
+-- Separate from "is there a rating at all" on purpose: clearing the manual
+-- numbers or the Place ID would also lose them, and an owner who wants the
+-- star line off for a week (a bad review run, a refurbishment, a rating
+-- they dispute) should not have to retype anything to put it back. So the
+-- switch is its own column and the data it hides stays exactly where it is.
+--
+-- NOT NULL DEFAULT true because the existing behaviour IS "shown": every
+-- venue already live with a rating must keep showing it after this
+-- migration, and a nullable tri-state would only add a third case every
+-- read has to spell out. No SET NOT NULL on an existing column, so the
+-- reviewed-migration gate (P2-8) has nothing to object to.
+ALTER TABLE "venues" ADD COLUMN "google_rating_enabled" BOOLEAN NOT NULL DEFAULT true;
