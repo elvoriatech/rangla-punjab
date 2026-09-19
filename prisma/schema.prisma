@@ -561,6 +561,13 @@ model Order {
   /// no FK: round two decides the delete/restore semantics.
   voucherId     String? @map("voucher_id")
 
+  /// When the guest followed the "Rate us on Google" link for this order.
+  /// A TAP, not a review — Google never tells us whether one was written —
+  /// and the only signal we can honestly record. Set once by the tracked
+  /// redirect and never cleared; NULL means "not asked-and-answered yet",
+  /// which is what keeps the call-to-action on screen.
+  reviewClickedAt DateTime? @map("review_clicked_at")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -682,6 +689,10 @@ model Customer {
   /// Argon2id hash — only for provider "password" accounts (email sign-up);
   /// OAuth customers keep null.
   passwordHash String? @map("password_hash")
+  /// The account-level half of `Order.reviewClickedAt`: a signed-in
+  /// regular who already tapped the review link once is not asked again
+  /// from a later order. Set once by the tracked redirect, never cleared.
+  reviewClickedAt DateTime? @map("review_clicked_at")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime? @map("deleted_at")

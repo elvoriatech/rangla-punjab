@@ -409,8 +409,22 @@ export interface ApiTracking {
    * to offer one at all — it is sent only when the venue has a Place ID
    * and has not switched its rating off — so the app never assembles a
    * Maps link of its own. Null/absent ⇒ no ask.
+   *
+   * `url` is OUR OWN tracked redirect, not Google's link: it records the
+   * tap and then 302s the guest on. `prompted` is that record coming
+   * back — true once this guest has followed it, which is how the ask
+   * stops being asked. Absent (an older server, which has no tracking
+   * route either) reads as false, so those builds behave exactly as
+   * they did: the CTA simply stays.
    */
-  review?: { url: string } | null;
+  review?: ApiOrderReview | null;
+}
+
+/** The post-order review ask: where to send the guest, and whether they
+ *  have already been. */
+export interface ApiOrderReview {
+  url: string;
+  prompted: boolean;
 }
 
 export async function fetchOrderStatus(orderId: string, token: string): Promise<ApiTracking> {
@@ -436,12 +450,19 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
  * http(s) only: this string goes straight to the system browser, and an
  * app scheme arriving from the network is not something to hand the OS
  * on a guest's behalf.
+ *
+ * `prompted` is read as "true ONLY if the server said so". Anything else
+ * — absent, null, the string "true", an older server that never heard of
+ * the field — is false, i.e. "keep asking". Getting this wrong in the
+ * other direction would silently swallow the ask for every guest on a
+ * server that hasn't shipped the tracking route yet.
  */
-function asReview(raw: unknown): { url: string } | null {
+function asReview(raw: unknown): ApiOrderReview | null {
   if (!raw || typeof raw !== "object") return null;
-  const url = (raw as Record<string, unknown>).url;
-  const trimmed = typeof url === "string" ? url.trim() : "";
-  return /^https?:\/\//i.test(trimmed) ? { url: trimmed } : null;
+  const r = raw as Record<string, unknown>;
+  const trimmed = typeof r.url === "string" ? r.url.trim() : "";
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  return { url: trimmed, prompted: r.prompted === true };
 }
 
 /* ── Complaints (P7-10) ──────────────────────────────────────────────────

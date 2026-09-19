@@ -21,11 +21,14 @@ import {
   refreshVenueRating,
   refreshVenueRatingNow,
   reviewCallToAction,
+  reviewPromptFor,
   reviewUrl,
+  trackedReviewUrl,
   scheduleVenueRatingRefresh,
   searchPlaces,
   type RatingError,
 } from "./google-rating";
+import { siteUrl } from "./site-url";
 import { asTenant } from "./tenant";
 
 /**
@@ -475,6 +478,69 @@ describe("reviewCallToAction", () => {
         googleRatingEnabled: true,
       }),
     ).toMatchObject({ reviewUrl: reviewUrl(PLACE_ID) });
+  });
+});
+
+describe("reviewPromptFor — the one place the 'already asked' rule lives", () => {
+  const venue = { googlePlaceId: PLACE_ID, googleRating: cached(0) };
+  const TAPPED = new Date("2026-09-19T18:00:00.000Z");
+
+  it("is not prompted while neither the order nor the account has been tapped", () => {
+    expect(reviewPromptFor({ reviewClickedAt: null, venue })).toMatchObject({ prompted: false });
+    expect(
+      reviewPromptFor({ reviewClickedAt: null, venue }, { reviewClickedAt: null }),
+    ).toMatchObject({ prompted: false });
+    // No customer at all is the anonymous QR guest — the common case.
+    expect(reviewPromptFor({ reviewClickedAt: null, venue }, null)).toMatchObject({
+      prompted: false,
+    });
+  });
+
+  it("is prompted from EITHER side, and keeps the url live", () => {
+    // The order's own tap — all an anonymous guest can ever have.
+    const byOrder = reviewPromptFor({ reviewClickedAt: TAPPED, venue });
+    expect(byOrder).toMatchObject({ prompted: true, reviewUrl: reviewUrl(PLACE_ID) });
+
+    // The account's tap, from some other order months ago: a regular is
+    // asked once, not once per visit.
+    const byCustomer = reviewPromptFor(
+      { reviewClickedAt: null, venue },
+      {
+        reviewClickedAt: TAPPED,
+      },
+    );
+    expect(byCustomer).toMatchObject({ prompted: true });
+
+    // Prompted never nulls the link. A guest who taps, gets distracted
+    // and comes back through an old receipt must still land on the form.
+    expect(byOrder!.reviewUrl).toBe(reviewUrl(PLACE_ID));
+  });
+
+  it("stays null when there was never an ask to retire", () => {
+    // No Place ID beats everything — there is nowhere honest to send
+    // anyone, tapped or not.
+    expect(
+      reviewPromptFor({
+        reviewClickedAt: null,
+        venue: { googlePlaceId: null, googleRating: null },
+      }),
+    ).toBeNull();
+    // And the owner's switch still wins over a pending ask.
+    expect(
+      reviewPromptFor({ reviewClickedAt: null, venue: { ...venue, googleRatingEnabled: false } }),
+    ).toBeNull();
+  });
+});
+
+describe("trackedReviewUrl", () => {
+  it("is our own absolute redirect, carrying the caller's token", () => {
+    const url = trackedReviewUrl("ord_1", "tok/1+2");
+    expect(url).toBe(`${siteUrl()}/api/v1/orders/ord_1/review?token=tok%2F1%2B2`);
+    // Absolute: it goes into emails and app payloads, where a relative
+    // path means nothing.
+    expect(url.startsWith("http")).toBe(true);
+    // Never Google directly — the whole point is the hop through us.
+    expect(url).not.toContain("google.com");
   });
 });
 

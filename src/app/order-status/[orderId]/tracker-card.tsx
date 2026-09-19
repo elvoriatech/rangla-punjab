@@ -38,6 +38,7 @@ export function OrderTrackerCard({
   themeStyle,
   pauseRefresh = false,
   reviewUrl = null,
+  reviewPrompted = false,
 }: {
   order: TrackerOrder;
   locale: UiLocale;
@@ -46,11 +47,16 @@ export function OrderTrackerCard({
    *  would wipe the half-typed message, so the page asks for it to be
    *  left out while the composer is open. */
   pauseRefresh?: boolean;
-  /** Google's write-a-review form for this venue, when the owner has a
-   *  Place ID saved and the rating switched on. Null hides the ask —
-   *  and it is only ever DRAWN on a finished order, because asking a
-   *  guest to rate food that hasn't arrived is asking about a promise. */
+  /** Our tracked redirect to Google's write-a-review form, when the
+   *  owner has a Place ID saved and the rating switched on. Null hides
+   *  the ask — and it is only ever DRAWN on a finished order, because
+   *  asking a guest to rate food that hasn't arrived is asking about a
+   *  promise. */
   reviewUrl?: string | null;
+  /** This guest has already followed the link once. Asking a second time
+   *  is nagging, so the card simply stops drawing the button; the link
+   *  above stays valid for anyone who reaches it another way. */
+  reviewPrompted?: boolean;
 }): React.ReactElement {
   const t = postOrderCopy(locale);
   const steps = guestSteps(order.orderType);
@@ -207,9 +213,12 @@ export function OrderTrackerCard({
         {/* "How was it? Rate us on Google" — the one ask that only makes
             sense at the end. `done` and not cancelled: a cancelled order
             has no experience to rate, and an order still on its way has
-            not happened yet. Zero JS, one outbound link, and the new-tab
-            warning is there for anyone who can't see one open. */}
-        {isDone && !cancelled && reviewUrl ? (
+            not happened yet. Already tapped once (`reviewPrompted`) and
+            it is gone for good: we cannot know whether a review was
+            written, but we do know we already asked. Zero JS, one
+            outbound link, and the new-tab warning is there for anyone
+            who can't see one open. */}
+        {isDone && !cancelled && reviewUrl && !reviewPrompted ? (
           <div className="mt-6 rounded-xl border border-[var(--menu-surface-accent,var(--menu-accent))]/30 p-4 text-center">
             <p className="text-sm font-semibold">{t.review.title}</p>
             <a

@@ -1,0 +1,39 @@
+-- "Rate us on Google", asked once (P7-14 follow-up).
+--
+-- The owner's ask: once a guest has followed the review link, stop
+-- putting it in front of them. Google tells us NOTHING about whether a
+-- review was actually written — there is no callback, no API to ask, and
+-- the write-review form lives entirely on Google's side. So the only
+-- event we can honestly record is the one that happens on our own
+-- server: the guest TAPPED the link. These two columns are that tap and
+-- nothing more, which is why they are named for the click and not for a
+-- review.
+--
+-- Two columns rather than one because the ask has two audiences:
+--
+--   `orders.review_clicked_at`     — the anonymous guest. A receipt token
+--                                    is the only identity a QR-code diner
+--                                    ever has, so "already asked" can only
+--                                    be remembered against the order the
+--                                    token opens.
+--   `customers.review_clicked_at`  — the signed-in regular. Someone who
+--                                    reviewed us in March should not be
+--                                    asked again in April from a different
+--                                    order, so the flag is carried on the
+--                                    account and suppresses the ask on
+--                                    every order it owns.
+--
+-- Nullable timestamps, no default: NULL is "never tapped", which is the
+-- true state of every row that exists today, and a timestamp keeps the
+-- answer to "when" for free instead of throwing it away on a boolean.
+-- Both are set once and never cleared — the redirect writes only where
+-- the column is still NULL, so a guest who taps the link five times
+-- keeps the first tap's instant and the write is idempotent.
+--
+-- No RLS work: `orders` and `customers` have tenant isolation enabled,
+-- forced and policed since P1-2, and adding a column does not touch a
+-- policy. Purely additive, so the reviewed-migration gate (P2-8) has
+-- nothing to object to.
+ALTER TABLE "orders" ADD COLUMN "review_clicked_at" TIMESTAMP(3);
+
+ALTER TABLE "customers" ADD COLUMN "review_clicked_at" TIMESTAMP(3);

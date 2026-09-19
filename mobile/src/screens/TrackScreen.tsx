@@ -91,6 +91,15 @@ export function TrackScreen({
   /** The thread's status, kept in step with the sheet so the button's
    *  label and pill don't wait for the next status poll. */
   const [issueStatus, setIssueStatus] = useState<string | null>(null);
+  /**
+   * The guest has tapped "Rate us on Google" in this session. The tap's
+   * own request to our redirect is what actually records it, and the
+   * next poll brings `review.prompted: true` back — but the ask has to
+   * be gone the instant it is answered, not ten seconds later. Sticky
+   * on purpose: it is never cleared, so a poll that races the server's
+   * own write cannot make the CTA flicker back into view.
+   */
+  const [reviewTapped, setReviewTapped] = useState(false);
   const confirmedRef = useRef(confirmed);
   confirmedRef.current = confirmed;
   const reloadRef = useRef<() => void>(() => {});
@@ -398,12 +407,25 @@ export function TrackScreen({
             {/* The ask, once the meal has actually happened. Only ever
                 on a DONE order — a cancelled one has nothing to review —
                 and only when the server sent a link, which it does only
-                for a venue that set a Place ID and left its rating on. */}
-            {tracking.status === "done" && !cancelled && tracking.review ? (
+                for a venue that set a Place ID and left its rating on.
+                Asked ONCE: `prompted` (or this session's own tap) retires
+                it for good, because a guest who has already reviewed is
+                being nagged, not invited. */}
+            {tracking.status === "done" &&
+            !cancelled &&
+            tracking.review &&
+            !tracking.review.prompted &&
+            !reviewTapped ? (
               <Pressable
                 onPress={() => {
                   const url = tracking.review?.url;
-                  if (url) void Linking.openURL(url).catch(() => {});
+                  if (!url) return;
+                  // Mark it answered FIRST: the link is our own tracked
+                  // redirect, so the open is what records the tap, and
+                  // the guest should not come back to an ask they have
+                  // already acted on.
+                  setReviewTapped(true);
+                  void Linking.openURL(url).catch(() => {});
                 }}
                 accessibilityRole="link"
                 accessibilityLabel={t.reviewCta}

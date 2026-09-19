@@ -27,12 +27,15 @@ const render = (
   locale: "en" | "de" | "es" | "it" | "ar",
   pauseRefresh = false,
   reviewUrl: string | null = null,
+  reviewPrompted = false,
 ): string =>
   renderToStaticMarkup(
-    OrderTrackerCard({ order: o, locale, themeStyle: {}, pauseRefresh, reviewUrl }),
+    OrderTrackerCard({ order: o, locale, themeStyle: {}, pauseRefresh, reviewUrl, reviewPrompted }),
   );
 
-const REVIEW = "https://search.google.com/local/writereview?placeid=ChIJabc";
+/** Our tracked redirect, which is what the page hands the card now — the
+ *  hop that records the tap before forwarding to Google. */
+const REVIEW = "https://menu.example/api/v1/orders/ord_1/review?token=tok_1";
 
 /** React escapes apostrophes in text nodes ("Com'è" → "Com&#x27;è"), so
  *  copy with one has to be escaped the same way before being looked for. */
@@ -134,6 +137,19 @@ describe("order tracker", () => {
     const noLink = render({ ...order, status: "done" }, "en");
     expect(noLink).not.toContain(POST_ORDER_COPY.en.review.cta);
     expect(noLink).not.toContain(POST_ORDER_COPY.en.review.title);
+  });
+
+  it("retires the ask once the guest has already followed it", () => {
+    // Google tells us nothing about whether a review was written, so the
+    // tap is all we know — and it is enough to stop asking. Nothing of
+    // the block survives: no heading, no button, no link.
+    const asked = render({ ...order, status: "done" }, "en", false, REVIEW, true);
+    expect(asked).not.toContain(POST_ORDER_COPY.en.review.cta);
+    expect(asked).not.toContain(POST_ORDER_COPY.en.review.title);
+    expect(asked).not.toContain(REVIEW);
+    // Everything else about a finished order is untouched.
+    expect(asked).toContain("Butter Chicken");
+    expect(asked).toContain(POST_ORDER_COPY.en.backToMenu);
   });
 
   it("drops the refresh — and the promise of one — while a complaint is being written", () => {

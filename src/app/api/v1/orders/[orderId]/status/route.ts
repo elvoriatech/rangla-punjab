@@ -4,7 +4,7 @@ import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getOrderTracking } from "@/lib/order-service";
 import { guestSteps, isCancelledStatus, statusChain, stepIndex } from "@/lib/order-status";
 import { getGuestIssueState } from "@/lib/issue-service";
-import { reviewCallToAction } from "@/lib/google-rating";
+import { reviewPromptFor, trackedReviewUrl } from "@/lib/google-rating";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 
 /**
@@ -45,7 +45,7 @@ export async function GET(
   // the owner hasn't switched the rating off — independent of the
   // order's status, because WHEN to ask is the client's decision (the
   // app shows it on a finished order, same as the web tracker).
-  const review = reviewCallToAction(order.venue);
+  const review = reviewPromptFor(order, order.customer);
   return withCors(
     NextResponse.json(
       {
@@ -104,12 +104,24 @@ export async function GET(
           ? { status: issueState.issue.status, updatedAt: issueState.issue.updatedAt }
           : null,
         canReport: issueState?.canReport ?? false,
-        // One field, one key: the write-a-review URL and nothing else.
-        // The rating NUMBER already reaches the app through the menu
-        // payload, and a second copy here would be a second thing to
-        // keep in step. Null = no Place ID, or the owner switched the
-        // rating off: draw no call-to-action at all.
-        review: review ? { url: review.reviewUrl } : null,
+        // The write-a-review ask, in two fields. The rating NUMBER is
+        // deliberately still absent — it reaches the app through the menu
+        // payload, and a second copy here would be a second thing to keep
+        // in step. Null = no Place ID, or the owner switched the rating
+        // off: draw no call-to-action at all.
+        //
+        // `url` is OUR tracked redirect, not Google's form: following it
+        // is how the tap gets recorded (Google never tells us whether a
+        // review was written). It carries the caller's own token, so it
+        // grants nothing the caller didn't already hold.
+        //
+        // `prompted` is "they already tapped it" — hide the button. The
+        // url stays live underneath on purpose: a guest who taps, gets
+        // distracted and comes back through an old receipt must still
+        // land on the review form rather than a dead link.
+        review: review
+          ? { url: trackedReviewUrl(order.id, token), prompted: review.prompted }
+          : null,
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
     ),

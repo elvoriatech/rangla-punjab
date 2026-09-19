@@ -34,6 +34,15 @@ export function OrdersScreen({
   const { t, lang } = useI18n();
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [status, setStatus] = useState<Record<string, ApiTracking>>({});
+  /**
+   * Orders whose review ask this session has already answered, by id.
+   * The tap opens our own tracked redirect, which is what records it
+   * server-side and comes back as `review.prompted` on the next lookup
+   * — but the CTA has to vanish on the tap, not on the refetch. Never
+   * cleared, so a lookup that races the server's write can't bring the
+   * ask back onto a card the guest just acted on.
+   */
+  const [reviewTapped, setReviewTapped] = useState<Record<string, boolean>>({});
   const load = useCallback(() => {
     void listStoredOrders().then(setOrders);
   }, []);
@@ -241,12 +250,20 @@ export function OrdersScreen({
                         resolves to this inner press. */}
                     {/* Same ask as the tracking screen, on the card the
                         guest is already looking at. Done orders only,
-                        and only when the server offered a link. */}
-                    {s?.status === "done" && !cancelled && s?.review ? (
+                        only when the server offered a link, and only
+                        while it is still unanswered — one tap (here or
+                        on the tracking screen) retires it. */}
+                    {s?.status === "done" &&
+                    !cancelled &&
+                    s?.review &&
+                    !s.review.prompted &&
+                    !reviewTapped[order.orderId] ? (
                       <Text
                         onPress={() => {
                           const url = s.review?.url;
-                          if (url) void Linking.openURL(url).catch(() => {});
+                          if (!url) return;
+                          setReviewTapped((prev) => ({ ...prev, [order.orderId]: true }));
+                          void Linking.openURL(url).catch(() => {});
                         }}
                         suppressHighlighting
                         accessibilityRole="link"

@@ -780,6 +780,14 @@ export interface OrderTracking {
   requestedFor: Date | null;
   createdAt: Date;
   tableNumber: string | null;
+  /** When this order's guest followed the "Rate us on Google" link. Null
+   *  = never — which is what keeps the ask on screen. */
+  reviewClickedAt: Date | null;
+  /** The account behind the order, when there is one, carrying its own
+   *  copy of the same flag: a signed-in regular who already tapped the
+   *  link on an earlier order must not be asked again on this one. Null
+   *  for an anonymous QR guest, who has only the order's own flag. */
+  customer: { reviewClickedAt: Date | null } | null;
   items: { name: string; quantity: number; priceCents: number; basePriceCents: number | null }[];
   /** The rating columns ride along so the "rate us on Google" ask costs
    *  no second query — they are exactly `VenueRatingRow`, which
@@ -815,6 +823,8 @@ export async function getOrderTracking(
         requestedFor: true,
         createdAt: true,
         tableNumber: true,
+        reviewClickedAt: true,
+        customer: { select: { reviewClickedAt: true } },
         items: {
           select: { name: true, quantity: true, priceCents: true, basePriceCents: true },
           orderBy: { createdAt: "asc" },

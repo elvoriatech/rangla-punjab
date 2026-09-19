@@ -8,7 +8,7 @@ import { isLocaleCode, uiLocale } from "@/lib/locales";
 import { isOpenStatus } from "@/lib/order-status";
 import { asTenant } from "@/lib/tenant";
 import { getGuestIssueState } from "@/lib/issue-service";
-import { reviewCallToAction } from "@/lib/google-rating";
+import { reviewPromptFor, trackedReviewUrl } from "@/lib/google-rating";
 import { OrderTrackerCard } from "./tracker-card";
 import { IssueSection } from "./issue-section";
 import { reportIssueAction } from "./actions";
@@ -92,16 +92,23 @@ export default async function OrderStatusPage({
   // not need a second one.
   const issueState = await getGuestIssueState(claim.tenantId, orderId);
 
+  // Free of charge: the rating columns and both "already tapped" flags
+  // came back with the order row the tracker already reads. The link is
+  // our own tracked redirect — following it is the only way we ever
+  // learn that the guest acted on the ask — and it carries this page's
+  // own token, so it grants nothing extra.
+  const review = reviewPromptFor(order, order.customer);
+
   return (
     <>
       <OrderTrackerCard
         locale={locale}
         themeStyle={themeStyle}
         pauseRefresh={composing}
-        // Free of charge: the rating columns came back with the venue
-        // row the tracker already reads. The card decides whether the
-        // order is finished enough to show it.
-        reviewUrl={reviewCallToAction(order.venue)?.reviewUrl ?? null}
+        // The card decides whether the order is finished enough to show
+        // it; `reviewPrompted` is what retires the ask once and for all.
+        reviewUrl={review ? trackedReviewUrl(orderId, token) : null}
+        reviewPrompted={review?.prompted ?? false}
         order={{
           orderNumber: order.orderNumber,
           status: order.status,

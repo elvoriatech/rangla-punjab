@@ -5,7 +5,7 @@ import { getOrderForReceipt } from "./order-service";
 import { signReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
 import { uiLocale } from "./locales";
-import { venueReviewLink } from "./google-rating";
+import { trackedReviewUrl, venueReviewLink } from "./google-rating";
 import { ReceiptEmail, receiptSubject } from "@/emails/receipt-email";
 
 const log = createLogger();
@@ -38,6 +38,16 @@ export async function sendReceiptEmailForOrder(
     // experience — so this stays a quiet secondary button rather than a
     // headline ask. Null (no Place ID, or the owner switched the rating
     // off) simply leaves it out.
+    //
+    // The link is our tracked redirect, which records the tap and then
+    // forwards to Google. The "asked once" rule that hides the button on
+    // the tracker, the account page and the app deliberately does NOT
+    // apply here: an email is a fixed artefact sent before anyone has
+    // tapped anything, it cannot learn about a later tap, and a receipt
+    // that silently dropped its button would be the owner's ask made
+    // worse rather than better. The button is always there when the
+    // venue has a review URL; the redirect keeps the count honest either
+    // way, because a second tap is a no-op.
     const review = order.venueId ? await venueReviewLink(tenantId, order.venueId) : null;
 
     await sendEmail({
@@ -48,7 +58,7 @@ export async function sendReceiptEmailForOrder(
         locale,
         receiptUrl,
         trackUrl,
-        reviewUrl: review?.reviewUrl ?? null,
+        reviewUrl: review ? trackedReviewUrl(order.id, token) : null,
       }),
     });
     log.info("receipt.emailed", { orderId, tenantId, paid: order.paymentStatus === "paid" });

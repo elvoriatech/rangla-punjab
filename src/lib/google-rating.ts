@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { env } from "./env";
 import { createLogger } from "./logger";
 import { captureException } from "./observability";
+import { siteUrl } from "./site-url";
 import { asTenant, asTenantRead } from "./tenant";
 
 const log = createLogger();
@@ -620,6 +621,71 @@ export async function venueReviewLink(
     captureException(err, { tenantId, venueId, where: "google-rating-review-link" });
     return null;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* "Asked once" — the review tap                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Our own tracked redirect, which is what every "rate us" button points
+ * at now instead of Google directly.
+ *
+ * The indirection buys exactly one thing, and it is the thing the owner
+ * asked for: Google never tells us whether a review was written, so the
+ * only moment we can observe is the guest leaving OUR page for theirs.
+ * A redirect we serve is that moment. The link carries the caller's own
+ * receipt token — we never mint one — so it grants precisely the
+ * permission whoever holds it already had.
+ */
+export function trackedReviewUrl(orderId: string, token: string): string {
+  return `${siteUrl()}/api/v1/orders/${encodeURIComponent(orderId)}/review?token=${encodeURIComponent(token)}`;
+}
+
+/** A row that knows whether its guest has already followed the ask. */
+export interface ReviewClickState {
+  reviewClickedAt: Date | null;
+}
+
+/** {@link ReviewLink} plus the one bit a client needs to decide whether
+ *  to DRAW the ask. The url stays valid either way — see below. */
+export interface ReviewPrompt extends ReviewLink {
+  /**
+   * The guest has already tapped the link (on this order, or — when
+   * they are signed in — on any order of theirs). Hide the
+   * call-to-action.
+   *
+   * Deliberately a flag next to a live url rather than a null: a link
+   * the guest already followed must keep WORKING (a bookmarked receipt,
+   * a second tap from the same email, the back button), it just stops
+   * being advertised. Nulling the url would turn "already asked" into a
+   * dead link, which is a worse answer to a guest who genuinely wants to
+   * go back and finish the review.
+   */
+  prompted: boolean;
+}
+
+/**
+ * The single place the "already reviewed" rule lives.
+ *
+ * Two inputs, OR'd: the order's own tap (all an anonymous QR guest can
+ * ever have — the receipt token is their whole identity) and the
+ * customer's (so a signed-in regular who reviewed us in March is not
+ * asked again in April from a different order).
+ *
+ * What it deliberately does NOT claim: that a review was written. Google
+ * publishes no signal for that, so `prompted` means "we have already put
+ * this in front of them and they acted on it", and asking twice is the
+ * failure we are avoiding — not an unwritten review.
+ */
+export function reviewPromptFor(
+  order: ReviewClickState & { venue: VenueRatingRow },
+  customer?: ReviewClickState | null,
+): ReviewPrompt | null {
+  const link = reviewCallToAction(order.venue);
+  if (!link) return null;
+  const prompted = order.reviewClickedAt !== null || (customer?.reviewClickedAt ?? null) !== null;
+  return { ...link, prompted };
 }
 
 /** Older than the TTL, or never read at all. */

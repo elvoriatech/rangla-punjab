@@ -3,9 +3,10 @@ import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { signupUser } from "@/lib/auth-service";
 import { prisma } from "@/lib/db";
-import { reviewUrl } from "@/lib/google-rating";
+import { trackedReviewUrl } from "@/lib/google-rating";
 import { placeOrder } from "@/lib/order-service";
 import { asTenant } from "@/lib/tenant";
+import { GET as REVIEW_GET } from "../review/route";
 import { GET } from "./route";
 
 /**
@@ -14,15 +15,19 @@ import { GET } from "./route";
  *
  * The rest of this endpoint is covered from the complaint test next
  * door; what is asserted here is the one thing a client must be able to
- * trust: `review.url` is Google's own write-a-review form or the field
- * is null. Never a Maps search, never a link the owner switched off.
+ * trust: `review.url` is OUR tracked redirect — which lands on Google's
+ * own write-a-review form — or the field is null. Never a Maps search,
+ * never a link the owner switched off.
+ *
+ * `prompted` is the second half: it flips once the guest actually
+ * follows the redirect, and the url keeps working afterwards.
  */
 
 const PLACE_ID = "ChIJN1t_tDeuEmsRUsoyG83frY4";
 
 interface StatusBody {
   ok: boolean;
-  review?: { url: string } | null;
+  review?: { url: string; prompted: boolean } | null;
   order?: { id: string; status: string };
 }
 
@@ -122,12 +127,15 @@ describe("/api/v1/orders/{id}/status — review link", () => {
     expect((await status()).review).toBeNull();
   });
 
-  it("carries Google's own write-review url once a Place ID is saved", async () => {
+  it("carries our tracked redirect once a Place ID is saved", async () => {
     await setVenue({ googlePlaceId: PLACE_ID });
     const body = await status();
-    expect(body.review).toEqual({ url: reviewUrl(PLACE_ID) });
+    expect(body.review).toEqual({ url: trackedReviewUrl(orderId, token), prompted: false });
     // The whole field, so a client can't come to depend on anything else.
-    expect(Object.keys(body.review!)).toEqual(["url"]);
+    expect(Object.keys(body.review!)).toEqual(["url", "prompted"]);
+    // The caller's OWN token is echoed back — we never mint one, so the
+    // link grants exactly what whoever holds it already had.
+    expect(body.review!.url).toContain(encodeURIComponent(token));
     // And the order itself is untouched by any of this.
     expect(body.order).toMatchObject({ id: orderId, status: "placed" });
   });
@@ -136,6 +144,24 @@ describe("/api/v1/orders/{id}/status — review link", () => {
     await setVenue({ googleRatingEnabled: false });
     expect((await status()).review).toBeNull();
     await setVenue({ googleRatingEnabled: true });
-    expect((await status()).review).toEqual({ url: reviewUrl(PLACE_ID) });
+    expect((await status()).review).toEqual({
+      url: trackedReviewUrl(orderId, token),
+      prompted: false,
+    });
+  });
+
+  it("flips `prompted` once the guest has actually followed the redirect", async () => {
+    // Follow the very link the payload just handed out.
+    const redirect = await REVIEW_GET(
+      new NextRequest(trackedReviewUrl(orderId, token), { headers: { "x-forwarded-for": ip } }),
+      { params: Promise.resolve({ orderId }) },
+    );
+    expect(redirect.status).toBe(302);
+
+    const body = await status();
+    // The ask is spent — but the url is deliberately still live, so a
+    // guest who taps, gets distracted and comes back through an old
+    // receipt lands on the review form instead of a dead link.
+    expect(body.review).toEqual({ url: trackedReviewUrl(orderId, token), prompted: true });
   });
 });

@@ -12,7 +12,7 @@ import { formatPrice } from "@/lib/public-menu";
 import { getLoyaltySummary } from "@/lib/loyalty-service";
 import { listCustomerReservations } from "@/lib/reservation-service";
 import { postOrderCopy } from "@/lib/i18n/post-order";
-import { reviewCallToAction } from "@/lib/google-rating";
+import { reviewPromptFor, trackedReviewUrl } from "@/lib/google-rating";
 import { dirFor, isLocaleCode, uiLocale } from "@/lib/locales";
 import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } from "./actions";
 
@@ -76,6 +76,11 @@ export default async function AccountPage({
               totalCents: true,
               currency: true,
               createdAt: true,
+              // The "rate us" ask is retired per order AND per account —
+              // both flags ride along with the rows the list already
+              // reads, so the link costs no extra query.
+              reviewClickedAt: true,
+              customer: { select: { reviewClickedAt: true } },
             },
           }),
         )
@@ -117,9 +122,6 @@ export default async function AccountPage({
     isLocaleCode(localeParam) ? localeParam : (venueRow?.defaultLocale ?? null),
   );
   const t = postOrderCopy(locale);
-  // Null unless the owner saved a Place ID and left the rating switched
-  // on. Only `done` rows offer it — see the row below.
-  const reviewUrl = venueRow ? (reviewCallToAction(venueRow)?.reviewUrl ?? null) : null;
   const rateLabel = t.review.short;
   // The reset pages keep the app's deep link alive across the round trip,
   // so a guest who started in the app lands back in it. Allow-listed here
@@ -453,6 +455,11 @@ export default async function AccountPage({
             <ul className="mt-4 divide-y divide-ink/10 border border-ink/15 bg-card">
               {orders.map((o) => {
                 const t = context ? signReceiptToken(o.id, context.tenantId) : "";
+                // Null unless the owner saved a Place ID and left the
+                // rating switched on; `prompted` once this guest tapped.
+                const review = venueRow
+                  ? reviewPromptFor({ ...o, venue: venueRow }, o.customer)
+                  : null;
                 return (
                   <li
                     key={o.id}
@@ -481,11 +488,14 @@ export default async function AccountPage({
                         Beleg
                       </a>
                       {/* Finished orders only: there is an experience to
-                          rate. Same destination as the tracker's CTA. */}
-                      {o.status === "done" && reviewUrl ? (
+                          rate. Same destination as the tracker's CTA —
+                          our tracked redirect, carrying this row's own
+                          receipt token — and it disappears for good once
+                          this guest has followed it anywhere. */}
+                      {o.status === "done" && review && !review.prompted ? (
                         <a
                           className="underline underline-offset-2"
-                          href={reviewUrl}
+                          href={trackedReviewUrl(o.id, t)}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

@@ -264,6 +264,53 @@ describe.runIf(env.EMAIL_TRANSPORT === "mailhog")("receipt email delivery", () =
       .map((m) => ({ subject: m.Content.Headers.Subject?.[0] ?? "", body: m.Content.Body }));
   }
 
+  /** MailHog hands back the raw quoted-printable body, where every "="
+   *  is `=3D` and long lines are broken with a trailing "=". A URL is the
+   *  one thing that survives neither, so decode before looking for one. */
+  function decodeQp(body: string): string {
+    return body
+      .replace(/=\r?\n/g, "")
+      .replace(/=([0-9A-F]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+  }
+
+  it("always carries the Rate-us button — even for an order already tapped through", async () => {
+    const fx = await fixture();
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({
+        where: { id: fx.venueId },
+        data: { googlePlaceId: "ChIJN1t_tDeuEmsRUsoyG83frY4" },
+      }),
+    );
+    const to = `reviewed-${randomUUID()}@ex.com`;
+    const placed = await placeOrder(fx, {
+      items: [{ itemId: fx.itemId, quantity: 1 }],
+      customerEmail: to,
+    });
+    if (!placed.ok) throw new Error("order failed");
+
+    // The guest has ALREADY followed the review link once. On the
+    // tracker, the account page and the app that retires the ask — but
+    // a receipt is a fixed artefact, sent before anyone tapped anything
+    // and unable to learn about a later tap, so the button stays. The
+    // owner's rule is explicit about this: the email always offers it.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.order.updateMany({
+        where: { id: placed.value.orderId },
+        data: { reviewClickedAt: new Date() },
+      }),
+    );
+
+    expect(await sendReceiptEmailForOrder(fx.tenantId, placed.value.orderId)).toEqual({
+      sent: true,
+    });
+    const body = decodeQp((await mailFor(to))[0]!.body);
+    // And it points at OUR tracked redirect, not at Google directly —
+    // that hop is the only way a tap is ever observed.
+    expect(body).toContain(`/api/v1/orders/${placed.value.orderId}/review?token=`);
+    expect(body).not.toContain("search.google.com/local/writereview");
+    expect(body).toContain("Bewerten Sie uns bei Google");
+  });
+
   it("mails the receipt to the guest's address; skips silently when none was given", async () => {
     const fx = await fixture();
     const to = `guest-${randomUUID()}@ex.com`;
