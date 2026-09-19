@@ -1,26 +1,64 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fonts, logo, money, radius } from "./theme";
+import { colors, fonts, isRTL, logo, money, radius } from "./theme";
 import { ALLERGEN_ICONS, DIET_ICONS, useI18n } from "./i18n";
 import type { ApiItem } from "./api";
 
-/** Red screen header with the brand mark — the mockup's top bar. */
+/**
+ * Red screen header with the brand mark — the mockup's top bar.
+ *
+ * The two optional slots belong to RESTAURANT MODE: a burger at the end
+ * that opens the owner's menu, and a back arrow in place of the logo on
+ * the screens that aren't tabs. A guest build passes neither, so the bar
+ * is exactly the mockup's.
+ */
 export function BrandHeader({
   title,
   subtitle,
+  onMenu,
+  onBack,
 }: {
   title: string;
   subtitle?: string;
+  onMenu?: () => void;
+  onBack?: () => void;
 }): React.ReactElement {
+  const { t } = useI18n();
   return (
     <View style={styles.header}>
-      <Image source={logo} style={styles.headerLogo} />
+      {onBack ? (
+        <Pressable
+          onPress={onBack}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t.back}
+          style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
+        >
+          {/* Ionicons don't mirror themselves: pick the arrow that points
+              "back" in the current reading direction. */}
+          <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={22} color={colors.onRed} />
+        </Pressable>
+      ) : (
+        <Image source={logo} style={styles.headerLogo} />
+      )}
       <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>{title}</Text>
         {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
       </View>
-      <View style={{ width: 40 }} />
+      {onMenu ? (
+        <Pressable
+          onPress={onMenu}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t.ownerMenuOpen}
+          style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
+        >
+          <Ionicons name="menu" size={26} color={colors.onRed} />
+        </Pressable>
+      ) : (
+        <View style={{ width: 40 }} />
+      )}
     </View>
   );
 }
@@ -269,6 +307,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
+  /** Same 40pt footprint as the logo, so swapping either slot in or out
+   *  never shifts the title off centre. */
+  headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle: { color: colors.onRed, fontSize: 20, ...fonts.display },
   headerSubtitle: {

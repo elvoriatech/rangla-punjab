@@ -15,7 +15,7 @@ import {
 import * as ExpoLinking from "expo-linking";
 import type { ApiMenu, OrderType, PlacedOrder } from "../api";
 import { payPageUrl, placeOrder, setVoucherArmed, startHostedPayment, verifyPayment } from "../api";
-import { confirmFakePayment, openPayPage, payWithCard } from "../payments";
+import { confirmFakePayment, openPayPage, payWithCard, payWithPaypal } from "../payments";
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
@@ -358,10 +358,11 @@ export function CartScreen({
     };
 
     if (payMethod === "paypal") {
-      // PayPal's button lives on our web pay page; the in-app browser
-      // closes itself when that page returns to the deep link.
+      // Straight into PayPal: the server starts the payment and the
+      // in-app browser opens on the approve page, then closes itself the
+      // moment the return leg bounces back to the deep link.
       setPlacing({ order, step: "opening", rewardFailed });
-      await openPayPage(payPageUrl(order.orderId, order.receiptToken, deepLink), deepLink);
+      await payWithPaypal(order.orderId, order.receiptToken);
       done();
       return;
     }

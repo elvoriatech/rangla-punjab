@@ -359,6 +359,13 @@ model Item {
   flags         Json       @default("{}")
   photoMediaId  String?    @map("photo_media_id")
 
+  /// The DRAFT item this row was deep-copied from at publish time. Set on
+  /// every published copy (and back-filled onto the published rows when a
+  /// draft is forked from them), so an edit made in the restaurant's app can
+  /// reach BOTH halves of the pair and go live without a publish. NULL on
+  /// draft rows, and on published rows whose twin could not be identified.
+  sourceItemId  String?    @map("source_item_id")
+
   /// A reduced FIXED price ("Angebot"), valid inside the optional date range
   /// and/or the optional weekly venue-local window. Lives ON the item because
   /// publish deep-copies the tree with fresh ids. CHECK: 0 < offer < price.
@@ -379,6 +386,7 @@ model Item {
 
   @@index([tenantId])
   @@index([categoryId])
+  @@index([sourceItemId])
   @@map("items")
 }
 

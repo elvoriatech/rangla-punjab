@@ -9,15 +9,21 @@ import { dirFor, uiLocale } from "@/lib/locales";
  *
  * `to` is the raw query value on purpose — the sanitizer lives inside the
  * component, so there is no way to render this with an unchecked link.
+ *
+ * `status` is the payment outcome when the PayPal return leg sent the
+ * guest here; it replaces the sign-in heading with the settled state, so
+ * the one line they read in passing is the one that is true.
  */
 export function AppReturnView({
   to,
   locale: localeCode,
   venueName,
+  status = null,
 }: {
   to: string | null | undefined;
   locale: string;
   venueName: string | null;
+  status?: "success" | "failed" | null;
 }): React.ReactElement {
   const deepLink = sanitizeAppReturnUrl(to);
   const locale = uiLocale(localeCode);
@@ -39,7 +45,9 @@ export function AppReturnView({
             {venueName}
           </p>
         ) : null}
-        <h1 className="mt-2 font-serif text-3xl leading-tight">{t.signedIn}</h1>
+        <h1 className="mt-2 font-serif text-3xl leading-tight">
+          {status === "success" ? t.paid : status === "failed" ? t.payFailed : t.signedIn}
+        </h1>
         {deepLink ? (
           <a
             href={deepLink}

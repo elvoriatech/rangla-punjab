@@ -9,8 +9,14 @@ import { AppReturnView } from "./app-return-view";
  * allow-list holding.
  */
 
-const render = (to: string | null | undefined, locale = "en"): string =>
-  renderToStaticMarkup(<AppReturnView to={to} locale={locale} venueName="Rangla Punjab" />);
+const render = (
+  to: string | null | undefined,
+  locale = "en",
+  status: "success" | "failed" | null = null,
+): string =>
+  renderToStaticMarkup(
+    <AppReturnView to={to} locale={locale} venueName="Rangla Punjab" status={status} />,
+  );
 
 describe("<AppReturnView>", () => {
   it("hands the browser back to the app three ways", () => {
@@ -51,6 +57,19 @@ describe("<AppReturnView>", () => {
 
     expect(html).not.toContain("location.replace");
     expect(html).toContain("You can close this window.");
+  });
+
+  it("says how the payment went when the PayPal return leg sent the guest here", () => {
+    const paid = render("ranglapunjab://payment-return", "en", "success");
+    expect(paid).toContain("Paid ✓");
+    expect(paid).not.toContain("You&#x27;re signed in");
+    expect(paid).toContain('href="ranglapunjab://payment-return"');
+
+    const failed = render("ranglapunjab://payment-return", "en", "failed");
+    expect(failed).toContain("Payment didn&#x27;t go through");
+
+    // The sign-in trip has no status, and keeps its own heading.
+    expect(render("ranglapunjab://auth-return")).toContain("You&#x27;re signed in");
   });
 
   it("speaks the venue's language, and turns the page around for RTL", () => {

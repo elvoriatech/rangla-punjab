@@ -6,10 +6,18 @@ import { siteUrl } from "@/lib/site-url";
 
 /**
  * PayPal return leg. The guest approved (or the fake short-circuited);
- * we capture server-side and bounce to the pay page in the settled
- * state. Capture is idempotent — refreshing this URL cannot double-pay.
- * The receipt token in `t` is the authorization, exactly like every
- * other anonymous order surface.
+ * we capture server-side and bounce onwards in the settled state.
+ * Capture is idempotent — refreshing this URL cannot double-pay. The
+ * receipt token in `t` is the authorization, exactly like every other
+ * anonymous order surface.
+ *
+ * Where "onwards" is depends on who started the payment:
+ *   - from the app (`app=` carries its deep link): the hand-over page
+ *     `/auth/app-return`, which throws the browser straight back into
+ *     the app. The app was never showing our pay page — it opened
+ *     PayPal directly — so bouncing back to it would be a dead end the
+ *     guest has to tap out of.
+ *   - from the web: the pay page, in its settled state, as before.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const orderId = req.nextUrl.searchParams.get("orderId") ?? "";
@@ -20,11 +28,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const result = await finalizePayPalReturn(verified.tenantId, orderId);
+  const status = result.paid ? "success" : "failed";
   const app = sanitizeAppReturnUrl(req.nextUrl.searchParams.get("app"));
-  const appParam = app ? `&app=${encodeURIComponent(app)}` : "";
+  if (app) {
+    return NextResponse.redirect(
+      `${siteUrl()}/auth/app-return?to=${encodeURIComponent(app)}&status=${status}`,
+      303,
+    );
+  }
   const payPage = `${siteUrl()}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}`;
-  return NextResponse.redirect(
-    `${payPage}&status=${result.paid ? "success" : "failed"}${appParam}`,
-    303,
-  );
+  return NextResponse.redirect(`${payPage}&status=${status}`, 303);
 }

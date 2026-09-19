@@ -1,14 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
 import type { ApiMenu, ApiItem } from "../api";
+import { useAuth } from "../auth";
+import type { StaffOrdering } from "../staff";
+import { fetchStaffOrdering, updateStaffOrdering } from "../staff";
 import { BrandHeader, DishRow, SectionTitle } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 import { fill, useI18n } from "../i18n";
@@ -94,6 +98,8 @@ export function HomeScreen({
   onBrowseAll,
   onStartOrder,
   onOpenAccount,
+  onOpenOwnerMenu,
+  onMenuChanged,
 }: {
   menu: ApiMenu;
   onAdd: (item: ApiItem) => void;
@@ -102,8 +108,15 @@ export function HomeScreen({
   onStartOrder: (type: "takeaway" | "delivery") => void;
   /** Switches to the Account tab, where the Rewards card lives. */
   onOpenAccount: () => void;
+  /** Restaurant mode only: opens the burger's sheet. */
+  onOpenOwnerMenu?: () => void;
+  /** Turning a service off changes the published menu — the shell
+   *  refetches it so every screen agrees. */
+  onMenuChanged?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  const { staffToken } = useAuth();
+  const restaurant = staffToken !== null;
   // Signed out, programme off, or nothing won yet ⇒ no banner at all.
   const { loyalty } = useLoyalty(menu.loyalty?.enabled);
   const voucher = headlineVoucher(loyalty);
@@ -115,30 +128,37 @@ export function HomeScreen({
     .slice(0, 6);
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title={menu.venue.name} subtitle={t.restaurant} />
+      <BrandHeader title={menu.venue.name} subtitle={t.restaurant} onMenu={onOpenOwnerMenu} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <HeroCarousel text={t.heroLine} />
 
-        <View style={styles.modeRow}>
-          {menu.ordering.delivery ? (
-            <Pressable style={styles.modeCard} onPress={() => onStartOrder("delivery")}>
-              <Text style={styles.modeEmoji}>🛵</Text>
-              <Text style={styles.modeTitle}>{t.delivery}</Text>
-              <Text style={styles.modeSub}>{t.deliverySub}</Text>
-            </Pressable>
-          ) : null}
-          {menu.ordering.takeaway ? (
-            <Pressable style={styles.modeCard} onPress={() => onStartOrder("takeaway")}>
-              <Text style={styles.modeEmoji}>🛍️</Text>
-              <Text style={styles.modeTitle}>{t.pickup}</Text>
-              <Text style={styles.modeSub}>{t.pickupSub}</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        {/* The counter's own controls: which services are taking orders
+            right now. Guests never see this — they see the RESULT, as
+            entry points that are simply there or not. */}
+        {restaurant ? <ServiceSwitches onChanged={onMenuChanged} /> : null}
+
+        {restaurant ? null : (
+          <View style={styles.modeRow}>
+            {menu.ordering.delivery ? (
+              <Pressable style={styles.modeCard} onPress={() => onStartOrder("delivery")}>
+                <Text style={styles.modeEmoji}>🛵</Text>
+                <Text style={styles.modeTitle}>{t.delivery}</Text>
+                <Text style={styles.modeSub}>{t.deliverySub}</Text>
+              </Pressable>
+            ) : null}
+            {menu.ordering.takeaway ? (
+              <Pressable style={styles.modeCard} onPress={() => onStartOrder("takeaway")}>
+                <Text style={styles.modeEmoji}>🛍️</Text>
+                <Text style={styles.modeTitle}>{t.pickup}</Text>
+                <Text style={styles.modeSub}>{t.pickupSub}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        )}
 
         {/* Table booking sits with the other ways to eat here — hidden
             entirely when the restaurant switched reservations off. */}
-        {menu.ordering.reservations ? (
+        {menu.ordering.reservations && !restaurant ? (
           <Pressable style={styles.reserveCard} onPress={() => setReserveOpen(true)}>
             <TableForGuestsIcon size={30} />
             <View style={{ flex: 1 }}>
@@ -191,14 +211,18 @@ export function HomeScreen({
           ))}
         </ScrollView>
 
-        <SectionTitle action={t.showAll} onAction={onBrowseAll}>
-          {t.popular}
-        </SectionTitle>
-        <View style={{ gap: 10 }}>
-          {popular.map((item) => (
-            <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
-          ))}
-        </View>
+        {restaurant ? null : (
+          <>
+            <SectionTitle action={t.showAll} onAction={onBrowseAll}>
+              {t.popular}
+            </SectionTitle>
+            <View style={{ gap: 10 }}>
+              {popular.map((item) => (
+                <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
       <ReserveSheet menu={menu} visible={reserveOpen} onClose={() => setReserveOpen(false)} />
       <DishSheet item={openDish} onClose={() => setOpenDish(null)} onAdd={onAdd} />
@@ -206,8 +230,138 @@ export function HomeScreen({
   );
 }
 
+/**
+ * Pickup and delivery, as two switches the counter can reach in a second
+ * — "the driver's off sick" is a thing that happens mid-service, and the
+ * alternative is the owner finding a laptop.
+ *
+ * Both default ON: an older server that doesn't answer has turned
+ * nothing off, and showing a service as dead when it isn't would cost
+ * orders. Dine-in is deliberately absent — that is the QR menu on the
+ * table, not something this screen switches.
+ */
+function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.ReactElement {
+  const { t } = useI18n();
+  const { staffToken, clearStaff } = useAuth();
+  const [ordering, setOrdering] = useState<StaffOrdering>({
+    dineIn: true,
+    takeaway: true,
+    delivery: true,
+  });
+  const [busy, setBusy] = useState<"takeaway" | "delivery" | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!staffToken) return;
+    let alive = true;
+    void fetchStaffOrdering(staffToken).then((res) => {
+      if (!alive) return;
+      if (res.ok) setOrdering(res.data);
+      else if (res.error === "unauthorized") clearStaff();
+      // Anything else: keep the optimistic "both on" — the switches still
+      // work, and the first successful PATCH re-syncs them.
+    });
+    return () => {
+      alive = false;
+    };
+  }, [staffToken, clearStaff]);
+
+  const toggle = useCallback(
+    async (key: "takeaway" | "delivery", next: boolean): Promise<void> => {
+      if (!staffToken || busy) return;
+      const before = ordering;
+      setBusy(key);
+      setFailed(false);
+      setOrdering({ ...ordering, [key]: next });
+      const res = await updateStaffOrdering(staffToken, { [key]: next });
+      setBusy(null);
+      if (!res.ok) {
+        setOrdering(before);
+        if (res.error === "unauthorized") clearStaff();
+        else setFailed(true);
+        return;
+      }
+      setOrdering(res.data);
+      onChanged?.();
+    },
+    [staffToken, busy, ordering, clearStaff, onChanged],
+  );
+
+  return (
+    <View style={styles.serviceCard}>
+      <Text style={styles.serviceTitle}>{t.staffOrderingTitle}</Text>
+      <View style={styles.serviceRow}>
+        <ServiceSwitch
+          emoji="🛍️"
+          label={t.pickup}
+          value={ordering.takeaway}
+          busy={busy === "takeaway"}
+          onChange={(next) => void toggle("takeaway", next)}
+        />
+        <ServiceSwitch
+          emoji="🛵"
+          label={t.delivery}
+          value={ordering.delivery}
+          busy={busy === "delivery"}
+          onChange={(next) => void toggle("delivery", next)}
+        />
+      </View>
+      {failed ? <Text style={styles.serviceError}>{t.staffToggleFailed}</Text> : null}
+    </View>
+  );
+}
+
+function ServiceSwitch({
+  emoji,
+  label,
+  value,
+  busy,
+  onChange,
+}: {
+  emoji: string;
+  label: string;
+  value: boolean;
+  busy: boolean;
+  onChange: (next: boolean) => void;
+}): React.ReactElement {
+  return (
+    <View style={styles.serviceSwitch}>
+      <Text style={styles.serviceEmoji}>{emoji}</Text>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        disabled={busy}
+        accessibilityLabel={label}
+        trackColor={{ false: colors.line, true: colors.red }}
+        thumbColor={colors.cream}
+      />
+      <Text style={styles.serviceLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   hero: { height: 160, borderRadius: radius.lg, overflow: "hidden" },
+  serviceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  serviceTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
+  serviceRow: { flexDirection: "row", alignItems: "flex-start", gap: 18 },
+  serviceSwitch: { alignItems: "center", gap: 2 },
+  serviceEmoji: { ...fonts.body, fontSize: 20 },
+  serviceLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 11 },
+  serviceError: { color: colors.danger, ...fonts.bodySemi, fontSize: 12, width: "100%" },
   heroScrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: scrim },
   // The scrim is an absolutely-positioned sibling, so the slides need to be
   // lifted above it explicitly — paint order alone doesn't settle it.

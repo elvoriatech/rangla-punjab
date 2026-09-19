@@ -31,7 +31,9 @@ import { OrdersScreen } from "./src/screens/OrdersScreen";
 import { TrackScreen } from "./src/screens/TrackScreen";
 import { AccountScreen } from "./src/screens/AccountScreen";
 import { BoardScreen } from "./src/screens/BoardScreen";
+import { LoyaltyStaffScreen } from "./src/screens/LoyaltyStaffScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
+import { OwnerMenuSheet } from "./src/owner-menu";
 
 /**
  * Rangla Punjab — the single-restaurant app. One hand-rolled tab shell
@@ -47,7 +49,9 @@ import { WelcomeScreen } from "./src/screens/WelcomeScreen";
  * never both — `auth.staff` is the whole switch.
  */
 
-type Tab = "home" | "menu" | "cart" | "orders" | "board" | "info";
+/** "loyalty" has no tab button: it is reached from the owner's burger
+ *  and carries its own back arrow, like the tracking view. */
+type Tab = "home" | "menu" | "cart" | "orders" | "board" | "loyalty" | "info";
 interface TrackTarget {
   orderId: string;
   token: string;
@@ -78,6 +82,7 @@ function Shell(): React.ReactElement {
   const [presetType, setPresetType] = useState<OrderType | null>(null);
   const [track, setTrack] = useState<TrackTarget | null>(null);
   const [ordersRefresh, setOrdersRefresh] = useState(0);
+  const [ownerMenu, setOwnerMenu] = useState(false);
 
   const load = useCallback(() => {
     setLoadError(false);
@@ -110,7 +115,7 @@ function Shell(): React.ReactElement {
       setWelcomed(true);
       setTab((current) => (current === "menu" || current === "info" ? current : "board"));
     } else {
-      setTab((current) => (current === "board" ? "home" : current));
+      setTab((current) => (current === "board" || current === "loyalty" ? "home" : current));
     }
   }, [restaurant]);
 
@@ -202,6 +207,8 @@ function Shell(): React.ReactElement {
           <HomeScreen
             menu={menu}
             onAdd={onAdd}
+            onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
+            onMenuChanged={load}
             onOpenCategory={(id) => {
               setCategoryId(id);
               setTab("menu");
@@ -218,7 +225,13 @@ function Shell(): React.ReactElement {
           />
         ) : null}
         {tab === "menu" ? (
-          <MenuScreen menu={menu} initialCategoryId={categoryId} onAdd={onAdd} />
+          <MenuScreen
+            menu={menu}
+            initialCategoryId={categoryId}
+            onAdd={onAdd}
+            onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
+            onMenuChanged={load}
+          />
         ) : null}
         {tab === "cart" && !restaurant ? (
           <CartScreen menu={menu} presetType={presetType} onPlaced={onPlaced} />
@@ -226,11 +239,21 @@ function Shell(): React.ReactElement {
         {tab === "orders" && !restaurant ? (
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
-        {tab === "board" && restaurant ? <BoardScreen /> : null}
+        {tab === "board" && restaurant ? (
+          <BoardScreen onOpenOwnerMenu={() => setOwnerMenu(true)} />
+        ) : null}
+        {tab === "loyalty" && restaurant ? (
+          <LoyaltyStaffScreen
+            currency={menu.venue.currency}
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
         {tab === "info" ? (
           <AccountScreen
             menu={menu}
             onOpenOrder={(orderId, token) => setTrack({ orderId, token })}
+            onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
           />
         ) : null}
       </View>
@@ -282,6 +305,21 @@ function Shell(): React.ReactElement {
           onPress={() => setTab("info")}
         />
       </View>
+
+      {/* Everything the restaurant can do that isn't a tab. Mounted only
+          in restaurant mode, so a guest device has no path to it. */}
+      {restaurant ? (
+        <OwnerMenuSheet
+          visible={ownerMenu}
+          onClose={() => setOwnerMenu(false)}
+          onBoard={() => setTab("board")}
+          onManageMenu={() => {
+            setCategoryId(null);
+            setTab("menu");
+          }}
+          onLoyalty={() => setTab("loyalty")}
+        />
+      ) : null}
     </View>
   );
 }

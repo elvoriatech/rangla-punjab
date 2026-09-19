@@ -9,7 +9,13 @@ import {
   startHostedPayment,
   verifyPayment,
 } from "../api";
-import { confirmFakePayment, openInAppBrowser, openPayPage, payWithCard } from "../payments";
+import {
+  confirmFakePayment,
+  openInAppBrowser,
+  openPayPage,
+  payWithCard,
+  payWithPaypal,
+} from "../payments";
 import { BrandHeader } from "../components";
 import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
 import { useI18n } from "../i18n";
@@ -143,7 +149,9 @@ export function TrackScreen({
     if (busy) return;
     setBusy(true);
     setBanner(null);
-    await openPayPage(payPageUrl(orderId, token, deepLink), deepLink);
+    // One tap: the server hands back PayPal's approve URL and the
+    // browser both opens on it and closes itself on the way back.
+    await payWithPaypal(orderId, token);
     setBusy(false);
     reloadRef.current();
   }

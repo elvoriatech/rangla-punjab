@@ -111,7 +111,7 @@ export interface ApiMenu {
 /** The server emits absolute image URLs against its own origin; in dev
  *  that's `localhost`, which an Android emulator can't reach — rebase
  *  any localhost image onto BASE_URL (10.0.2.2 on Android). */
-function rebaseUrl<T extends string | null>(url: T): T {
+export function rebaseUrl<T extends string | null>(url: T): T {
   if (!url) return url;
   return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, BASE_URL) as T;
 }
@@ -419,6 +419,36 @@ export async function startHostedPayment(
       return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
     }
     return { ok: true, url: body.url };
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+/**
+ * Start a PayPal payment and get the approve URL back, so the app can
+ * open PayPal itself instead of our pay page with its button on it.
+ * `appReturnUrl` is the deep link PayPal's return leg hands the browser
+ * back on — without it the round trip ends on the web pay page.
+ */
+export async function startPaypal(
+  orderId: string,
+  token: string,
+  appReturnUrl?: string,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/pay/paypal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(appReturnUrl ? { token, app: appReturnUrl } : { token }),
+    });
+    const body = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    if (!res.ok || typeof body?.url !== "string") {
+      return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+    }
+    // Real PayPal is an absolute paypal.com URL and passes through; the
+    // dev/CI fake answers with our own origin, which on an Android
+    // emulator has to be rebased off localhost like any other link.
+    return { ok: true, url: rebaseUrl(body.url) };
   } catch {
     return { ok: false, error: "network" };
   }

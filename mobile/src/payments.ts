@@ -1,7 +1,8 @@
 import { Linking, Platform } from "react-native";
 import Constants from "expo-constants";
+import * as ExpoLinking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { confirmFakePayment, createPaymentIntent } from "./api";
+import { confirmFakePayment, createPaymentIntent, payPageUrl, startPaypal } from "./api";
 import { openReturningPage } from "./browser";
 import { loadStripe } from "./stripe-module";
 
@@ -126,6 +127,28 @@ export { confirmFakePayment };
  */
 export async function openPayPage(url: string, returnUrl: string): Promise<void> {
   await openReturningPage(url, returnUrl);
+}
+
+/**
+ * Pay with PayPal, in one tap.
+ *
+ * The server starts the payment and hands back PayPal's own approve URL,
+ * so the browser opens ON PayPal rather than on our pay page with a
+ * "Pay with PayPal" button the guest has to press first. The return leg
+ * sees the deep link and bounces the browser straight back here, so
+ * there is no "Back to the app" tap at the other end either.
+ *
+ * If the start call fails (offline, old server, PayPal switched off) we
+ * fall back to the web pay page, which handles all of those with its own
+ * copy — and still returns on the same deep link.
+ */
+export async function payWithPaypal(orderId: string, token: string): Promise<void> {
+  const deepLink = ExpoLinking.createURL("payment-return");
+  const started = await startPaypal(orderId, token, deepLink);
+  await openReturningPage(
+    started.ok ? started.url : payPageUrl(orderId, token, deepLink),
+    deepLink,
+  );
 }
 
 /** The receipt PDF and anything else that is read, not transacted. */

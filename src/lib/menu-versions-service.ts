@@ -76,8 +76,21 @@ const snapshotIdSelect = {
 type SnapshotSource = Prisma.CategoryGetPayload<{ select: typeof snapshotSourceSelect }>;
 type SnapshotIds = Prisma.CategoryGetPayload<{ select: typeof snapshotIdSelect }>;
 
-/** Nested-create payload that deep-copies `categories` into a new version. */
-function snapshotCategories(tenantId: string, categories: SnapshotSource[]) {
+/**
+ * Nested-create payload that deep-copies `categories` into a new version.
+ *
+ * `linkSource` writes `sourceItemId` on every copy, pointing at the row it was
+ * copied from. Set when PUBLISHING (the copy is the published twin of a draft
+ * item, and the restaurant app's live edits walk that link), cleared when
+ * forking a draft out of a published version — there the copy is the draft, so
+ * the link has to run the other way and is written afterwards by
+ * `backlinkSources`.
+ */
+function snapshotCategories(
+  tenantId: string,
+  categories: SnapshotSource[],
+  { linkSource = false }: { linkSource?: boolean } = {},
+) {
   return categories.map((cat, ci) => ({
     tenantId,
     name: cat.name,
@@ -104,6 +117,7 @@ function snapshotCategories(tenantId: string, categories: SnapshotSource[]) {
         spice: item.spice,
         flags: item.flags as object,
         photoMediaId: item.photoMediaId,
+        sourceItemId: linkSource ? item.id : null,
         variants: {
           create: item.variants.map((v, vi) => ({
             tenantId,
@@ -147,6 +161,23 @@ function pairSnapshotIds(source: SnapshotSource[], created: SnapshotIds[]): IdPa
     });
   });
   return pairs;
+}
+
+/**
+ * Point the SOURCE items at their fresh copies — the fork direction of
+ * `sourceItemId`.
+ *
+ * Used when a draft is forked out of a published version: the copies are the
+ * draft, so each published row has to learn which brand-new draft row is its
+ * twin. Without this a forked venue would have a published menu whose rows
+ * point at draft ids that no longer exist, and every live edit from the
+ * restaurant's app would report `mirrored: false`.
+ */
+async function backlinkSources(tx: Prisma.TransactionClient, pairs: IdPair[]): Promise<void> {
+  for (const pair of pairs) {
+    if (pair.entityType !== "item") continue;
+    await tx.item.updateMany({ where: { id: pair.oldId }, data: { sourceItemId: pair.newId } });
+  }
 }
 
 /**
@@ -243,11 +274,9 @@ async function ensureDraftInTx(tx: Prisma.TransactionClient): Promise<{ ok: bool
       select: { categories: { select: snapshotIdSelect, orderBy: { orderIndex: "asc" } } },
     });
     if (source) {
-      await copyTranslations(
-        tx,
-        menu.tenantId,
-        pairSnapshotIds(source.categories, forked.categories),
-      );
+      const pairs = pairSnapshotIds(source.categories, forked.categories);
+      await copyTranslations(tx, menu.tenantId, pairs);
+      await backlinkSources(tx, pairs);
     }
     return { ok: true };
   }
@@ -284,7 +313,11 @@ export async function publishDraft(userId: string): Promise<PublishResult> {
         menuId: draft.menuId,
         status: "published",
         publishedAt,
-        categories: { create: snapshotCategories(draft.tenantId, draft.categories) },
+        // Every published copy carries a link back to the draft row it came
+        // from, so the restaurant app can edit the pair and go live at once.
+        categories: {
+          create: snapshotCategories(draft.tenantId, draft.categories, { linkSource: true }),
+        },
       },
       select: {
         id: true,

@@ -12,6 +12,7 @@ import {
   Vibration,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useKeepAwake } from "expo-keep-awake";
 import { useAuth } from "../auth";
 import type { StaffOrder } from "../staff";
@@ -53,6 +54,27 @@ const TYPE_ICONS: Record<string, string> = {
   delivery: "🛵",
 };
 
+/**
+ * The status each action MOVES the order to, as a glyph. The buttons are
+ * icon-first so a card's actions cost one line instead of three — the
+ * translated label stays as the caption underneath and as the
+ * accessibility label, because a flame alone is not a verb.
+ *
+ * A status this build has never heard of still gets a button (the server
+ * owns the lifecycle): a plain forward arrow, captioned with whatever the
+ * server calls it.
+ */
+const ACTION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  preparing: "flame-outline",
+  ready: "checkmark-circle-outline",
+  out_for_delivery: "bicycle-outline",
+  done: "checkmark-done-outline",
+  // Not in the brief's list, but an arrow on "Cancel" would point the
+  // wrong way at the one action nobody may mis-tap.
+  cancelled: "close-circle-outline",
+  canceled: "close-circle-outline",
+};
+
 const METHOD_ICONS: Record<string, string> = {
   card: "💳",
   stripe: "💳",
@@ -74,7 +96,13 @@ function isToday(iso: string): boolean {
   );
 }
 
-export function BoardScreen(): React.ReactElement {
+export function BoardScreen({
+  onOpenOwnerMenu,
+}: {
+  /** The header's burger — the board is a restaurant-only screen, so it
+   *  is always there in practice; optional so the type doesn't lie. */
+  onOpenOwnerMenu?: () => void;
+} = {}): React.ReactElement {
   const { t, lang } = useI18n();
   const { staffToken, clearStaff } = useAuth();
   // A board nobody can read is no board: hold the screen on while it is
@@ -459,29 +487,55 @@ export function BoardScreen(): React.ReactElement {
 
             {order.allowedNext.length > 0 ? (
               <View style={styles.actions}>
-                {order.allowedNext.map((to) => {
+                {busyId === order.id ? <ActivityIndicator color={colors.red} /> : null}
+                {order.allowedNext.map((to, index) => {
                   const quiet = to === "cancelled" || to === "canceled";
+                  // The first step that isn't a cancel is the one the pass
+                  // will actually tap — it gets the filled button.
+                  const primary =
+                    !quiet &&
+                    index ===
+                      order.allowedNext.findIndex((x) => x !== "cancelled" && x !== "canceled");
                   const busy = busyId === order.id;
+                  const label = statusShort[to] ?? to;
                   return (
                     <Pressable
                       key={`${order.id}-${to}`}
                       onPress={() => void advance(order, to)}
                       disabled={busy}
                       accessibilityRole="button"
+                      accessibilityLabel={label}
                       accessibilityState={{ disabled: busy }}
                       style={({ pressed }) => [
                         styles.action,
-                        quiet ? styles.actionQuiet : styles.actionPrimary,
                         (busy || pressed) && { opacity: 0.6 },
                       ]}
                     >
-                      <Text style={quiet ? styles.actionQuietText : styles.actionPrimaryText}>
-                        {statusShort[to] ?? to}
+                      <View
+                        style={[
+                          styles.actionIcon,
+                          primary
+                            ? styles.actionIconPrimary
+                            : quiet
+                              ? styles.actionIconQuiet
+                              : styles.actionIconOutline,
+                        ]}
+                      >
+                        <Ionicons
+                          name={ACTION_ICONS[to] ?? "arrow-forward-outline"}
+                          size={20}
+                          color={primary ? colors.onRed : quiet ? colors.inkSoft : colors.red}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.actionCaption, quiet && styles.actionCaptionQuiet]}
+                        numberOfLines={2}
+                      >
+                        {label}
                       </Text>
                     </Pressable>
                   );
                 })}
-                {busyId === order.id ? <ActivityIndicator color={colors.red} /> : null}
               </View>
             ) : null}
           </>
@@ -498,7 +552,7 @@ export function BoardScreen(): React.ReactElement {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title={t.boardTitle} />
+      <BrandHeader title={t.boardTitle} onMenu={onOpenOwnerMenu} />
       <ScrollView
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
         refreshControl={
@@ -648,19 +702,30 @@ const styles = StyleSheet.create({
   },
   dirChipText: { color: colors.ink, ...fonts.bodyBold, fontSize: 12.5 },
   contactNote: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5 },
-  actions: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2 },
-  action: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderWidth: 1.5,
-    minWidth: 96,
-    alignItems: "center",
+  // Compact, icon-first, and pushed to the END of the card: the actions
+  // are a tool rail, not a row of slabs competing with the order itself.
+  actions: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 2,
   },
-  actionPrimary: { backgroundColor: colors.red, borderColor: colors.red },
-  actionPrimaryText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 14 },
-  actionQuiet: { backgroundColor: colors.creamCard, borderColor: colors.line },
-  actionQuietText: { color: colors.inkSoft, ...fonts.bodyBold, fontSize: 14 },
+  action: { alignItems: "center", gap: 3, width: 62 },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionIconPrimary: { backgroundColor: colors.red, borderColor: colors.red },
+  actionIconOutline: { backgroundColor: colors.creamCard, borderColor: colors.red },
+  actionIconQuiet: { backgroundColor: colors.creamCard, borderColor: colors.line },
+  actionCaption: { color: colors.red, ...fonts.bodyBold, fontSize: 10, textAlign: "center" },
+  actionCaptionQuiet: { color: colors.inkSoft },
   cardNote: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
   pill: {
     flexDirection: "row",

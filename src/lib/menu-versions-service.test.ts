@@ -6,7 +6,7 @@ import { completeOnboarding, saveStep1, saveStep2, saveStep3 } from "./onboardin
 import { asTenant, asUser } from "./tenant";
 import { createCategory, renameCategory } from "./categories-service";
 import { createItem, updateItem } from "./items-service";
-import { getMenuStatus, publishDraft } from "./menu-versions-service";
+import { ensureDraft, getMenuStatus, publishDraft } from "./menu-versions-service";
 import { resolvePreviewContext } from "./preview-context";
 import { loadPublicMenu } from "./public-menu";
 
@@ -270,5 +270,52 @@ describe("draft/publish workflow", () => {
     // Each publish owns its own rows — three entities, three rows total.
     const all = await asUser(userId, (tx) => tx.translation.findMany({}));
     expect(all).toHaveLength(3);
+  });
+
+  it("publish links every copy back to its draft row, and a fork re-links the other way", async () => {
+    const { userId, categoryId } = await onboardedUserWithMenu();
+    const draftItem = await createItem(userId, {
+      categoryId,
+      name: "Risotto",
+      priceCents: 1800,
+      variants: [],
+    });
+    if (!draftItem.ok) return;
+
+    const publish = await publishDraft(userId);
+    expect(publish.ok).toBe(true);
+    if (!publish.ok) return;
+
+    // Published copy -> draft source. This is the link the restaurant app's
+    // live edits walk to reach both halves of a dish.
+    const copy = await asUser(userId, (tx) =>
+      tx.item.findFirstOrThrow({
+        where: { category: { menuVersionId: publish.publishedVersionId } },
+        select: { id: true, sourceItemId: true },
+      }),
+    );
+    expect(copy.sourceItemId).toBe(draftItem.value.id);
+    expect(copy.id).not.toBe(draftItem.value.id);
+
+    // Now lose the draft — the shape a venue provisioned straight to a
+    // published version has — and let `ensureDraft` fork a new one. The
+    // published rows must learn the FRESH draft ids, or every later app edit
+    // would silently stop mirroring.
+    await asUser(userId, (tx) => tx.menuVersion.deleteMany({ where: { status: "draft" } }));
+    expect((await ensureDraft(userId)).ok).toBe(true);
+
+    const forked = await asUser(userId, (tx) =>
+      tx.item.findFirstOrThrow({
+        where: { category: { menuVersion: { status: "draft" } } },
+        select: { id: true, sourceItemId: true },
+      }),
+    );
+    expect(forked.sourceItemId).toBeNull();
+    expect(forked.id).not.toBe(draftItem.value.id);
+
+    const relinked = await asUser(userId, (tx) =>
+      tx.item.findFirstOrThrow({ where: { id: copy.id }, select: { sourceItemId: true } }),
+    );
+    expect(relinked.sourceItemId).toBe(forked.id);
   });
 });

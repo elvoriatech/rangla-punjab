@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { ApiLoyaltyEntry, ApiMenu } from "../api";
 import { BASE_URL } from "../api";
 import { GOOGLE_NATIVE, useAuth, type AccountOrder } from "../auth";
@@ -46,9 +47,12 @@ import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from
 export function AccountScreen({
   menu,
   onOpenOrder,
+  onOpenOwnerMenu,
 }: {
   menu: ApiMenu;
   onOpenOrder: (orderId: string, receiptToken: string) => void;
+  /** Restaurant mode only: opens the burger's sheet. */
+  onOpenOwnerMenu?: () => void;
 }): React.ReactElement {
   const { t, lang, setLang, available } = useI18n();
   const auth = useAuth();
@@ -198,6 +202,20 @@ export function AccountScreen({
           <Image source={logo} style={styles.logo} />
           <Text style={styles.name}>{menu.venue.name}</Text>
         </View>
+        {/* This screen has its own hero instead of BrandHeader, so the
+            owner's burger is placed on it by hand — same corner, same
+            glyph, so it is in one place on every restaurant screen. */}
+        {onOpenOwnerMenu ? (
+          <Pressable
+            onPress={onOpenOwnerMenu}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t.ownerMenuOpen}
+            style={({ pressed }) => [styles.heroMenu, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="menu" size={26} color={colors.onRed} />
+          </Pressable>
+        ) : null}
       </ImageBackground>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}>
         {/* Language */}
@@ -517,6 +535,15 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }): Re
 
 const styles = StyleSheet.create({
   hero: { height: 150 },
+  heroMenu: {
+    position: "absolute",
+    top: 8,
+    end: 8,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   heroOverlay: {
     flex: 1,
     alignItems: "center",
