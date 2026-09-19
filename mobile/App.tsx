@@ -19,9 +19,10 @@ import {
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
-import { AuthProvider } from "./src/auth";
+import { AuthProvider, useAuth } from "./src/auth";
 import { I18nProvider, useI18n } from "./src/i18n";
 import type { StoredOrder } from "./src/orders-store";
+import { fetchStaffSummary } from "./src/staff";
 import { colors, fonts } from "./src/theme";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { MenuScreen } from "./src/screens/MenuScreen";
@@ -29,17 +30,24 @@ import { CartScreen } from "./src/screens/CartScreen";
 import { OrdersScreen } from "./src/screens/OrdersScreen";
 import { TrackScreen } from "./src/screens/TrackScreen";
 import { AccountScreen } from "./src/screens/AccountScreen";
+import { BoardScreen } from "./src/screens/BoardScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 
 /**
- * Rangla Punjab — the single-restaurant guest app. One hand-rolled tab
- * shell (no navigation library: five tabs and one detail view don't
- * earn a dependency), the mockup's red/cream/gold identity throughout.
- * No accounts anywhere: the receipt tokens this device holds are the
- * entire order history.
+ * Rangla Punjab — the single-restaurant app. One hand-rolled tab shell
+ * (no navigation library: five tabs and one detail view don't earn a
+ * dependency), the mockup's red/cream/gold identity throughout.
+ *
+ * The SAME app serves two people. A guest orders without an account (the
+ * receipt tokens this device holds are the entire history). The owner
+ * signs in on the ordinary Account form, the server answers with a staff
+ * session, and the shell switches to **restaurant mode**: the live orders
+ * board replaces Cart and Orders, and nothing guest-only (basket,
+ * rewards, Google sign-in) is reachable. One device is one or the other,
+ * never both — `auth.staff` is the whole switch.
  */
 
-type Tab = "home" | "menu" | "cart" | "orders" | "info";
+type Tab = "home" | "menu" | "cart" | "orders" | "board" | "info";
 interface TrackTarget {
   orderId: string;
   token: string;
@@ -57,8 +65,11 @@ interface TrackTarget {
 
 function Shell(): React.ReactElement {
   const cart = useCart();
+  const auth = useAuth();
   const { t, lang, applyVenueLocales } = useI18n();
   const insets = useSafeAreaInsets();
+  const restaurant = auth.staff !== null;
+  const [openOrders, setOpenOrders] = useState(0);
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
@@ -89,6 +100,45 @@ function Shell(): React.ReactElement {
   useEffect(() => {
     if (menu) reconcile(menu.categories.flatMap((c) => c.items));
   }, [menu, reconcile]);
+
+  // Signing in (or out) as the restaurant changes which tabs exist, so
+  // the current one may no longer be among them. Runs on the TRANSITION
+  // only — afterwards the owner is free to walk between Home and Board.
+  useEffect(() => {
+    if (restaurant) {
+      // The counter tablet has no use for the welcome splash.
+      setWelcomed(true);
+      setTab((current) => (current === "menu" || current === "info" ? current : "board"));
+    } else {
+      setTab((current) => (current === "board" ? "home" : current));
+    }
+  }, [restaurant]);
+
+  // The Board tab's badge. Cheap enough to keep running from any tab —
+  // that is the point: the owner should see work arrive while they are
+  // somewhere else.
+  const staffToken = auth.staffToken;
+  const clearStaff = auth.clearStaff;
+  useEffect(() => {
+    if (!staffToken) {
+      setOpenOrders(0);
+      return;
+    }
+    let alive = true;
+    const tick = async (): Promise<void> => {
+      const res = await fetchStaffSummary(staffToken);
+      if (!alive) return;
+      if (res.ok) setOpenOrders(res.data.openOrders);
+      else if (res.error === "unauthorized") clearStaff();
+      // Offline: keep the last count rather than flashing a zero.
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 30_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [staffToken, clearStaff]);
 
   const onAdd = useCallback((item: ApiItem) => cart.add(item), [cart]);
   const onPlaced = useCallback(
@@ -170,12 +220,13 @@ function Shell(): React.ReactElement {
         {tab === "menu" ? (
           <MenuScreen menu={menu} initialCategoryId={categoryId} onAdd={onAdd} />
         ) : null}
-        {tab === "cart" ? (
+        {tab === "cart" && !restaurant ? (
           <CartScreen menu={menu} presetType={presetType} onPlaced={onPlaced} />
         ) : null}
-        {tab === "orders" ? (
+        {tab === "orders" && !restaurant ? (
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
+        {tab === "board" && restaurant ? <BoardScreen /> : null}
         {tab === "info" ? (
           <AccountScreen
             menu={menu}
@@ -197,19 +248,33 @@ function Shell(): React.ReactElement {
           active={tab === "menu"}
           onPress={() => setTab("menu")}
         />
-        <TabButton
-          label={t.tabCart}
-          icon="cart"
-          badge={cart.count > 0 ? cart.count : undefined}
-          active={tab === "cart"}
-          onPress={() => setTab("cart")}
-        />
-        <TabButton
-          label={t.tabOrders}
-          icon="receipt"
-          active={tab === "orders"}
-          onPress={() => setTab("orders")}
-        />
+        {/* The middle of the bar is whichever job this device has: the
+            guest's basket + receipts, or the restaurant's board. */}
+        {restaurant ? (
+          <TabButton
+            label={t.tabBoard}
+            icon="restaurant"
+            badge={openOrders > 0 ? openOrders : undefined}
+            active={tab === "board"}
+            onPress={() => setTab("board")}
+          />
+        ) : (
+          <>
+            <TabButton
+              label={t.tabCart}
+              icon="cart"
+              badge={cart.count > 0 ? cart.count : undefined}
+              active={tab === "cart"}
+              onPress={() => setTab("cart")}
+            />
+            <TabButton
+              label={t.tabOrders}
+              icon="receipt"
+              active={tab === "orders"}
+              onPress={() => setTab("orders")}
+            />
+          </>
+        )}
         <TabButton
           label={t.tabAccount}
           icon="person"
@@ -229,7 +294,7 @@ function TabButton({
   onPress,
 }: {
   label: string;
-  icon: "home" | "grid" | "cart" | "receipt" | "person";
+  icon: "home" | "grid" | "cart" | "receipt" | "person" | "restaurant";
   active: boolean;
   badge?: number;
   onPress: () => void;

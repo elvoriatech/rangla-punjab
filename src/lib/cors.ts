@@ -11,7 +11,10 @@ export const CORS_HEADERS = {
   // PATCH/DELETE are the /api/v1/me profile edit + logout verbs; native
   // fetch never preflights, but the Expo web surface does.
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-Customer-Token, Authorization",
+  // X-Staff-Token is the restaurant's own credential for the app's orders
+  // board — a separate header from the guest one on purpose, so neither
+  // credential can ever be presented where the other is expected.
+  "Access-Control-Allow-Headers": "Content-Type, X-Customer-Token, X-Staff-Token, Authorization",
 } as const;
 
 export function withCors(res: NextResponse): NextResponse {

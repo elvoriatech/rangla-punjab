@@ -21,10 +21,17 @@ const COOKIE_OPTIONS = {
   path: "/",
 };
 
-export async function getSessionUserId(): Promise<string | null> {
-  const store = await cookies();
-  const raw = store.get(SESSION_COOKIE)?.value;
-  if (!raw) return null;
+/**
+ * Validate a session VALUE, wherever it arrived from — the httpOnly
+ * cookie the dashboard sets, or the `X-Staff-Token` header the mobile
+ * app sends. Checks the HMAC + expiry (`verifySession`), that the user
+ * still exists, and the `sessions_valid_from` cutoff below.
+ *
+ * Pulled out of `getSessionUserId` so the app's staff routes run the
+ * exact same checks the dashboard does instead of a lookalike copy that
+ * can drift.
+ */
+export async function verifySessionValue(raw: string): Promise<SessionInfo | null> {
   const parsed = verifySession(raw);
   if (!parsed) return null;
 
@@ -37,7 +44,14 @@ export async function getSessionUserId(): Promise<string | null> {
   });
   if (!user) return null;
   if (issuedBeforeCutoff(parsed.issuedAt, user.sessionsValidFrom)) return null;
-  return parsed.userId;
+  return { userId: parsed.userId, impersonatorId: parsed.impersonatorId };
+}
+
+export async function getSessionUserId(): Promise<string | null> {
+  const store = await cookies();
+  const raw = store.get(SESSION_COOKIE)?.value;
+  if (!raw) return null;
+  return (await verifySessionValue(raw))?.userId ?? null;
 }
 
 /** The token's `iat` has whole-second precision, but `sessions_valid_from`
@@ -76,15 +90,7 @@ export async function getSessionInfo(): Promise<SessionInfo | null> {
   const store = await cookies();
   const raw = store.get(SESSION_COOKIE)?.value;
   if (!raw) return null;
-  const parsed = verifySession(raw);
-  if (!parsed) return null;
-  const user = await prisma.user.findFirst({
-    where: { id: parsed.userId, deletedAt: null },
-    select: { sessionsValidFrom: true },
-  });
-  if (!user) return null;
-  if (issuedBeforeCutoff(parsed.issuedAt, user.sessionsValidFrom)) return null;
-  return { userId: parsed.userId, impersonatorId: parsed.impersonatorId };
+  return verifySessionValue(raw);
 }
 
 const IMPERSONATION_TTL_SECONDS = 30 * 60;

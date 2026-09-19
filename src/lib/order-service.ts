@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer-auth";
 import { canTransition, isOrderStatus } from "./order-status";
@@ -578,6 +579,9 @@ export interface KitchenOrder extends OrderFulfilment {
   totalCents: number;
   currency: string;
   createdAt: Date;
+  /** Last write to the row — what a polling client (the app's orders
+   *  board) diffs on, since a status change never moves `createdAt`. */
+  updatedAt: Date;
   items: { name: string; priceCents: number; quantity: number }[];
 }
 
@@ -588,11 +592,36 @@ function withAddress<T extends { deliveryAddress: unknown }>(
   return { ...order, deliveryAddress: order.deliveryAddress as KitchenOrder["deliveryAddress"] };
 }
 
+/**
+ * Which slice of the board a caller wants. `open` is everything the
+ * kitchen still owes work on (`isOpenStatus`), `closed` is the archive.
+ * The mobile orders board asks for the two separately so a long tail of
+ * finished orders can never push a live one out of the window.
+ */
+export type OrderScope = "all" | "open" | "closed";
+
+export interface RecentOrdersOptions {
+  /** Default "all" — the dashboard/kitchen behaviour this has always had. */
+  scope?: OrderScope;
+  /** Only rows written at or after this instant (polling delta). */
+  updatedSince?: Date;
+}
+
 /** Newest orders for the kitchen screen. Any member of the tenant
  *  (owner or staff) can read them. */
-export async function listRecentOrders(userId: string, limit = 50): Promise<KitchenOrder[]> {
+export async function listRecentOrders(
+  userId: string,
+  limit = 50,
+  options: RecentOrdersOptions = {},
+): Promise<KitchenOrder[]> {
+  const where: Prisma.OrderWhereInput = {};
+  if (options.scope === "open") where.status = { not: "done" };
+  else if (options.scope === "closed") where.status = "done";
+  if (options.updatedSince) where.updatedAt = { gte: options.updatedSince };
+
   const rows = await asUser(userId, (tx) =>
     tx.order.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       take: Math.min(limit, 100),
       select: {
@@ -611,6 +640,7 @@ export async function listRecentOrders(userId: string, limit = 50): Promise<Kitc
         totalCents: true,
         currency: true,
         createdAt: true,
+        updatedAt: true,
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
@@ -645,6 +675,7 @@ export async function getKitchenOrder(
         totalCents: true,
         currency: true,
         createdAt: true,
+        updatedAt: true,
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },

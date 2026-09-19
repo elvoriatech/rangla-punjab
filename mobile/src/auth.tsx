@@ -1,10 +1,18 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Linking, Platform } from "react-native";
 import { BASE_URL } from "./api";
-import { clearToken, readToken, writeToken } from "./token-store";
+import { staffLogout } from "./staff";
+import {
+  clearStaffToken,
+  clearToken,
+  readStaffToken,
+  readToken,
+  writeStaffToken,
+  writeToken,
+} from "./token-store";
 
 /**
- * Customer sign-in for the app.
+ * Sign-in for the app.
  *
  * Two routes to the same opaque customer token:
  *
@@ -19,6 +27,15 @@ import { clearToken, readToken, writeToken } from "./token-store";
  *     module, works everywhere; the fallback whenever (1) is unavailable.
  *
  * Plus email/password against the app's own account endpoints.
+ *
+ * **Restaurant mode.** The owner signs in through the SAME email/password
+ * form the guests use — there is no separate screen, and a signed-out app
+ * gives no hint that one exists. The server decides: it answers the login
+ * with `kind: "restaurant"` and a staff token instead of a customer one,
+ * and the app then shows the orders board. The two sessions are mutually
+ * exclusive by construction (a device is a guest's phone OR the counter
+ * tablet, never both), and the staff token lives in its own secure-store
+ * slot so neither sign-out can strand the other.
  */
 
 export interface DeliveryAddress {
@@ -47,6 +64,13 @@ export interface AccountOrder {
   receiptToken: string;
 }
 
+/** The restaurant behind a staff session. Name + email only: everything
+ *  else the board needs comes from the staff routes. */
+export interface StaffProfile {
+  name: string;
+  email: string;
+}
+
 /** Why a Google sign-in didn't produce a session. "unavailable" is the
  *  only one the UI treats as "use the browser flow instead". */
 export type GoogleOutcome = "unavailable" | "cancelled" | "failed" | null;
@@ -59,6 +83,17 @@ export const GOOGLE_NATIVE = "google-native";
 interface AuthApi {
   token: string | null;
   customer: CustomerProfile | null;
+  /** Non-null ⇔ this device is signed in as the RESTAURANT. The whole of
+   *  restaurant mode hangs off this one value. */
+  staff: StaffProfile | null;
+  /** Bearer for `X-Staff-Token`; null whenever `staff` is. */
+  staffToken: string | null;
+  /** Ends the restaurant session: tells the server (failures ignored —
+   *  the token is useless to this device either way) and drops the key. */
+  logoutStaff: () => Promise<void>;
+  /** A staff route answered 401: the session is already gone server-side,
+   *  so drop it locally without another round trip. */
+  clearStaff: () => void;
   busyProvider: string | null;
   providers: { id: string; label: string }[];
   /** Is there ANY route to a Google account from this build — the native
@@ -123,9 +158,41 @@ function loadGoogle(): GoogleModule | null {
   }
 }
 
+/**
+ * What goes in the staff secure-store slot: the token plus the two
+ * display fields, so the header card is right the instant the app opens
+ * (and stays right offline). Written as JSON; a bare string is read back
+ * as a token with no profile rather than treated as corrupt.
+ */
+interface StaffSession extends StaffProfile {
+  token: string;
+}
+
+function decodeStaffSession(raw: string | null): StaffSession | null {
+  if (!raw) return null;
+  if (raw.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<StaffSession>;
+      if (typeof parsed.token === "string" && parsed.token) {
+        return {
+          token: parsed.token,
+          name: typeof parsed.name === "string" ? parsed.name : "",
+          email: typeof parsed.email === "string" ? parsed.email : "",
+        };
+      }
+    } catch {
+      /* unreadable — treated as no session below */
+    }
+    return null;
+  }
+  return { token: raw, name: "", email: "" };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const [token, setToken] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [staffToken, setStaffToken] = useState<string | null>(null);
+  const [staff, setStaff] = useState<StaffProfile | null>(null);
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
   const [providers, setProviders] = useState<{ id: string; label: string }[]>([]);
   const [cancelled, setCancelled] = useState(0);
@@ -138,6 +205,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   useEffect(() => {
     void readToken().then((saved) => {
       if (saved) setToken(saved);
+    });
+    // The restaurant session is restored exactly like the guest's — the
+    // counter tablet is signed in until someone signs it out.
+    void readStaffToken().then((saved) => {
+      const session = decodeStaffSession(saved);
+      if (!session) return;
+      setStaffToken(session.token);
+      setStaff({ name: session.name, email: session.email });
     });
   }, []);
 
@@ -165,10 +240,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     };
   }, [token]);
 
+  // A device is a guest's phone OR the restaurant's — adopting either
+  // session tears the other one down, so the two can never overlap.
   const adopt = useCallback(async (next: string, profile?: CustomerProfile | null) => {
     setToken(next);
     if (profile) setCustomer(profile);
+    setStaffToken(null);
+    setStaff(null);
+    await clearStaffToken();
     await writeToken(next);
+  }, []);
+
+  const adoptStaff = useCallback(async (next: string, profile: StaffProfile) => {
+    setStaffToken(next);
+    setStaff(profile);
+    setToken(null);
+    setCustomer(null);
+    await clearToken();
+    await writeStaffToken(JSON.stringify({ token: next, ...profile } satisfies StaffSession));
   }, []);
 
   const refreshProviders = useCallback(async () => {
@@ -284,8 +373,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
           },
         );
         const body = (await res.json().catch(() => ({}))) as {
+          kind?: string;
           token?: string;
           customer?: CustomerProfile;
+          restaurant?: { name?: string; email?: string };
           error?: string;
         };
         if (!res.ok || !body.token) {
@@ -298,13 +389,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
             return "invalid";
           return "failed";
         }
+        // The SERVER decides which kind of credentials these were. `kind`
+        // is the contract; the `restaurant` block alone is accepted too,
+        // so a server that forgets the discriminator still works.
+        if (body.kind === "restaurant" || (body.restaurant && !body.customer)) {
+          await adoptStaff(body.token, {
+            name: body.restaurant?.name ?? "",
+            email: body.restaurant?.email ?? email,
+          });
+          return null;
+        }
         await adopt(body.token, body.customer);
         return null;
       } catch {
         return "failed";
       }
     },
-    [adopt],
+    [adopt, adoptStaff],
   );
 
   const cancelLogin = useCallback(() => {
@@ -325,6 +426,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     }
   }, [token]);
 
+  const clearStaff = useCallback(() => {
+    setStaffToken(null);
+    setStaff(null);
+    void clearStaffToken();
+  }, []);
+
+  const logoutStaff = useCallback(async () => {
+    const current = staffToken;
+    setStaffToken(null);
+    setStaff(null);
+    await clearStaffToken();
+    if (current) await staffLogout(current);
+  }, [staffToken]);
+
   const fetchMyOrders = useCallback(async (): Promise<AccountOrder[]> => {
     if (!token) return [];
     const res = await fetch(`${BASE_URL}/api/v1/me`, { headers: { "X-Customer-Token": token } });
@@ -337,6 +452,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     () => ({
       token,
       customer,
+      staff,
+      staffToken,
+      logoutStaff,
+      clearStaff,
       busyProvider,
       providers,
       googleAvailable,
@@ -351,6 +470,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     [
       token,
       customer,
+      staff,
+      staffToken,
+      logoutStaff,
+      clearStaff,
       busyProvider,
       providers,
       googleAvailable,

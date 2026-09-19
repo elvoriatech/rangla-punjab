@@ -201,3 +201,14 @@ export const DEVICE_IP: RateLimitConfig = {
   failOpen: true,
 };
 export const RESET_EMAIL: RateLimitConfig = { scope: "reset:email", limit: 3, windowSec: 3600 };
+// The app's staff orders board polls while service is running, and a busy
+// counter may have several devices open on the same restaurant IP. 120/min
+// is far above that and still bounds a scraper that stole a session value.
+// failOpen: a Redis blip must not blank the kitchen's board mid-service —
+// the in-process fallback keeps the same ceiling during the outage.
+export const STAFF_IP: RateLimitConfig = {
+  scope: "staff:ip",
+  limit: 120,
+  windowSec: 60,
+  failOpen: true,
+};

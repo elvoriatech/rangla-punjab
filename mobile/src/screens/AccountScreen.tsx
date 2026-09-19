@@ -33,6 +33,13 @@ import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from
  * flow, email/password), the signed-in customer's cross-device order
  * history, and the restaurant info. Ordering never requires an account;
  * this screen makes one optional and useful.
+ *
+ * The same form signs the RESTAURANT in: the server decides what the
+ * credentials were and may hand back a staff session instead. When it
+ * does, this screen becomes the owner's: who is signed in, sign out,
+ * language — and none of the guest sections, which would either be empty
+ * (an account's order history) or meaningless (the guest's own rewards).
+ * Signed OUT, nothing here hints that a restaurant login exists.
  */
 export function AccountScreen({
   menu,
@@ -53,10 +60,13 @@ export function AccountScreen({
   const { loyalty, reload: reloadLoyalty } = useLoyalty(menu.loyalty?.enabled);
   const [rewardOpen, setRewardOpen] = useState(false);
 
+  const staff = auth.staff;
   useEffect(() => {
-    void auth.refreshProviders();
+    // Not in restaurant mode: the endpoint mints a device code, and the
+    // owner is never offered a provider button.
+    if (!staff) void auth.refreshProviders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [Boolean(staff)]);
   const loadOrders = useCallback(() => {
     void auth.fetchMyOrders().then(setOrders);
   }, [auth]);
@@ -88,7 +98,7 @@ export function AccountScreen({
   // the moment before it lands (and the signed-out case, where the card
   // isn't rendered at all).
   const loyaltyConfig = loyalty ?? menu.loyalty;
-  const showRewards = Boolean(auth.token && menu.loyalty?.enabled && loyaltyConfig);
+  const showRewards = Boolean(!staff && auth.token && menu.loyalty?.enabled && loyaltyConfig);
   const vouchers = (loyalty?.vouchers ?? []).filter(isOfferable);
   // Recently spent rewards, kept visible for a moment: "where did my
   // reward go" is the first question after one disappears.
@@ -202,10 +212,19 @@ export function AccountScreen({
           </View>
         </View>
 
-        {/* Account */}
+        {/* Account — or, in restaurant mode, who the counter is signed
+            in as and the way back out. */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t.accountTitle}</Text>
-          {auth.customer ? (
+          <Text style={styles.cardTitle}>{staff ? t.staffSignedIn : t.accountTitle}</Text>
+          {staff ? (
+            <>
+              <Text style={styles.profileName}>{staff.name || menu.venue.name}</Text>
+              {staff.email ? <Text style={styles.profileMail}>{staff.email}</Text> : null}
+              <Pressable onPress={() => void auth.logoutStaff()} hitSlop={6}>
+                <Text style={styles.signOut}>{t.signOut}</Text>
+              </Pressable>
+            </>
+          ) : auth.customer ? (
             <>
               <Text style={styles.profileName}>{auth.customer.name ?? auth.customer.email}</Text>
               <Text style={styles.profileMail}>{auth.customer.email}</Text>
