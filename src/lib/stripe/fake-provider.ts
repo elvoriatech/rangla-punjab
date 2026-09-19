@@ -11,6 +11,7 @@ import type {
   ConnectOnboardingLink,
   OrderCheckoutRef,
   PaymentIntentRef,
+  PaymentIntentState,
 } from "./provider";
 
 /**
@@ -33,7 +34,14 @@ export class FakeStripeProvider implements StripeProvider {
   >();
   private readonly orderCheckouts = new Map<
     string,
-    { orderId: string; tenantId: string; amountCents: number; feeCents: number; paid: boolean }
+    {
+      orderId: string;
+      tenantId: string;
+      amountCents: number;
+      feeCents: number;
+      paid: boolean;
+      currency?: string;
+    }
   >();
 
   constructor(private readonly webhookSecret: string) {}
@@ -222,8 +230,19 @@ export class FakeStripeProvider implements StripeProvider {
       amountCents: input.amountCents,
       feeCents: 0,
       paid: false,
+      currency: input.currency.toUpperCase(),
     });
     return { ref, clientSecret: `${ref}_secret_test` };
+  }
+
+  async retrievePaymentIntent(ref: string): Promise<PaymentIntentState | null> {
+    const c = this.orderCheckouts.get(ref);
+    if (!c) return null;
+    return {
+      status: c.paid ? "succeeded" : "requires_payment_method",
+      amountCents: c.amountCents,
+      currency: c.currency ?? "EUR",
+    };
   }
 
   /** Test/dev hook: settle a fake checkout, like Stripe's webhook would. */

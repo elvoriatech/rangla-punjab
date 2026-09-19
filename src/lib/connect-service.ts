@@ -410,3 +410,79 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
     return settled;
   });
 }
+
+export type VerifyPaymentResult =
+  | { ok: true; paid: boolean; status: string }
+  | { ok: false; error: "invalid_token" | "not_found" | "no_intent" | "not_available" };
+
+/**
+ * Settle an order by asking Stripe directly, instead of waiting for the
+ * webhook. The app calls this the moment its PaymentSheet reports success
+ * and while it polls afterwards; a venue whose webhook endpoint is missing,
+ * mis-subscribed or carrying a stale secret still gets "Paid" (and the
+ * kitchen ticket) within seconds. Authoritative because the SERVER reads
+ * the PaymentIntent from Stripe with the same key that minted it — the
+ * client's word is never trusted, and amount + currency must match the
+ * order before anything moves.
+ */
+export async function verifyOrderPayment(
+  tenantId: string,
+  orderId: string,
+  token: string,
+): Promise<VerifyPaymentResult> {
+  const verified = verifyReceiptToken(token);
+  if (!verified || verified.orderId !== orderId || verified.tenantId !== tenantId) {
+    return { ok: false, error: "invalid_token" };
+  }
+  const shared = await getStripeProvider();
+  const looked = await asTenant(tenantId, async (tx) => {
+    const [tenant, order] = await Promise.all([
+      tx.tenant.findFirstOrThrow({
+        select: { stripeOwnEnabled: true, stripeOwnSecretEnc: true, stripeOwnWebhookEnc: true },
+      }),
+      tx.order.findFirst({
+        where: { id: orderId },
+        select: {
+          paymentStatus: true,
+          paymentRef: true,
+          paymentProvider: true,
+          totalCents: true,
+          currency: true,
+        },
+      }),
+    ]);
+    if (!order) return { kind: "not_found" as const };
+    if (order.paymentStatus === "paid") return { kind: "paid" as const };
+    if (order.paymentProvider !== "stripe" || !order.paymentRef) {
+      return { kind: "no_intent" as const };
+    }
+    const direct = await selectDirectChargeProvider(tenant, shared);
+    if (!direct) return { kind: "not_available" as const };
+    const state = await direct.provider.retrievePaymentIntent(order.paymentRef);
+    return { kind: "state" as const, state, order };
+  });
+  if (looked.kind === "not_found") return { ok: false, error: "not_found" };
+  if (looked.kind === "paid") return { ok: true, paid: true, status: "succeeded" };
+  if (looked.kind === "no_intent") return { ok: false, error: "no_intent" };
+  if (looked.kind === "not_available") return { ok: false, error: "not_available" };
+  const { state, order } = looked;
+  if (!state) return { ok: true, paid: false, status: "unknown" };
+  const matches =
+    state.status === "succeeded" &&
+    state.amountCents === order.totalCents &&
+    state.currency.toUpperCase() === order.currency.toUpperCase();
+  if (!matches) {
+    if (state.status === "succeeded") {
+      log.warn("payment.verify_mismatch", {
+        orderId,
+        tenantId,
+        intentAmount: state.amountCents,
+        orderAmount: order.totalCents,
+      });
+    }
+    return { ok: true, paid: false, status: state.status };
+  }
+  const settled = await markOrderPaid(tenantId, orderId);
+  log.info("payment.verified", { orderId, tenantId, settled });
+  return { ok: true, paid: true, status: "succeeded" };
+}

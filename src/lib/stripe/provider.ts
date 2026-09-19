@@ -164,4 +164,18 @@ export interface StripeProvider {
     currency: string;
     label: string;
   }): Promise<PaymentIntentRef>;
+
+  /** Ask Stripe what became of a PaymentIntent. The app calls this path
+   *  (via /pay/verify) right after its sheet succeeds, so a missing or
+   *  late webhook never leaves a charged guest looking unpaid. Null when
+   *  the ref is unknown. */
+  retrievePaymentIntent(ref: string): Promise<PaymentIntentState | null>;
+}
+
+export interface PaymentIntentState {
+  /** Stripe's status string — "succeeded" is the only one that settles. */
+  status: string;
+  amountCents: number;
+  /** ISO code, upper-case. */
+  currency: string;
 }

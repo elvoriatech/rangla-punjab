@@ -302,6 +302,26 @@ export async function createPaymentIntent(
 
 /** Settles a FAKE intent (dev/CI only — the real provider settles through
  *  Stripe and its webhook). */
+/**
+ * Ask the server to check with Stripe whether this order's card payment
+ * succeeded and settle it if so — the belt to the webhook's braces. Called
+ * right after the sheet reports success and while tracking waits for
+ * "paid". True when the order is (now) paid.
+ */
+export async function verifyPayment(orderId: string, token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/pay/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = (await res.json().catch(() => null)) as { paid?: boolean } | null;
+    return res.ok && body?.paid === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function confirmFakePayment(
   orderId: string,
   token: string,

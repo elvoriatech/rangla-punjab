@@ -11,6 +11,7 @@ import type {
   ConnectOnboardingLink,
   OrderCheckoutRef,
   PaymentIntentRef,
+  PaymentIntentState,
 } from "./provider";
 
 /**
@@ -281,5 +282,16 @@ export class RealStripeProvider implements StripeProvider {
       throw new Error("Stripe returned a PaymentIntent without a client secret");
     }
     return { ref: intent.id, clientSecret: intent.client_secret };
+  }
+
+  async retrievePaymentIntent(ref: string): Promise<PaymentIntentState | null> {
+    try {
+      const pi = await this.stripe.paymentIntents.retrieve(ref);
+      return { status: pi.status, amountCents: pi.amount, currency: pi.currency.toUpperCase() };
+    } catch {
+      // Unknown id on this account (or the wrong account's key): the caller
+      // treats it as "cannot confirm", never as paid.
+      return null;
+    }
   }
 }

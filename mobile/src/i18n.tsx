@@ -1119,11 +1119,17 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
   // Layout direction is a NATIVE, process-wide setting: changing it only
   // takes effect after a reload, so flip it and restart. `allowRTL` has
   // to be called before any forceRTL for the flag to stick.
+  const reloading = useRef(false);
   useEffect(() => {
+    // Until the persisted choice is read, `lang` is only the device guess.
+    // Acting on it here flipped an Arabic device back to LTR and reloaded,
+    // after which the stored "ar" flipped it again — an endless reload loop.
+    if (!booted || reloading.current) return;
     const dir = dirOf(lang);
     I18nManager.allowRTL(true);
     if ((dir === "rtl") === I18nManager.isRTL) return;
     I18nManager.forceRTL(dir === "rtl");
+    reloading.current = true;
     void (async () => {
       try {
         // Lazily required: expo-updates is unavailable in some dev
@@ -1136,9 +1142,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
         // restart, in the language the guest just picked.
         const copy = STRINGS[lang];
         Alert.alert(copy.restartTitle, copy.restartBody);
+        reloading.current = false;
       }
     })();
-  }, [lang]);
+  }, [lang, booted]);
 
   const resolve = useCallback((venue: VenueLocales) => {
     const enabled = (venue.enabledLocales ?? [])

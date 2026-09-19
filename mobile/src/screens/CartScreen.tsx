@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import * as ExpoLinking from "expo-linking";
 import type { ApiMenu, OrderType, PlacedOrder } from "../api";
-import { payPageUrl, placeOrder, startHostedPayment } from "../api";
+import { payPageUrl, placeOrder, startHostedPayment, verifyPayment } from "../api";
 import { confirmFakePayment, openPayPage, payWithCard } from "../payments";
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
@@ -268,8 +268,12 @@ export function CartScreen({
     // Stripe only reports success once the PaymentIntent succeeded, so
     // the tracking screen can treat the order as paid before the webhook
     // lands, instead of offering to pay a second time.
-    if (outcome === "paid") done(undefined, true);
-    else done(outcome);
+    if (outcome === "paid") {
+      // Settle server-side right away (Stripe lookup), so the tracking
+      // screen opens on "Paid" even if the webhook is late or missing.
+      await verifyPayment(order.orderId, order.receiptToken);
+      done(undefined, true);
+    } else done(outcome);
   }
 
   /** Settles the dev provider's intent. Never reachable against a real

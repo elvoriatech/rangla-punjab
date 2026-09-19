@@ -5,6 +5,8 @@ import { signupUser } from "@/lib/auth-service";
 import { asTenant } from "@/lib/tenant";
 import { placeOrder } from "@/lib/order-service";
 import { POST as CONFIRM } from "../confirm/route";
+import { POST as VERIFY } from "../verify/route";
+import { getStripeProvider } from "@/lib/stripe";
 import { POST } from "./route";
 
 /**
@@ -219,5 +221,39 @@ describe("POST /api/orders/{id}/pay/intent", () => {
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentRef: true } }),
     );
     expect(order.paymentRef).toBe(second.ref);
+  });
+
+  it("/pay/verify settles an intent Stripe says succeeded even when no webhook arrived", async () => {
+    const { tenantId, orderId, receiptToken } = await placedOrder();
+    const minted = await POST(request(orderId, { token: receiptToken }), context(orderId));
+    expect(minted.status).toBe(201);
+    const { ref } = (await minted.json()) as { ref: string };
+
+    const verifyReq = (): Request =>
+      new Request(`http://localhost:3000/api/orders/${orderId}/pay/verify`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip },
+        body: JSON.stringify({ token: receiptToken }),
+      });
+
+    // Nothing charged yet: verify must NOT settle.
+    const before = await VERIFY(verifyReq(), context(orderId));
+    expect(before.status).toBe(200);
+    expect(await before.json()).toMatchObject({ paid: false });
+
+    // Stripe-side success with the webhook never delivered: flip the fake
+    // intent to succeeded WITHOUT touching the order row.
+    const provider = (await getStripeProvider()) as unknown as {
+      settleOrderCheckout(ref: string): unknown;
+    };
+    provider.settleOrderCheckout(ref);
+
+    const after = await VERIFY(verifyReq(), context(orderId));
+    expect(after.status).toBe(200);
+    expect(await after.json()).toEqual({ paid: true, status: "succeeded" });
+    const row = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
+    );
+    expect(row.paymentStatus).toBe("paid");
   });
 });

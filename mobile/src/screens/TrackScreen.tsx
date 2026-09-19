@@ -2,7 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as ExpoLinking from "expo-linking";
 import type { ApiTracking } from "../api";
-import { fetchOrderStatus, payPageUrl, receiptUrl, startHostedPayment } from "../api";
+import {
+  fetchOrderStatus,
+  payPageUrl,
+  receiptUrl,
+  startHostedPayment,
+  verifyPayment,
+} from "../api";
 import { confirmFakePayment, openInAppBrowser, openPayPage, payWithCard } from "../payments";
 import { BrandHeader } from "../components";
 import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
@@ -57,15 +63,25 @@ export function TrackScreen({
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // After a confirmed sheet, ask the server to verify with Stripe before
+    // each status read (a handful of times — the order rate limit is
+    // shared with placing orders), so a missing webhook cannot leave the
+    // guest on "confirming…".
+    let verifies = 0;
     async function load(): Promise<void> {
       if (timer) clearTimeout(timer);
       try {
+        if (confirmedRef.current && verifies < 6) {
+          verifies += 1;
+          await verifyPayment(orderId, token);
+        }
         const next = await fetchOrderStatus(orderId, token);
         if (!alive) return;
         setTracking(next);
         setError(false);
         // Waiting on the webhook after a confirmed payment: poll fast so
         // "Paid" settles within seconds, not at the next 10 s tick.
+        if (next.paymentStatus === "paid") verifies = 6;
         const wait = confirmedRef.current && next.paymentStatus !== "paid" ? 3_000 : 10_000;
         if (next.status !== "done") timer = setTimeout(() => void load(), wait);
       } catch {
