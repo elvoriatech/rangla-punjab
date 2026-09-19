@@ -65,12 +65,16 @@ export function RatingOwnerScreen({
   venueName,
   onBack,
   onOpenOwnerMenu,
+  onMenuChanged,
 }: {
   /** Seeds the "find my Place ID" box — searching for your own
    *  restaurant by name is what the button is for. */
   venueName: string;
   onBack: () => void;
   onOpenOwnerMenu?: () => void;
+  /** The stars ride on the public menu payload (`menu.rating`) — a saved,
+   *  toggled or refreshed rating has to reach the app's header. */
+  onMenuChanged?: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
   const { staffToken, clearStaff } = useAuth();
@@ -154,6 +158,7 @@ export function RatingOwnerScreen({
       setBusy(null);
       if (res.ok) {
         adopt(res.data);
+        onMenuChanged?.();
         if (okText) setNotice({ tone: "ok", text: okText });
         return;
       }
@@ -178,7 +183,7 @@ export function RatingOwnerScreen({
       }
       say(res.error);
     },
-    [staffToken, adopt, say, t],
+    [staffToken, adopt, say, onMenuChanged, t],
   );
 
   // The switch is the one control that saves itself. It moves at once —
@@ -193,13 +198,14 @@ export function RatingOwnerScreen({
       void updateStaffRating(staffToken, { enabled: next }).then((res) => {
         if (res.ok) {
           adopt(res.data);
+          onMenuChanged?.();
           return;
         }
         setRating(before);
         say(res.error);
       });
     },
-    [rating, staffToken, adopt, say],
+    [rating, staffToken, adopt, say, onMenuChanged],
   );
 
   const search = useCallback(async (): Promise<void> => {
@@ -227,11 +233,12 @@ export function RatingOwnerScreen({
     setBusy(null);
     if (res.ok) {
       adopt(res.data);
+      onMenuChanged?.();
       setNotice({ tone: "ok", text: t.ratingOwnerRefreshed });
       return;
     }
     say(res.error, res.reason);
-  }, [staffToken, adopt, say, t]);
+  }, [staffToken, adopt, say, onMenuChanged, t]);
 
   const saveManual = useCallback((): void => {
     // "4,7" and "4.7" are the same number to an owner; only one of them

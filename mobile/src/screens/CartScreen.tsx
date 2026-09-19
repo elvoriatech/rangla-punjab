@@ -30,6 +30,7 @@ import {
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
+import { useVenueOpenNow, venueTimezone } from "../hours";
 import { armedVoucher, discountFor, useLoyalty } from "../loyalty";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, FieldLabel, PrimaryButton, QtyStepper, RequiredLegend } from "../components";
@@ -300,14 +301,22 @@ export function CartScreen({
   /**
    * Is the kitchen taking orders for RIGHT NOW?
    *
-   * The SERVER's verdict (`ordering.acceptsAsapNow`), never re-derived
-   * from the opening hours on this payload: a phone two timezones away
-   * must not be the thing that decides the place is shut. False means
-   * `/api/orders` answers `409 venue_closed` to an ASAP or a dine-in
-   * order — but still takes a PRE-ORDER into a later slot today, which
-   * is why the time picker survives and only "Now" goes away.
+   * The server's `ordering.acceptsAsapNow` is the seed; between payloads
+   * the app re-derives it from the venue's own opening hours and
+   * timezone on a 30 s tick (src/hours.ts), because a basket that sat
+   * open across closing time used to keep offering "Now" until the next
+   * fetch. Never the DEVICE's timezone — the venue's, or no client
+   * verdict at all — and the SERVER still enforces it either way:
+   * `/api/orders` answers `409 venue_closed` to a late ASAP or dine-in
+   * order, and still takes a PRE-ORDER into a later slot today, which is
+   * why the time picker survives and only "Now" goes away.
    */
-  const asapOk = menu.ordering.acceptsAsapNow !== false;
+  const openNow = useVenueOpenNow(
+    menu.venue.hours,
+    venueTimezone(menu.venue.timezone),
+    menu.ordering.acceptsAsapNow !== false,
+  );
+  const asapOk = openNow !== false;
   // Closed, and nothing else to choose: "Now" is gone, so put the guest
   // on the first slot rather than leaving them on a dead option.
   useEffect(() => {

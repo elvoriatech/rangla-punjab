@@ -2,21 +2,34 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildMenuPurgeUrls, purgeUrls } from "./cdn-purge";
 
 describe("buildMenuPurgeUrls", () => {
-  it("covers the root menu, every enabled locale, and the manifest", () => {
+  it("covers the root menu, every enabled locale, the manifest, and the app's API read", () => {
     const urls = buildMenuPurgeUrls(["de", "en"]);
     expect(urls).toEqual([
       "http://localhost:3000/",
       "http://localhost:3000/de",
       "http://localhost:3000/en",
       "http://localhost:3000/manifest.webmanifest",
+      "http://localhost:3000/api/v1/menu",
+      "http://localhost:3000/api/v1/menu?locale=de",
+      "http://localhost:3000/api/v1/menu?locale=en",
     ]);
   });
 
-  it("returns just the root menu + manifest when no extra locales", () => {
+  it("returns the root menu, manifest and API read when no extra locales", () => {
     expect(buildMenuPurgeUrls([])).toEqual([
       "http://localhost:3000/",
       "http://localhost:3000/manifest.webmanifest",
+      "http://localhost:3000/api/v1/menu",
     ]);
+  });
+
+  it("purges the app's menu endpoint, not only the website — the app reads a different URL", () => {
+    // Regression guard for the failure it prevents: hours saved, website
+    // correct, app still showing yesterday's open/closed state because
+    // nothing ever purged /api/v1/menu.
+    const urls = buildMenuPurgeUrls(["fr"]);
+    expect(urls).toContain("http://localhost:3000/api/v1/menu");
+    expect(urls).toContain("http://localhost:3000/api/v1/menu?locale=fr");
   });
 });
 

@@ -20,12 +20,30 @@ const log = createLogger();
  * variants (?diet=…) ride the short TTL instead — that's the deal.
  */
 
+/**
+ * Every cached URL that changes when the menu does.
+ *
+ * Three families, and the app's one is easy to forget: the web page at
+ * `/` and `/{locale}`, the PWA manifest, and `/api/v1/menu` — the mobile
+ * app's read, which carries the same dish list, prices and open/closed
+ * state and is edge-cached exactly like the page. An owner who edits
+ * hours and sees the website update while the app still says "Closed"
+ * is looking at a purge list that stopped at the web.
+ *
+ * The API's `?locale=` variants are enumerated too. Non-enterprise
+ * Cloudflare purges by EXACT url, so a query string only purges when we
+ * name it — which is fine here because `enabledLocales` is a short,
+ * closed set, unlike the web page's open-ended `?diet=` combinations
+ * (those still ride the short TTL).
+ */
 export function buildMenuPurgeUrls(enabledLocales: string[]): string[] {
   const base = siteUrl();
   return [
     `${base}/`,
     ...enabledLocales.map((locale) => `${base}/${encodeURIComponent(locale)}`),
     `${base}/manifest.webmanifest`,
+    `${base}/api/v1/menu`,
+    ...enabledLocales.map((locale) => `${base}/api/v1/menu?locale=${encodeURIComponent(locale)}`),
   ];
 }
 

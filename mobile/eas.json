@@ -9,7 +9,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de"
+        "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de",
+        "EXPO_PUBLIC_VENUE_TIMEZONE": "Europe/Berlin"
       }
     },
     "preview-lan": {
@@ -18,13 +19,15 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://REPLACE-WITH-THIS-MACS-LAN-IP:3000"
+        "EXPO_PUBLIC_API_URL": "http://REPLACE-WITH-THIS-MACS-LAN-IP:3000",
+        "EXPO_PUBLIC_VENUE_TIMEZONE": "Europe/Berlin"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de"
+        "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de",
+        "EXPO_PUBLIC_VENUE_TIMEZONE": "Europe/Berlin"
       }
     }
   },

@@ -113,6 +113,18 @@ export interface ApiMenu {
     logoUrl: string | null;
     hours: unknown;
     /**
+     * The venue's IANA zone (e.g. "Europe/Berlin"), when the server
+     * sends it — the clock `hours` above is written in.
+     *
+     * Optional: today's /api/v1/menu does not include it, and the app
+     * then falls back to the zone baked into the build
+     * (EXPO_PUBLIC_VENUE_TIMEZONE, see src/hours.ts). Never the DEVICE's
+     * zone — a guest abroad must not be the one deciding the kitchen is
+     * shut. With no zone at all the app simply shows the server's
+     * `openNow` below, exactly as it did before.
+     */
+    timezone?: string | null;
+    /**
      * Whether the kitchen is open RIGHT NOW, as the server judged it
      * against the venue's own timezone.
      *
@@ -176,9 +188,29 @@ export function rebaseUrl<T extends string | null>(url: T): T {
   return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, BASE_URL) as T;
 }
 
-export async function fetchMenu(locale?: string): Promise<ApiMenu> {
-  const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
-  const res = await fetch(`${BASE_URL}/api/v1/menu${qs}`);
+/**
+ * The published menu.
+ *
+ * `fresh` is the app's explicit re-read (foreground, the five-minute
+ * tick, an owner saving hours or flipping a service): it must reach the
+ * ORIGIN rather than a CDN copy, because the clock-dependent halves of
+ * this payload — `openNow`, `acceptsAsapNow`, `requestSlots` — are
+ * exactly what is being re-read. The server accepts two ways of asking
+ * (src/app/api/v1/menu/route.ts): `Cache-Control: no-cache`, which is
+ * CORS-allowed so the Expo-web surface's preflight passes, and `?fresh=1`
+ * for any client whose request headers get rewritten in transit. Both go
+ * out, plus `cache: "reload"` for the platform's own HTTP cache; the
+ * server answers a fresh read `private, no-store`, so nothing keeps it.
+ */
+export async function fetchMenu(locale?: string, options?: { fresh?: boolean }): Promise<ApiMenu> {
+  const params = new URLSearchParams();
+  if (locale) params.set("locale", locale);
+  if (options?.fresh) params.set("fresh", "1");
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const res = await fetch(
+    `${BASE_URL}/api/v1/menu${qs}`,
+    options?.fresh ? { cache: "reload", headers: { "Cache-Control": "no-cache" } } : undefined,
+  );
   if (!res.ok) throw new Error(`menu ${res.status}`);
   const menu = (await res.json()) as ApiMenu;
   const categories = menu.categories.map((c) => ({
@@ -198,6 +230,7 @@ export async function fetchMenu(locale?: string): Promise<ApiMenu> {
     venue: {
       ...menu.venue,
       logoUrl: rebaseUrl(menu.venue.logoUrl),
+      timezone: typeof menu.venue.timezone === "string" ? menu.venue.timezone.trim() : null,
       // Anything that is not an actual boolean is "nobody said", not
       // "closed" — the pill hides rather than inventing a verdict.
       openNow: typeof menu.venue.openNow === "boolean" ? menu.venue.openNow : null,

@@ -35,7 +35,41 @@ function appRating(
 }
 
 /**
- * GET /api/v1/menu[?locale=de]
+ * How long the edge may hold this payload.
+ *
+ * `openNow` / `acceptsAsapNow` are clock-dependent, so the TTL is the
+ * upper bound on how wrong the open/closed dot can be: 60 s of edge
+ * freshness, and at most 5 more minutes of `stale-while-revalidate`
+ * while the background refresh lands. The previous day-long SWR window
+ * could hand a guest a copy from yesterday evening after an edge miss —
+ * "Open" on a shut restaurant, or ordering switched off on an open one.
+ *
+ * Purge-on-write (src/lib/cdn-purge.ts) still makes an hours edit
+ * instant; this bounds the part a purge cannot reach — the clock
+ * crossing an opening time with nobody writing anything.
+ */
+const MENU_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
+
+/**
+ * The app's explicit refetch (pull-to-refresh, foreground) must reach the
+ * ORIGIN, not a CDN copy that is up to a minute old — that refetch is
+ * exactly how a guest resolves "it says closed but the lights are on".
+ *
+ * Two ways to ask, because the two clients differ: `Cache-Control:
+ * no-cache` (or `no-store`) is what a fetch with `cache: "reload"` sends
+ * on its own, and `?fresh=1` is the belt-and-braces version for any
+ * client whose request headers get rewritten in transit. Either one is
+ * answered `private, no-store`, so neither Cloudflare nor the device
+ * keeps the bypassed copy.
+ */
+function wantsFresh(req: NextRequest): boolean {
+  if (req.nextUrl.searchParams.get("fresh") === "1") return true;
+  const cc = req.headers.get("cache-control")?.toLowerCase() ?? "";
+  return cc.includes("no-cache") || cc.includes("no-store");
+}
+
+/**
+ * GET /api/v1/menu[?locale=de][&fresh=1]
  *
  * The mobile app's menu read — the published menu of THE restaurant
  * (single-tenant deploy, no slug in the URL). Delegates to the same
@@ -95,13 +129,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             : null,
           theme: branding.theme ?? null,
           hours: menu.venue.hours,
+          // The IANA zone those `hours` are written in (e.g.
+          // "Europe/Berlin"). Sent beside them because the app recomputes
+          // the open/closed state locally between refreshes — `openNow`
+          // below is a 60-second-old snapshot, and the device cannot turn
+          // "18:00" into a moment without knowing whose 18:00 it is.
+          timezone: menu.venue.timezone,
           // The open/closed dot in the app's header. Computed here from
           // the same `hours` sent beside it, so the device needs no
           // timezone maths and the two can never disagree. A venue with
           // no hours configured reads `false` — "we don't know" must not
-          // be shown to a guest as "open". Cached for 300 s with the rest
-          // of the payload, so it can lag opening time by up to five
-          // minutes; accepted, the app re-fetches on foreground.
+          // be shown to a guest as "open". Cached for 60 s with the rest
+          // of the payload, so it can lag opening time by about a minute;
+          // the app's own refresh sends `no-cache` and skips the edge.
           openNow: menu.venue.openNow,
           // The restaurant's own numbers: `{ landline, mobile, whatsapp }`,
           // each `{ number, display, href }` or null, and the whole object
@@ -135,8 +175,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // `requestSlots` above, because an ASAP (or any dine-in) order
           // placed now is refused server-side with `venue_closed`. True
           // for a venue that never configured hours: "we don't know" must
-          // not switch its ordering off. Cached for 300 s with the rest of
-          // the payload, so it can lag opening time by up to five minutes;
+          // not switch its ordering off. Cached for 60 s with the rest of
+          // the payload, so it can lag opening time by about a minute;
           // the server is the authority either way.
           acceptsAsapNow: menu.ordering?.acceptsAsapNow ?? true,
           // Table reservations. The SERVER enumerates the bookable
@@ -192,7 +232,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           })),
         })),
       },
-      { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=86400" } },
+      {
+        headers: {
+          "Cache-Control": wantsFresh(req) ? "private, no-store" : MENU_CACHE_CONTROL,
+        },
+      },
     ),
   );
 }

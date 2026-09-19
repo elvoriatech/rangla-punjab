@@ -47,9 +47,13 @@ interface Notice {
 export function ContactOwnerScreen({
   onBack,
   onOpenOwnerMenu,
+  onMenuChanged,
 }: {
   onBack: () => void;
   onOpenOwnerMenu?: () => void;
+  /** The phone book is published with the menu — a saved edit has to
+   *  reach the Account screen's contact card. */
+  onMenuChanged?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
   const { staffToken, clearStaff } = useAuth();
@@ -119,6 +123,7 @@ export function ContactOwnerScreen({
     if (res.ok) {
       adopt(res.data);
       setNotice({ tone: "ok", text: t.contactOwnerSaved });
+      onMenuChanged?.();
       return;
     }
     if (res.error === "unauthorized") {
@@ -136,7 +141,7 @@ export function ContactOwnerScreen({
           ? fill(t.contactOwnerBad, { field: label[field] })
           : t.contactOwnerSaveFailed,
     });
-  }, [staffToken, landline, mobile, whatsapp, adopt, clearStaff, t, label]);
+  }, [staffToken, landline, mobile, whatsapp, adopt, clearStaff, onMenuChanged, t, label]);
 
   const value: Record<StaffContactField, string> = { landline, mobile, whatsapp };
   const setValue: Record<StaffContactField, (next: string) => void> = {

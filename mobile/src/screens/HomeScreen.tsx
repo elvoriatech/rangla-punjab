@@ -12,8 +12,9 @@ import {
 import type { ApiMenu, ApiItem } from "../api";
 import { offerItems } from "../api";
 import { useAuth } from "../auth";
-import type { StaffOrdering } from "../staff";
+import type { StaffHoursWeek, StaffOrdering } from "../staff";
 import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
+import { useVenueOpenNow, venueTimezone } from "../hours";
 import { BrandHeader, DishRow, SectionTitle, VenueStatePill } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 import { fill, useI18n } from "../i18n";
@@ -158,28 +159,52 @@ export function HomeScreen({
    * Behind the counter the hero's pill should be LIVE: the owner has
    * just edited the hours and wants to see what the change did, and the
    * menu payload this screen was handed may be minutes old. So
-   * restaurant mode asks the hours route for the server's current
-   * verdict and falls back to the menu's when it has none.
-   *
-   * Still the server's verdict either way — nothing here reads a clock.
+   * restaurant mode asks the hours route for the venue's own week —
+   * `openNow`, the `hours` it was computed from, and the venue
+   * `timezone`, which the public payload does not carry.
    */
-  const [liveOpen, setLiveOpen] = useState<boolean | null>(null);
+  const [live, setLive] = useState<{
+    openNow: boolean | null;
+    hours: StaffHoursWeek | null;
+    timezone: string | null;
+  }>({ openNow: null, hours: null, timezone: null });
   useEffect(() => {
     if (!staffToken) {
-      setLiveOpen(null);
+      setLive({ openNow: null, hours: null, timezone: null });
       return;
     }
     let alive = true;
     void fetchStaffHours(staffToken).then((res) => {
       if (!alive) return;
-      if (res.ok) setLiveOpen(res.data.openNow);
-      else if (res.error === "unauthorized") clearStaff();
+      if (res.ok) {
+        setLive({ openNow: res.data.openNow, hours: res.data.hours, timezone: res.data.timezone });
+      } else if (res.error === "unauthorized") clearStaff();
     });
     return () => {
       alive = false;
     };
   }, [staffToken, clearStaff]);
-  const openNow = liveOpen ?? menu.venue.openNow ?? null;
+
+  /**
+   * The pill, kept live between payloads.
+   *
+   * The SERVER still owns the hours and the zone; the device only
+   * supplies the clock, ticking every 30 s so the pill flips within
+   * sight of opening and closing time instead of freezing at whatever
+   * the last fetch said (a tablet on the pass sat on one verdict all
+   * evening). `openNowFor` returns nothing when the hours were never
+   * configured or no venue timezone is known — then the server's own
+   * `openNow` is the answer, exactly as before.
+   *
+   * Restaurant mode keeps preferring the staff route: its week is the
+   * one the owner just saved, and its `timezone` is the venue's.
+   */
+  const timezone = venueTimezone(live.timezone, menu.venue.timezone);
+  const openNow = useVenueOpenNow(
+    live.hours ?? menu.venue.hours,
+    timezone,
+    live.openNow ?? menu.venue.openNow ?? null,
+  );
   // Signed out, programme off, or nothing won yet ⇒ no banner at all.
   const { loyalty } = useLoyalty(menu.loyalty?.enabled);
   const voucher = headlineVoucher(loyalty);

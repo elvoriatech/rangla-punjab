@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { signupUser } from "@/lib/auth-service";
 import { asTenant } from "@/lib/tenant";
-import { GET } from "./route";
+import { GET, OPTIONS } from "./route";
 
 /**
  * `?locale` handling on the app's menu read (plan decision 6). The rule
@@ -99,6 +99,7 @@ interface MenuPayload {
     defaultLocale: string;
     enabledLocales: string[];
     openNow: boolean;
+    timezone: string;
     hours: { configured: boolean };
     contact: {
       landline: Entry | null;
@@ -332,11 +333,97 @@ describe("GET /api/v1/menu — ?locale", () => {
     expect(closed.venue.hours.configured).toBe(true);
   });
 
+  it("sends the zone those hours are written in, so the app can recompute the dot", async () => {
+    const fx = await fixture();
+
+    // `openNow` is a 60-second-old snapshot; the app recomputes the state
+    // from `hours` + `timezone` between refreshes, so the zone must ride
+    // along or "18:00" is a string with no moment behind it.
+    const body = await read(fx.slug);
+    expect(body.venue.timezone).toBe("Europe/Berlin");
+    // A real IANA zone, not a fixed offset or a label: `Intl` throws on
+    // anything it cannot resolve.
+    expect(() =>
+      new Intl.DateTimeFormat("en", { timeZone: body.venue.timezone }).format(new Date()),
+    ).not.toThrow();
+
+    // And it follows the venue rather than the deploy's default.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({ data: { timezone: "Asia/Kolkata" } }),
+    );
+    expect((await read(fx.slug)).venue.timezone).toBe("Asia/Kolkata");
+  });
+
   it("ignores junk in the parameter", async () => {
     const fx = await fixture();
     for (const q of ["?locale=xx", "?locale=", "?locale=es-ES%20OR%201=1"]) {
       const body = await read(fx.slug, q);
       expect(body.venue.locale).toBe("de");
     }
+  });
+});
+
+/**
+ * Edge caching.
+ *
+ * The payload carries `openNow` / `acceptsAsapNow`, which are answers
+ * about the clock — so the TTL is a correctness budget, not a tuning
+ * knob, and the app's explicit refresh has to be able to step around the
+ * cache entirely or "pull to refresh" would return the same stale dot.
+ */
+describe("GET /api/v1/menu — cache headers", () => {
+  async function headersFor(
+    slug: string,
+    query = "",
+    init?: { headers?: Record<string, string> },
+  ): Promise<{ status: number; cacheControl: string | null; allowHeaders: string | null }> {
+    process.env.RESTAURANT_SLUG = slug;
+    const res = await GET(new NextRequest(`http://localhost:3000/api/v1/menu${query}`, init));
+    return {
+      status: res.status,
+      cacheControl: res.headers.get("cache-control"),
+      allowHeaders: res.headers.get("access-control-allow-headers"),
+    };
+  }
+
+  it("lets the edge hold the menu for only a minute — openNow is a clock answer", async () => {
+    const fx = await fixture();
+    const { status, cacheControl } = await headersFor(fx.slug);
+    expect(status).toBe(200);
+    // A day-long stale-while-revalidate here could serve last night's
+    // open/closed state after an edge miss.
+    expect(cacheControl).toBe("public, s-maxage=60, stale-while-revalidate=300");
+  });
+
+  it("bypasses the CDN for an explicit refresh — `Cache-Control: no-cache` or `?fresh=1`", async () => {
+    const fx = await fixture();
+
+    for (const value of ["no-cache", "no-store", "No-Cache"]) {
+      const { cacheControl } = await headersFor(fx.slug, "", {
+        headers: { "cache-control": value },
+      });
+      expect(cacheControl, value).toBe("private, no-store");
+    }
+
+    // The query-string form, for a client whose request headers are
+    // rewritten in transit.
+    expect((await headersFor(fx.slug, "?fresh=1")).cacheControl).toBe("private, no-store");
+    expect((await headersFor(fx.slug, "?locale=en&fresh=1")).cacheControl).toBe(
+      "private, no-store",
+    );
+
+    // Anything else is an ordinary cacheable read — `fresh=0` is not a
+    // licence to hammer the origin.
+    expect((await headersFor(fx.slug, "?fresh=0")).cacheControl).toBe(
+      "public, s-maxage=60, stale-while-revalidate=300",
+    );
+  });
+
+  it("allows the Cache-Control request header through CORS, or the bypass never arrives", async () => {
+    const fx = await fixture();
+    // Not a CORS-safelisted request header: without this the Expo web
+    // surface's preflight would block the no-cache refresh.
+    expect((await headersFor(fx.slug)).allowHeaders).toContain("Cache-Control");
+    expect(OPTIONS().headers.get("access-control-allow-headers")).toContain("Cache-Control");
   });
 });

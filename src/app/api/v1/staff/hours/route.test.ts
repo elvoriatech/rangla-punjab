@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { signupUser } from "@/lib/auth-service";
 import { registerCustomerWithPassword } from "@/lib/customer-auth";
 import { prisma } from "@/lib/db";
@@ -303,6 +303,37 @@ describe("/api/v1/staff/hours", () => {
 
     // A refused write is a write that did not happen.
     expect((await read()).body.hours).toEqual(FULL_WEEK);
+  });
+
+  it("purges the CDN so the saved hours reach guests, app endpoint included", async () => {
+    // The open/closed badge is baked into every cached copy of the menu —
+    // the web page AND /api/v1/menu, which the app reads. A save nobody
+    // can see is not a save, so the purge is part of the write, not a
+    // nicety. Cloudflare is stubbed here (the real call is a plain POST
+    // through the injectable fetch in cdn-purge.ts).
+    vi.stubEnv("CLOUDFLARE_ZONE_ID", "zone123");
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "tok");
+    const realFetch = globalThis.fetch;
+    const fetchSpy = vi.fn(
+      async (url: string | URL | Request, init?: RequestInit): Promise<Response> =>
+        String(url).includes("api.cloudflare.com")
+          ? (new Response("{}", { status: 200 }) as Response)
+          : realFetch(url as RequestInfo, init),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    try {
+      expect((await patch({ hours: FULL_WEEK })).status).toBe(200);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+
+    const purge = fetchSpy.mock.calls.find(([url]) => String(url).includes("purge_cache"));
+    expect(purge, "the PATCH never purged the CDN").toBeDefined();
+    const body = JSON.parse(String(purge![1]?.body)) as { files: string[] };
+    expect(body.files).toContain("http://localhost:3000/");
+    expect(body.files).toContain("http://localhost:3000/api/v1/menu");
   });
 
   it("400s a body that is not a week at all, with nothing to blame", async () => {

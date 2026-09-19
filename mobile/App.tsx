@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -74,6 +74,14 @@ type Tab =
 
 /** The owner-only views, which a guest device must never be left on. */
 const OWNER_ONLY: readonly Tab[] = ["board", "loyalty", "issues", "rating", "hours", "contact"];
+
+/** How stale the menu may get while the app is in front. Five minutes is
+ *  the edge payload's own stale-while-revalidate window — beyond that the
+ *  open/closed pill and today's slots are guesses. */
+const ACTIVE_REFRESH_MS = 5 * 60_000;
+/** A return to the foreground this soon after the last read is a glance,
+ *  not an absence — don't spend a request on it. */
+const FOREGROUND_DEBOUNCE_MS = 10_000;
 interface TrackTarget {
   orderId: string;
   token: string;
@@ -121,13 +129,60 @@ function Shell(): React.ReactElement {
   const [openIssueId, setOpenIssueId] = useState<string | null>(null);
   const [ownerMenu, setOwnerMenu] = useState(false);
 
-  const load = useCallback(() => {
-    setLoadError(false);
-    fetchMenu(lang)
-      .then(setMenu)
-      .catch(() => setLoadError(true));
-  }, [lang]);
-  useEffect(load, [load]);
+  /**
+   * The menu, and everything clock-shaped riding on it (`openNow`,
+   * `acceptsAsapNow`, today's `requestSlots`), used to be read ONCE per
+   * process: a tablet left on the pass still showed last night's hours,
+   * and an owner who edited them watched nothing change. It is now
+   * re-read on four triggers — see `useEffect` below and the
+   * `onMenuChanged` threading further down.
+   *
+   * A refetch never clears `menu`: the current payload stays on screen
+   * until a new one lands, so a refresh is invisible unless something
+   * actually changed. A failed one leaves the last good menu in place.
+   */
+  const lastLoad = useRef(0);
+  const load = useCallback(
+    (options?: { fresh?: boolean }) => {
+      setLoadError(false);
+      lastLoad.current = Date.now();
+      fetchMenu(lang, options)
+        .then(setMenu)
+        .catch(() => setLoadError(true));
+    },
+    [lang],
+  );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /** An explicit re-read that bypasses the edge copy (`?fresh=1`). */
+  const refresh = useCallback(() => load({ fresh: true }), [load]);
+
+  // (a) Back from the background, and (b) every five minutes while the
+  // app is in front. The `minAge` guard is the debounce: a foreground
+  // arrival within 10 s of the last read (app-switcher peek, a returning
+  // payment sheet, the permission dialog) costs nothing, and the timer
+  // never piles onto a refetch that just happened.
+  useEffect(() => {
+    const maybeRefresh = (minAge: number): void => {
+      if (Date.now() - lastLoad.current >= minAge) refresh();
+    };
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") maybeRefresh(FOREGROUND_DEBOUNCE_MS);
+    });
+    // Ticks once a minute and refreshes at most every five: JS timers are
+    // frozen in the background, so a 5-minute interval could fire late
+    // (or not at all) after a long sleep — the age check, not the
+    // interval, is what defines "every 5 minutes".
+    const timer = setInterval(() => {
+      if (AppState.currentState === "active") maybeRefresh(ACTIVE_REFRESH_MS);
+    }, 60_000);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [refresh]);
 
   // The venue decides which languages exist: narrow the picker and the
   // device default to what it actually publishes (and that the app has
@@ -273,13 +328,13 @@ function Shell(): React.ReactElement {
       // The SAME launch page a guest sees, minus the two entries: a
       // device with a session opens onto the app's own face rather than
       // a stripped-down holding screen (see `WelcomeScreen`).
-      return <WelcomeScreen variant="loading" loadError={loadError} onRetry={load} />;
+      return <WelcomeScreen variant="loading" loadError={loadError} onRetry={refresh} />;
     }
     return (
       <WelcomeScreen
         ready={Boolean(menu)}
         loadError={loadError}
-        onRetry={load}
+        onRetry={refresh}
         onStart={() => {
           setTab("home");
           setWelcomed(true);
@@ -318,7 +373,7 @@ function Shell(): React.ReactElement {
             menu={menu}
             onAdd={onAdd}
             onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
-            onMenuChanged={load}
+            onMenuChanged={refresh}
             onOpenCategory={(id) => {
               setCategoryId(id);
               setTab("menu");
@@ -346,7 +401,7 @@ function Shell(): React.ReactElement {
             initialCategoryId={categoryId}
             onAdd={onAdd}
             onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
-            onMenuChanged={load}
+            onMenuChanged={refresh}
           />
         ) : null}
         {tab === "cart" && !restaurant ? (
@@ -380,18 +435,26 @@ function Shell(): React.ReactElement {
         {tab === "rating" && restaurant ? (
           <RatingOwnerScreen
             venueName={menu.venue.name}
+            // The rating rides on the menu payload — a saved (or
+            // refreshed) rating has to reach the header's stars.
+            onMenuChanged={refresh}
             onBack={() => setTab("board")}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
         {tab === "hours" && restaurant ? (
           <HoursOwnerScreen
+            // Saved hours change `openNow`, `acceptsAsapNow` and today's
+            // slots on the public payload every other screen reads.
+            onSaved={refresh}
             onBack={() => setTab("board")}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
         {tab === "contact" && restaurant ? (
           <ContactOwnerScreen
+            // The phone book is published with the menu.
+            onMenuChanged={refresh}
             onBack={() => setTab("board")}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />

@@ -125,6 +125,15 @@ const nextConfig: NextConfig = {
         // the purge makes changes instant; the short TTL bounds
         // staleness for anything a URL-list purge can't reach
         // (query-string variants on non-enterprise Cloudflare).
+        //
+        // The stale window is 10 minutes, not a day, because this HTML
+        // carries clock-dependent state: the open/closed badge and
+        // whether the cart may still offer "Now". A day-long
+        // stale-while-revalidate could hand a guest last night's answer
+        // after an edge miss; 300 s fresh + 600 s stale caps the lag at
+        // about a quarter hour. `stale-if-error` stays at a day on
+        // purpose — that one only applies when the origin is DOWN, and a
+        // stale menu beats an error page.
         source: `/:locale(${LOCALE_PATH_PATTERN})?`,
         // P1-9: never cache preview responses — every dashboard user's phone-
         // preview URL is a fresh signed token, and a cached preview would
@@ -133,7 +142,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400",
+            value: "public, s-maxage=300, stale-while-revalidate=600, stale-if-error=86400",
           },
         ],
       },

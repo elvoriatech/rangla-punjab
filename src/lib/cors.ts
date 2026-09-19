@@ -14,7 +14,12 @@ export const CORS_HEADERS = {
   // X-Staff-Token is the restaurant's own credential for the app's orders
   // board — a separate header from the guest one on purpose, so neither
   // credential can ever be presented where the other is expected.
-  "Access-Control-Allow-Headers": "Content-Type, X-Customer-Token, X-Staff-Token, Authorization",
+  // Cache-Control is here because it is NOT a CORS-safelisted request
+  // header: the app's explicit refresh sends `Cache-Control: no-cache` to
+  // bypass the edge copy of /api/v1/menu, and without this the Expo web
+  // surface's preflight would refuse that request outright.
+  "Access-Control-Allow-Headers":
+    "Content-Type, X-Customer-Token, X-Staff-Token, Authorization, Cache-Control",
 } as const;
 
 export function withCors(res: NextResponse): NextResponse {

@@ -102,9 +102,15 @@ function dayIsValid(day: { closed: boolean; slots: StaffHoursSlot[] }): boolean 
 export function HoursOwnerScreen({
   onBack,
   onOpenOwnerMenu,
+  onSaved,
 }: {
   onBack: () => void;
   onOpenOwnerMenu?: () => void;
+  /** Saved hours change the PUBLIC payload — `openNow`, whether an ASAP
+   *  order is taken, today's slots, the Account screen's table. The
+   *  shell re-reads the menu so every screen agrees with what was just
+   *  saved, instead of waiting out its five-minute refresh. */
+  onSaved?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
   const { staffToken, clearStaff } = useAuth();
@@ -245,6 +251,7 @@ export function HoursOwnerScreen({
       setDirty(false);
       setBadDay(null);
       setNotice({ tone: "ok", text: t.hoursSaved });
+      onSaved?.();
       return;
     }
     if (res.error === "unauthorized") {
@@ -258,7 +265,7 @@ export function HoursOwnerScreen({
       text: field ? fill(t.hoursBadDay, { day: dayLabel(field) }) : t.hoursSaveFailed,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [week, staffToken, busy, clearStaff, t]);
+  }, [week, staffToken, busy, clearStaff, onSaved, t]);
 
   const pickerValue =
     picker && week ? (week[picker.day].slots[picker.index]?.[picker.which] ?? "") : "";
