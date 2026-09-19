@@ -183,6 +183,76 @@ installs need an Apple Developer account). Set `EXPO_PUBLIC_API_URL` in
 cd mobile && npx eas-cli build -p android --profile preview
 ```
 
+### Google sign-in in the app (one-tap)
+
+Guests can sign in or register with one tap on **Continue with Google**
+(Welcome, Account and Checkout screens). The app uses the native Google SDK
+(`@react-native-google-signin/google-signin`), gets an ID token, and posts it
+to `POST /api/auth/customer/google`, which verifies it against Google's keys
+and upserts the customer. The first tap creates the account.
+
+Nothing here is required to run the app. **Without credentials the button
+still works** — it falls back to the browser device-code flow, and Expo Go
+always uses that fallback because the native module is not linked there.
+One-tap needs a **native build** (EAS or `expo run:*`) plus the setup below.
+
+**1. Create three OAuth clients** in one Google Cloud project
+(APIs & Services → Credentials → Create credentials → OAuth client ID):
+
+| Type | Fill in | Gives you |
+| --- | --- | --- |
+| **Web application** | Authorised redirect URI `https://<domain>/api/auth/customer/callback` | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (server) and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (app) |
+| **iOS** | Bundle ID `com.elvoria.ranglapunjab` (from `mobile/brand.generated.json`) | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` |
+| **Android** | Package `com.elvoria.ranglapunjab` + the release **SHA-1** from `cd mobile && npx eas-cli credentials -p android` | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` |
+
+Android verifies the app by package + SHA-1 and signs in with the **web**
+client id, so the web client is the one that must not be skipped. For a
+debug build add its debug-keystore SHA-1 to the same Android client.
+
+**2. Put the ids in the app build** — `mobile/eas.json`, every profile that
+should have one-tap (they are `""` placeholders today):
+
+```json
+"env": {
+  "EXPO_PUBLIC_API_URL": "https://rangla-punjab-restaurant.de",
+  "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1234-web.apps.googleusercontent.com",
+  "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "1234-ios.apps.googleusercontent.com",
+  "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "1234-android.apps.googleusercontent.com"
+}
+```
+
+They are baked in at build time; an installed app cannot pick them up later.
+`mobile/app.config.js` registers the iOS URL scheme (the reversed client id)
+only when the iOS id is set, so a build without it still compiles.
+
+**3. Tell the server which tokens to accept** — in `prod.env` (see
+[deploy/prod.env.template](deploy/prod.env.template)), then
+`./deploy/deploy.sh up`:
+
+```bash
+GOOGLE_CLIENT_ID=1234-web.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_MOBILE_CLIENT_IDS=1234-ios.apps.googleusercontent.com,1234-android.apps.googleusercontent.com
+```
+
+The endpoint accepts only ID tokens whose audience is one of these ids and
+answers `503` when none is set, which makes the app fall back to the browser
+flow.
+
+**4. Rebuild and install:**
+
+```bash
+cd mobile && npx eas-cli build -p android --profile preview
+```
+
+Checks: the button shows the Google account chooser instead of opening a
+browser; the server log shows `POST /api/auth/customer/google 200`.
+Common failures: `DEVELOPER_ERROR` on Android means the SHA-1 or package on
+the Android client does not match the build that is installed; a `401` from
+the server means the token's client id is missing from
+`GOOGLE_MOBILE_CLIENT_IDS`. More detail in
+[mobile/BUILDS.md](mobile/BUILDS.md).
+
 ---
 
 ## 6. Everyday commands
@@ -226,6 +296,7 @@ Everything below is data or config — no code changes.
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`, `PAYPAL_WEBHOOK_ID` | Deployment-wide PayPal (a restaurant can instead enter its own in the dashboard) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | The restaurant's Stripe account (guests are charged on it directly) unless keys are pasted in Dashboard → Payments; unset ⇒ the built-in fake provider, so dev never charges a card |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enables "Sign in with Google" for guests; unset ⇒ email sign-up only |
+| `GOOGLE_MOBILE_CLIENT_IDS` | Comma-separated iOS + Android OAuth client ids the app's one-tap ID tokens may carry; unset ⇒ only `GOOGLE_CLIENT_ID` is accepted (see §5, Google sign-in in the app) |
 
 ### Logos and images
 
