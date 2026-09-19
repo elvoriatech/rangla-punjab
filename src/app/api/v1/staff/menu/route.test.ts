@@ -38,7 +38,15 @@ interface MenuBody {
 type LoyaltyBody = { ok: boolean } & Partial<StaffLoyaltyOverview>;
 
 interface PublicMenuBody {
-  categories: { items: { id: string; isAvailable: boolean; priceCents: number }[] }[];
+  categories: {
+    items: {
+      id: string;
+      isAvailable: boolean;
+      priceCents: number;
+      name: string;
+      description: string | null;
+    }[];
+  }[];
 }
 
 describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
@@ -190,7 +198,20 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
     );
   }
 
-  async function publicItem(id: string): Promise<{ isAvailable: boolean; priceCents: number }> {
+  /** The pair's default-locale text, straight from the rows. */
+  async function textRows(...ids: string[]) {
+    return asTenant(tenantId, (tx) =>
+      tx.item.findMany({
+        where: { id: { in: ids } },
+        orderBy: { orderIndex: "asc" },
+        select: { id: true, name: true, description: true },
+      }),
+    );
+  }
+
+  async function publicItem(
+    id: string,
+  ): Promise<PublicMenuBody["categories"][number]["items"][number]> {
     const res = await PUBLIC_MENU(new NextRequest("http://localhost:3000/api/v1/menu"));
     expect(res.status).toBe(200);
     const body = (await res.json()) as PublicMenuBody;
@@ -287,6 +308,63 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
     const pair = await rows(draftNaanId, publishedNaanId);
     expect(pair.map((r) => r.priceCents)).toEqual([420, 420]);
     expect((await publicItem(publishedNaanId)).priceCents).toBe(420);
+  });
+
+  it("renames a dish and rewrites its description on BOTH rows, live for guests", async () => {
+    const { status, body } = await patchItem(publishedNaanId, {
+      name: "  Garlic & Coriander Naan  ",
+      description: "  Tandoor-baked, brushed with butter  ",
+    });
+    expect(status).toBe(200);
+    expect(body.mirrored).toBe(true);
+    // The response already carries the new text — the app re-renders the card
+    // from it rather than re-fetching the whole menu.
+    expect(body.item).toMatchObject({
+      id: publishedNaanId,
+      name: "Garlic & Coriander Naan",
+      description: "Tandoor-baked, brushed with butter",
+    });
+
+    const pair = await textRows(publishedNaanId, draftNaanId);
+    expect(pair.map((r) => r.name)).toEqual(["Garlic & Coriander Naan", "Garlic & Coriander Naan"]);
+    expect(pair.every((r) => r.description === "Tandoor-baked, brushed with butter")).toBe(true);
+
+    // No publish happened in between.
+    const guest = await publicItem(publishedNaanId);
+    expect(guest.name).toBe("Garlic & Coriander Naan");
+    expect(guest.description).toBe("Tandoor-baked, brushed with butter");
+  });
+
+  it("clears a description with a blank string, and leaves the name alone", async () => {
+    const { status, body } = await patchItem(publishedNaanId, { description: "   " });
+    expect(status).toBe(200);
+    expect(body.item).toMatchObject({
+      name: "Garlic & Coriander Naan",
+      description: null,
+    });
+    const pair = await textRows(publishedNaanId, draftNaanId);
+    expect(pair.every((r) => r.description === null)).toBe(true);
+    expect(pair.every((r) => r.name === "Garlic & Coriander Naan")).toBe(true);
+  });
+
+  it("refuses an empty name and an over-long description, and reports the field", async () => {
+    const blankName = await patchItem(publishedDalId, { name: "   " });
+    expect(blankName.status).toBe(400);
+    expect(blankName.body).toEqual({ ok: false, error: "invalid", field: "name" });
+
+    const longName = await patchItem(publishedDalId, { name: "x".repeat(121) });
+    expect(longName.status).toBe(400);
+    expect(longName.body.field).toBe("name");
+
+    const longDescription = await patchItem(publishedDalId, { description: "x".repeat(2001) });
+    expect(longDescription.status).toBe(400);
+    expect(longDescription.body).toEqual({ ok: false, error: "invalid", field: "description" });
+
+    // And nothing was written on the way to the refusal.
+    expect((await textRows(publishedDalId))[0]).toMatchObject({
+      name: "Dal Makhani",
+      description: "Slow-cooked black lentils",
+    });
   });
 
   it("refuses an offer that is not a reduction, and reports the field", async () => {
@@ -494,6 +572,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
 
     expect(body.enabled).toBe(true);
     expect(body.config).toEqual({
+      enabled: true,
       minOrderCents: 2000,
       pointsPerOrder: 5,
       rewardPoints: 20,

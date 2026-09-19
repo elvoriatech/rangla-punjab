@@ -187,6 +187,13 @@ export async function listStaffMenu(tenantId: string): Promise<StaffCategory[]> 
  *  €1,000 dish. */
 const MAX_PRICE_CENTS = 100_000;
 
+/** Text limits, deliberately the dashboard's own (`updateItemSchema` in
+ *  `items-service.ts`): the same dish can be renamed from either surface, so
+ *  a phone must not be able to write a name the dashboard would then refuse
+ *  to save back. */
+const MAX_NAME_CHARS = 120;
+const MAX_DESCRIPTION_CHARS = 2000;
+
 const isoDate = z
   .string()
   .refine((s) => !Number.isNaN(Date.parse(s)), { message: "not an ISO timestamp" })
@@ -208,11 +215,31 @@ const offerSchema = z.object({
   weekly: weeklySchema.nullable().optional(),
 });
 
-/** Every field optional; `offer: null` is the explicit "remove the offer". */
+/**
+ * Every field optional; `offer: null` is the explicit "remove the offer".
+ *
+ * `name` and `description` are the venue's DEFAULT-locale text — the same
+ * columns the dashboard's item form writes. Translation overlay rows
+ * (`translation-service.ts`, one row per entity/locale/field) are deliberately
+ * left alone, exactly as the dashboard leaves them when the base text changes:
+ * a stale translation is a thing the owner can see and fix in the dashboard,
+ * whereas silently deleting their Punjabi menu because someone fixed a typo on
+ * a phone is not.
+ */
 export const staffItemPatchSchema = z.object({
   isAvailable: z.boolean().optional(),
   priceCents: z.number().int().min(1).max(MAX_PRICE_CENTS).optional(),
   offer: offerSchema.nullable().optional(),
+  name: z.string().trim().min(1).max(MAX_NAME_CHARS).optional(),
+  /** Trimmed; blank (or explicit null) clears it, because a description of
+   *  spaces renders as an empty paragraph on the guest menu. */
+  description: z
+    .string()
+    .trim()
+    .max(MAX_DESCRIPTION_CHARS)
+    .nullable()
+    .transform((value) => (value === "" ? null : value))
+    .optional(),
 });
 
 export type StaffItemPatch = z.infer<typeof staffItemPatchSchema>;
@@ -325,6 +352,10 @@ export async function updateStaffItem(
     const data: Prisma.ItemUpdateManyMutationInput = {};
     if (patch.isAvailable !== undefined) data.isAvailable = patch.isAvailable;
     if (patch.priceCents !== undefined) data.priceCents = patch.priceCents;
+    // Same both-halves rule as price: rename the published row so guests see
+    // it now, and the draft twin so the next publish does not undo it.
+    if (patch.name !== undefined) data.name = patch.name;
+    if (patch.description !== undefined) data.description = patch.description;
     if (patch.offer !== undefined) {
       // Prisma needs the DbNull sentinel to write SQL NULL into a Json column.
       data.offerPriceCents = patch.offer?.priceCents ?? null;

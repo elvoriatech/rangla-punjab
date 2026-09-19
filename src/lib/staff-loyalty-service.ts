@@ -1,14 +1,19 @@
-import { parseLoyaltyConfig } from "./loyalty-config";
+import { z } from "zod";
+import { loyaltyConfigSchema, parseLoyaltyConfig, type LoyaltyConfig } from "./loyalty-config";
+import type { StaffResult } from "./staff-menu-service";
 import { asTenant } from "./tenant";
+import { updateVenueLoyalty } from "./venue-service";
 
 /**
  * The restaurant's view of its own loyalty programme — the numbers an owner
  * asks for at the counter ("how many regulars do we have?", "how much are we
  * carrying in unredeemed points?") plus the member list behind them.
  *
- * Strictly read-only. The switches themselves stay in the dashboard: changing
- * what a point is worth re-prices every outstanding balance, which is not a
- * decision anyone should make one-handed during service.
+ * Writes are deliberately narrow: the app can switch the programme on or off
+ * and correct the basic numbers, which is what an owner asks for on the floor
+ * ("stop giving points until the new menu lands"). Everything is merged onto
+ * the STORED config and re-validated, never replaced, so a two-field patch
+ * from an old app build can't silently reset the rest to defaults.
  *
  * Membership is defined by the LEDGER, not by the customer table: a guest who
  * has an account but never earned a point is not a loyalty member, and listing
@@ -47,6 +52,9 @@ export interface StaffLoyaltyTotals {
 export interface StaffLoyaltyOverview {
   enabled: boolean;
   config: {
+    /** Mirrors the top-level `enabled`; it lives in the config block too so
+     *  the app can PATCH back exactly the object it was given. */
+    enabled: boolean;
     minOrderCents: number;
     pointsPerOrder: number;
     rewardPoints: number;
@@ -158,10 +166,81 @@ export async function getStaffLoyaltyOverview(tenantId: string): Promise<StaffLo
   });
 }
 
+/**
+ * The patch the app may send — a partial of the `config` block the GET hands
+ * back.
+ *
+ * Strict where `loyaltyConfigSchema` is forgiving: that schema `.catch()`es
+ * every bad number into its default, which is right for a hand-edited JSONB
+ * blob nobody is watching and wrong for a tap on a phone. A typo here has an
+ * owner staring at a number they did not type, so the patch is rejected with
+ * the offending field instead.
+ */
+export const staffLoyaltyPatchSchema = z.object({
+  enabled: z.boolean().optional(),
+  minOrderCents: z.number().int().min(0).max(1_000_000).optional(),
+  pointsPerOrder: z.number().int().min(0).max(10_000).optional(),
+  rewardPoints: z.number().int().min(0).max(1_000_000).optional(),
+  rewardValueCents: z.number().int().min(0).max(1_000_000).optional(),
+  voucherExpiryMonths: z.number().int().min(0).max(60).optional(),
+});
+
+export type StaffLoyaltyPatch = z.infer<typeof staffLoyaltyPatchSchema>;
+
+/**
+ * Flip the programme on/off (and nudge the numbers), then answer with the
+ * whole overview again.
+ *
+ * The write goes through `updateVenueLoyalty`, the same service the
+ * dashboard's Loyalty form uses, so there is exactly one place that decides
+ * what lands in `venues.loyalty`. That service takes a FULL config, so the
+ * merge onto the stored one happens here: read, spread the patch over it,
+ * re-parse with `loyaltyConfigSchema`.
+ *
+ * The answer is a fresh overview rather than the config alone — flipping the
+ * switch changes what the totals mean, and the app redraws the whole tab.
+ */
+export async function updateStaffLoyalty(
+  userId: string,
+  tenantId: string,
+  rawPatch: unknown,
+): Promise<StaffResult<StaffLoyaltyOverview>> {
+  const parsed = staffLoyaltyPatchSchema.safeParse(rawPatch ?? {});
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return {
+      ok: false,
+      error: "invalid",
+      field: issue && issue.path.length > 0 ? issue.path.join(".") : "body",
+    };
+  }
+
+  const current = await asTenant(tenantId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { loyalty: true },
+    });
+    return venue ? parseLoyaltyConfig(venue.loyalty) : null;
+  });
+  if (!current) return { ok: false, error: "not_found" };
+
+  const next: LoyaltyConfig = loyaltyConfigSchema.parse({ ...current, ...parsed.data });
+  const saved = await updateVenueLoyalty(userId, next);
+  if (!saved.ok) return { ok: false, error: saved.error === "invalid" ? "invalid" : "not_found" };
+
+  // Loyalty is on the guest menu (the cart's "you'll earn 5 points" line), so
+  // the edge copies have to go — same purge the dashboard form runs.
+  const { purgeMenuForUser } = await import("./cdn-purge");
+  await purgeMenuForUser(userId);
+
+  return { ok: true, value: await getStaffLoyaltyOverview(tenantId) };
+}
+
 function publicConfig(
   config: ReturnType<typeof parseLoyaltyConfig>,
 ): StaffLoyaltyOverview["config"] {
   return {
+    enabled: config.enabled,
     minOrderCents: config.minOrderCents,
     pointsPerOrder: config.pointsPerOrder,
     rewardPoints: config.rewardPoints,

@@ -5,17 +5,21 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
 
 /**
  * PATCH /api/v1/staff/items/{id}
- *   { isAvailable?, priceCents?, offer?: {...} | null }
+ *   { isAvailable?, priceCents?, offer?: {...} | null, name?, description? }
  *
- * Sold out, new price, offer on, offer off — the four things an owner changes
- * without wanting to think about drafts and publishing. The write lands on
- * the published row AND its draft twin, so it is live for guests immediately
- * and survives the next publish; `mirrored: false` in the answer means only
- * one row could be found (see the migration for when that happens).
+ * Sold out, new price, offer on, offer off, fix the wording — the things an
+ * owner changes without wanting to think about drafts and publishing. The
+ * write lands on the published row AND its draft twin, so it is live for
+ * guests immediately and survives the next publish; `mirrored: false` in the
+ * answer means only one row could be found (see the migration for when that
+ * happens).
  *
- * `offer: null` REMOVES the offer; omitting the key leaves it untouched. A
- * refusal carries `field` so the app can highlight the control rather than
- * showing a generic error.
+ * `offer: null` REMOVES the offer; omitting the key leaves it untouched, and
+ * the same goes for the text fields — `description: null` (or a blank string)
+ * clears it, an absent key does not. `name`/`description` are the venue's
+ * default-locale text; translations are the dashboard's job. A refusal carries
+ * `field` so the app can highlight the control rather than showing a generic
+ * error.
  */
 export async function PATCH(
   req: NextRequest,

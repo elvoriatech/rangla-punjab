@@ -4,6 +4,7 @@ import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
 import { renderQrSvg } from "@/lib/qr";
+import { ticketAddressLine, ticketDirectionsUrl } from "@/lib/ticket-html";
 import { PrintControls } from "./print-controls";
 
 // Material icon paths (24×24) for the ticket's info rows.
@@ -62,17 +63,11 @@ export default async function OrderTicketPage({
   });
 
   const a = order.deliveryAddress;
-  const addressLine =
-    order.orderType === "delivery" && a?.street
-      ? [a.street, [a.zip, a.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")
-      : null;
-  // Universal Maps directions link: opens turn-by-turn navigation from any
-  // phone camera — no app account needed.
-  const navQr = addressLine
-    ? await renderQrSvg(
-        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}&travelmode=driving`,
-      )
-    : null;
+  // Shared with the app's `/api/v1/staff/orders/{id}/ticket` renderer, so
+  // the address a driver navigates to is the address printed above the QR
+  // on both surfaces.
+  const addressLine = ticketAddressLine(order);
+  const navQr = addressLine ? await renderQrSvg(ticketDirectionsUrl(addressLine)) : null;
 
   const typeBanner =
     order.orderType === "delivery"
