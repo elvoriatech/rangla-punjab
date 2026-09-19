@@ -427,20 +427,42 @@ export interface ApiOrderReview {
   prompted: boolean;
 }
 
+/**
+ * The raw body of `GET /api/v1/orders/{id}/status`.
+ *
+ * `issue`, `canReport` and `review` sit at the TOP LEVEL, NOT inside
+ * `order` — `order` carries the tracking fields alone. Reading them off
+ * `order` (as this once did) silently hid the "Report a problem" button,
+ * the complaint pill and the rate-us ask on every build. They are still
+ * looked up inside `order` as a fallback, so a server that nests them
+ * keeps working.
+ */
+interface ApiOrderStatusBody {
+  ok?: boolean;
+  order?: ApiTracking;
+  issue?: unknown;
+  canReport?: unknown;
+  review?: unknown;
+}
+
 export async function fetchOrderStatus(orderId: string, token: string): Promise<ApiTracking> {
   const res = await fetch(
     `${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}/status?token=${encodeURIComponent(token)}`,
   );
-  const body = (await res.json().catch(() => null)) as { ok?: boolean; order?: ApiTracking } | null;
+  const body = (await res.json().catch(() => null)) as ApiOrderStatusBody | null;
   if (!res.ok || !body?.ok || !body.order) throw new Error(`status ${res.status}`);
   const order = body.order;
-  // The two P7-10 fields are read defensively: an older server sends
-  // neither, and the app then shows no complaint surface at all.
+  // Top level first, `order` only when the key is absent there. All three
+  // are read defensively: an older server sends none of them, and the app
+  // then shows no complaint surface at all.
+  const rawIssue = body.issue !== undefined ? body.issue : order.issue;
+  const rawCanReport = body.canReport !== undefined ? body.canReport : order.canReport;
+  const rawReview = body.review !== undefined ? body.review : order.review;
   return {
     ...order,
-    issue: asIssueSummary(order.issue),
-    canReport: order.canReport === true,
-    review: asReview(order.review),
+    issue: asIssueSummary(rawIssue),
+    canReport: rawCanReport === true,
+    review: asReview(rawReview),
   };
 }
 
