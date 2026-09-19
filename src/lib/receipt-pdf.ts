@@ -21,10 +21,22 @@ const FONT_SIZE = 8.5;
 // abbreviation; the value column still holds ~28 characters.
 const LABEL_CHARS = 10;
 
-// Material "phone" handset, 24×24 viewbox — drawn as a vector because the
-// WinAnsi Courier face has no phone glyph.
-const PHONE_ICON_PATH =
-  "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z";
+// Material icons, 24×24 viewbox — drawn as vectors because the WinAnsi
+// Courier face has no glyphs for them. One per fulfilment row: who, how to
+// reach them, where, when, which table.
+type RowIcon = keyof typeof ICON_PATHS;
+const ICON_PATHS = {
+  phone:
+    "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z",
+  person:
+    "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z",
+  pin: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+  clock:
+    "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z",
+  table:
+    "M21.96 9.73l-1.43-5C20.41 4.3 20.02 4 19.6 4H4.4c-.42 0-.81.3-.93.73l-1.43 5c-.18.63.3 1.27.96 1.27h2.2L4 20h2l.67-5h10.67l.66 5h2l-1.2-9H21c.66 0 1.14-.64.96-1.27zM6.93 13l.27-2h9.6l.27 2H6.93z",
+  note: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z",
+} as const;
 
 function chunkName(name: string, maxChars: number): string[] {
   const words = name.split(/\s+/);
@@ -44,11 +56,12 @@ function chunkName(name: string, maxChars: number): string[] {
 }
 
 /** One label/value row in the fulfilment block; `values` is already
- *  wrapped to the value column and sanitized. `icon` draws the phone glyph. */
+ *  wrapped to the value column and sanitized. `icon` names the vector
+ *  glyph drawn before the first value. */
 interface FulfilmentRow {
   label: string;
   values: string[];
-  icon?: boolean;
+  icon?: RowIcon;
 }
 
 export async function buildReceiptPdf(
@@ -111,21 +124,22 @@ export async function buildReceiptPdf(
       label: t.type,
       values: [order.orderType === "delivery" ? t.delivery : t.pickup],
     });
-    if (scheduled) fRows.push({ label: t.planned, values: [scheduled] });
-    if (order.customerName) fRows.push({ label: t.name, values: wrap(order.customerName) });
+    if (scheduled) fRows.push({ label: t.planned, values: [scheduled], icon: "clock" });
+    if (order.customerName)
+      fRows.push({ label: t.name, values: wrap(order.customerName), icon: "person" });
     if (order.customerPhone)
-      fRows.push({ label: t.phone, values: [safe(order.customerPhone)], icon: true });
+      fRows.push({ label: t.phone, values: [safe(order.customerPhone)], icon: "phone" });
     if (order.orderType === "delivery" && order.deliveryAddress) {
       const a = order.deliveryAddress;
       const addr: string[] = [];
       if (a.street) addr.push(...wrap(a.street));
       const cityLine = `${a.zip ?? ""} ${a.city ?? ""}`.trim();
       if (cityLine) addr.push(...wrap(cityLine));
-      if (addr.length > 0) fRows.push({ label: t.address, values: addr });
-      if (a.note) fRows.push({ label: t.note, values: wrap(a.note) });
+      if (addr.length > 0) fRows.push({ label: t.address, values: addr, icon: "pin" });
+      if (a.note) fRows.push({ label: t.note, values: wrap(a.note), icon: "note" });
     }
   } else if (order.tableNumber) {
-    fRows.push({ label: t.table, values: [order.tableNumber] });
+    fRows.push({ label: t.table, values: [order.tableNumber], icon: "table" });
   }
   const fulfilmentLineCount = fRows.reduce((n, r) => n + r.values.length, 0);
 
@@ -167,15 +181,15 @@ export async function buildReceiptPdf(
     center("-".repeat(cols));
   };
   // Label/value row: bold label in the left column, value(s) in the right.
-  // The phone row draws a small vector handset before its number, since the
-  // Courier face has no phone glyph.
+  // Rows with an icon draw a small vector glyph before their first value,
+  // since the Courier face has none of these symbols.
   const valueX = MARGIN + LABEL_CHARS * charW;
   const fulfilmentRow = (r: FulfilmentRow): void => {
     page.drawText(safe(r.label), { x: MARGIN, y, size: FONT_SIZE, font: monoBold, color: ink });
     let vx = valueX;
     if (r.icon) {
       const icon = 7.5;
-      page.drawSvgPath(PHONE_ICON_PATH, { x: vx, y: y + icon, scale: icon / 24, color: ink });
+      page.drawSvgPath(ICON_PATHS[r.icon], { x: vx, y: y + icon, scale: icon / 24, color: ink });
       vx += icon + 3;
     }
     page.drawText(r.values[0] ?? "", { x: vx, y, size: FONT_SIZE, font: mono, color: ink });

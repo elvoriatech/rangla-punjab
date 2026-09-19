@@ -31,6 +31,13 @@ function whereLine(order: ReceiptOrder, locale: UiLocale): string {
   return order.tableNumber ? t.table(order.tableNumber) : t.dineIn;
 }
 
+/** One glyph per fulfilment type, so a ticket is recognisable at arm's
+ *  length: fork and knife, bag, scooter. Emoji render in every mail client
+ *  the kitchen might read this on. */
+function typeIcon(orderType: string): string {
+  return orderType === "delivery" ? "🛵" : orderType === "takeaway" ? "🛍️" : "🍽️";
+}
+
 export function newOrderSubject(order: ReceiptOrder, locale: UiLocale): string {
   return newOrderCopy(locale).subject(
     orderNo(order),
@@ -79,7 +86,7 @@ export function NewOrderEmail({
         </p>
         <h1 style={{ fontSize: 24, margin: "4px 0 12px" }}>{t.heading(orderNo(order))}</h1>
         <p style={{ fontSize: 18, fontWeight: 700, margin: "0 0 12px" }}>
-          {whereLine(order, locale)}
+          {typeIcon(order.orderType)} {whereLine(order, locale)}
           {order.orderType === "dine_in" && !order.tableNumber ? ` (${t.noTable})` : null}
           {order.orderType !== "dine_in" ? ` · ${t.planned} ${when}` : null}
         </p>
@@ -88,13 +95,13 @@ export function NewOrderEmail({
           <tbody>
             {order.customerName ? (
               <tr>
-                <td style={label}>{t.guest}</td>
+                <td style={label}>👤 {t.guest}</td>
                 <td style={cell}>{order.customerName}</td>
               </tr>
             ) : null}
             {order.customerPhone ? (
               <tr>
-                <td style={label}>{t.phone}</td>
+                <td style={label}>📞 {t.phone}</td>
                 <td style={cell}>
                   <a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a>
                 </td>
@@ -102,18 +109,18 @@ export function NewOrderEmail({
             ) : null}
             {addressLine ? (
               <tr>
-                <td style={label}>{t.address}</td>
+                <td style={label}>📍 {t.address}</td>
                 <td style={cell}>{addressLine}</td>
               </tr>
             ) : null}
             {addr?.note ? (
               <tr>
-                <td style={label}>{t.addressNote}</td>
+                <td style={label}>📝 {t.addressNote}</td>
                 <td style={cell}>{addr.note}</td>
               </tr>
             ) : null}
             <tr>
-              <td style={label}>{t.placedAt}</td>
+              <td style={label}>🕒 {t.placedAt}</td>
               <td style={cell}>{fmt.format(order.createdAt)}</td>
             </tr>
           </tbody>

@@ -71,9 +71,9 @@ export function ReceiptEmail({
         <p style={{ fontSize: 14 }}>
           {order.orderType === "dine_in"
             ? order.tableNumber
-              ? `${t.table} ${order.tableNumber}`
+              ? `🍽️ ${t.table} ${order.tableNumber}`
               : null
-            : `${order.orderType === "delivery" ? t.delivery : t.pickup} · ${t.planned} ${when}`}
+            : `${order.orderType === "delivery" ? "🛵" : "🛍️"} ${order.orderType === "delivery" ? t.delivery : t.pickup} · 🕒 ${t.planned} ${when}`}
         </p>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <tbody>
