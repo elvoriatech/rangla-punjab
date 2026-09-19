@@ -4,24 +4,14 @@
     {
       "name": "rangla-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "dev"
-      ],
+      "runtimeArgs": ["dev"],
       "port": 3000,
       "autoPort": true
     },
     {
       "name": "rangla-mobile",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "--prefix",
-        "mobile",
-        "run",
-        "web",
-        "--",
-        "--port",
-        "8082"
-      ],
+      "runtimeArgs": ["--prefix", "mobile", "run", "web", "--", "--port", "8082"],
       "port": 8082
     },
     {
@@ -34,6 +24,15 @@
         "dev"
       ],
       "port": 3000
+    },
+    {
+      "name": "rangla-mobile-local",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "EXPO_PUBLIC_API_URL=http://localhost:58816 npm --prefix mobile run web -- --port 8083"
+      ],
+      "port": 8083
     }
   ]
 }

@@ -1,9 +1,19 @@
 import React from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
-import { ALLERGEN_ICONS, DIET_ICONS, useI18n } from "./i18n";
-import type { ApiItem } from "./api";
+import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
+import type { ApiItem, ApiRating } from "./api";
 
 /**
  * Red screen header with the brand mark — the mockup's top bar.
@@ -13,33 +23,36 @@ import type { ApiItem } from "./api";
  * the screens that aren't tabs. A guest build passes neither, so the bar
  * is exactly the mockup's.
  *
- * `openNow` adds the venue's open/closed pill on its OWN line, tucked
- * under the burger at the end edge. It used to share the first row, and
- * on a phone that row could not hold logo + burger + pill + a real venue
- * name: "Rangla Punjab · Konstanz" was left fighting the pill for what
- * was left. The name now gets the whole first row back, and the pill
- * gets a line of its own where nothing can squeeze it.
+ * The open/closed pill is NOT here any more. It had a second header row
+ * to itself, which cost every screen a strip of red for one word; it now
+ * rides the Home hero's top-end corner, where it sits over the artwork
+ * and costs no vertical space at all (see `VenueStatePill`, exported for
+ * exactly that). The header is back to a single row.
  *
- * It is a THREE-state prop on purpose: `undefined`/`null` means nobody
- * has told us, and the header then shows nothing — not even the second
- * line — rather than guessing: a wrong "Closed" over the restaurant's
- * own name costs it orders.
+ * `rating` takes the SUBTITLE's slot, directly under the venue name:
+ * "★ 4,7 (440) · Bewertung schreiben" is a credential, and the place it
+ * earns is beside the name it belongs to, not buried under the hero
+ * where it read as one more card. The little all-caps "RESTAURANT"
+ * subtitle is what it replaces — the two never share the line, because
+ * a third row of type under a 20 pt name is noise. No rating (the
+ * default: no Place ID, rating switched off, older server) ⇒ the
+ * subtitle stays exactly as it was.
  */
 export function BrandHeader({
   title,
   subtitle,
   onMenu,
   onBack,
-  openNow,
+  rating,
 }: {
   title: string;
   subtitle?: string;
   onMenu?: () => void;
   onBack?: () => void;
-  openNow?: boolean | null;
+  /** The venue's Google rating, on the screens that carry its name. */
+  rating?: ApiRating | null;
 }): React.ReactElement {
   const { t } = useI18n();
-  const showState = openNow !== null && openNow !== undefined;
   return (
     <View style={styles.headerWrap}>
       <View style={styles.header}>
@@ -64,7 +77,11 @@ export function BrandHeader({
         )}
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{title}</Text>
-          {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+          {rating ? (
+            <HeaderRatingLine rating={rating} />
+          ) : subtitle ? (
+            <Text style={styles.headerSubtitle}>{subtitle}</Text>
+          ) : null}
         </View>
         {onMenu ? (
           <Pressable
@@ -80,16 +97,58 @@ export function BrandHeader({
           <View style={{ width: 40 }} />
         )}
       </View>
-      {/* Second line: the pill alone, hugging the end edge so it lands
-          directly beneath the burger (and beneath the back arrow's
-          mirror image in an RTL build — `flex-end` follows the writing
-          direction, so there is nothing to special-case). */}
-      {showState ? (
-        <View style={styles.headerStateRow}>
-          <VenueStatePill open={openNow} />
-        </View>
-      ) : null}
     </View>
+  );
+}
+
+/**
+ * "★ 4,7 (440) · Bewertung schreiben" — the venue's Google rating, on
+ * the line under its name in the red header.
+ *
+ * The WHOLE line is the target, not just the words at the end: a guest
+ * who wants to leave a review aims at the stars. It is a single
+ * Pressable with its own vertical padding plus hitSlop, so the tappable
+ * box clears 44 pt even though the type is 12 pt.
+ *
+ * Tapping opens Google's own review form in the SYSTEM browser
+ * (`Linking.openURL`, deliberately not the in-app browser — the guest
+ * wants their signed-in Google session, which lives in Chrome/Safari,
+ * not in our Custom Tab). `api.ts` has already refused any URL that
+ * isn't plain http(s), so nothing app-scheme-shaped reaches the OS.
+ *
+ * Colours come from the header's own two light tones, measured against
+ * the brand red: `onRed` at 8.2:1 carries the number and the link,
+ * `goldSoft` at 5.7:1 the star, the count and the separator — both past
+ * AA for the size, and the link keeps its underline so it is not colour
+ * alone that says "tap me".
+ */
+function HeaderRatingLine({ rating }: { rating: ApiRating }): React.ReactElement {
+  const { t, lang } = useI18n();
+  // "4.7" in English, "4,7" in German — the venue's score is a number
+  // the guest reads, so it follows their language like every price does.
+  const value = rating.value.toLocaleString(localeTag(lang), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  const count = rating.count.toLocaleString(localeTag(lang));
+  return (
+    <Pressable
+      onPress={() => void Linking.openURL(rating.reviewUrl).catch(() => {})}
+      accessibilityRole="link"
+      accessibilityLabel={`${fill(t.ratingA11y, { value, count })} — ${t.ratingWriteReview}`}
+      hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
+      style={({ pressed }) => [styles.headerRating, pressed && { opacity: 0.7 }]}
+    >
+      {/* `row` mirrors itself in an RTL build, so the star leads the
+          line in whichever direction the guest reads. */}
+      <Text style={styles.headerRatingStar}>★</Text>
+      <Text style={styles.headerRatingValue}>{value}</Text>
+      <Text style={styles.headerRatingCount}>({count})</Text>
+      <Text style={styles.headerRatingCount}>·</Text>
+      <Text style={styles.headerRatingLink} numberOfLines={1}>
+        {t.ratingWriteReview}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -99,17 +158,33 @@ export function BrandHeader({
  * cannot tell the dots apart — colour is never carrying the meaning on
  * its own here.
  *
- * The pill has its own light fill rather than sitting bare on the red
- * header: green-on-brand-red would not clear AA, and this is the one
- * line on the screen a guest may act on.
+ * The pill has its own OPAQUE light fill rather than sitting bare on
+ * whatever is behind it: green-on-brand-red would not clear AA, and now
+ * that it lives on the Home hero it may be over a bright photograph as
+ * easily as a dark one. The fill is what makes the contrast a known
+ * quantity — the text is measured against the fill, never against the
+ * backdrop. The hairline outline keeps the pill's own edge visible when
+ * the artwork behind it happens to be pale too.
+ *
+ * `style` is the caller's slot for placement (the hero pins it into its
+ * top-end corner); the pill itself stays layout-agnostic. It is purely
+ * informational, so it never takes touches — `pointerEvents="none"`
+ * hands every swipe straight through to the carousel underneath.
  */
-function VenueStatePill({ open }: { open: boolean }): React.ReactElement {
+export function VenueStatePill({
+  open,
+  style,
+}: {
+  open: boolean;
+  style?: StyleProp<ViewStyle>;
+}): React.ReactElement {
   const { t } = useI18n();
   const tone = open ? statusTones.open : statusTones.closed;
   const label = open ? t.venueOpen : t.venueClosed;
   return (
     <View
-      style={[styles.statePill, { backgroundColor: tone.fill }]}
+      style={[styles.statePill, { backgroundColor: tone.fill }, style]}
+      pointerEvents="none"
       accessibilityRole="text"
       accessibilityLabel={label}
     >
@@ -374,22 +449,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  /** The pill's own line. `flex-end` puts it on the END edge — under the
-   *  burger in LTR, under the mirrored one in RTL — and the row is only
-   *  rendered at all when there is a pill to put in it, so a header
-   *  without one keeps exactly its old height. */
-  headerStateRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: 8,
-  },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
    *  never shifts the title off centre. */
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerCenter: { flex: 1, alignItems: "center" },
   /** `flexDirection: "row"` mirrors itself in an RTL build, so the dot
-   *  stays on the reading edge with nothing to special-case. */
+   *  stays on the reading edge with nothing to special-case.
+   *
+   *  The hairline outline is for the hero: an ink-tinted edge at 14%
+   *  separates the pale fill from pale artwork, and the soft drop
+   *  shadow does the same job on Android, where a hairline can vanish
+   *  at low density. Neither touches the text's contrast, which is
+   *  measured against the fill. */
   statePill: {
     flexDirection: "row",
     alignItems: "center",
@@ -398,6 +470,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5,
     flexShrink: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(28, 20, 16, 0.14)",
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
   },
   stateDot: { width: 9, height: 9, borderRadius: 5 },
   stateText: { ...fonts.bodyHeavy, fontSize: 11, letterSpacing: 0.2 },
@@ -408,6 +487,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 3,
     marginTop: 1,
+  },
+  /** One baseline under the name. `minHeight` + `paddingVertical` give
+   *  the press a ~28 pt box of its own, and the 10 pt hitSlop above and
+   *  below takes the real target past 44 pt without pushing the header
+   *  taller than the subtitle it replaces by more than a few points.
+   *  `wrap` is insurance: a long localised "Write a review" beside a
+   *  four-digit count folds to a second line rather than being clipped. */
+  headerRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: 2,
+    minHeight: 24,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+  },
+  headerRatingStar: { color: colors.goldSoft, ...fonts.body, fontSize: 13 },
+  headerRatingValue: { color: colors.onRed, ...fonts.bodyBold, fontSize: 12.5 },
+  headerRatingCount: { color: colors.goldSoft, ...fonts.body, fontSize: 12 },
+  headerRatingLink: {
+    color: colors.onRed,
+    ...fonts.bodySemi,
+    fontSize: 12,
+    textDecorationLine: "underline",
   },
   sectionRow: {
     flexDirection: "row",

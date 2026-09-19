@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   ImageBackground,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,14 +9,14 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ApiMenu, ApiItem, ApiRating } from "../api";
+import type { ApiMenu, ApiItem } from "../api";
 import { offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffOrdering } from "../staff";
 import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
-import { BrandHeader, DishRow, SectionTitle } from "../components";
+import { BrandHeader, DishRow, SectionTitle, VenueStatePill } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
-import { fill, localeTag, useI18n } from "../i18n";
+import { fill, useI18n } from "../i18n";
 import { headlineVoucher, useLoyalty } from "../loyalty";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
 import { DishSheet } from "../dish-sheet";
@@ -37,7 +36,38 @@ const HERO_SLIDES = [
   require("../../assets/carousel/hero-biryani-2.png"),
 ];
 
-function HeroCarousel({ text }: { text: string }): React.ReactElement {
+/**
+ * The hero, and the venue's open/closed pill in its top-end corner.
+ *
+ * The pill used to own a second row of the red header — a full strip of
+ * chrome for one word. It sits on the artwork now: same information,
+ * same place a guest's eye lands first, no vertical cost. Three things
+ * keep it out of the carousel's way:
+ *
+ * - it is an absolutely-positioned SIBLING of the pager, above both the
+ *   slides (`zIndex: 1`) and the dots (`zIndex: 2`), and `elevation`
+ *   repeats that for Android, which sorts by elevation before z;
+ * - `pointerEvents="none"` (inside the pill) means a swipe that starts
+ *   on it still pages the carousel — it is informational, never a
+ *   target;
+ * - `end: 12` rather than `right: 12`, so an RTL build mirrors it to
+ *   the top-LEFT along with everything else.
+ *
+ * Nothing collides: the slide's headline is start-aligned and vertically
+ * centred, the dots hug the bottom edge, and the dish is bottom-aligned
+ * inside a hero that gained the 16 pt the pill's band needs.
+ *
+ * `openNow` stays three-state — `null` means nobody has told us, and
+ * then there is no pill at all rather than a guessed "Closed", which
+ * over a venue's own hero would cost it orders.
+ */
+function HeroCarousel({
+  text,
+  openNow,
+}: {
+  text: string;
+  openNow: boolean | null;
+}): React.ReactElement {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   const scroller = useRef<ScrollView>(null);
@@ -90,44 +120,8 @@ function HeroCarousel({ text }: { text: string }): React.ReactElement {
           <View key={i} style={[styles.heroDot, i === page && styles.heroDotActive]} />
         ))}
       </View>
+      {openNow === null ? null : <VenueStatePill open={openNow} style={styles.heroState} />}
     </ImageBackground>
-  );
-}
-/**
- * "★ 4.6 (312) · Write a review" — the venue's Google rating, right under
- * the hero (P7-14).
- *
- * One line, not a card: it is a credential, not an offer. Tapping opens
- * Google's own review form in the system browser (`Linking.openURL`,
- * deliberately not the in-app browser — the guest may want their signed-in
- * Google session, which lives in Chrome/Safari, not in our Custom Tab).
- *
- * The whole thing is absent when the server sends no rating, which is the
- * default state: no Place ID, or the ⛔ Places API key isn't configured.
- */
-function RatingLine({ rating }: { rating: ApiRating }): React.ReactElement {
-  const { t, lang } = useI18n();
-  // "4.6" in English, "4,6" in German — the venue's score is a number the
-  // guest reads, so it follows their language like every price does.
-  const value = rating.value.toLocaleString(localeTag(lang), {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-  const count = rating.count.toLocaleString(localeTag(lang));
-  return (
-    <Pressable
-      style={styles.ratingRow}
-      onPress={() => void Linking.openURL(rating.reviewUrl).catch(() => {})}
-      accessibilityRole="link"
-      accessibilityLabel={`${fill(t.ratingA11y, { value, count })} — ${t.ratingWriteReview}`}
-      hitSlop={6}
-    >
-      <Text style={styles.ratingStar}>★</Text>
-      <Text style={styles.ratingValue}>{value}</Text>
-      <Text style={styles.ratingCount}>({count})</Text>
-      <Text style={styles.ratingDot}>·</Text>
-      <Text style={styles.ratingLink}>{t.ratingWriteReview}</Text>
-    </Pressable>
   );
 }
 
@@ -161,7 +155,7 @@ export function HomeScreen({
   const { staffToken, clearStaff } = useAuth();
   const restaurant = staffToken !== null;
   /**
-   * Behind the counter the header's pill should be LIVE: the owner has
+   * Behind the counter the hero's pill should be LIVE: the owner has
    * just edited the hours and wants to see what the change did, and the
    * menu payload this screen was handed may be minutes old. So
    * restaurant mode asks the hours route for the server's current
@@ -209,14 +203,10 @@ export function HomeScreen({
         title={menu.venue.name}
         subtitle={t.restaurant}
         onMenu={onOpenOwnerMenu}
-        openNow={openNow}
+        rating={menu.rating ?? null}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <HeroCarousel text={t.heroLine} />
-
-        {/* What other guests think of this place, said once and quietly
-            (P7-14). Nothing renders when the server sends no rating. */}
-        {menu.rating ? <RatingLine rating={menu.rating} /> : null}
+        <HeroCarousel text={t.heroLine} openNow={openNow} />
 
         {/* The counter's own controls: which services are taking orders
             right now. Guests never see this — they see the RESULT, as
@@ -456,28 +446,10 @@ function ServiceSwitch({
 }
 
 const styles = StyleSheet.create({
-  hero: { height: 160, borderRadius: radius.lg, overflow: "hidden" },
-  // Under the hero, above everything the guest can act on: a single
-  // baseline of small type, with only the link carrying colour.
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 5,
-    marginTop: 10,
-    marginHorizontal: 2,
-    minHeight: 32,
-  },
-  ratingStar: { color: colors.goldSoft, ...fonts.body, fontSize: 15 },
-  ratingValue: { color: colors.ink, ...fonts.bodyBold, fontSize: 13.5 },
-  ratingCount: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
-  ratingDot: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
-  ratingLink: {
-    color: colors.red,
-    ...fonts.bodyBold,
-    fontSize: 13,
-    textDecorationLine: "underline",
-  },
+  /** 176, not the old 160: the top ~36 pt are the pill's band now, and
+   *  the extra 16 is what lets the dish keep its full size underneath it
+   *  instead of being clipped into the corner the pill occupies. */
+  hero: { height: 176, borderRadius: radius.lg, overflow: "hidden" },
   serviceCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -511,7 +483,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   // Cut-out plates float straight on the artwork — no frame, no white box.
-  heroDish: { width: 136, height: 124 },
+  // Bottom-aligned inside the slide so the plate sits well clear of the
+  // pill's band in the corner above it.
+  heroDish: { width: 136, height: 124, alignSelf: "flex-end" },
+  /** The open/closed pill, pinned into the hero's top-END corner: `end`
+   *  rather than `right`, so an RTL build mirrors it to the left. Above
+   *  the slides (z 1) and the dots (z 2) on both platforms — Android
+   *  sorts by `elevation` first, hence both. */
+  heroState: { position: "absolute", top: 12, end: 12, zIndex: 3, elevation: 4 },
   heroDots: {
     position: "absolute",
     zIndex: 2,
