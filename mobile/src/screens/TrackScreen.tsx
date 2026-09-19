@@ -138,6 +138,10 @@ export function TrackScreen({
     reloadRef.current();
   }
 
+  // Terminal statuses: the guest has eaten (or the order was cancelled), so
+  // an unpaid online record means it was settled at the counter.
+  const closed = tracking?.status === "done" || tracking?.status === "cancelled";
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader title={t.trackTitle} />
@@ -237,13 +241,16 @@ export function TrackScreen({
                 ? t.paidOnline
                 : confirmed
                   ? t.payConfirming
-                  : payment === "cash" || (payment === undefined && !canPayCard && !canPayPaypal)
-                    ? t.payAtRest
-                    : t.payNotYet}
+                  : closed
+                    ? t.paidAtRest
+                    : payment === "cash" || (payment === undefined && !canPayCard && !canPayPaypal)
+                      ? t.payAtRest
+                      : t.payNotYet}
             </Text>
 
-            {/* Settled (server or sheet) or chosen cash: nothing left to pay. */}
-            {tracking.paymentStatus !== "paid" && !confirmed && payment !== "cash" ? (
+            {/* Settled (server or sheet), chosen cash, or the kitchen has
+                closed the order (served / cancelled): nothing left to pay. */}
+            {tracking.paymentStatus !== "paid" && !confirmed && payment !== "cash" && !closed ? (
               <>
                 {banner ? (
                   <Text style={styles.payBanner}>

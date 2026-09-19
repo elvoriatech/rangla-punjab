@@ -100,16 +100,18 @@ export function OrdersScreen({
             const s = status[order.orderId];
             const paid = s?.paymentStatus === "paid";
             const method = methodLabel(order.payment);
+            const done = s?.status === "done" || s?.status === "cancelled";
             const payText = paid
               ? method
                 ? `${t.paidOnline} · ${method}`
                 : t.paidOnline
               : order.payment === "cash"
                 ? t.methodCash
-                : method
-                  ? `${t.payNotYet} · ${method}`
-                  : null;
-            const done = s?.status === "done";
+                : done
+                  ? t.paidAtRest
+                  : method
+                    ? `${t.payNotYet} · ${method}`
+                    : null;
             return (
               <Pressable
                 key={order.orderId}
