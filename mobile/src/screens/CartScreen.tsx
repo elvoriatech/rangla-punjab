@@ -580,7 +580,7 @@ export function CartScreen({
                         accessibilityState={{ selected: payMethod === option.key }}
                         style={[styles.payCard, payMethod === option.key && styles.payCardActive]}
                       >
-                        <Text style={{ ...fonts.body, fontSize: 30 }}>{option.emoji}</Text>
+                        <Text style={{ ...fonts.body, fontSize: 22 }}>{option.emoji}</Text>
                         <Text
                           style={[
                             styles.payCardText,
@@ -713,22 +713,21 @@ const styles = StyleSheet.create({
   // Payment choice: the same family as the order-type chips, drawn as
   // proper cards — the guest is choosing how money moves, so it gets the
   // biggest tap target on the screen.
-  payRow: { flexDirection: "row", gap: 10 },
+  payRow: { flexDirection: "row", gap: 8 },
   payCard: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    minHeight: 104,
-    borderWidth: 2,
+    gap: 4,
+    borderWidth: 1.5,
     borderColor: colors.line,
-    borderRadius: radius.lg,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     backgroundColor: colors.creamCard,
   },
   payCardActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
-  payCardText: { color: colors.inkSoft, fontSize: 15, ...fonts.bodyBold },
+  payCardText: { color: colors.inkSoft, fontSize: 13, ...fonts.bodyBold },
   dropdown: {
     flexDirection: "row",
     alignItems: "center",
