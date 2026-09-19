@@ -1,5 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, logo, money, radius } from "./theme";
 import { ALLERGEN_ICONS, DIET_ICONS, useI18n } from "./i18n";
 import type { ApiItem } from "./api";
@@ -83,6 +84,38 @@ export function PrimaryButton({
       ) : (
         <Text style={textStyle}>{label}</Text>
       )}
+    </Pressable>
+  );
+}
+
+/**
+ * The outlined member of PrimaryButton's family: same pill, same full
+ * width, but a hairline border and a red label instead of a filled slab.
+ * For an action that is real and must be FINDABLE without competing with
+ * the screen's primary one — signing out, which as a text link owners
+ * simply never saw.
+ */
+export function OutlineButton({
+  label,
+  onPress,
+  icon,
+  accessibilityLabel,
+}: {
+  label: string;
+  onPress: () => void;
+  /** Ionicons glyph set before the label, in the label's own colour. */
+  icon?: React.ComponentProps<typeof Ionicons>["name"];
+  accessibilityLabel?: string;
+}): React.ReactElement {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={({ pressed }) => [styles.outlineBtn, pressed && { opacity: 0.7 }]}
+    >
+      {icon ? <Ionicons name={icon} size={18} color={colors.red} /> : null}
+      <Text style={styles.outlineBtnText}>{label}</Text>
     </Pressable>
   );
 }
@@ -261,6 +294,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryBtnText: { color: colors.ink, ...fonts.bodyBold, letterSpacing: 0.5 },
+  outlineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    alignSelf: "stretch",
+    // 44 is the minimum comfortable tap target, and the reason this
+    // control exists at all — the 13px link it replaces was ~16.
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.red,
+    borderRadius: radius.pill,
+    backgroundColor: "transparent",
+  },
+  outlineBtnText: { color: colors.red, ...fonts.bodyBold, fontSize: 14, letterSpacing: 0.3 },
   // The photo is INSET, not bled to the card edges: a full-height image
   // fought the card's own rounding and grew with the description, so a
   // long dish looked like a poster. Fixed square thumb, padded all round.

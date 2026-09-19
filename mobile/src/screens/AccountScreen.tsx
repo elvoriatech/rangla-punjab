@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ImageBackground,
   Linking,
@@ -26,7 +27,7 @@ import {
   useLoyalty,
 } from "../loyalty";
 import { ReservationsCard } from "../reservations";
-import { PrimaryButton } from "../components";
+import { OutlineButton, PrimaryButton } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
 /**
@@ -132,6 +133,15 @@ export function AccountScreen({
     return t.rewardsAdjust;
   };
 
+  // Restaurant mode asks first: signing out takes the live orders board
+  // off the counter's phone, which is not something to lose to a mis-tap.
+  const confirmStaffSignOut = (): void => {
+    Alert.alert(t.signOutStaff, undefined, [
+      { text: t.signInCancel, style: "cancel" },
+      { text: t.signOut, style: "destructive", onPress: () => void auth.logoutStaff() },
+    ]);
+  };
+
   const providerLabel = (id: string): string => (id === "google" ? t.signInGoogle : t.signInDev);
 
   // One tap: native Google when the build has the client ids, otherwise
@@ -221,17 +231,18 @@ export function AccountScreen({
             <>
               <Text style={styles.profileName}>{staff.name || menu.venue.name}</Text>
               {staff.email ? <Text style={styles.profileMail}>{staff.email}</Text> : null}
-              <Pressable onPress={() => void auth.logoutStaff()} hitSlop={6}>
-                <Text style={styles.signOut}>{t.signOut}</Text>
-              </Pressable>
+              <View style={styles.signOutBox}>
+                <OutlineButton
+                  label={t.signOutStaff}
+                  icon="log-out-outline"
+                  onPress={confirmStaffSignOut}
+                />
+              </View>
             </>
           ) : auth.customer ? (
             <>
               <Text style={styles.profileName}>{auth.customer.name ?? auth.customer.email}</Text>
               <Text style={styles.profileMail}>{auth.customer.email}</Text>
-              <Pressable onPress={() => void auth.logout()} hitSlop={6}>
-                <Text style={styles.signOut}>{t.signOut}</Text>
-              </Pressable>
 
               <Text style={[styles.cardTitle, { marginTop: 16 }]}>{t.accountOrders}</Text>
               {orders.length === 0 ? (
@@ -257,6 +268,14 @@ export function AccountScreen({
                   </Pressable>
                 ))
               )}
+
+              <View style={styles.signOutBox}>
+                <OutlineButton
+                  label={t.signOut}
+                  icon="log-out-outline"
+                  onPress={() => void auth.logout()}
+                />
+              </View>
             </>
           ) : auth.busyProvider && auth.busyProvider !== GOOGLE_NATIVE ? (
             <View style={{ alignItems: "center", gap: 10, paddingVertical: 8 }}>
@@ -534,6 +553,7 @@ const styles = StyleSheet.create({
   profileName: { color: colors.ink, fontSize: 15, ...fonts.bodyBold },
   profileMail: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 1 },
   signOut: { color: colors.red, fontSize: 13, ...fonts.bodyBold, marginTop: 8 },
+  signOutBox: { marginTop: 16 },
   mutedText: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginBottom: 8 },
   loginBtn: {
     borderWidth: 1.5,
