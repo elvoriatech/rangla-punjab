@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { advanceOrderStatus } from "@/lib/order-service";
-import { getStaffOrder } from "@/lib/staff-service";
+import { getStaffOrder, isAppCancelEnabled } from "@/lib/staff-service";
 import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
 
 /**
@@ -17,6 +17,14 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * `advanceOrderStatus` answers a bare boolean, so the 404/409 split is
  * decided by a read first: an id this tenant cannot see is `not_found`,
  * anything else the lifecycle refuses is `invalid_transition`.
+ *
+ * Cancelling is the one move this endpoint can refuse on its own:
+ * `ordering.appCancelEnabled` (owner switch, OFF by default, settable
+ * only in the web dashboard) gates it with `409 cancel_disabled`. The
+ * board already hides the button — `allowedNext` leaves "cancelled" out
+ * — but a stale app, a replayed request or a curl must be refused too,
+ * because a cancel cannot be undone. The dashboard and kitchen screen
+ * are unaffected: they call `advanceOrderStatus` directly.
  */
 
 const bodySchema = z.object({ to: z.string().min(1).max(40) });
@@ -34,9 +42,16 @@ export async function POST(
     return withCors(NextResponse.json({ ok: false, error: "invalid" }, { status: 400 }));
   }
 
-  const before = await getStaffOrder(gate.staff.userId, id);
+  const appCancelEnabled = await isAppCancelEnabled(gate.staff.userId);
+  const before = await getStaffOrder(gate.staff.userId, id, appCancelEnabled);
   if (!before) {
     return withCors(NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }));
+  }
+
+  // Checked after the read so an unknown id still answers 404 — the app
+  // must not learn that an order exists from a refused cancel.
+  if (parsed.data.to === "cancelled" && !appCancelEnabled) {
+    return withCors(NextResponse.json({ ok: false, error: "cancel_disabled" }, { status: 409 }));
   }
 
   const moved = await advanceOrderStatus(gate.staff.userId, id, parsed.data.to);
@@ -47,7 +62,7 @@ export async function POST(
     return withCors(NextResponse.json({ ok: false, error: "invalid_transition" }, { status: 409 }));
   }
 
-  const after = await getStaffOrder(gate.staff.userId, id);
+  const after = await getStaffOrder(gate.staff.userId, id, appCancelEnabled);
   if (!after) {
     return withCors(NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }));
   }

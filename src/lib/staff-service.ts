@@ -1,6 +1,7 @@
 import { issueRefByOrder, type IssueRef, type IssueStatus } from "./issue-service";
 import { getKitchenOrder, listRecentOrders, type KitchenOrder } from "./order-service";
 import { ORDER_STATUSES, TERMINAL_STATUSES, canTransition } from "./order-status";
+import { parseOrderingConfig } from "./ordering-config";
 import { asUser, resolveActiveTenantId } from "./tenant";
 
 /**
@@ -69,14 +70,49 @@ function toAddress(address: KitchenOrder["deliveryAddress"]): StaffOrderAddress 
   };
 }
 
-export function toStaffOrder(order: KitchenOrder, issue: IssueRef | null = null): StaffOrder {
+/**
+ * Is the app allowed to cancel orders on this venue? Owner switch, OFF by
+ * default (`ordering.appCancelEnabled`) — see `ordering-config.ts` for why.
+ *
+ * Read through `asUser` like everything else on the board, so one RLS-scoped
+ * path serves the whole request. Callers that need it more than once (the
+ * status endpoint reads the order twice) resolve it ONCE and pass it down.
+ */
+export async function isAppCancelEnabled(userId: string): Promise<boolean> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { ordering: true },
+    });
+    return parseOrderingConfig(venue?.ordering).appCancelEnabled;
+  });
+}
+
+/**
+ * `appCancelEnabled` defaults to FALSE here on purpose: a caller that
+ * forgets to resolve the switch hands the app a board with no cancel
+ * button, which is the safe failure — never an accidental cancel.
+ */
+export function toStaffOrder(
+  order: KitchenOrder,
+  issue: IssueRef | null = null,
+  appCancelEnabled = false,
+): StaffOrder {
   return {
     issueStatus: issue ? issue.status : null,
     issueId: issue ? issue.id : null,
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
-    allowedNext: ORDER_STATUSES.filter((to) => canTransition(order.status, to, order.orderType)),
+    // The owner switch is subtracted from the lifecycle, not added to it:
+    // "cancelled" only reaches the app when cancelling from the app is on.
+    // The endpoint enforces the same rule, so this is what the app DRAWS,
+    // never what the server TRUSTS.
+    allowedNext: ORDER_STATUSES.filter(
+      (to) =>
+        (appCancelEnabled || to !== "cancelled") &&
+        canTransition(order.status, to, order.orderType),
+    ),
     orderType: order.orderType,
     tableNumber: order.tableNumber,
     customerName: order.customerName,
@@ -129,16 +165,30 @@ export async function listStaffOrders(userId: string, since?: Date): Promise<Sta
       )
     : new Map<string, IssueRef>();
 
-  return orders.map((order) => toStaffOrder(order, issues.get(order.id) ?? null));
+  // One read for the whole board, same reason as the issues map above.
+  const appCancelEnabled = await isAppCancelEnabled(userId);
+
+  return orders.map((order) => toStaffOrder(order, issues.get(order.id) ?? null, appCancelEnabled));
 }
 
-/** One order, reshaped — what the status endpoint answers with. */
-export async function getStaffOrder(userId: string, orderId: string): Promise<StaffOrder | null> {
+/**
+ * One order, reshaped — what the status endpoint answers with.
+ *
+ * `appCancelEnabled` may be passed in by a caller that already resolved it
+ * (the status endpoint reads the order before and after the move); left out,
+ * it is looked up, so no caller can accidentally ship a cancel button.
+ */
+export async function getStaffOrder(
+  userId: string,
+  orderId: string,
+  appCancelEnabled?: boolean,
+): Promise<StaffOrder | null> {
   const order = await getKitchenOrder(userId, orderId);
   if (!order) return null;
   const tenantId = await resolveActiveTenantId(userId);
   const issues = tenantId ? await issueRefByOrder(tenantId, [order.id]) : null;
-  return toStaffOrder(order, issues?.get(order.id) ?? null);
+  const cancelOk = appCancelEnabled ?? (await isAppCancelEnabled(userId));
+  return toStaffOrder(order, issues?.get(order.id) ?? null, cancelOk);
 }
 
 export interface StaffSummary {

@@ -132,6 +132,17 @@ describe("/api/v1/staff/*", () => {
     return placed.value.orderId;
   }
 
+  /** Flip the owner's "the app may cancel" switch (`ordering.appCancelEnabled`),
+   *  which is web-dashboard-only and OFF by default. */
+  async function setAppCancel(enabled: boolean): Promise<void> {
+    await asTenant(tenantId, (tx) =>
+      tx.venue.updateMany({
+        where: { id: venue.venueId },
+        data: { ordering: { appCancelEnabled: enabled } },
+      }),
+    );
+  }
+
   async function board(query = ""): Promise<OrdersBody> {
     const res = await GET(request(`/api/v1/staff/orders${query}`, staffToken));
     expect(res.status).toBe(200);
@@ -173,10 +184,11 @@ describe("/api/v1/staff/*", () => {
       issueStatus: null,
       issueId: null,
     });
-    // dine-in never walks the courier leg, and "cancel" rides along on
-    // every open order — the app draws one button per entry, so this is
-    // the only thing that puts a cancel button on the board.
-    expect(order?.allowedNext).toEqual(["preparing", "ready", "done", "cancelled"]);
+    // dine-in never walks the courier leg, and "cancelled" is absent
+    // because the owner switch is OFF by default — `allowedNext` is the
+    // only thing that puts a cancel button on the board, so a fresh venue
+    // ships an app that cannot cancel by accident.
+    expect(order?.allowedNext).toEqual(["preparing", "ready", "done"]);
     expect(order?.items).toEqual([{ name: "Dal", quantity: 2, priceCents: 1200 }]);
     expect(typeof order?.orderNumber).toBe("number");
     expect(new Date(order!.createdAt).getTime()).toBeGreaterThan(0);
@@ -193,7 +205,7 @@ describe("/api/v1/staff/*", () => {
     expect(ok.status).toBe(200);
     const body = (await ok.json()) as OrdersBody;
     expect(body.order).toMatchObject({ id: orderId, status: "preparing" });
-    expect(body.order?.allowedNext).toEqual(["ready", "done", "cancelled"]);
+    expect(body.order?.allowedNext).toEqual(["ready", "done"]);
 
     const row = await asTenant(tenantId, (tx) =>
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { status: true } }),
@@ -269,8 +281,45 @@ describe("/api/v1/staff/*", () => {
     expect(done?.allowedNext).toEqual([]);
   });
 
-  it("cancels an open order and leaves it with nowhere to go", async () => {
+  it("hides cancel from the app and refuses it server-side while the switch is off", async () => {
+    const orderId = await placeDineIn("13a");
+
+    // The board draws one button per `allowedNext` entry, so an absent
+    // "cancelled" is the missing button.
+    const listed = (await board()).orders?.find((o) => o.id === orderId);
+    expect(listed?.allowedNext).not.toContain("cancelled");
+
+    // UI-only would not be enough: a stale app, a replay or a curl must
+    // be refused too, because a cancel cannot be undone.
+    const res = await STATUS(
+      request(`/api/v1/staff/orders/${orderId}/status`, staffToken, { to: "cancelled" }),
+      { params: Promise.resolve({ id: orderId }) },
+    );
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ ok: false, error: "cancel_disabled" });
+
+    // And the order is untouched — refused, not half-applied.
+    const row = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { status: true } }),
+    );
+    expect(row.status).toBe("placed");
+
+    // An id this restaurant cannot see still 404s: a refused cancel must
+    // not tell the caller that an order exists.
+    const missing = await STATUS(
+      request("/api/v1/staff/orders/nope/status", staffToken, { to: "cancelled" }),
+      { params: Promise.resolve({ id: "nope" }) },
+    );
+    expect(missing.status).toBe(404);
+  });
+
+  it("cancels an open order and leaves it with nowhere to go once the owner allows it", async () => {
     const orderId = await placeDineIn("13");
+    await setAppCancel(true);
+
+    // With the switch on, the button is back on every open card.
+    const listed = (await board()).orders?.find((o) => o.id === orderId);
+    expect(listed?.allowedNext).toEqual(["preparing", "ready", "done", "cancelled"]);
 
     const res = await STATUS(
       request(`/api/v1/staff/orders/${orderId}/status`, staffToken, { to: "cancelled" }),
@@ -298,6 +347,8 @@ describe("/api/v1/staff/*", () => {
       );
       expect(again.status, `${to} must not reopen a cancelled order`).toBe(409);
     }
+
+    await setAppCancel(false);
   });
 
   it("counts the three numbers the app badges", async () => {

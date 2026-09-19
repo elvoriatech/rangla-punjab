@@ -139,6 +139,9 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     // Whole hours, at least one, no ceiling — a blank or fat-fingered
     // box falls back to the schema default instead of failing the save.
     issueWindowHours: parseInt(String(form.get("issueWindowHours") ?? ""), 10),
+    // An unchecked checkbox sends nothing at all, which is exactly the
+    // `off` we want — and off is where this one belongs by default.
+    appCancelEnabled: form.get("appCancelEnabled") === "on",
   });
   return finish(userId, result.ok, "ordering");
 }

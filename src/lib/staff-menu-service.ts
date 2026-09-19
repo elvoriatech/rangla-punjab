@@ -399,6 +399,9 @@ export interface StaffOrdering {
    *  whole hours (P7-10). Minimum 1, no ceiling — a restaurant that wants
    *  a week has a reason we do not need to know about. */
   issueWindowHours: number;
+  /** Whether the app's board may cancel an order. READ-ONLY here: the
+   *  patch schema below deliberately has no such key. */
+  appCancelEnabled: boolean;
 }
 
 export const staffOrderingPatchSchema = z.object({
@@ -424,6 +427,7 @@ export async function getStaffOrdering(tenantId: string): Promise<StaffOrdering>
       takeaway: config.takeaway,
       delivery: config.delivery,
       issueWindowHours: config.issueWindowHours,
+      appCancelEnabled: config.appCancelEnabled,
     };
   });
 }
@@ -435,6 +439,11 @@ export async function getStaffOrdering(tenantId: string): Promise<StaffOrdering>
  * delivery areas, notify emails, accepted payments and the reservations switch
  * all survive a toggle — the app only ever sends two booleans and must not be
  * able to erase settings it doesn't know about.
+ *
+ * `appCancelEnabled` is REPORTED but not settable: an unknown key is
+ * stripped by the patch schema, so an app that sends one changes nothing.
+ * Letting the app arm its own cancel button would defeat the switch —
+ * the owner arms it in the web dashboard.
  */
 export async function updateStaffOrdering(
   tenantId: string,
@@ -469,6 +478,7 @@ export async function updateStaffOrdering(
         takeaway: next.takeaway,
         delivery: next.delivery,
         issueWindowHours: next.issueWindowHours,
+        appCancelEnabled: next.appCancelEnabled,
       },
     };
   });

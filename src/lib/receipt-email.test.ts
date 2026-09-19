@@ -147,6 +147,45 @@ describe("receipt email template", () => {
     expect(html).toContain("VAT 19% (included)");
     expect(html).toContain("Payment is settled at pickup.");
   });
+
+  it("adds a quiet Rate-us-on-Google button when the venue has a review link", () => {
+    const review = "https://search.google.com/local/writereview?placeid=ChIJabc";
+    for (const [locale, label] of [
+      ["en", "Rate us on Google"],
+      ["de", "Bewerten Sie uns bei Google"],
+      ["es", "Valóranos en Google"],
+      ["it", "Valutaci su Google"],
+      ["ar", "قيّمنا على Google"],
+    ] as const) {
+      const html = renderToStaticMarkup(
+        ReceiptEmail({
+          order: sample,
+          locale,
+          receiptUrl: "https://x/r.pdf",
+          trackUrl: "https://x/t",
+          reviewUrl: review,
+        }),
+      );
+      expect(html).toContain(`href="${review}"`);
+      expect(html).toContain(label);
+      // Last, after the receipt's own two buttons — this mail is a
+      // receipt first and an ask second.
+      expect(html.indexOf(review)).toBeGreaterThan(html.indexOf("https://x/t"));
+    }
+  });
+
+  it("leaves the review button out when there is no link to send the guest to", () => {
+    const html = renderToStaticMarkup(
+      ReceiptEmail({
+        order: sample,
+        locale: "en",
+        receiptUrl: "https://x/r.pdf",
+        trackUrl: "https://x/t",
+      }),
+    );
+    expect(html).not.toContain("Rate us on Google");
+    expect(html).not.toContain("writereview");
+  });
 });
 
 describe.runIf(env.EMAIL_TRANSPORT === "mailhog")("receipt email delivery", () => {

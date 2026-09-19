@@ -239,6 +239,45 @@ describe("public menu loader", () => {
     expect((await loadPublicMenu(context!))?.rating).toMatchObject({ value: 4.6, count: 312 });
   });
 
+  it("computes openNow from the venue's own hours and timezone", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+
+    // A venue whose owner never saved hours: unknown, which the loader
+    // reports as closed rather than promising an open door.
+    const unset = await loadPublicMenu(context!);
+    expect(unset?.venue.hours.configured).toBe(false);
+    expect(unset?.venue.openNow).toBe(false);
+
+    // Open round the clock. `close === open` is the schema's overnight
+    // window, so the assertion cannot depend on when the suite runs.
+    const everyDay = (day: { closed: boolean; slots: { open: string; close: string }[] }) =>
+      Object.fromEntries(["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [d, day]));
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          hours: {
+            configured: true,
+            days: everyDay({ closed: false, slots: [{ open: "00:00", close: "00:00" }] }),
+          },
+        },
+      }),
+    );
+    expect((await loadPublicMenu(context!))?.venue.openNow).toBe(true);
+
+    // Configured and shut every day — the same field, the other answer.
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: { hours: { configured: true, days: everyDay({ closed: true, slots: [] }) } },
+      }),
+    );
+    const closed = await loadPublicMenu(context!);
+    expect(closed?.venue.openNow).toBe(false);
+    // The parsed hours still travel with it: one payload feeds both the
+    // dot and the table beneath it.
+    expect(closed?.venue.hours.configured).toBe(true);
+  });
+
   it("resolves ?cat=offers only while something is on offer", async () => {
     const { userId, venueSlug } = await seedPublishedMenu();
     const plain = await loadPublicMenu((await resolvePreviewContext(venueSlug, null))!);

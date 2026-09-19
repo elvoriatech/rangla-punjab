@@ -4,7 +4,8 @@ import { getStaffOrdering, updateStaffOrdering } from "@/lib/staff-menu-service"
 import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
 
 /**
- * GET  /api/v1/staff/ordering  → { ok, ordering: { dineIn, takeaway, delivery, issueWindowHours } }
+ * GET  /api/v1/staff/ordering  → { ok, ordering: { dineIn, takeaway, delivery,
+ *                                   issueWindowHours, appCancelEnabled } }
  * PATCH /api/v1/staff/ordering       { takeaway?, delivery?, issueWindowHours? }
  *
  * "Stop taking delivery orders, we're swamped." The GET exists so the app can
@@ -19,6 +20,15 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * `issueWindowHours` (P7-10) rides along because it is the same kind of
  * setting — an owner switch the app draws and can change on the spot —
  * and because the dashboard's Settings form writes the identical key.
+ *
+ * `appCancelEnabled` is READ-ONLY here, and that is the whole point of it:
+ * the GET reports it so the app can say "cancelling is switched off" instead
+ * of drawing a dead button, but the PATCH body has no such key (unknown keys
+ * are stripped, so sending one changes nothing). Cancelling is terminal and
+ * gets tapped by accident on a phone carried through a service, so arming it
+ * is a decision the owner makes in the web dashboard — never one the app can
+ * make for itself. Enforcement of the switch lives on
+ * `POST /api/v1/staff/orders/{id}/status` (409 `cancel_disabled`).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const gate = await requireStaff(req);

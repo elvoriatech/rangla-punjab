@@ -37,6 +37,7 @@ export function OrderTrackerCard({
   locale,
   themeStyle,
   pauseRefresh = false,
+  reviewUrl = null,
 }: {
   order: TrackerOrder;
   locale: UiLocale;
@@ -45,6 +46,11 @@ export function OrderTrackerCard({
    *  would wipe the half-typed message, so the page asks for it to be
    *  left out while the composer is open. */
   pauseRefresh?: boolean;
+  /** Google's write-a-review form for this venue, when the owner has a
+   *  Place ID saved and the rating switched on. Null hides the ask —
+   *  and it is only ever DRAWN on a finished order, because asking a
+   *  guest to rate food that hasn't arrived is asking about a promise. */
+  reviewUrl?: string | null;
 }): React.ReactElement {
   const t = postOrderCopy(locale);
   const steps = guestSteps(order.orderType);
@@ -197,6 +203,26 @@ export function OrderTrackerCard({
             </span>
           </div>
         </div>
+
+        {/* "How was it? Rate us on Google" — the one ask that only makes
+            sense at the end. `done` and not cancelled: a cancelled order
+            has no experience to rate, and an order still on its way has
+            not happened yet. Zero JS, one outbound link, and the new-tab
+            warning is there for anyone who can't see one open. */}
+        {isDone && !cancelled && reviewUrl ? (
+          <div className="mt-6 rounded-xl border border-[var(--menu-surface-accent,var(--menu-accent))]/30 p-4 text-center">
+            <p className="text-sm font-semibold">{t.review.title}</p>
+            <a
+              href={reviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block rounded-lg border border-[var(--menu-surface-accent,var(--menu-accent))] px-4 py-2.5 text-sm font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-accent,var(--menu-accent))]"
+            >
+              {t.review.cta}
+              <span className="sr-only"> ({t.review.newTab})</span>
+            </a>
+          </div>
+        ) : null}
 
         {/* The promise and the meta tag travel together — a paused page
             must not claim it refreshes itself. */}

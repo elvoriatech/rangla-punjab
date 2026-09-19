@@ -134,6 +134,19 @@ const en = {
   cancelledBody:
     "The restaurant called this order off, so nothing is being prepared. If you already paid, the restaurant will refund you — give them a call if anything is unclear.",
 
+  /* "Rate us on Google" — shown on a FINISHED order only, never while the
+     food is still coming: asking for a review before the guest has eaten
+     is asking them to rate a promise. `newTab` is read by screen readers
+     only, because this is the one link on the page that leaves it. */
+  review: {
+    title: "How was it?",
+    cta: "Rate us on Google ★",
+    newTab: "opens Google in a new tab",
+    /** The account page's order row, where the label sits beside
+     *  "Track" and "Receipt" and has to stay short. */
+    short: "Rate on Google",
+  },
+
   /* Guest password reset (P7-15): the "forgot" form, the page the emailed
      link opens, and the two lines that report the outcome — on the
      account page and on the app hand-over page. Every sentence has to
@@ -276,6 +289,13 @@ const de: PostOrderCopy = {
   cancelledBody:
     "Das Restaurant hat diese Bestellung storniert — es wird nichts zubereitet. Falls Sie bereits bezahlt haben, erstattet Ihnen das Restaurant den Betrag. Rufen Sie bei Fragen einfach an.",
 
+  review: {
+    title: "Wie war es?",
+    cta: "Bewerten Sie uns bei Google ★",
+    newTab: "öffnet Google in einem neuen Tab",
+    short: "Bei Google bewerten",
+  },
+
   password: {
     forgotLink: "Passwort vergessen?",
     forgotTitle: "Passwort vergessen?",
@@ -412,6 +432,13 @@ const es: PostOrderCopy = {
   cancelledBody:
     "El restaurante ha cancelado este pedido, así que no se preparará nada. Si ya habías pagado, el restaurante te devolverá el importe. Llámales si tienes cualquier duda.",
 
+  review: {
+    title: "¿Qué tal ha ido?",
+    cta: "Valóranos en Google ★",
+    newTab: "abre Google en una pestaña nueva",
+    short: "Valorar en Google",
+  },
+
   password: {
     forgotLink: "¿Has olvidado la contraseña?",
     forgotTitle: "¿Has olvidado la contraseña?",
@@ -545,6 +572,13 @@ const it: PostOrderCopy = {
   cancelledBody:
     "Il ristorante ha annullato questo ordine: non verrà preparato nulla. Se avevi già pagato, il ristorante ti rimborserà. Chiamali se qualcosa non ti è chiaro.",
 
+  review: {
+    title: "Com'è andata?",
+    cta: "Valutaci su Google ★",
+    newTab: "apre Google in una nuova scheda",
+    short: "Valuta su Google",
+  },
+
   password: {
     forgotLink: "Password dimenticata?",
     forgotTitle: "Password dimenticata?",
@@ -675,6 +709,13 @@ const ar: PostOrderCopy = {
   cancelledTitle: "تم إلغاء هذا الطلب",
   cancelledBody:
     "ألغى المطعم هذا الطلب، ولن يتم تحضير أي شيء. إذا كنت قد دفعت بالفعل، فسيردّ لك المطعم المبلغ. اتصل بهم إذا كان لديك أي استفسار.",
+
+  review: {
+    title: "كيف كانت تجربتك؟",
+    cta: "قيّمنا على Google ★",
+    newTab: "يفتح Google في تبويب جديد",
+    short: "التقييم على Google",
+  },
 
   password: {
     forgotLink: "نسيت كلمة المرور؟",

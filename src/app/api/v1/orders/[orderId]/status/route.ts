@@ -4,6 +4,7 @@ import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getOrderTracking } from "@/lib/order-service";
 import { guestSteps, isCancelledStatus, statusChain, stepIndex } from "@/lib/order-status";
 import { getGuestIssueState } from "@/lib/issue-service";
+import { reviewCallToAction } from "@/lib/google-rating";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 
 /**
@@ -40,6 +41,11 @@ export async function GET(
   // another language reads `key` and looks it up in its own catalogue.
   const stepsDe = postOrderCopy("de").steps;
   const stepsEn = postOrderCopy("en").steps;
+  // "Rate us on Google": present whenever the venue has a Place ID and
+  // the owner hasn't switched the rating off — independent of the
+  // order's status, because WHEN to ask is the client's decision (the
+  // app shows it on a finished order, same as the web tracker).
+  const review = reviewCallToAction(order.venue);
   return withCors(
     NextResponse.json(
       {
@@ -98,6 +104,12 @@ export async function GET(
           ? { status: issueState.issue.status, updatedAt: issueState.issue.updatedAt }
           : null,
         canReport: issueState?.canReport ?? false,
+        // One field, one key: the write-a-review URL and nothing else.
+        // The rating NUMBER already reaches the app through the menu
+        // payload, and a second copy here would be a second thing to
+        // keep in step. Null = no Place ID, or the owner switched the
+        // rating off: draw no call-to-action at all.
+        review: review ? { url: review.reviewUrl } : null,
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
     ),

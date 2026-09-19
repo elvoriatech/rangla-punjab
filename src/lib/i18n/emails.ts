@@ -39,6 +39,10 @@ const receiptEn = {
   unpaidDelivery: "Payment is settled on delivery.",
   pdf: "Download receipt (PDF)",
   track: "Track your order",
+  /** The secondary ask under the receipt. Only rendered when the venue
+   *  has a Google Place ID, so the button always leads to the real
+   *  write-a-review form. */
+  rate: "Rate us on Google",
   notInvoice: "This is an order confirmation, not a tax invoice.",
 };
 
@@ -66,6 +70,7 @@ const receiptDe: ReceiptCopy = {
   unpaidDelivery: "Die Zahlung erfolgt bei der Lieferung.",
   pdf: "Beleg als PDF herunterladen",
   track: "Bestellstatus verfolgen",
+  rate: "Bewerten Sie uns bei Google",
   notInvoice: "Dies ist eine Bestellbestätigung, keine Rechnung.",
 };
 
@@ -91,6 +96,7 @@ const receiptEs: ReceiptCopy = {
   unpaidDelivery: "El pago se realiza en la entrega.",
   pdf: "Descargar el recibo (PDF)",
   track: "Seguir el estado del pedido",
+  rate: "Valóranos en Google",
   notInvoice: "Esto es una confirmación de pedido, no una factura.",
 };
 
@@ -116,6 +122,7 @@ const receiptIt: ReceiptCopy = {
   unpaidDelivery: "Il pagamento avviene alla consegna.",
   pdf: "Scarica la ricevuta (PDF)",
   track: "Segui lo stato dell'ordine",
+  rate: "Valutaci su Google",
   notInvoice: "Questa è una conferma d'ordine, non una fattura fiscale.",
 };
 
@@ -141,6 +148,7 @@ const receiptAr: ReceiptCopy = {
   unpaidDelivery: "يتم الدفع عند التوصيل.",
   pdf: "تنزيل الإيصال (PDF)",
   track: "تتبّع حالة الطلب",
+  rate: "قيّمنا على Google",
   notInvoice: "هذا تأكيد طلب وليس فاتورة ضريبية.",
 };
 

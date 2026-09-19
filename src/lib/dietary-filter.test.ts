@@ -19,6 +19,7 @@ const menu: PublicMenu = {
     currency: "EUR",
     timezone: "Europe/Berlin",
     hours: { configured: false, days: {} },
+    openNow: false,
     branding: {},
   },
   locale: "en",

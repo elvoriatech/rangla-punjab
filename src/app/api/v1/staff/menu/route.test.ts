@@ -443,6 +443,8 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       delivery: true,
       // Never set on this venue, so the config default answers (P7-10).
       issueWindowHours: 3,
+      // Cancelling from the app is OFF until the owner arms it on the web.
+      appCancelEnabled: false,
     });
 
     const res = await PATCH_ORDERING(
@@ -454,6 +456,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       takeaway: true,
       delivery: false,
       issueWindowHours: 3,
+      appCancelEnabled: false,
     });
 
     const stored = await asTenant(tenantId, (tx) =>
@@ -476,6 +479,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       takeaway: false,
       delivery: true,
       issueWindowHours: 3,
+      appCancelEnabled: false,
     });
   });
 
@@ -502,6 +506,22 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
     );
     expect(zero.status).toBe(400);
     expect(await zero.json()).toMatchObject({ ok: false, error: "invalid" });
+  });
+
+  it("will not let the app arm its own cancel button", async () => {
+    // The GET reports the switch so the app can explain itself; the PATCH
+    // has no such key, so an app that sends one changes nothing. Arming
+    // it is a web-dashboard decision by design.
+    const res = await PATCH_ORDERING(
+      request("/api/v1/staff/ordering", staffToken, { appCancelEnabled: true }),
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as MenuBody).ordering).toMatchObject({ appCancelEnabled: false });
+
+    const stored = await asTenant(tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ where: { id: venueId }, select: { ordering: true } }),
+    );
+    expect((stored.ordering as Record<string, unknown>).appCancelEnabled).toBe(false);
   });
 
   it("answers the loyalty overview with the programme's totals and its regulars", async () => {

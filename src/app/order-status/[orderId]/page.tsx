@@ -8,6 +8,7 @@ import { isLocaleCode, uiLocale } from "@/lib/locales";
 import { isOpenStatus } from "@/lib/order-status";
 import { asTenant } from "@/lib/tenant";
 import { getGuestIssueState } from "@/lib/issue-service";
+import { reviewCallToAction } from "@/lib/google-rating";
 import { OrderTrackerCard } from "./tracker-card";
 import { IssueSection } from "./issue-section";
 import { reportIssueAction } from "./actions";
@@ -97,6 +98,10 @@ export default async function OrderStatusPage({
         locale={locale}
         themeStyle={themeStyle}
         pauseRefresh={composing}
+        // Free of charge: the rating columns came back with the venue
+        // row the tracker already reads. The card decides whether the
+        // order is finished enough to show it.
+        reviewUrl={reviewCallToAction(order.venue)?.reviewUrl ?? null}
         order={{
           orderNumber: order.orderNumber,
           status: order.status,

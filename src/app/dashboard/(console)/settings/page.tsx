@@ -988,6 +988,25 @@ export default async function SettingsPage({
             </label>
           </div>
 
+          <div className="mt-4 border-t border-ink/10 pt-4">
+            <label className="flex cursor-pointer items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                name="appCancelEnabled"
+                defaultChecked={ordering.config.appCancelEnabled}
+                className="mt-0.5 accent-orange"
+              />
+              <span>
+                <span className="font-medium">Allow cancelling orders from the app (Board)</span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  Off by default — the dashboard&apos;s Orders page can always cancel. Cancelling
+                  cannot be undone, and the button is easy to hit by mistake on a phone carried
+                  through a service.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <SubmitButton
             pendingLabel="Saving…"
             className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"

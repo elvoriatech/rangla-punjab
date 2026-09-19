@@ -28,6 +28,7 @@ const fixture: PublicMenu = {
     currency: "EUR",
     timezone: "Europe/Berlin",
     hours: { configured: false, days: {} },
+    openNow: false,
     branding: { primaryColor: "#1f3b2e" },
   },
   locale: "en-GB",

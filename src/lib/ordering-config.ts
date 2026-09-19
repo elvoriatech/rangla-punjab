@@ -103,6 +103,28 @@ const issueWindowHoursField = z.preprocess((v) => {
   return Math.min(MAX_INT32, Math.max(1, Math.round(n)));
 }, z.number().int().min(1).max(MAX_INT32).catch(DEFAULT_ISSUE_WINDOW_HOURS));
 
+/**
+ * May the restaurant APP (the Board) cancel an order?
+ *
+ * OFF by default, and the one switch in here the app cannot flip itself:
+ * "cancelled" is terminal and irreversible, and a cancel button sitting
+ * between "preparing" and "done" on a phone carried through a service is
+ * tapped by accident. The owner turns it on in the web dashboard, where
+ * the decision is made sitting down.
+ *
+ * This gates the APP only. The dashboard's order list and the kitchen
+ * screen call `advanceOrderStatus` directly and can always cancel — a
+ * restaurant must never be unable to cancel an order at all.
+ *
+ * Tolerant like the fields above: a legacy config storing "on"/"true"
+ * (or nothing at all) must not fail the parse and take the delivery
+ * areas down with it.
+ */
+const appCancelEnabledField = z.preprocess(
+  (v) => (typeof v === "boolean" ? v : v === "on" || v === "true" || v === 1),
+  z.boolean().catch(false),
+);
+
 export const orderingConfigSchema = z.object({
   dineIn: z.boolean().default(true),
   takeaway: z.boolean().default(true),
@@ -126,6 +148,9 @@ export const orderingConfigSchema = z.object({
   // the venue directly, and the public menu has no business knowing how
   // long the complaint window is.
   issueWindowHours: issueWindowHoursField.default(DEFAULT_ISSUE_WINDOW_HOURS),
+  // Owner-side only, and web-only to SET: the app reads it (to know
+  // whether to draw a cancel button) but may never turn it on.
+  appCancelEnabled: appCancelEnabledField.default(false),
   // Shown in the public menu footer. Per-item sanitised (one unknown
   // value never nukes the list): legacy "credit" expands to
   // Visa + Mastercard, junk is dropped, absent → German-typical default.

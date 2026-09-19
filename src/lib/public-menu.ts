@@ -2,6 +2,7 @@ import { readDb } from "./db";
 import { asTenantRead } from "./tenant";
 import { resolveCategoryParam } from "./dietary-filter";
 import { effectiveItemPrice } from "./offer-pricing";
+import { currentOpenState } from "./opening-hours";
 import { parseOpeningHours } from "./opening-hours-schema";
 import { publicRating, scheduleVenueRatingRefresh, type PublicRating } from "./google-rating";
 import type { PreviewContext } from "./preview-context";
@@ -64,6 +65,18 @@ export interface PublicMenu {
     currency: string;
     timezone: string;
     hours: import("./opening-hours").OpeningHours;
+    /**
+     * Is the venue open RIGHT NOW, in its own timezone? Derived from
+     * `hours` — a venue that never configured them is `false`, because
+     * "we don't know" and "come back later" look the same to a guest and
+     * only one of them is safe to promise.
+     *
+     * The app's header draws a dot from this rather than recomputing the
+     * weekly grid on the device. On the web the payload is cached for
+     * 300 s, so it may be up to five minutes stale — accepted: the page
+     * also renders the full `hours` beside it.
+     */
+    openNow: boolean;
     branding: {
       primaryColor?: string;
       logoKey?: string | null;
@@ -245,6 +258,11 @@ export async function loadPublicMenu(
 
     const branding = normaliseBranding(venue.branding);
 
+    // One parse feeds both the rendered hours table and the open/closed
+    // dot, so the two can never disagree on the same payload.
+    const hours = parseOpeningHours(venue.hours);
+    const state = currentOpenState(hours, venue.timezone);
+
     return {
       venue: {
         id: venue.id,
@@ -254,7 +272,10 @@ export async function loadPublicMenu(
         enabledLocales: venue.enabledLocales,
         currency: venue.currency,
         timezone: venue.timezone,
-        hours: parseOpeningHours(venue.hours),
+        hours,
+        // Unconfigured hours mean "we don't know", which the dot must
+        // show as closed rather than promise as open.
+        openNow: state.configured && state.open,
         branding,
       },
       locale: effectiveLocale,

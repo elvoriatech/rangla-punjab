@@ -20,6 +20,7 @@ import {
   publicRating,
   refreshVenueRating,
   refreshVenueRatingNow,
+  reviewCallToAction,
   reviewUrl,
   scheduleVenueRatingRefresh,
   searchPlaces,
@@ -421,6 +422,59 @@ describe("parseManualRatingInput", () => {
     ]) {
       expect(parseManualRatingInput(r!, c!), `${r}/${c}`).toBeNull();
     }
+  });
+});
+
+describe("reviewCallToAction", () => {
+  it("hands back the WRITE-REVIEW url, with the number when we have one", () => {
+    expect(reviewCallToAction({ googlePlaceId: PLACE_ID, googleRating: cached(0) })).toEqual({
+      reviewUrl: reviewUrl(PLACE_ID),
+      ratingValue: 4.6,
+    });
+    // A Place ID and no number yet is the venue that most needs the ask.
+    expect(reviewCallToAction({ googlePlaceId: PLACE_ID, googleRating: null })).toEqual({
+      reviewUrl: reviewUrl(PLACE_ID),
+    });
+    // Same precedence as the rating line: fetched outranks hand-typed.
+    expect(
+      reviewCallToAction({
+        googlePlaceId: PLACE_ID,
+        googleRating: cached(0),
+        googleRatingManual: manual(3.1, 7),
+      }),
+    ).toMatchObject({ ratingValue: 4.6 });
+  });
+
+  it("refuses without a Place ID — a rate-us button must not open a search page", () => {
+    // `publicRating` would still render the owner's own number here, and
+    // `mapsSearchUrl` would still give the app somewhere to go. Neither
+    // is an acceptable destination for "rate us": only the real form is.
+    expect(
+      reviewCallToAction({
+        googlePlaceId: null,
+        googleRating: null,
+        googleRatingManual: manual(4.8, 120),
+      }),
+    ).toBeNull();
+    expect(reviewCallToAction({ googlePlaceId: null, googleRating: cached(0) })).toBeNull();
+  });
+
+  it("obeys the owner's switch", () => {
+    expect(
+      reviewCallToAction({
+        googlePlaceId: PLACE_ID,
+        googleRating: cached(0),
+        googleRatingEnabled: false,
+      }),
+    ).toBeNull();
+    // Absent means on, same as everywhere else.
+    expect(
+      reviewCallToAction({
+        googlePlaceId: PLACE_ID,
+        googleRating: cached(0),
+        googleRatingEnabled: true,
+      }),
+    ).toMatchObject({ reviewUrl: reviewUrl(PLACE_ID) });
   });
 });
 

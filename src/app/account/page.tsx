@@ -12,6 +12,7 @@ import { formatPrice } from "@/lib/public-menu";
 import { getLoyaltySummary } from "@/lib/loyalty-service";
 import { listCustomerReservations } from "@/lib/reservation-service";
 import { postOrderCopy } from "@/lib/i18n/post-order";
+import { reviewCallToAction } from "@/lib/google-rating";
 import { dirFor, isLocaleCode, uiLocale } from "@/lib/locales";
 import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } from "./actions";
 
@@ -96,15 +97,30 @@ export default async function AccountPage({
   // Same language rule as the tracker and the payment page (plan decision
   // 5): `?locale=` when the link carries one — the app appends it — and
   // the venue\'s own language otherwise.
-  const venueLocale = context
+  // One read, two answers — the page's language and (below) the
+  // venue's Google review link, which the finished order rows link to.
+  const venueRow = context
     ? await asTenant(context.tenantId, (tx) =>
-        tx.venue
-          .findFirst({ where: { id: context.venueId }, select: { defaultLocale: true } })
-          .then((v) => v?.defaultLocale ?? null),
+        tx.venue.findFirst({
+          where: { id: context.venueId },
+          select: {
+            defaultLocale: true,
+            googlePlaceId: true,
+            googleRating: true,
+            googleRatingManual: true,
+            googleRatingEnabled: true,
+          },
+        }),
       )
     : null;
-  const locale = uiLocale(isLocaleCode(localeParam) ? localeParam : venueLocale);
+  const locale = uiLocale(
+    isLocaleCode(localeParam) ? localeParam : (venueRow?.defaultLocale ?? null),
+  );
   const t = postOrderCopy(locale);
+  // Null unless the owner saved a Place ID and left the rating switched
+  // on. Only `done` rows offer it — see the row below.
+  const reviewUrl = venueRow ? (reviewCallToAction(venueRow)?.reviewUrl ?? null) : null;
+  const rateLabel = t.review.short;
   // The reset pages keep the app's deep link alive across the round trip,
   // so a guest who started in the app lands back in it. Allow-listed here
   // for the same reason it is everywhere else: it ends up in an href.
@@ -464,6 +480,18 @@ export default async function AccountPage({
                       >
                         Beleg
                       </a>
+                      {/* Finished orders only: there is an experience to
+                          rate. Same destination as the tracker's CTA. */}
+                      {o.status === "done" && reviewUrl ? (
+                        <a
+                          className="underline underline-offset-2"
+                          href={reviewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {rateLabel}
+                        </a>
+                      ) : null}
                     </span>
                   </li>
                 );

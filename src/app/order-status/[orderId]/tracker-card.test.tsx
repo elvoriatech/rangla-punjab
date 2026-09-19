@@ -26,8 +26,17 @@ const render = (
   o: TrackerOrder,
   locale: "en" | "de" | "es" | "it" | "ar",
   pauseRefresh = false,
+  reviewUrl: string | null = null,
 ): string =>
-  renderToStaticMarkup(OrderTrackerCard({ order: o, locale, themeStyle: {}, pauseRefresh }));
+  renderToStaticMarkup(
+    OrderTrackerCard({ order: o, locale, themeStyle: {}, pauseRefresh, reviewUrl }),
+  );
+
+const REVIEW = "https://search.google.com/local/writereview?placeid=ChIJabc";
+
+/** React escapes apostrophes in text nodes ("Com'è" → "Com&#x27;è"), so
+ *  copy with one has to be escaped the same way before being looked for. */
+const esc = (s: string): string => s.replaceAll("'", "&#x27;");
 
 describe("order tracker", () => {
   it("renders Spanish only — no German or English leaking through", () => {
@@ -97,6 +106,34 @@ describe("order tracker", () => {
       expect(html).toContain("Butter Chicken");
       expect(html).toContain(POST_ORDER_COPY[locale].backToMenu);
     }
+  });
+
+  it("asks for a Google review once the order is done, in the guest's language", () => {
+    for (const locale of ["en", "de", "es", "it", "ar"] as const) {
+      const html = render({ ...order, status: "done" }, locale, false, REVIEW);
+      const t = POST_ORDER_COPY[locale].review;
+      expect(html).toContain(esc(t.title));
+      expect(html).toContain(esc(t.cta));
+      expect(html).toContain(`href="${REVIEW}"`);
+      // It leaves the page, so it says so — in markup and to a reader.
+      expect(html).toContain('target="_blank"');
+      expect(html).toContain('rel="noopener noreferrer"');
+      expect(html).toContain(esc(t.newTab));
+    }
+  });
+
+  it("keeps the ask off every order that has nothing to rate yet", () => {
+    // Still cooking: asking now is asking about a promise.
+    expect(render(order, "en", false, REVIEW)).not.toContain(POST_ORDER_COPY.en.review.cta);
+    // Cancelled: there was no meal.
+    expect(render({ ...order, status: "cancelled" }, "en", false, REVIEW)).not.toContain(
+      POST_ORDER_COPY.en.review.cta,
+    );
+    // Done, but the venue has no Place ID (or the owner switched the
+    // rating off) — no link, so no button at all.
+    const noLink = render({ ...order, status: "done" }, "en");
+    expect(noLink).not.toContain(POST_ORDER_COPY.en.review.cta);
+    expect(noLink).not.toContain(POST_ORDER_COPY.en.review.title);
   });
 
   it("drops the refresh — and the promise of one — while a complaint is being written", () => {

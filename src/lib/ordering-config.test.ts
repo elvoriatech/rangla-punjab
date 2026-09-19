@@ -178,3 +178,35 @@ describe("complaint window (issueWindowHours)", () => {
     expect(next.issueWindowHours).toBe(12);
   });
 });
+
+describe("cancel-from-the-app switch (appCancelEnabled)", () => {
+  it("is OFF on a venue that never set it — a cancel button is opt-in", () => {
+    expect(parseOrderingConfig({}).appCancelEnabled).toBe(false);
+    expect(parseOrderingConfig(null).appCancelEnabled).toBe(false);
+    // Every other switch defaults ON; this one is the exception, because
+    // cancelling is terminal and a phone in a pocket taps things.
+    expect(parseOrderingConfig({}).takeaway).toBe(true);
+  });
+
+  it("stores the owner's yes", () => {
+    expect(parseOrderingConfig({ appCancelEnabled: true }).appCancelEnabled).toBe(true);
+    expect(parseOrderingConfig({ appCancelEnabled: false }).appCancelEnabled).toBe(false);
+  });
+
+  it("tolerates a checkbox string or junk rather than failing the save", () => {
+    // The settings form posts "on"; a legacy config may hold a string.
+    expect(parseOrderingConfig({ appCancelEnabled: "on" }).appCancelEnabled).toBe(true);
+    expect(parseOrderingConfig({ appCancelEnabled: "true" }).appCancelEnabled).toBe(true);
+    for (const raw of [undefined, null, "", "off", "nonsense", 0, NaN, {}]) {
+      expect(parseOrderingConfig({ appCancelEnabled: raw }).appCancelEnabled).toBe(false);
+    }
+    // Junk here must not take the rest of the config down with it.
+    expect(parseOrderingConfig({ appCancelEnabled: "nope", takeaway: false }).takeaway).toBe(false);
+  });
+
+  it("survives a round trip that only touches the switches", () => {
+    const config = parseOrderingConfig({ appCancelEnabled: true, delivery: false });
+    const next = orderingConfigSchema.parse({ ...config, delivery: true });
+    expect(next.appCancelEnabled).toBe(true);
+  });
+});

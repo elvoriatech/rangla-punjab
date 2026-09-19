@@ -557,6 +557,71 @@ export function publicRating(row: VenueRatingRow): PublicRating | null {
   return null;
 }
 
+/** What a "rate us on Google" call-to-action needs: somewhere to send the
+ *  guest, and — when we happen to know it — the number to show next to the
+ *  ask. The URL is always the WRITE-REVIEW form, never a Maps search. */
+export interface ReviewLink {
+  reviewUrl: string;
+  /** The rating we'd render elsewhere, when there is one. Absent for a
+   *  venue that has a Place ID but no number yet (no manual value, no
+   *  successful fetch) — which is exactly the venue that most wants the
+   *  guest to write the first review. */
+  ratingValue?: number;
+}
+
+/**
+ * The post-order "How was it? Rate us on Google" ask, from a venue row
+ * already in hand.
+ *
+ * Same precedence as {@link publicRating} — the owner's switch is read
+ * first, and the number (when shown) is the fetched cache before the
+ * manual value — with one deliberate difference: NO PLACE ID MEANS NO
+ * CALL-TO-ACTION. The Maps-search fallback that {@link mapsSearchUrl}
+ * exists for is right for a rating LINE ("here is the place we're quoting")
+ * and wrong for this one: asking a guest to rate us and then dropping them
+ * on a search results page is a broken promise, not a soft landing.
+ */
+export function reviewCallToAction(row: VenueRatingRow): ReviewLink | null {
+  if (row.googleRatingEnabled === false) return null;
+  if (!row.googlePlaceId) return null;
+  const rating = publicRating(row);
+  const link: ReviewLink = { reviewUrl: reviewUrl(row.googlePlaceId) };
+  if (rating) link.ratingValue = rating.value;
+  return link;
+}
+
+/**
+ * {@link reviewCallToAction} for a caller that holds only ids — the
+ * receipt mailer, which loads its order long before it knows whether the
+ * venue has a Place ID at all.
+ *
+ * Never throws: a review link is an extra on top of a receipt that must
+ * go out regardless, so a database hiccup here means "no button", not
+ * "no email".
+ */
+export async function venueReviewLink(
+  tenantId: string,
+  venueId: string,
+): Promise<ReviewLink | null> {
+  try {
+    const row = await asTenantRead(tenantId, (tx) =>
+      tx.venue.findFirst({
+        where: { id: venueId, deletedAt: null },
+        select: {
+          googlePlaceId: true,
+          googleRating: true,
+          googleRatingManual: true,
+          googleRatingEnabled: true,
+        },
+      }),
+    );
+    return row ? reviewCallToAction(row) : null;
+  } catch (err) {
+    captureException(err, { tenantId, venueId, where: "google-rating-review-link" });
+    return null;
+  }
+}
+
 /** Older than the TTL, or never read at all. */
 export function isRatingStale(cached: CachedRating | null, now: Date = new Date()): boolean {
   if (!cached) return true;

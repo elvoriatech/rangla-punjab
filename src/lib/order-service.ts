@@ -484,6 +484,10 @@ export interface OrderFulfilment {
 
 export interface ReceiptOrder extends OrderFulfilment {
   id: string;
+  /** Which venue sold this. Optional only so the hand-built fixtures that
+   *  predate it still type-check; the loader always fills it. The receipt
+   *  mailer uses it to ask whether this venue has a Google review link. */
+  venueId?: string;
   orderNumber: number;
   tableNumber: string | null;
   customerEmail: string | null;
@@ -519,6 +523,7 @@ export async function getOrderForReceipt(
       where: { id: orderId },
       select: {
         id: true,
+        venueId: true,
         orderNumber: true,
         tableNumber: true,
         orderType: true,
@@ -776,7 +781,17 @@ export interface OrderTracking {
   createdAt: Date;
   tableNumber: string | null;
   items: { name: string; quantity: number; priceCents: number; basePriceCents: number | null }[];
-  venue: { timezone: string; branding: unknown };
+  /** The rating columns ride along so the "rate us on Google" ask costs
+   *  no second query — they are exactly `VenueRatingRow`, which
+   *  `reviewCallToAction()` turns into a link or a null. */
+  venue: {
+    timezone: string;
+    branding: unknown;
+    googlePlaceId: string | null;
+    googleRating: unknown;
+    googleRatingManual: unknown;
+    googleRatingEnabled: boolean;
+  };
 }
 
 /** Token-authorized guest read — powers the tracking page and the v1 API. */
@@ -804,7 +819,16 @@ export async function getOrderTracking(
           select: { name: true, quantity: true, priceCents: true, basePriceCents: true },
           orderBy: { createdAt: "asc" },
         },
-        venue: { select: { timezone: true, branding: true } },
+        venue: {
+          select: {
+            timezone: true,
+            branding: true,
+            googlePlaceId: true,
+            googleRating: true,
+            googleRatingManual: true,
+            googleRatingEnabled: true,
+          },
+        },
       },
     }),
   );

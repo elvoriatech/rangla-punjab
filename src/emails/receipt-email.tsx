@@ -18,6 +18,9 @@ export interface ReceiptEmailProps {
   locale: UiLocale;
   receiptUrl: string;
   trackUrl: string;
+  /** Google's write-a-review form for this venue, or null when the owner
+   *  has no Place ID saved / switched the rating off. */
+  reviewUrl?: string | null;
 }
 
 function orderNo(order: ReceiptOrder): string {
@@ -33,6 +36,7 @@ export function ReceiptEmail({
   locale,
   receiptUrl,
   trackUrl,
+  reviewUrl = null,
 }: ReceiptEmailProps): React.ReactElement {
   const t = receiptCopy(locale);
   const money = (cents: number): string => formatPrice(cents, order.currency, locale);
@@ -158,6 +162,16 @@ export function ReceiptEmail({
         <Button href={receiptUrl} label={t.pdf} tone="outline" />
         <Button href={trackUrl} label={t.track} />
       </div>
+
+      {/* The review ask, last and quiet. This mail lands at placement or
+          at payment — before the food — so it must never compete with
+          the receipt itself; it is here because this is the message the
+          guest still has in their inbox afterwards. */}
+      {reviewUrl ? (
+        <div style={{ marginTop: 10 }}>
+          <Button href={reviewUrl} label={t.rate} tone="outline" />
+        </div>
+      ) : null}
     </EmailShell>
   );
 }

@@ -5,6 +5,7 @@ import { getOrderForReceipt } from "./order-service";
 import { signReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
 import { uiLocale } from "./locales";
+import { venueReviewLink } from "./google-rating";
 import { ReceiptEmail, receiptSubject } from "@/emails/receipt-email";
 
 const log = createLogger();
@@ -32,10 +33,23 @@ export async function sendReceiptEmailForOrder(
     const receiptUrl = `${base}/api/orders/${encodeURIComponent(order.id)}/receipt?token=${encodeURIComponent(token)}&locale=${locale}`;
     const trackUrl = `${base}/order-status/${encodeURIComponent(order.id)}?token=${encodeURIComponent(token)}&locale=${locale}`;
 
+    // "Rate us on Google", under the receipt. The receipt goes out at
+    // placement or payment time — before the food, let alone the
+    // experience — so this stays a quiet secondary button rather than a
+    // headline ask. Null (no Place ID, or the owner switched the rating
+    // off) simply leaves it out.
+    const review = order.venueId ? await venueReviewLink(tenantId, order.venueId) : null;
+
     await sendEmail({
       to: order.customerEmail,
       subject: receiptSubject(order, locale),
-      react: ReceiptEmail({ order, locale, receiptUrl, trackUrl }),
+      react: ReceiptEmail({
+        order,
+        locale,
+        receiptUrl,
+        trackUrl,
+        reviewUrl: review?.reviewUrl ?? null,
+      }),
     });
     log.info("receipt.emailed", { orderId, tenantId, paid: order.paymentStatus === "paid" });
     return { sent: true };

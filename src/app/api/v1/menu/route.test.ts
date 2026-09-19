@@ -88,7 +88,13 @@ async function fixture(): Promise<Fixture> {
 
 interface MenuPayload {
   ok: boolean;
-  venue: { locale: string; defaultLocale: string; enabledLocales: string[] };
+  venue: {
+    locale: string;
+    defaultLocale: string;
+    enabledLocales: string[];
+    openNow: boolean;
+    hours: { configured: boolean };
+  };
   offerCount: number;
   rating: { value: number; count: number; reviewUrl: string } | null;
   categories: { items: { name: string }[] }[];
@@ -206,6 +212,47 @@ describe("GET /api/v1/menu — ?locale", () => {
       count: 440,
       reviewUrl: "https://www.google.com/maps/search/?api=1&query=Locale%20Venue",
     });
+  });
+
+  it("tells the app whether the venue is open right now", async () => {
+    const fx = await fixture();
+
+    // Hours never configured — "we don't know" must read as closed, not
+    // as an open dot the kitchen cannot honour.
+    const unset = await read(fx.slug);
+    expect(unset.venue.hours.configured).toBe(false);
+    expect(unset.venue.openNow).toBe(false);
+
+    // Open round the clock: `close === open` is the schema's overnight
+    // window, so this holds whenever the suite happens to run.
+    const allDay = {
+      configured: true,
+      days: Object.fromEntries(
+        ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [
+          d,
+          { closed: false, slots: [{ open: "00:00", close: "00:00" }] },
+        ]),
+      ),
+    };
+    await asTenant(fx.tenantId, (tx) => tx.venue.updateMany({ data: { hours: allDay } }));
+    expect((await read(fx.slug)).venue.openNow).toBe(true);
+
+    // Configured and shut every day — the other half of the dot.
+    const shut = {
+      configured: true,
+      days: Object.fromEntries(
+        ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [
+          d,
+          { closed: true, slots: [] },
+        ]),
+      ),
+    };
+    await asTenant(fx.tenantId, (tx) => tx.venue.updateMany({ data: { hours: shut } }));
+    const closed = await read(fx.slug);
+    expect(closed.venue.openNow).toBe(false);
+    // The hours themselves still ride along — the app draws the table
+    // next to the dot and must not have to ask twice.
+    expect(closed.venue.hours.configured).toBe(true);
   });
 
   it("ignores junk in the parameter", async () => {

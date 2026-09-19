@@ -95,6 +95,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             : null,
           theme: branding.theme ?? null,
           hours: menu.venue.hours,
+          // The open/closed dot in the app's header. Computed here from
+          // the same `hours` sent beside it, so the device needs no
+          // timezone maths and the two can never disagree. A venue with
+          // no hours configured reads `false` — "we don't know" must not
+          // be shown to a guest as "open". Cached for 300 s with the rest
+          // of the payload, so it can lag opening time by up to five
+          // minutes; accepted, the app re-fetches on foreground.
+          openNow: menu.venue.openNow,
         },
         ordering: {
           dineIn: access.modes.dineIn,

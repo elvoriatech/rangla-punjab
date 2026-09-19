@@ -6,7 +6,6 @@ import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
 import { advanceOrderAction } from "../dashboard/(console)/orders/actions";
 import { advanceIcon, advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
-import { ConfirmSubmit } from "@/components/confirm-submit";
 import { AutoRefresh } from "../dashboard/(console)/orders/auto-refresh";
 import { FullscreenButton } from "./fullscreen-button";
 import { NewOrderChime } from "./new-order-chime";
@@ -174,10 +173,11 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                           : "Cash"}
                       </span>
                     </p>
-                    {/* Cancel is text, not a button: the owner asked for one
-                        status button per ticket, and on a wall tablet the
-                        destructive action must never sit where a thumb
-                        lands. Same server action, same confirm dialog. */}
+                    {/* No cancel here, by owner decision: this screen is a
+                        wall tablet in a hot kitchen, and cancelling cannot
+                        be undone. Cancelling lives on the dashboard's
+                        Orders page, where the decision is made by someone
+                        looking at the order rather than passing it. */}
                     <span className="flex items-baseline gap-3 whitespace-nowrap text-sm tabular-nums text-white/50">
                       <span>
                         {time.format(order.createdAt)} ·{" "}
@@ -185,18 +185,6 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                           {ageMin} min
                         </span>
                       </span>
-                      <form action={advanceOrderAction} className="inline">
-                        <input type="hidden" name="orderId" value={order.id} />
-                        <input type="hidden" name="to" value="cancelled" />
-                        <ConfirmSubmit
-                          message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
-                          pendingLabel="Cancelling…"
-                          title="Cancel this order"
-                          className="text-[11px] text-white/50 underline-offset-2 hover:text-red-300 hover:underline"
-                        >
-                          Cancel order
-                        </ConfirmSubmit>
-                      </form>
                     </span>
                   </div>
                   {fulfilmentLines(order).map((line, i) => (
