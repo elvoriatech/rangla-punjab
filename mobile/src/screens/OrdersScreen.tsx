@@ -6,7 +6,7 @@ import type { StoredOrder } from "../orders-store";
 import { listStoredOrders } from "../orders-store";
 import { BrandHeader } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, money, radius } from "../theme";
-import { localeTag, useI18n } from "../i18n";
+import { fill, localeTag, useI18n } from "../i18n";
 
 /**
  * Bestellungen — this device's order history. The receipt tokens stored
@@ -109,14 +109,21 @@ export function OrdersScreen({
             const methodIcon = order.payment ? METHOD_ICONS[order.payment] : "💶";
             // Paid online → the method's icon + "Paid"; cash or a closed
             // order → settled at the counter; otherwise still open.
-            const pay =
-              paid || done
+            // A reward covered the whole bill: that IS how it was paid,
+            // so it replaces the method pill rather than sitting beside it.
+            const byReward = s?.paymentProvider === "voucher";
+            const pay = byReward
+              ? { icon: "🎁", text: t.ordersRewardPill, settled: true }
+              : paid || done
                 ? { icon: paid ? methodIcon : "💶", text: payShort.paid, settled: true }
                 : order.payment === "cash"
                   ? { icon: "💶", text: t.methodCash, settled: false }
                   : order.payment
                     ? { icon: methodIcon, text: payShort.unpaid, settled: false }
                     : null;
+            // Part-paid by a reward: the pill stays honest about the
+            // method, and this says what the reward took off.
+            const discountCents = byReward ? 0 : (s?.discountCents ?? 0);
             return (
               <Pressable
                 key={order.orderId}
@@ -172,6 +179,13 @@ export function OrdersScreen({
                       </Text>
                       <Text style={styles.total}>{money(order.totalCents, order.currency)}</Text>
                     </View>
+                    {discountCents > 0 ? (
+                      <Text style={styles.rewardOff}>
+                        {fill(t.ordersRewardOff, {
+                          value: money(discountCents, order.currency),
+                        })}
+                      </Text>
+                    ) : null}
                   </View>
                   <Text style={styles.chev}>{CHEVRON_FORWARD}</Text>
                 </View>
@@ -211,6 +225,8 @@ const styles = StyleSheet.create({
   numberRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   number: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy },
   meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, flexShrink: 1 },
+  // Reward applied but not the payment method: a quiet gold footnote.
+  rewardOff: { color: colors.gold, ...fonts.bodySemi, fontSize: 11.5 },
   total: { color: colors.red, fontSize: 16, ...fonts.bodyHeavy },
   chev: { color: colors.inkSoft, ...fonts.body, fontSize: 22, marginStart: 2 },
   pill: {

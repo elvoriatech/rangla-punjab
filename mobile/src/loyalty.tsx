@@ -26,6 +26,35 @@ export function isOfferable(v: ApiVoucher): boolean {
   return v.status === "available" || v.status === "armed";
 }
 
+/** A voucher that has been spent. Worth showing for a while: "where did
+ *  my reward go" is the first question after it disappears. */
+export function isRedeemed(v: ApiVoucher): boolean {
+  return v.status === "redeemed";
+}
+
+/** The armed voucher, i.e. the one the next order will actually spend.
+ *  Null whenever there is nothing to redeem — which is every case the
+ *  cart must leave alone. */
+export function armedVoucher(loyalty: ApiLoyalty | null): ApiVoucher | null {
+  return loyalty?.vouchers.find((v) => v.status === "armed") ?? null;
+}
+
+/**
+ * What a reward actually takes off a given total — never more than the
+ * bill itself. The server recomputes this and its answer wins; this is
+ * only so the guest sees the right number before tapping.
+ */
+export function discountFor(voucher: ApiVoucher | null, totalCents: number): number {
+  if (!voucher || totalCents <= 0) return 0;
+  return Math.min(Math.max(0, voucher.valueCents), totalCents);
+}
+
+/** "0031" — an order number padded the way every other one in the app is
+ *  (the "#" belongs to the surrounding copy, which differs per language). */
+export function orderNo(orderNumber: number): string {
+  return String(orderNumber).padStart(4, "0");
+}
+
 /** The one voucher a surface should talk about: the armed one if there
  *  is one (it's the live promise), else the first one still available. */
 export function headlineVoucher(loyalty: ApiLoyalty | null): ApiVoucher | null {
@@ -143,6 +172,11 @@ export function RewardSheet({
   const meal = fill(t.rewardsMeal, { value });
   const expiry = voucher ? shortDate(voucher.expiresAt, tag) : "";
   const missing = Math.max(0, rewardPoints - (loyalty?.balance ?? 0));
+  // Nothing to offer, but a reward WAS just spent: say where it went,
+  // otherwise the card looks like the reward evaporated.
+  const justUsed = voucher
+    ? null
+    : (loyalty?.vouchers.find((v) => isRedeemed(v) && v.redeemedOrderNumber !== null) ?? null);
 
   async function toggle(next: boolean): Promise<void> {
     if (!voucher || busy) return;
@@ -198,6 +232,14 @@ export function RewardSheet({
                     {loyalty?.balance ?? 0} / {rewardPoints} {t.rewardsPoints}
                   </Text>
                 </View>
+                {justUsed ? (
+                  <Text style={styles.usedNote}>
+                    🎁{" "}
+                    {fill(t.rewardsUsedOn, {
+                      number: orderNo(justUsed.redeemedOrderNumber ?? 0),
+                    })}
+                  </Text>
+                ) : null}
               </>
             )}
 
@@ -263,6 +305,7 @@ const styles = StyleSheet.create({
   voucherValue: { color: colors.red, ...fonts.bodyHeavy, fontSize: 20 },
   voucherMeta: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5 },
   progressText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13, textAlign: "center" },
+  usedNote: { color: colors.gold, ...fonts.bodySemi, fontSize: 13, textAlign: "center" },
   error: { color: colors.danger, ...fonts.body, fontSize: 13, textAlign: "center" },
   closeRow: { alignItems: "center", paddingTop: 2 },
   closeText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13 },

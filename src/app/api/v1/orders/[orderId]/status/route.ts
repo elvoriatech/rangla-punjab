@@ -55,12 +55,21 @@ export async function GET(
           })),
           orderType: order.orderType,
           paymentStatus: order.paymentStatus,
+          // "voucher" is a settled order a loyalty reward paid for in
+          // full — the app must read it as paid, not as a card payment
+          // still to come.
+          paymentProvider: order.paymentProvider,
           items: order.items.map((i) => ({
             name: i.name,
             quantity: i.quantity,
             priceCents: i.priceCents,
             lineTotalCents: i.priceCents * i.quantity,
           })),
+          // The reward applied to this order, and what is left to pay:
+          // `totalCents` stays the CHARGED total (already net of the
+          // discount), so an app that never learns about rewards keeps
+          // showing the right number.
+          discountCents: order.discountCents,
           totalCents: order.totalCents,
           currency: order.currency,
           tableNumber: order.tableNumber,

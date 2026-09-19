@@ -21,6 +21,7 @@ const sample: ReceiptOrder = {
   requestedFor: null,
   deliveryAddress: null,
   paymentStatus: "none",
+  discountCents: 0,
   paymentProvider: null,
   totalCents: 2380,
   currency: "EUR",
@@ -43,6 +44,29 @@ describe("new-order email template", () => {
     expect(html).toContain("Butter Chicken");
     expect(html).toMatch(/Noch nicht bezahlt — 23,80/);
     expect(html).toContain('href="https://x/kitchen"');
+  });
+
+  it("a reward-paid ticket shows the discount and nothing to collect", () => {
+    // The kitchen must never be told to collect money a reward already
+    // settled — and the ticket's lines still have to add up to the total.
+    const html = renderToStaticMarkup(
+      NewOrderEmail({
+        order: {
+          ...sample,
+          discountCents: 2000,
+          totalCents: 380,
+          paymentStatus: "paid",
+          paymentProvider: "voucher",
+        },
+        locale: "de",
+        kitchenUrl: "https://x/kitchen",
+      }),
+    );
+    expect(html).toContain("Gutschein");
+    expect(html).toMatch(/−.?20,00/);
+    expect(html).toContain("Mit Treuegutschein bezahlt");
+    expect(html).not.toMatch(/Noch nicht bezahlt/);
+    expect(html).not.toContain("Online bezahlt (Karte)");
   });
 
   it("English delivery, paid by PayPal: address, requested time, nothing to collect", () => {

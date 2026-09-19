@@ -687,6 +687,15 @@ model LoyaltyLedger {
   tenantId   String   @map("tenant_id")
   customerId String   @map("customer_id")
   orderId    String?  @map("order_id")
+  /// The voucher this movement is about: the one the points bought
+  /// (`reason: "voucher"`) or the one that was spent (`reason: "redeem"`).
+  /// NULL for plain earning / reversal rows. Plain reference, no FK — same
+  /// posture as `loyalty_vouchers.redeemed_order_id`.
+  ///
+  /// It exists so a history line can quote the voucher's OWN value: a
+  /// client that derives "€20 reward used" from the venue's current
+  /// `rewardValueCents` starts lying the day the owner changes it.
+  voucherId  String?  @map("voucher_id")
   /// Signed: positive earns, negative spends.
   delta      Int
   reason     String

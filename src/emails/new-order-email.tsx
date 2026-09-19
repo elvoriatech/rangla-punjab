@@ -60,10 +60,15 @@ export function NewOrderEmail({
     timeZone: "Europe/Berlin",
   });
   const paid = order.paymentStatus === "paid";
+  // "voucher" = a loyalty reward settled the bill at placement. The
+  // kitchen needs the same "nothing to collect" line an online payment
+  // gets, without being told a card was charged.
   const paymentLine = paid
-    ? order.paymentProvider === "paypal"
-      ? t.paidPaypal
-      : t.paidCard
+    ? order.paymentProvider === "voucher"
+      ? t.paidVoucher
+      : order.paymentProvider === "paypal"
+        ? t.paidPaypal
+        : t.paidCard
     : t.unpaid(money(order.totalCents));
   const when = order.requestedFor ? fmt.format(order.requestedFor) : t.asap;
   const addr = order.deliveryAddress;
@@ -148,6 +153,12 @@ export function NewOrderEmail({
               <td style={{ ...right, fontSize: 16 }}>{money(item.priceCents * item.quantity)}</td>
             </tr>
           ))}
+          {order.discountCents > 0 ? (
+            <tr>
+              <td style={{ ...styles.itemCell, fontSize: 16 }}>{t.reward}</td>
+              <td style={{ ...right, fontSize: 16 }}>−{money(order.discountCents)}</td>
+            </tr>
+          ) : null}
           <tr>
             <td style={{ ...styles.totalCell, borderTop: "2px solid #360a0a" }}>{t.total}</td>
             <td

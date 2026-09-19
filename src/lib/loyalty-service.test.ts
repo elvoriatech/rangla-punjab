@@ -11,7 +11,7 @@ import {
   setVoucherArmed,
   voucherExpiry,
 } from "./loyalty-service";
-import { placeOrder } from "./order-service";
+import { placeOrder, type PlacedOrder } from "./order-service";
 import { asTenant } from "./tenant";
 
 /**
@@ -100,13 +100,62 @@ async function fixture(
 
 /** Place a dine-in order for `quantity` dishes, optionally anonymously. */
 async function order(fx: Fixture, quantity: number, withCustomer = true): Promise<string> {
-  const placed = await placeOrder(
+  return (await placed(fx, quantity, { withCustomer })).orderId;
+}
+
+/** The full placement result — what the app reads back at checkout. */
+async function placed(
+  fx: Fixture,
+  quantity: number,
+  opts: { withCustomer?: boolean; redeemVoucher?: boolean } = {},
+): Promise<PlacedOrder> {
+  const result = await placeOrder(
     fx,
-    { orderType: "dine_in", tableNumber: "3", items: [{ itemId: fx.itemId, quantity }] },
-    { customerId: withCustomer ? fx.customerId : null },
+    {
+      orderType: "dine_in",
+      tableNumber: "3",
+      items: [{ itemId: fx.itemId, quantity }],
+      ...(opts.redeemVoucher ? { redeemVoucher: true } : {}),
+    },
+    { customerId: opts.withCustomer === false ? null : fx.customerId },
   );
-  if (!placed.ok) throw new Error(`order failed: ${placed.error}`);
-  return placed.value.orderId;
+  if (!result.ok) throw new Error(`order failed: ${result.error}`);
+  return result.value;
+}
+
+/** Earn one voucher (the fixtures below all set `rewardPoints` to one
+ *  order's worth) and arm it, the way the app's Rewards card does. */
+async function armedVoucher(fx: Fixture): Promise<{ id: string; valueCents: number }> {
+  await creditOrderIfEligible(fx.tenantId, await order(fx, 2));
+  const voucher = (await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]!;
+  const armed = await setVoucherArmed(fx.tenantId, fx.customerId, voucher.id, true);
+  if (!armed.ok) throw new Error(`arming failed: ${armed.error}`);
+  return { id: voucher.id, valueCents: voucher.valueCents };
+}
+
+/** The stored order row, for the columns redemption writes. */
+async function orderRow(
+  tenantId: string,
+  orderId: string,
+): Promise<{
+  totalCents: number;
+  discountCents: number;
+  voucherId: string | null;
+  paymentStatus: string;
+  paymentProvider: string | null;
+}> {
+  return asTenant(tenantId, (tx) =>
+    tx.order.findFirstOrThrow({
+      where: { id: orderId },
+      select: {
+        totalCents: true,
+        discountCents: true,
+        voucherId: true,
+        paymentStatus: true,
+        paymentProvider: true,
+      },
+    }),
+  );
 }
 
 const ON = {
@@ -394,5 +443,223 @@ describe("arming a voucher", () => {
       ok: false,
       error: "not_armable",
     });
+  });
+});
+
+describe("redeeming a voucher", () => {
+  // One qualifying order earns the whole reward, so every test below can
+  // get to an armed voucher in two lines.
+  const REDEEMABLE = { ...ON, rewardPoints: 5, rewardValueCents: 2000 };
+
+  it("spends the armed voucher when the app asks for it", async () => {
+    const fx = await fixture(REDEEMABLE);
+    const voucher = await armedVoucher(fx);
+
+    // €24.90 of food, €20 reward → €4.90 left to pay.
+    const result = await placed(fx, 2, { redeemVoucher: true });
+    expect(result).toMatchObject({
+      discountCents: 2000,
+      chargedCents: 490,
+      totalCents: 490,
+      paidByVoucher: false,
+    });
+
+    // The order carries the discount and the voucher that paid for it;
+    // the LINES keep their menu prices (the kitchen cooks the same food).
+    expect(await orderRow(fx.tenantId, result.orderId)).toMatchObject({
+      totalCents: 490,
+      discountCents: 2000,
+      voucherId: voucher.id,
+      paymentStatus: "none",
+    });
+
+    const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
+    expect(summary.vouchers[0]).toMatchObject({
+      id: voucher.id,
+      status: "redeemed",
+      redeemedOrderNumber: result.orderNumber,
+    });
+    // The history line the app lists as "€20 reward used · Order #0002":
+    // no points move, the voucher itself was the payment, and the line
+    // carries the voucher's own value so the app never has to guess.
+    const redeem = summary.history.find((h) => h.reason === "redeem");
+    expect(redeem).toMatchObject({
+      delta: 0,
+      orderNumber: result.orderNumber,
+      valueCents: 2000,
+    });
+    // The minting line quotes the same voucher; earning quotes none.
+    expect(summary.history.find((h) => h.reason === "voucher")?.valueCents).toBe(2000);
+    expect(summary.history.find((h) => h.reason === "order")?.valueCents).toBeNull();
+
+    // And history does not re-price itself when the owner changes the
+    // reward: a guest who spent a €20 voucher must still read €20 after
+    // the venue moves to €25.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({
+        where: { id: fx.venueId },
+        data: { loyalty: { ...REDEEMABLE, rewardValueCents: 2500 } },
+      }),
+    );
+    const later = await getLoyaltySummary(fx.tenantId, fx.customerId);
+    expect(later.rewardValueCents).toBe(2500);
+    expect(later.history.find((h) => h.reason === "redeem")?.valueCents).toBe(2000);
+    expect(later.vouchers[0]?.valueCents).toBe(2000);
+  });
+
+  it("places an ordinary order when nothing is armed", async () => {
+    const fx = await fixture(REDEEMABLE);
+    await creditOrderIfEligible(fx.tenantId, await order(fx, 2));
+    const voucherId = (await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]!.id;
+
+    // The guest holds a voucher but never armed it: asking to redeem is
+    // not an error, it simply finds nothing to spend.
+    const result = await placed(fx, 2, { redeemVoucher: true });
+    expect(result).toMatchObject({ discountCents: 0, chargedCents: 2490, totalCents: 2490 });
+    expect(await orderRow(fx.tenantId, result.orderId)).toMatchObject({
+      discountCents: 0,
+      voucherId: null,
+    });
+    const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
+    expect(summary.vouchers[0]).toMatchObject({
+      id: voucherId,
+      status: "available",
+      redeemedOrderNumber: null,
+    });
+  });
+
+  it("never spends a voucher for a web order, even with one armed", async () => {
+    const fx = await fixture(REDEEMABLE);
+    const voucher = await armedVoucher(fx);
+
+    // The website sends no `redeemVoucher` — the reward must survive.
+    const result = await placed(fx, 2);
+    expect(result).toMatchObject({ discountCents: 0, totalCents: 2490, paidByVoucher: false });
+    expect(await orderRow(fx.tenantId, result.orderId)).toMatchObject({ voucherId: null });
+    expect((await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]).toMatchObject({
+      id: voucher.id,
+      status: "armed",
+    });
+  });
+
+  it("settles the order at placement when the reward covers the whole bill", async () => {
+    const fx = await fixture({ ...REDEEMABLE, rewardValueCents: 5000 });
+    await armedVoucher(fx);
+
+    // €12.45 of food against a €50 reward: nothing to collect, and the
+    // discount is capped at the bill — no change is ever given.
+    const result = await placed(fx, 1, { redeemVoucher: true });
+    expect(result).toMatchObject({
+      discountCents: 1245,
+      chargedCents: 0,
+      totalCents: 0,
+      paidByVoucher: true,
+    });
+    expect(await orderRow(fx.tenantId, result.orderId)).toMatchObject({
+      totalCents: 0,
+      discountCents: 1245,
+      paymentStatus: "paid",
+      paymentProvider: "voucher",
+    });
+  });
+
+  it("refuses a voucher that expired while it sat armed", async () => {
+    const fx = await fixture(REDEEMABLE);
+    const voucher = await armedVoucher(fx);
+    await asTenant(fx.tenantId, (tx) =>
+      tx.loyaltyVoucher.updateMany({
+        where: { id: voucher.id },
+        data: { expiresAt: new Date(Date.now() - 60_000) },
+      }),
+    );
+
+    const result = await placed(fx, 2, { redeemVoucher: true });
+    expect(result.discountCents).toBe(0);
+    expect((await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]).toMatchObject({
+      status: "expired",
+    });
+  });
+
+  it("earns on the CHARGED total, not the menu one", async () => {
+    // €24.90 of food, €20 reward, €20 minimum: the guest paid €4.90, so
+    // the order that spent a reward must not earn most of the next one.
+    const fx = await fixture(REDEEMABLE);
+    await armedVoucher(fx);
+    const discounted = await placed(fx, 2, { redeemVoucher: true });
+    expect(await creditOrderIfEligible(fx.tenantId, discounted.orderId)).toEqual({
+      credited: false,
+      points: 0,
+    });
+
+    // A small reward leaves the charged total above the minimum, and that
+    // order earns exactly like any other.
+    const fx2 = await fixture({ ...REDEEMABLE, rewardValueCents: 200 });
+    await armedVoucher(fx2);
+    const barely = await placed(fx2, 2, { redeemVoucher: true }); // €24.90 − €2
+    expect(barely.chargedCents).toBe(2290);
+    expect(await creditOrderIfEligible(fx2.tenantId, barely.orderId)).toEqual({
+      credited: true,
+      points: 5,
+    });
+  });
+
+  it("gives the voucher back when the order is cancelled", async () => {
+    const fx = await fixture(REDEEMABLE);
+    const voucher = await armedVoucher(fx);
+    const spent = await placed(fx, 2, { redeemVoucher: true });
+    await creditOrderIfEligible(fx.tenantId, spent.orderId); // below minimum: earns nothing
+
+    await reverseOrderCredit(fx.tenantId, spent.orderId);
+
+    const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
+    expect(summary.vouchers[0]).toMatchObject({
+      id: voucher.id,
+      status: "available",
+      redeemedOrderNumber: null,
+    });
+    // The "reward used" line goes with it — the wallet and the history
+    // must not disagree about whether the guest still holds the meal.
+    expect(summary.history.filter((h) => h.reason === "redeem")).toHaveLength(0);
+    // And a second cancel is a no-op rather than a second refund.
+    await reverseOrderCredit(fx.tenantId, spent.orderId);
+    expect((await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]).toMatchObject({
+      status: "available",
+    });
+  });
+
+  it("returns an expired voucher as expired, not as a second chance", async () => {
+    const fx = await fixture(REDEEMABLE);
+    const voucher = await armedVoucher(fx);
+    const spent = await placed(fx, 2, { redeemVoucher: true });
+    // The month turned over while the order sat in the kitchen.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.loyaltyVoucher.updateMany({
+        where: { id: voucher.id },
+        data: { expiresAt: new Date(Date.now() - 60_000) },
+      }),
+    );
+
+    await reverseOrderCredit(fx.tenantId, spent.orderId);
+    expect((await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]).toMatchObject({
+      id: voucher.id,
+      status: "expired",
+    });
+  });
+
+  it("spends one voucher per order, never two", async () => {
+    const fx = await fixture({ ...REDEEMABLE, rewardPoints: 5 });
+    // Two qualifying orders, two vouchers; arm them both.
+    await creditOrderIfEligible(fx.tenantId, await order(fx, 2));
+    await creditOrderIfEligible(fx.tenantId, await order(fx, 2));
+    const vouchers = (await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers;
+    expect(vouchers).toHaveLength(2);
+    for (const v of vouchers) await setVoucherArmed(fx.tenantId, fx.customerId, v.id, true);
+
+    const result = await placed(fx, 4, { redeemVoucher: true }); // €49.80
+    expect(result.discountCents).toBe(2000);
+    expect(result.chargedCents).toBe(2980);
+    const after = await getLoyaltySummary(fx.tenantId, fx.customerId);
+    expect(after.vouchers.filter((v) => v.status === "redeemed")).toHaveLength(1);
+    expect(after.vouchers.filter((v) => v.status === "armed")).toHaveLength(1);
   });
 });

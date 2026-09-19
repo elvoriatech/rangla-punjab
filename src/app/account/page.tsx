@@ -75,6 +75,7 @@ export default async function AccountPage({
     order: "Bestellung / order",
     reversal: "Storno / reversal",
     voucher: "Gutschein / voucher",
+    redeem: "Gutschein eingelöst / reward used",
     adjust: "Korrektur / adjustment",
   };
   const typeLabel: Record<string, string> = {
@@ -249,7 +250,9 @@ export default async function AccountPage({
                         {formatPrice(v.valueCents, "EUR", "de")}
                       </span>
                       <span className="text-muted">
-                        gültig bis {dOnly.format(new Date(v.expiresAt))}
+                        {v.status === "redeemed" && v.redeemedOrderNumber !== null
+                          ? `eingelöst für Bestellung #${String(v.redeemedOrderNumber).padStart(4, "0")} / used on order #${String(v.redeemedOrderNumber).padStart(4, "0")}`
+                          : `gültig bis ${dOnly.format(new Date(v.expiresAt))}`}
                       </span>
                       <span className="ml-auto rounded-full border border-ink/15 px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted">
                         {voucherStatus[v.status] ?? v.status}
@@ -276,7 +279,14 @@ export default async function AccountPage({
                       <span className="font-semibold tabular-nums">
                         {h.delta > 0 ? `+${h.delta}` : h.delta}
                       </span>
-                      <span className="text-muted">{reasonLabel[h.reason] ?? h.reason}</span>
+                      <span className="text-muted">
+                        {reasonLabel[h.reason] ?? h.reason}
+                        {/* The voucher's OWN value, so an owner raising the
+                            reward never rewrites what past lines say. */}
+                        {h.valueCents !== null
+                          ? ` · ${formatPrice(h.valueCents, "EUR", "de")}`
+                          : ""}
+                      </span>
                       {h.orderNumber !== null ? (
                         <span className="text-muted">
                           #{String(h.orderNumber).padStart(4, "0")}

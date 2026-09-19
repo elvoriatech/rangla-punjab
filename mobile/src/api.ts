@@ -151,6 +151,13 @@ export interface PlaceOrderInput {
    *  created first and paid immediately afterwards (sheet or web page),
    *  because a card that fails must not lose the basket. */
   intendedPayment?: "cash" | "card" | "paypal";
+  /**
+   * Spend the guest's ARMED voucher on this order. Only ever true when
+   * `/api/v1/me/loyalty` said there is one — the server re-checks, applies
+   * `min(voucher.valueCents, total)` and redeems it, so the app's preview
+   * is a courtesy, never the authority.
+   */
+  redeemVoucher?: boolean;
   address?: { street: string; zip: string; city?: string; note?: string };
 }
 export interface PlacedOrder {
@@ -158,6 +165,15 @@ export interface PlacedOrder {
   orderNumber: number;
   totalCents: number;
   receiptToken: string;
+  /** What the voucher took off, 0 when none was applied (or the server
+   *  predates redemption). */
+  discountCents: number;
+  /** What still has to be paid. Falls back to `totalCents` on an older
+   *  server, which is the pre-redemption behaviour. */
+  chargedCents: number;
+  /** The reward covered the whole order: it is already paid, and the app
+   *  must skip every payment step. */
+  paidByVoucher: boolean;
 }
 
 /** Where the in-flight submit's idempotency key is parked. */
@@ -227,7 +243,27 @@ export async function placeOrder(
   // Landed (201) or replayed (200) — either way this basket is done, so
   // retire the key before the customer starts a new order.
   await AsyncStorage.removeItem(ATTEMPT_KEY).catch(() => {});
-  return { ok: true, order: body as unknown as PlacedOrder };
+  // The three redemption fields are read defensively: a server that
+  // predates vouchers sends none of them, and the order then behaves
+  // exactly as it did before — nothing discounted, everything payable.
+  const totalCents = Number(body.totalCents ?? 0);
+  const discountCents = Number(body.discountCents ?? 0);
+  const chargedCents = typeof body.chargedCents === "number" ? body.chargedCents : totalCents;
+  return {
+    ok: true,
+    order: {
+      orderId: body.orderId,
+      orderNumber: Number(body.orderNumber ?? 0),
+      totalCents,
+      receiptToken: String(body.receiptToken ?? ""),
+      discountCents,
+      chargedCents,
+      // Derived as well as read: "nothing left to charge on a discounted
+      // order" is the same fact, and an older-but-redeeming server may
+      // only send the amounts.
+      paidByVoucher: body.paidByVoucher === true || (discountCents > 0 && chargedCents === 0),
+    },
+  };
 }
 
 export interface ApiTrackStep {
@@ -250,8 +286,14 @@ export interface ApiTracking {
   steps: ApiTrackStep[];
   orderType: string;
   paymentStatus: string;
+  /** How the order was (or is to be) paid. "voucher" means a reward
+   *  covered it outright. Absent on older servers. */
+  paymentProvider?: string | null;
   /** Optional: older servers don't send the lines. */
   items?: ApiTrackItem[];
+  /** What a redeemed reward took off this order; absent/0 = none. */
+  discountCents?: number;
+  /** The CHARGED total — i.e. already net of `discountCents`. */
   totalCents: number;
   currency: string;
   tableNumber: string | null;
@@ -447,16 +489,26 @@ export interface ApiVoucher {
   status: ApiVoucherStatus | (string & {});
   /** ISO timestamp; always shown to the guest, never silently dropped. */
   expiresAt: string;
+  /** The order this voucher was spent on, once it has been. Null while it
+   *  is still available/armed, and on a server that predates redemption. */
+  redeemedOrderNumber: number | null;
 }
 
-/** Why the balance moved. `orderNumber` is set for order-shaped rows. */
-export type ApiLoyaltyReason = "order" | "reversal" | "voucher" | "adjust";
+/** Why the balance moved. `orderNumber` is set for order-shaped rows;
+ *  "redeem" is the points-neutral (delta 0) note that a voucher was
+ *  spent on that order. */
+export type ApiLoyaltyReason = "order" | "reversal" | "voucher" | "adjust" | "redeem";
 
 export interface ApiLoyaltyEntry {
   id: string;
   delta: number;
   reason: ApiLoyaltyReason | (string & {});
   orderNumber: number | null;
+  /** The voucher's own value on the rows that are ABOUT a voucher
+   *  ("voucher" = minted, "redeem" = spent); null on every other reason,
+   *  and on a server that predates the field — callers then fall back to
+   *  the programme's configured reward value. */
+  valueCents: number | null;
   createdAt: string;
 }
 
@@ -474,6 +526,7 @@ function asVoucher(raw: unknown): ApiVoucher | null {
     valueCents: Number(v.valueCents ?? 0),
     status: typeof v.status === "string" ? v.status : "available",
     expiresAt: typeof v.expiresAt === "string" ? v.expiresAt : "",
+    redeemedOrderNumber: typeof v.redeemedOrderNumber === "number" ? v.redeemedOrderNumber : null,
   };
 }
 
@@ -516,6 +569,7 @@ export async function fetchLoyalty(token: string | null): Promise<ApiLoyalty | n
             delta: Number(e.delta ?? 0),
             reason: typeof e.reason === "string" ? e.reason : "adjust",
             orderNumber: typeof e.orderNumber === "number" ? e.orderNumber : null,
+            valueCents: typeof e.valueCents === "number" ? e.valueCents : null,
             createdAt: typeof e.createdAt === "string" ? e.createdAt : "",
           } satisfies ApiLoyaltyEntry;
         })

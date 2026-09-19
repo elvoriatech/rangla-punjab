@@ -39,10 +39,15 @@ export function ReceiptEmail({
   const vat = vatFromGross(order.totalCents);
   const net = order.totalCents - vat;
   const paid = order.paymentStatus === "paid";
+  // A reward that covered the whole bill is "paid" without a card ever
+  // being touched — saying "Paid online (card)" would be a lie the guest
+  // could reasonably query.
   const paymentLine = paid
-    ? order.paymentProvider === "paypal"
-      ? t.paidPaypal
-      : t.paidCard
+    ? order.paymentProvider === "voucher"
+      ? t.paidVoucher
+      : order.paymentProvider === "paypal"
+        ? t.paidPaypal
+        : t.paidCard
     : order.orderType === "delivery"
       ? t.unpaidDelivery
       : order.orderType === "takeaway"
@@ -109,6 +114,14 @@ export function ReceiptEmail({
               <td style={right}>{money(item.priceCents * item.quantity)}</td>
             </tr>
           ))}
+          {order.discountCents > 0 ? (
+            <tr>
+              <td style={{ ...styles.value, paddingTop: 12 }}>{t.reward}</td>
+              <td style={{ ...styles.value, paddingTop: 12, textAlign: amountAlign }}>
+                −{money(order.discountCents)}
+              </td>
+            </tr>
+          ) : null}
           <tr>
             <td style={{ ...styles.value, ...styles.muted, paddingTop: 12 }}>{t.net}</td>
             <td

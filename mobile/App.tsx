@@ -50,6 +50,9 @@ interface TrackTarget {
   note?: "cancelled" | "failed";
   /** The card sheet already succeeded — show paid before the webhook lands. */
   paid?: boolean;
+  /** The cart previewed a reward the server didn't end up applying (it
+   *  expired, or was spent elsewhere) — said once, then dismissed. */
+  rewardFailed?: boolean;
 }
 
 function Shell(): React.ReactElement {
@@ -91,7 +94,12 @@ function Shell(): React.ReactElement {
   const onPlaced = useCallback(
     (
       order: PlacedOrder,
-      info: { payment: "card" | "paypal" | "cash"; note?: "cancelled" | "failed"; paid?: boolean },
+      info: {
+        payment: "card" | "paypal" | "cash";
+        note?: "cancelled" | "failed";
+        paid?: boolean;
+        rewardFailed?: boolean;
+      },
     ) => {
       setOrdersRefresh((n) => n + 1);
       setTrack({ orderId: order.orderId, token: order.receiptToken, ...info });
@@ -131,6 +139,7 @@ function Shell(): React.ReactElement {
         payment={track.payment}
         paidHint={track.paid}
         note={track.note}
+        rewardFailed={track.rewardFailed}
         onBack={() => setTrack(null)}
       />
     );

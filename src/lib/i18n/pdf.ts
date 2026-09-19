@@ -33,12 +33,15 @@ const en = {
   table: "Table",
   order: "Order #",
   paidOnline: "PAID ONLINE",
+  paidReward: "PAID WITH REWARD",
+  reward: "Reward",
   net: "Net",
   vat: `VAT ${VAT_RATE_LABEL}% (incl.)`,
   total: "TOTAL",
   vatNote: `Total includes ${VAT_RATE_LABEL}% VAT.`,
   unpaid: ["Payment is settled at the", "restaurant - this is not", "a tax invoice."],
   paid: ["Paid online - thank you."],
+  paidWithReward: ["Paid with your reward -", "enjoy your meal."],
   thanks: "Thank you & see you soon!",
 };
 
@@ -56,12 +59,15 @@ const de: PdfCopy = {
   table: "Tisch",
   order: "Bestellung Nr.",
   paidOnline: "ONLINE BEZAHLT",
+  paidReward: "MIT GUTSCHEIN BEZAHLT",
+  reward: "Gutschein",
   net: "Netto",
   vat: `MwSt. ${VAT_RATE_LABEL} % (enthalten)`,
   total: "GESAMT",
   vatNote: `Gesamtbetrag inkl. ${VAT_RATE_LABEL} % MwSt.`,
   unpaid: ["Die Zahlung erfolgt im", "Restaurant - dies ist", "keine Rechnung."],
   paid: ["Online bezahlt - vielen Dank."],
+  paidWithReward: ["Mit Gutschein bezahlt -", "guten Appetit."],
   thanks: "Vielen Dank & bis bald!",
 };
 
@@ -77,12 +83,15 @@ const es: PdfCopy = {
   table: "Mesa",
   order: "Pedido n.",
   paidOnline: "PAGADO ONLINE",
+  paidReward: "PAGADO CON VALE",
+  reward: "Vale",
   net: "Base imp.",
   vat: `IVA ${VAT_RATE_LABEL} % (incl.)`,
   total: "TOTAL",
   vatNote: `IVA del ${VAT_RATE_LABEL} % incluido en el total.`,
   unpaid: ["El pago se realiza en el", "restaurante - esto no es", "una factura."],
   paid: ["Pagado online - gracias."],
+  paidWithReward: ["Pagado con tu vale -", "buen provecho."],
   thanks: "Gracias y hasta pronto!",
 };
 
@@ -98,12 +107,15 @@ const it: PdfCopy = {
   table: "Tavolo",
   order: "Ordine n.",
   paidOnline: "PAGATO ONLINE",
+  paidReward: "PAGATO CON BUONO",
+  reward: "Buono",
   net: "Imponibile",
   vat: `IVA ${VAT_RATE_LABEL}% (inclusa)`,
   total: "TOTALE",
   vatNote: `Totale con IVA al ${VAT_RATE_LABEL}% inclusa.`,
   unpaid: ["Il pagamento avviene al", "ristorante - questa non e", "una fattura fiscale."],
   paid: ["Pagato online - grazie."],
+  paidWithReward: ["Pagato con il tuo buono -", "buon appetito."],
   thanks: "Grazie e a presto!",
 };
 

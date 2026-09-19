@@ -19,6 +19,7 @@ const baseOrder: ReceiptOrder = {
   deliveryAddress: null,
   customerEmail: null,
   paymentStatus: "unpaid",
+  discountCents: 0,
   paymentProvider: null,
   totalCents: 1990,
   currency: "eur",
@@ -89,6 +90,49 @@ describe("buildReceiptPdf", () => {
     const en = await buildReceiptPdf(baseOrder, "en");
     expect(isPdf(ar)).toBe(true);
     expect(ar.length).toBe(en.length);
+  });
+
+  it("prints the reward row on a discounted receipt, in every locale", async () => {
+    // €24.90 of food, €20 reward, €4.90 charged. The item lines keep their
+    // menu prices, so the reward has to appear as its own row — otherwise
+    // the receipt's arithmetic does not add up for the guest or the tax
+    // record. An extra row means a taller page and a longer file.
+    const discounted: ReceiptOrder = {
+      ...baseOrder,
+      items: [{ name: "Shahi Tofu", priceCents: 1245, quantity: 2 }],
+      discountCents: 2000,
+      totalCents: 490,
+    };
+    for (const locale of ["de", "en", "es", "it", "ar"]) {
+      const withReward = await buildReceiptPdf(discounted, locale);
+      const without = await buildReceiptPdf(
+        { ...discounted, discountCents: 0, totalCents: 2490 },
+        locale,
+      );
+      expect(isPdf(withReward)).toBe(true);
+      expect(withReward.length).toBeGreaterThan(without.length);
+      // The label is real copy in that language, and WinAnsi-safe — the
+      // Courier face would silently strip anything else.
+      expect(pdfCopy(locale).reward).not.toBe("");
+      expect(pdfCopy(locale).reward).toMatch(/^[\x20-\xFF]+$/);
+    }
+  });
+
+  it("says the reward paid, not that a card did, when it covered the bill", async () => {
+    const free: ReceiptOrder = {
+      ...baseOrder,
+      items: [{ name: "Shahi Tofu", priceCents: 1245, quantity: 1 }],
+      discountCents: 1245,
+      totalCents: 0,
+      paymentStatus: "paid",
+      paymentProvider: "voucher",
+    };
+    const pdf = await buildReceiptPdf(free, "de");
+    expect(isPdf(pdf)).toBe(true);
+    // A €0 receipt still has to be a receipt: it prints the reward row and
+    // a paid footer rather than the "pay at the restaurant" lines.
+    expect(pdf.length).toBeGreaterThan(1000);
+    expect(pdfCopy("de").paidReward).not.toBe(pdfCopy("de").paidOnline);
   });
 
   it("still builds the plain ASAP and dine-in receipts", async () => {

@@ -26,8 +26,20 @@ interface LoyaltyBody {
     rewardValueCents: number;
     minOrderCents: number;
     pointsPerOrder: number;
-    vouchers: { id: string; valueCents: number; status: string; expiresAt: string }[];
-    history: { id: string; delta: number; reason: string; orderNumber: number | null }[];
+    vouchers: {
+      id: string;
+      valueCents: number;
+      status: string;
+      expiresAt: string;
+      redeemedOrderNumber: number | null;
+    }[];
+    history: {
+      id: string;
+      delta: number;
+      reason: string;
+      orderNumber: number | null;
+      valueCents: number | null;
+    }[];
   };
   voucher?: { id: string; valueCents: number; status: string; expiresAt: string };
 }
@@ -177,6 +189,48 @@ describe("/api/v1/me/loyalty", () => {
       "number",
     );
     expect(body.loyalty?.history.find((h) => h.reason === "voucher")?.orderNumber).toBeNull();
+    // Each line quotes the voucher it is about, not the venue's current
+    // reward value — see the drift test in loyalty-service.test.ts.
+    expect(body.loyalty?.history.find((h) => h.reason === "voucher")?.valueCents).toBe(2000);
+    expect(body.loyalty?.history.find((h) => h.reason === "order")?.valueCents).toBeNull();
+    expect(body.loyalty?.vouchers[0]?.redeemedOrderNumber).toBeNull();
+  });
+
+  it("reports a redeemed voucher with its order and its own value", async () => {
+    const me = await signIn();
+    await earnOne(me.customerId);
+    const listed = (await (await GET(request(me.token))).json()) as LoyaltyBody;
+    const voucherId = listed.loyalty!.vouchers[0]!.id;
+    await ARM(request(me.token, { armed: true }), {
+      params: Promise.resolve({ id: voucherId }),
+    });
+
+    // The app's checkout: place the order asking for the armed reward.
+    const placed = await placeOrder(
+      venue,
+      {
+        orderType: "dine_in",
+        tableNumber: "7",
+        items: [{ itemId: venue.itemId, quantity: 2 }],
+        redeemVoucher: true,
+      },
+      { customerId: me.customerId },
+    );
+    if (!placed.ok) throw new Error("order failed");
+
+    const body = (await (await GET(request(me.token))).json()) as LoyaltyBody;
+    expect(body.loyalty?.vouchers[0]).toMatchObject({
+      id: voucherId,
+      status: "redeemed",
+      redeemedOrderNumber: placed.value.orderNumber,
+    });
+    // "€20 reward used · Order #0031" — everything that sentence needs.
+    const redeem = body.loyalty?.history.find((h) => h.reason === "redeem");
+    expect(redeem).toMatchObject({
+      delta: 0,
+      valueCents: 2000,
+      orderNumber: placed.value.orderNumber,
+    });
   });
 
   it("arms and disarms a voucher, and 409s a terminal one", async () => {

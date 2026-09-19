@@ -20,6 +20,10 @@ export interface TrackerOrder {
   status: string;
   orderType: string;
   paymentStatus: string;
+  /** "voucher" when a loyalty reward settled the bill; null = at the till. */
+  paymentProvider?: string | null;
+  /** Reward applied to this order (0 = none). `totalCents` is net of it. */
+  discountCents?: number;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -139,6 +143,12 @@ export function OrderTrackerCard({
               </li>
             ))}
           </ul>
+          {order.discountCents ? (
+            <div className="mb-1 flex justify-between text-[var(--menu-surface-accent,var(--menu-accent))]">
+              <span>{t.reward}</span>
+              <span className="tabular-nums">−{money.format(order.discountCents / 100)}</span>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <span>{t.total}</span>
             <span className="font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">
@@ -147,7 +157,13 @@ export function OrderTrackerCard({
           </div>
           <div className="mt-1 flex justify-between text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             <span>{t.payment}</span>
-            <span>{order.paymentStatus === "paid" ? t.paidOnline : t.payAtRestaurant}</span>
+            <span>
+              {order.paymentStatus !== "paid"
+                ? t.payAtRestaurant
+                : order.paymentProvider === "voucher"
+                  ? t.paidWithReward
+                  : t.paidOnline}
+            </span>
           </div>
         </div>
 

@@ -29,6 +29,7 @@ export function TrackScreen({
   payment,
   paidHint,
   note,
+  rewardFailed,
   onBack,
 }: {
   orderId: string;
@@ -46,6 +47,9 @@ export function TrackScreen({
   /** The Stripe sheet reported success just now: render "paid" at once
    *  and poll quickly until the webhook has settled the order. */
   paidHint?: boolean;
+  /** The cart previewed a reward this order didn't get (expired, or
+   *  already spent). One line, no action — the order itself is fine. */
+  rewardFailed?: boolean;
   onBack: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
@@ -157,6 +161,10 @@ export function TrackScreen({
   // Terminal statuses: the guest has eaten (or the order was cancelled), so
   // an unpaid online record means it was settled at the counter.
   const closed = tracking?.status === "done" || tracking?.status === "cancelled";
+  // A reward covered this order outright: there is nothing to pay, ever,
+  // so the pay buttons stay away even before the status poll catches up.
+  const paidByReward = tracking?.paymentProvider === "voucher";
+  const discountCents = tracking?.discountCents ?? 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -248,25 +256,41 @@ export function TrackScreen({
               </View>
             ) : null}
 
-            <View style={styles.totalRow}>
+            {/* What the reward took off, above the total it produced —
+                the guest sees the subtraction, not just a smaller number. */}
+            {discountCents > 0 ? (
+              <View style={styles.rewardRow}>
+                <Text style={styles.rewardLabel}>★ {t.rewardsReward}</Text>
+                <Text style={styles.rewardValue}>−{money(discountCents, tracking.currency)}</Text>
+              </View>
+            ) : null}
+            <View style={[styles.totalRow, discountCents > 0 && styles.totalRowAfterReward]}>
               <Text style={styles.totalLabel}>{t.total}</Text>
               <Text style={styles.totalValue}>{money(tracking.totalCents, tracking.currency)}</Text>
             </View>
             <Text style={styles.payState}>
-              {tracking.paymentStatus === "paid"
-                ? t.paidOnline
-                : confirmed
-                  ? t.payConfirming
-                  : closed
-                    ? t.paidAtRest
-                    : payment === "cash" || (payment === undefined && !canPayCard && !canPayPaypal)
-                      ? t.payAtRest
-                      : t.payNotYet}
+              {paidByReward
+                ? t.paidWithReward
+                : tracking.paymentStatus === "paid"
+                  ? t.paidOnline
+                  : confirmed
+                    ? t.payConfirming
+                    : closed
+                      ? t.paidAtRest
+                      : payment === "cash" ||
+                          (payment === undefined && !canPayCard && !canPayPaypal)
+                        ? t.payAtRest
+                        : t.payNotYet}
             </Text>
+            {rewardFailed ? <Text style={styles.rewardFailed}>{t.trackRewardFailed}</Text> : null}
 
-            {/* Settled (server or sheet), chosen cash, or the kitchen has
-                closed the order (served / cancelled): nothing left to pay. */}
-            {tracking.paymentStatus !== "paid" && !confirmed && payment !== "cash" && !closed ? (
+            {/* Settled (server, sheet or reward), chosen cash, or the
+                kitchen has closed the order: nothing left to pay. */}
+            {tracking.paymentStatus !== "paid" &&
+            !confirmed &&
+            !paidByReward &&
+            payment !== "cash" &&
+            !closed ? (
               <>
                 {banner ? (
                   <Text style={styles.payBanner}>
@@ -380,6 +404,19 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginTop: 4,
   },
+  rewardRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderColor: colors.line,
+    paddingTop: 12,
+    marginTop: 4,
+  },
+  /** The reward row already drew the rule above the money block. */
+  totalRowAfterReward: { borderTopWidth: 0, paddingTop: 6, marginTop: 0 },
+  rewardLabel: { color: colors.gold, fontSize: 14, ...fonts.bodyBold },
+  rewardValue: { color: colors.gold, fontSize: 14, ...fonts.bodyHeavy },
+  rewardFailed: { color: colors.danger, ...fonts.bodySemi, fontSize: 12, marginTop: 6 },
   totalLabel: { color: colors.ink, fontSize: 15, ...fonts.bodyBold },
   totalValue: { color: colors.red, fontSize: 15, ...fonts.bodyHeavy },
   payState: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 4 },

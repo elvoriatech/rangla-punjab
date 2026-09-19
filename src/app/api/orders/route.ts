@@ -77,11 +77,25 @@ export async function POST(request: Request): Promise<NextResponse> {
   // pay online. Replays already mailed on the first attempt.
   // The owner's "new order" alert rides the same rule, so inbox and
   // kitchen printer agree on when an order is real.
-  if (!result.value.replayed && (orderInput.intendedPayment ?? "cash") === "cash") {
+  // A reward that covered the whole bill settles the order at placement:
+  // there is no payment step to wait for, so the mails follow the "paid"
+  // rule rather than the intended one — the guest said "card", but there
+  // is nothing left to charge.
+  const settledNow = result.value.paidByVoucher;
+  if (!result.value.replayed && (settledNow || (orderInput.intendedPayment ?? "cash") === "cash")) {
     const { sendReceiptEmailForOrder } = await import("@/lib/receipt-email");
     void sendReceiptEmailForOrder(context.tenantId, result.value.orderId);
     const { sendNewOrderNotification } = await import("@/lib/order-notification");
     void sendNewOrderNotification(context.tenantId, result.value.orderId);
+    // A voucher-settled order never passes through markOrderPaid and is
+    // already "paid", so the kitchen's "done" transition won't credit it
+    // either. Ask here, on the same fire-and-forget terms: the charged
+    // total is what the threshold sees, so a €0 bill earns nothing unless
+    // the owner set no minimum at all.
+    if (settledNow) {
+      const { creditOrderIfEligible } = await import("@/lib/loyalty-service");
+      void creditOrderIfEligible(context.tenantId, result.value.orderId).catch(() => undefined);
+    }
   }
 
   log.info(result.value.replayed ? "order.replayed" : "order.placed", {
@@ -89,6 +103,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     orderId: result.value.orderId,
     orderNumber: result.value.orderNumber,
     totalCents: result.value.totalCents,
+    discountCents: result.value.discountCents,
+    paidByVoucher: result.value.paidByVoucher,
   });
   return withCors(NextResponse.json(result.value, { status: result.value.replayed ? 200 : 201 }));
 }

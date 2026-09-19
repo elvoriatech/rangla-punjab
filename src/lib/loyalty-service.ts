@@ -12,10 +12,13 @@ import { uiLocale } from "./locales";
 const log = createLogger();
 
 /**
- * Loyalty, round one: earning, the balance, and the vouchers it converts
- * into. Redemption (spending a voucher on an order) is round two — the
- * "armed" status and `orders.discount_cents` / `orders.voucher_id` are the
- * seams it will grow into.
+ * Loyalty: earning, the balance, the vouchers it converts into, and
+ * (round two) spending one of those vouchers on an order.
+ *
+ * Redemption is deliberately pull-only: the guest ARMS a voucher in the
+ * app, and the order-placement request has to ask for it
+ * (`redeemVoucher: true`). The website never asks, so a web order can
+ * never quietly eat the free meal the guest was saving for a takeaway.
  *
  * Two rules shape everything here:
  *
@@ -42,6 +45,11 @@ export interface LoyaltyVoucherView {
   valueCents: number;
   status: string;
   expiresAt: string;
+  /** The order this voucher paid for, once it has been redeemed — so the
+   *  app and the web account page can say "used on order #0031". Null for
+   *  every non-redeemed voucher (and for a redeemed one whose order has
+   *  since been deleted). */
+  redeemedOrderNumber: number | null;
 }
 
 export interface LoyaltyHistoryEntry {
@@ -50,6 +58,16 @@ export interface LoyaltyHistoryEntry {
   reason: string;
   /** The order the movement belongs to, or null (voucher / adjustment). */
   orderNumber: number | null;
+  /**
+   * What the voucher this movement is about was WORTH, for the two reasons
+   * that have one: "voucher" (the points that bought it) and "redeem" (the
+   * reward that was spent). Null for every other reason.
+   *
+   * Quoted from the voucher itself, never re-derived from the venue's
+   * current `rewardValueCents` — an owner who raises the reward from €20 to
+   * €25 must not rewrite what last month's history says the guest spent.
+   */
+  valueCents: number | null;
   createdAt: string;
 }
 
@@ -136,6 +154,12 @@ interface MintedVoucher {
  * — total minus the delivery-fee line — is under `minOrderCents`. The
  * UNIQUE (order_id, reason) index is what makes a second call a no-op, so
  * the webhook, /pay/verify and the dashboard reconcile can all race.
+ *
+ * On a voucher-discounted order the threshold applies to what the guest
+ * actually PAID: `orders.total_cents` is stored net of the discount, so
+ * `foodValueCents` already yields the charged food value and a €24 order
+ * that a €20 reward brought down to €4 earns nothing. Spending a reward
+ * must not quietly earn most of the next one.
  */
 export async function creditOrderIfEligible(
   tenantId: string,
@@ -208,12 +232,18 @@ export async function creditOrderIfEligible(
  * Give back the points a now-cancelled order earned. One reversal row per
  * order (UNIQUE (order_id, 'reversal')), so cancelling twice is a no-op.
  *
- * Vouchers already minted are deliberately left alone: the guest was told
+ * A voucher the cancelled order SPENT is handed straight back (unless the
+ * calendar caught up with it meanwhile — then it goes to `expired` like
+ * any other stale voucher). The food was never cooked; the guest keeps
+ * their free meal.
+ *
+ * Vouchers already MINTED are deliberately left alone: the guest was told
  * they had a free meal, and clawing it back over a kitchen-side cancel
  * would be worse for the restaurant than the points are worth. The balance
  * simply carries the debt.
  */
 export async function reverseOrderCredit(tenantId: string, orderId: string): Promise<CreditResult> {
+  await restoreOrderVoucher(tenantId, orderId);
   const result = await asTenant(tenantId, async (tx) => {
     const earned = await tx.loyaltyLedger.findFirst({
       where: { orderId, reason: "order" },
@@ -280,7 +310,14 @@ async function convertBalanceToVouchers(
       select: { id: true },
     });
     await tx.loyaltyLedger.create({
-      data: { tenantId, customerId, orderId: null, delta: -config.rewardPoints, reason: "voucher" },
+      data: {
+        tenantId,
+        customerId,
+        orderId: null,
+        voucherId: voucher.id,
+        delta: -config.rewardPoints,
+        reason: "voucher",
+      },
     });
     balance -= config.rewardPoints;
     if (customer?.email) {
@@ -349,7 +386,13 @@ export async function getLoyaltySummary(
       tx.loyaltyVoucher.findMany({
         where: { customerId },
         orderBy: [{ createdAt: "desc" }],
-        select: { id: true, valueCents: true, status: true, expiresAt: true },
+        select: {
+          id: true,
+          valueCents: true,
+          status: true,
+          expiresAt: true,
+          redeemedOrderId: true,
+        },
       }),
       tx.loyaltyLedger.findMany({
         where: { customerId },
@@ -359,11 +402,45 @@ export async function getLoyaltySummary(
           id: true,
           delta: true,
           reason: true,
+          voucherId: true,
           createdAt: true,
           order: { select: { orderNumber: true } },
         },
       }),
     ]);
+
+    // `loyalty_vouchers.redeemed_order_id` is a plain reference, not an FK
+    // (round one left the delete semantics open), so the order numbers are
+    // resolved with one extra indexed read rather than a join.
+    const redeemedIds = vouchers.map((v) => v.redeemedOrderId).filter((id): id is string => !!id);
+    const orderNumbers = new Map<string, number>();
+    if (redeemedIds.length > 0) {
+      const orders = await tx.order.findMany({
+        where: { id: { in: redeemedIds } },
+        select: { id: true, orderNumber: true },
+      });
+      for (const o of orders) orderNumbers.set(o.id, o.orderNumber);
+    }
+
+    // A history line quotes the voucher's OWN value. The vouchers a
+    // history page references are usually the ones already listed above,
+    // so this resolves from that list first and only asks the database for
+    // the stragglers (a voucher old enough to have aged out of the list).
+    const voucherValues = new Map<string, number>(vouchers.map((v) => [v.id, v.valueCents]));
+    const unknown = [
+      ...new Set(
+        history
+          .map((h) => h.voucherId)
+          .filter((id): id is string => !!id && !voucherValues.has(id)),
+      ),
+    ];
+    if (unknown.length > 0) {
+      const extra = await tx.loyaltyVoucher.findMany({
+        where: { id: { in: unknown }, customerId },
+        select: { id: true, valueCents: true },
+      });
+      for (const v of extra) voucherValues.set(v.id, v.valueCents);
+    }
 
     return {
       enabled: true,
@@ -372,12 +449,15 @@ export async function getLoyaltySummary(
       rewardValueCents: config.rewardValueCents,
       minOrderCents: config.minOrderCents,
       pointsPerOrder: config.pointsPerOrder,
-      vouchers: vouchers.map(voucherView),
+      vouchers: vouchers.map((v) =>
+        voucherView(v, v.redeemedOrderId ? (orderNumbers.get(v.redeemedOrderId) ?? null) : null),
+      ),
       history: history.map((h) => ({
         id: h.id,
         delta: h.delta,
         reason: h.reason,
         orderNumber: h.order?.orderNumber ?? null,
+        valueCents: h.voucherId ? (voucherValues.get(h.voucherId) ?? null) : null,
         createdAt: h.createdAt.toISOString(),
       })),
     };
@@ -398,17 +478,21 @@ export const DISABLED_SUMMARY: LoyaltySummary = {
   history: [],
 };
 
-function voucherView(v: {
-  id: string;
-  valueCents: number;
-  status: string;
-  expiresAt: Date;
-}): LoyaltyVoucherView {
+function voucherView(
+  v: {
+    id: string;
+    valueCents: number;
+    status: string;
+    expiresAt: Date;
+  },
+  redeemedOrderNumber: number | null = null,
+): LoyaltyVoucherView {
   return {
     id: v.id,
     valueCents: v.valueCents,
     status: v.status,
     expiresAt: v.expiresAt.toISOString(),
+    redeemedOrderNumber,
   };
 }
 
@@ -462,6 +546,129 @@ export async function setVoucherArmed(
     });
     return { ok: true as const, voucher: voucherView(updated) };
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Redemption (round two)                                              */
+/* ------------------------------------------------------------------ */
+
+/** A voucher this checkout has taken off the shelf, and what it is worth
+ *  against THIS basket (never more than the basket itself). */
+export interface VoucherClaim {
+  voucherId: string;
+  discountCents: number;
+}
+
+/**
+ * Take the guest's armed voucher out of circulation for the order being
+ * placed, inside the CALLER's transaction — `placeOrder` runs this after
+ * its per-venue advisory lock, so the claim, the order row and the ledger
+ * movement commit or roll back as one.
+ *
+ * The claim is a conditional `updateMany` on `status: "armed"`, so two
+ * checkouts racing for the same voucher resolve to exactly one winner
+ * (the loser sees `count === 0` and places an ordinary, undiscounted
+ * order) — no double spend, no error thrown at a guest who did nothing
+ * wrong.
+ *
+ * Deliberately does NOT consult the venue's loyalty switches: a voucher
+ * the guest already earned is a promise the restaurant made, and turning
+ * the programme off should stop new points, not confiscate outstanding
+ * free meals. (An owner who really wants one gone marks it `revoked`.)
+ *
+ * Returns null when there is nothing to spend: no armed voucher, or one
+ * that expired while it sat armed. Both are ordinary outcomes, not errors:
+ * the app renders a preview from `/me/loyalty` and the server is the
+ * authority, so a stale preview costs the guest their discount, never
+ * their order.
+ */
+export async function claimArmedVoucher(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+  chargeableCents: number,
+): Promise<VoucherClaim | null> {
+  await expireStaleVouchers(tx, customerId);
+  const voucher = await tx.loyaltyVoucher.findFirst({
+    where: { customerId, status: "armed", expiresAt: { gt: new Date() } },
+    // Soonest to die goes first: a guest holding two rewards should spend
+    // the one they would otherwise lose.
+    orderBy: [{ expiresAt: "asc" }, { createdAt: "asc" }],
+    select: { id: true, valueCents: true },
+  });
+  if (!voucher) return null;
+
+  const claimed = await tx.loyaltyVoucher.updateMany({
+    where: { id: voucher.id, status: "armed" },
+    data: { status: "redeemed", armedAt: null },
+  });
+  if (claimed.count === 0) return null;
+
+  // A reward is never worth more than the bill it is used on — the
+  // restaurant does not hand out change for a free meal, and a negative
+  // total would be a refund nobody authorised.
+  return {
+    voucherId: voucher.id,
+    discountCents: Math.max(0, Math.min(voucher.valueCents, chargeableCents)),
+  };
+}
+
+/**
+ * Bind a claimed voucher to the order it paid for, once that order has an
+ * id. Also writes the history line the app lists as "€20 reward used ·
+ * Order #0031": delta 0, because the POINTS were spent when the voucher
+ * was minted — this row is the receipt of the voucher, not a second debit.
+ */
+export async function attachVoucherToOrder(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  customerId: string,
+  claim: VoucherClaim,
+  orderId: string,
+): Promise<void> {
+  await tx.loyaltyVoucher.updateMany({
+    where: { id: claim.voucherId },
+    data: { redeemedOrderId: orderId },
+  });
+  await tx.loyaltyLedger.createMany({
+    data: [
+      { tenantId, customerId, orderId, voucherId: claim.voucherId, delta: 0, reason: "redeem" },
+    ],
+    skipDuplicates: true,
+  });
+}
+
+/**
+ * The cancel path's other half: give back the voucher a cancelled order
+ * spent. Idempotent — it only ever touches a voucher still pointing at
+ * THIS order, so a second cancel finds nothing to do. A voucher whose
+ * expiry passed while the order was open comes back as `expired` rather
+ * than `available`: the guest may not spend a reward the calendar already
+ * took, and the account screen should say why.
+ */
+async function restoreOrderVoucher(tenantId: string, orderId: string): Promise<void> {
+  const restored = await asTenant(tenantId, async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { voucherId: true },
+    });
+    if (!order?.voucherId) return null;
+    const voucher = await tx.loyaltyVoucher.findFirst({
+      where: { id: order.voucherId, status: "redeemed", redeemedOrderId: orderId },
+      select: { id: true, expiresAt: true },
+    });
+    if (!voucher) return null;
+    const live = voucher.expiresAt.getTime() > Date.now();
+    await tx.loyaltyVoucher.updateMany({
+      where: { id: voucher.id, status: "redeemed", redeemedOrderId: orderId },
+      data: { status: live ? "available" : "expired", armedAt: null, redeemedOrderId: null },
+    });
+    // The "reward used" history line goes with it: delta 0, so the balance
+    // is untouched, but leaving it would tell the guest a voucher they can
+    // see in their wallet was spent.
+    await tx.loyaltyLedger.deleteMany({ where: { orderId, reason: "redeem" } });
+    return { voucherId: voucher.id, status: live ? "available" : "expired" };
+  });
+  if (restored) log.info("loyalty.voucher_restored", { tenantId, orderId, ...restored });
 }
 
 /* ------------------------------------------------------------------ */

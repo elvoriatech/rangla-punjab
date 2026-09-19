@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
 import { signupUser } from "@/lib/auth-service";
+import { signInCustomer } from "@/lib/customer-auth";
 import { asTenant } from "@/lib/tenant";
 import { placeOrder } from "@/lib/order-service";
 import { POST as CONFIRM } from "../confirm/route";
@@ -105,12 +106,76 @@ async function placedOrder(): Promise<{
   };
 }
 
-function request(orderId: string, body: unknown): Request {
+/**
+ * An order a loyalty reward has already discounted: one signed-in guest,
+ * one armed voucher worth `voucherCents`, and a basket placed with the
+ * app's `redeemVoucher` flag. Built straight from the voucher table
+ * rather than by earning points, because what this file cares about is
+ * the AMOUNT the payment sheet is asked for, not how the reward arrived.
+ */
+async function discountedOrder(voucherCents: number): Promise<{
+  tenantId: string;
+  orderId: string;
+  receiptToken: string;
+  totalCents: number;
+  discountCents: number;
+  paidByVoucher: boolean;
+}> {
+  const fx = await fixture();
+  const customer = await asTenant(fx.tenantId, async (tx) => {
+    const signedIn = await signInCustomer(fx.tenantId, "dev", {
+      sub: `dev:${randomUUID()}@ex.com`,
+      email: `guest-${randomUUID().slice(0, 8)}@ex.com`,
+      name: "Guest",
+    });
+    await tx.loyaltyVoucher.create({
+      data: {
+        tenantId: fx.tenantId,
+        customerId: signedIn.customerId,
+        valueCents: voucherCents,
+        pointsSpent: 100,
+        status: "armed",
+        armedAt: new Date(),
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+    return signedIn.customerId;
+  });
+
+  const placed = await placeOrder(
+    fx,
+    {
+      orderType: "dine_in",
+      tableNumber: "5",
+      items: [{ itemId: fx.itemId, quantity: 2 }], // 2 × €12.45
+      redeemVoucher: true,
+    },
+    { customerId: customer },
+  );
+  if (!placed.ok) throw new Error("order failed");
+  return {
+    tenantId: fx.tenantId,
+    orderId: placed.value.orderId,
+    receiptToken: placed.value.receiptToken,
+    totalCents: placed.value.totalCents,
+    discountCents: placed.value.discountCents,
+    paidByVoucher: placed.value.paidByVoucher,
+  };
+}
+
+/** `from` overrides the shared address: the route's per-IP order limit is
+ *  10/minute, so a test that needs its own budget asks for its own IP. */
+function request(orderId: string, body: unknown, from = ip): Request {
   return new Request(`http://localhost:3000/api/orders/${orderId}/pay/intent`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-forwarded-for": ip },
+    headers: { "content-type": "application/json", "x-forwarded-for": from },
     body: JSON.stringify(body),
   });
+}
+
+/** A fresh per-run address, so repeat runs never share a rate-limit bucket. */
+function freshIp(): string {
+  return `10.8.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
 }
 
 function context(id: string): { params: Promise<{ id: string }> } {
@@ -120,8 +185,11 @@ function context(id: string): { params: Promise<{ id: string }> } {
 describe("POST /api/orders/{id}/pay/intent", () => {
   afterAll(async () => {
     for (const tid of createdTenantIds) {
+      await asTenant(tid, (tx) => tx.loyaltyLedger.deleteMany({}));
+      await asTenant(tid, (tx) => tx.loyaltyVoucher.deleteMany({}));
       await asTenant(tid, (tx) => tx.orderItem.deleteMany({}));
       await asTenant(tid, (tx) => tx.order.deleteMany({}));
+      await asTenant(tid, (tx) => tx.customer.deleteMany({}));
       await asTenant(tid, (tx) => tx.membership.deleteMany({}));
       await asTenant(tid, (tx) => tx.tenant.deleteMany({}));
     }
@@ -276,5 +344,31 @@ describe("POST /api/orders/{id}/pay/intent", () => {
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
     );
     expect(row.paymentStatus).toBe("paid");
+  });
+
+  it("charges the DISCOUNTED total when a reward paid part of the order", async () => {
+    // €24.90 of food, €20 reward armed in the app: the sheet must ask for
+    // €4.90. Anything else charges the guest for a meal they already
+    // earned.
+    const { orderId, receiptToken, totalCents, discountCents } = await discountedOrder(2000);
+    expect({ totalCents, discountCents }).toEqual({ totalCents: 490, discountCents: 2000 });
+
+    const res = await POST(request(orderId, { token: receiptToken }, freshIp()), context(orderId));
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { amountCents: number; currency: string };
+    expect(body.amountCents).toBe(490);
+    expect(body.currency).toBe("EUR");
+  });
+
+  it("needs no intent at all when the reward covered the whole bill", async () => {
+    // A €50 reward against a €24.90 order: the order was born paid, so the
+    // app must never open a payment sheet — and if it tries, it is told the
+    // order is already settled rather than being handed a €0 intent.
+    const { orderId, receiptToken, totalCents, paidByVoucher } = await discountedOrder(5000);
+    expect({ totalCents, paidByVoucher }).toEqual({ totalCents: 0, paidByVoucher: true });
+
+    const res = await POST(request(orderId, { token: receiptToken }, freshIp()), context(orderId));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "already_paid" });
   });
 });

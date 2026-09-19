@@ -23,6 +23,7 @@ const sample: ReceiptOrder = {
   deliveryAddress: null,
   paymentStatus: "paid",
   paymentProvider: "stripe",
+  discountCents: 0,
   totalCents: 2380,
   currency: "EUR",
   createdAt: new Date("2026-09-18T18:00:00Z"),
@@ -49,6 +50,35 @@ describe("receipt email template", () => {
     expect(html).toContain("Online bezahlt (Karte).");
     expect(html).toContain("Tisch 4");
     expect(html).toContain('href="https://x/r.pdf"');
+  });
+
+  it("shows the reward as its own row and says a reward paid, not a card", () => {
+    // €24.90 of food, a €20 reward, €4.90 charged: the lines keep their
+    // menu prices and the VAT is computed on what the guest actually paid.
+    const html = renderToStaticMarkup(
+      ReceiptEmail({
+        order: { ...sample, discountCents: 2000, totalCents: 490 },
+        locale: "de",
+        receiptUrl: "https://x/r.pdf",
+        trackUrl: "https://x/t",
+      }),
+    );
+    expect(html).toContain("Gutschein");
+    expect(html).toMatch(/−.?20,00/);
+    expect(html).toMatch(/4,90/);
+    // 4,90 gross → 0,78 VAT at 19 %, i.e. the tax follows the discount.
+    expect(html).toMatch(/0,78/);
+
+    const free = renderToStaticMarkup(
+      ReceiptEmail({
+        order: { ...sample, discountCents: 2380, totalCents: 0, paymentProvider: "voucher" },
+        locale: "de",
+        receiptUrl: "https://x/r.pdf",
+        trackUrl: "https://x/t",
+      }),
+    );
+    expect(free).toContain("Mit Ihrem Gutschein bezahlt");
+    expect(free).not.toContain("Online bezahlt (Karte).");
   });
 
   it("renders Spanish, Italian and Arabic receipts end to end", () => {

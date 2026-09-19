@@ -50,14 +50,17 @@ function statusCompact(status: string): string {
 }
 
 /** How the guest pays: "Paid · Card"/"Paid · PayPal" once settled online,
- *  "Cash" (settled at the restaurant) otherwise. */
+ *  "Paid · Reward" when a loyalty voucher covered the whole bill, "Cash"
+ *  (settled at the restaurant) otherwise. */
 function paymentBadge(order: { paymentStatus: string; paymentProvider: string | null }): string {
   const rail =
     order.paymentProvider === "paypal"
       ? "PayPal"
       : order.paymentProvider === "stripe"
         ? "Card"
-        : null;
+        : order.paymentProvider === "voucher"
+          ? "Reward"
+          : null;
   if (order.paymentStatus === "paid") return rail ? `Paid · ${rail}` : "Paid";
   // An online attempt that never settled: the guest started Card/PayPal
   // but no webhook or return leg confirmed it. Surface it — it is the
@@ -181,6 +184,11 @@ export default async function OrdersPage({
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <p className="mr-auto whitespace-nowrap text-sm font-bold tabular-nums">
                     {formatPrice(order.totalCents, order.currency, "de")}
+                    {order.discountCents > 0 ? (
+                      <span className="ml-2 text-xs font-normal text-orange-dark">
+                        −{formatPrice(order.discountCents, order.currency, "de")} reward
+                      </span>
+                    ) : null}
                   </p>
                   {order.status !== "placed" ? (
                     <span
@@ -258,6 +266,12 @@ export default async function OrdersPage({
                     return `${n} ${n === 1 ? "item" : "items"}`;
                   })()}{" "}
                   · {formatPrice(order.totalCents, order.currency, "de")}
+                  {order.discountCents > 0 ? (
+                    <span className="text-orange-dark">
+                      {" "}
+                      · −{formatPrice(order.discountCents, order.currency, "de")} reward
+                    </span>
+                  ) : null}
                 </span>
                 <span className="col-start-3 row-start-1 flex items-center gap-3 justify-self-end sm:col-start-4">
                   <span className="tabular-nums">

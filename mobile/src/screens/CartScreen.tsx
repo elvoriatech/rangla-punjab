@@ -13,11 +13,12 @@ import {
 } from "react-native";
 import * as ExpoLinking from "expo-linking";
 import type { ApiMenu, OrderType, PlacedOrder } from "../api";
-import { payPageUrl, placeOrder, startHostedPayment, verifyPayment } from "../api";
+import { payPageUrl, placeOrder, setVoucherArmed, startHostedPayment, verifyPayment } from "../api";
 import { confirmFakePayment, openPayPage, payWithCard } from "../payments";
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
+import { armedVoucher, discountFor, useLoyalty } from "../loyalty";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, PrimaryButton, QtyStepper } from "../components";
 import { GoogleButton } from "../google-button";
@@ -44,7 +45,13 @@ export function CartScreen({
   presetType: OrderType | null;
   onPlaced: (
     order: PlacedOrder,
-    info: { payment: "card" | "paypal" | "cash"; note?: "cancelled" | "failed"; paid?: boolean },
+    info: {
+      payment: "card" | "paypal" | "cash";
+      note?: "cancelled" | "failed";
+      paid?: boolean;
+      /** The cart previewed a reward the server then didn't apply. */
+      rewardFailed?: boolean;
+    },
   ) => void;
 }): React.ReactElement {
   const cart = useCart();
@@ -80,7 +87,11 @@ export function CartScreen({
   const [error, setError] = useState<string | null>(null);
   /** Dev/CI provider only: the order is placed and a fake intent is open,
    *  waiting for the obviously-labelled test button. */
-  const [fakePending, setFakePending] = useState<{ order: PlacedOrder; ref: string } | null>(null);
+  const [fakePending, setFakePending] = useState<{
+    order: PlacedOrder;
+    ref: string;
+    rewardFailed?: boolean;
+  } | null>(null);
 
   // What this venue can actually take. "card" covers the native Stripe
   // sheet AND Google Pay — same intent, the sheet decides which of them
@@ -128,6 +139,30 @@ export function CartScreen({
     Boolean(loyalty?.enabled) &&
     cart.totalCents > 0 &&
     cart.totalCents >= (loyalty?.minOrderCents ?? 0);
+
+  // The guest's live loyalty state. Null whenever there is no programme,
+  // no account or no server support — so everything below collapses to
+  // the pre-reward behaviour with no extra conditions.
+  const { loyalty: myLoyalty, reload: reloadLoyalty } = useLoyalty(loyalty?.enabled);
+  const armed = armedVoucher(myLoyalty);
+  /** What the armed reward takes off THIS basket. The server recomputes
+   *  it on placement and its number wins; this is the preview. */
+  const rewardCents = cart.lines.length > 0 ? discountFor(armed, grandTotal) : 0;
+  const chargedTotal = Math.max(0, grandTotal - rewardCents);
+  /** The reward swallows the bill: there is nothing left to pay, so the
+   *  payment choice is meaningless and must not be offered. */
+  const fullyCovered = rewardCents > 0 && chargedTotal === 0;
+  const [disarming, setDisarming] = useState(false);
+
+  /** "Not now" — put the reward back in the guest's pocket. The server
+   *  owns the flag, so the state is re-read rather than patched here. */
+  async function disarmReward(): Promise<void> {
+    if (!armed || disarming) return;
+    setDisarming(true);
+    await setVoucherArmed(auth.token, armed.id, false);
+    setDisarming(false);
+    reloadLoyalty();
+  }
   // Signed-in guests don't retype what the server already knows. Only
   // EMPTY fields are seeded, and only from the profile — anything the
   // guest typed wins, on every re-render and on a later sign-in.
@@ -186,6 +221,9 @@ export function CartScreen({
         customerPhone: needsContact ? phone.trim() : undefined,
         customerEmail: email.trim() || undefined,
         intendedPayment: payMethod,
+        // Only ever true when the account really holds an armed voucher —
+        // the server checks again and owns the outcome.
+        redeemVoucher: rewardCents > 0 ? true : undefined,
         address:
           orderType === "delivery"
             ? {
@@ -214,22 +252,35 @@ export function CartScreen({
       }
       return;
     }
+    const order = result.order;
+    // The reward may have expired or been spent elsewhere between the
+    // preview and this request. The order still stands — say so once on
+    // the tracking screen rather than blocking anything.
+    const rewardFailed = rewardCents > 0 && order.discountCents === 0 ? true : undefined;
     await rememberOrder({
-      orderId: result.order.orderId,
-      orderNumber: result.order.orderNumber,
-      receiptToken: result.order.receiptToken,
-      totalCents: result.order.totalCents,
+      orderId: order.orderId,
+      orderNumber: order.orderNumber,
+      receiptToken: order.receiptToken,
+      // What the guest actually pays — the number the history should show.
+      totalCents: order.chargedCents,
       currency: menu.venue.currency,
       orderType,
       placedAt: new Date().toISOString(),
       payment: payMethod,
     });
     cart.clear();
-    const order = result.order;
+
+    // The reward covered the whole bill: the order is already paid, so
+    // every payment branch below would be asking for €0.00.
+    if (order.paidByVoucher) {
+      setBusy(false);
+      onPlaced(order, { payment: payMethod, paid: true, rewardFailed });
+      return;
+    }
 
     if (payMethod === "cash") {
       setBusy(false);
-      onPlaced(order, { payment: "cash" });
+      onPlaced(order, { payment: "cash", rewardFailed });
       return;
     }
 
@@ -241,7 +292,7 @@ export function CartScreen({
     const done = (note?: "cancelled" | "failed", paid?: boolean): void => {
       setPaying(false);
       setBusy(false);
-      onPlaced(order, { payment: payMethod, note, paid });
+      onPlaced(order, { payment: payMethod, note, paid, rewardFailed });
     };
 
     if (payMethod === "paypal") {
@@ -260,7 +311,7 @@ export function CartScreen({
       // button rather than pretending the payment went through.
       setPaying(false);
       setBusy(false);
-      setFakePending({ order, ref: outcome.fake.ref });
+      setFakePending({ order, ref: outcome.fake.ref, rewardFailed });
       return;
     }
     if (outcome === "unavailable") {
@@ -289,11 +340,11 @@ export function CartScreen({
   async function settleFake(): Promise<void> {
     if (!fakePending || busy) return;
     setBusy(true);
-    const { order, ref } = fakePending;
+    const { order, ref, rewardFailed } = fakePending;
     await confirmFakePayment(order.orderId, order.receiptToken, ref);
     setBusy(false);
     setFakePending(null);
-    onPlaced(order, { payment: "card", paid: true });
+    onPlaced(order, { payment: "card", paid: true, rewardFailed });
   }
 
   return (
@@ -314,7 +365,7 @@ export function CartScreen({
                 {t.orderNo} #{String(fakePending.order.orderNumber).padStart(4, "0")}
               </Text>
               <Text style={styles.emptySub}>
-                {money(fakePending.order.totalCents, menu.venue.currency)}
+                {money(fakePending.order.chargedCents, menu.venue.currency)}
               </Text>
               <View style={{ alignSelf: "stretch", marginTop: 12 }}>
                 <PrimaryButton
@@ -574,7 +625,32 @@ export function CartScreen({
                 {orderType === "delivery" ? (
                   <Row label={t.deliveryFee} value={money(deliveryFee, menu.venue.currency)} />
                 ) : null}
-                <Row label={t.total} value={money(grandTotal, menu.venue.currency)} bold />
+                {/* The armed reward, priced against THIS basket, with the
+                    way out right beside it — a guest who'd rather keep it
+                    for a bigger order shouldn't have to hunt for the
+                    switch on the Account tab. */}
+                {rewardCents > 0 ? (
+                  <View style={styles.rewardRow}>
+                    <View style={styles.rewardLabelWrap}>
+                      <Text style={styles.rewardLabel}>★ {t.rewardsReward}</Text>
+                      <Pressable
+                        onPress={() => void disarmReward()}
+                        disabled={disarming}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.cartRewardNotNow}
+                      >
+                        <Text style={[styles.rewardNotNow, disarming && { opacity: 0.5 }]}>
+                          {t.cartRewardNotNow}
+                        </Text>
+                      </Pressable>
+                    </View>
+                    <Text style={styles.rewardValue}>
+                      −{money(rewardCents, menu.venue.currency)}
+                    </Text>
+                  </View>
+                ) : null}
+                <Row label={t.total} value={money(chargedTotal, menu.venue.currency)} bold />
               </View>
 
               {/* What this basket is worth in points, said where the
@@ -591,8 +667,9 @@ export function CartScreen({
               ) : null}
 
               {/* One option = no choice to make; the hint below still says
-                  what will happen. */}
-              {payOptions.length > 1 ? (
+                  what will happen. A fully covered order has nothing to
+                  charge, so there is no method to pick either. */}
+              {payOptions.length > 1 && !fullyCovered ? (
                 <View style={{ gap: 6, marginTop: 4 }}>
                   <Text style={styles.fieldLabel}>{t.paymentMethod}</Text>
                   <View style={styles.payRow}>
@@ -623,9 +700,13 @@ export function CartScreen({
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <PrimaryButton
                 label={
-                  payMethod === "cash"
-                    ? `${t.placeOrder} · ${money(grandTotal, menu.venue.currency)}`
-                    : `${t.payNow} ${money(grandTotal, menu.venue.currency)}`
+                  fullyCovered
+                    ? fill(t.cartPlaceWithReward, {
+                        total: money(0, menu.venue.currency),
+                      })
+                    : payMethod === "cash"
+                      ? `${t.placeOrder} · ${money(chargedTotal, menu.venue.currency)}`
+                      : `${t.payNow} ${money(chargedTotal, menu.venue.currency)}`
                 }
                 busyLabel={paying ? t.openingPayment : undefined}
                 tone="red"
@@ -633,7 +714,7 @@ export function CartScreen({
                 disabled={missing}
                 busy={busy}
               />
-              <Text style={styles.payNote}>{payHint}</Text>
+              <Text style={styles.payNote}>{fullyCovered ? t.payNothingDue : payHint}</Text>
             </>
           )}
         </ScrollView>
@@ -826,6 +907,18 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 6,
   },
+  // The reward line: gold, so it reads as a gift rather than a
+  // correction, and never louder than the total underneath it.
+  rewardRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  rewardLabelWrap: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+  rewardLabel: { color: colors.gold, ...fonts.bodyBold, fontSize: 14 },
+  rewardNotNow: {
+    color: colors.inkSoft,
+    ...fonts.bodySemi,
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
+  rewardValue: { color: colors.gold, ...fonts.bodyHeavy, fontSize: 14 },
   rowLabel: { color: colors.inkSoft, ...fonts.body, fontSize: 14 },
   rowValue: { color: colors.ink, fontSize: 14, ...fonts.bodySemi },
   rowBold: { ...fonts.bodyHeavy, fontSize: 16, color: colors.ink },

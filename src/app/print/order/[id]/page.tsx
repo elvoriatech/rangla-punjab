@@ -121,7 +121,9 @@ export default async function OrderTicketPage({
         </div>
         {order.paymentStatus === "paid" ? (
           <p className="mt-0.5 font-bold">
-            ** PAID ONLINE{order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **
+            {order.paymentProvider === "voucher"
+              ? "** MIT GUTSCHEIN BEZAHLT / PAID WITH REWARD **"
+              : `** PAID ONLINE${order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **`}
           </p>
         ) : order.paymentStatus === "pending" ? (
           <p className="mt-0.5 font-bold">** ONLINE PAYMENT PENDING **</p>
@@ -183,13 +185,23 @@ export default async function OrderTicketPage({
         <p className="my-2 overflow-hidden whitespace-nowrap">
           --------------------------------------
         </p>
+        {/* The dishes keep their menu prices; the reward comes off here, so
+            the ticket's arithmetic matches the till. */}
+        {order.discountCents > 0 ? (
+          <div className="flex justify-between">
+            <span>GUTSCHEIN / REWARD</span>
+            <span>-{formatPrice(order.discountCents, order.currency, "de")}</span>
+          </div>
+        ) : null}
         <div className="flex justify-between text-sm font-bold">
           <span>TOTAL</span>
           <span>{formatPrice(order.totalCents, order.currency, "de")}</span>
         </div>
         <p className="mt-2 text-center text-[11px]">
           {order.paymentStatus === "paid"
-            ? `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`
+            ? order.paymentProvider === "voucher"
+              ? "Mit Treuegutschein bezahlt / paid with a loyalty reward — nothing to collect."
+              : `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`
             : order.paymentStatus === "pending"
               ? "Online payment NOT confirmed yet — do not hand out; wait for the paid ticket."
               : "Payment at the restaurant."}

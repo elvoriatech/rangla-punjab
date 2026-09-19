@@ -147,12 +147,19 @@ export async function buildReceiptPdf(
   const itemLines = order.items.map((it) => chunkName(it.name, nameCols));
   const bodyLines = itemLines.reduce((n, lines) => n + lines.length, 0);
   const LOGO_SIZE = 46;
+  // A loyalty reward prints as its own row between the lines and the
+  // net/VAT split: the dishes keep their menu prices (the kitchen and the
+  // tax record both need those), and the discount is visible as the thing
+  // that brought the total down.
+  const discountCents = Math.max(0, order.discountCents);
+  const paidByReward = order.paymentStatus === "paid" && order.paymentProvider === "voucher";
   const height =
     110 + // header block
     (logo ? LOGO_SIZE + 8 : 0) +
     fulfilmentLineCount * LINE +
     (order.paymentStatus === "paid" ? LINE : 0) +
     bodyLines * LINE +
+    (discountCents > 0 ? LINE : 0) + // the reward row
     2 * LINE + // net + VAT rows above the total
     110; // total + footer block
 
@@ -224,7 +231,7 @@ export async function buildReceiptPdf(
     }).format(order.createdAt),
   );
   fRows.forEach(fulfilmentRow);
-  if (order.paymentStatus === "paid") left(t.paidOnline);
+  if (order.paymentStatus === "paid") left(paidByReward ? t.paidReward : t.paidOnline);
   rule();
 
   // Lines: "NNx Name.....   price" — wrapped names indent under the first.
@@ -237,6 +244,10 @@ export async function buildReceiptPdf(
   });
 
   rule();
+  // The reward comes off the bill before the tax split: `order.totalCents`
+  // is already the charged amount, so the VAT below is the VAT on what the
+  // guest actually paid.
+  if (discountCents > 0) spread(t.reward, `-${price(discountCents)}`);
   // German gross pricing: the total already includes 19 % VAT — show the
   // net/VAT split so the receipt doubles as a tax-transparent record.
   const vatCents = vatFromGross(order.totalCents);
@@ -247,7 +258,13 @@ export async function buildReceiptPdf(
   rule();
   y -= LINE / 2;
   center(t.vatNote);
-  for (const line of order.paymentStatus === "paid" ? t.paid : t.unpaid) center(line);
+  for (const line of paidByReward
+    ? t.paidWithReward
+    : order.paymentStatus === "paid"
+      ? t.paid
+      : t.unpaid) {
+    center(line);
+  }
   y -= LINE / 2;
   center(t.thanks, monoBold);
 

@@ -9,6 +9,7 @@ import { signReceiptToken } from "./receipt-token";
 import { resolveTenantAccess } from "./plan-state";
 import { openState, parseOpeningHours, todayLocalTimeToDate } from "./opening-hours";
 import { parseLoyaltyConfig } from "./loyalty-config";
+import { attachVoucherToOrder, claimArmedVoucher } from "./loyalty-service";
 import {
   deliveryQuote,
   DELIVERY_FEE_LINE_NAME,
@@ -25,6 +26,16 @@ import {
  * only (itemId, quantity); a tampered payload can change what is ordered,
  * never what it costs.
  */
+
+/**
+ * `orders.payment_provider` for an order a loyalty reward settled in
+ * full. It sits beside "stripe" and "paypal" because it answers the same
+ * question — how the money arrived — and every surface that reads the
+ * provider (kitchen ticket, receipt, dashboard badge) has to be able to
+ * say "nothing to collect" without inventing a payment that never
+ * happened.
+ */
+export const VOUCHER_PROVIDER = "voucher";
 
 export const placeOrderSchema = z
   .object({
@@ -72,6 +83,20 @@ export const placeOrderSchema = z
      * absent value means cash.
      */
     intendedPayment: z.enum(["cash", "card", "paypal"]).optional(),
+    /**
+     * "Spend the reward I armed in the app on this order."
+     *
+     * Redemption is pull-only on purpose: the guest arms a voucher in the
+     * app, and only a request that ASKS for it consumes one. The website
+     * never sends this flag, so a web order can never quietly eat the free
+     * meal the guest was keeping for a takeaway.
+     *
+     * Advisory, not a promise: if nothing armable is on the account by the
+     * time this lands (spent on another device, expired overnight), the
+     * order is placed at full price rather than refused. The app's preview
+     * comes from `/api/v1/me/loyalty`; the server is the authority.
+     */
+    redeemVoucher: z.boolean().optional(),
     address: z
       .object({
         street: z.string().trim().min(3).max(120),
@@ -104,9 +129,22 @@ export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 export interface PlacedOrder {
   orderId: string;
   orderNumber: number;
+  /** What the guest owes: the basket AFTER any reward discount. Always
+   *  equal to `chargedCents` — it keeps its name so clients written
+   *  before redemption existed keep charging the right amount. */
   totalCents: number;
   currency: string;
   receiptToken: string;
+  /** The reward applied to this order, 0 when none was. */
+  discountCents: number;
+  /** Explicit alias of `totalCents`: what Stripe / PayPal / the till
+   *  collect. Named so the app never has to guess which of the two
+   *  numbers the payment sheet should use. */
+  chargedCents: number;
+  /** The reward covered the whole bill: the order is already `paid`
+   *  (provider `voucher`), the kitchen has it, and no payment step is
+   *  needed — the app must NOT open a payment sheet. */
+  paidByVoucher: boolean;
   /**
    * True when this response replayed an order an earlier attempt with
    * the same `clientRequestId` had already created. Callers can treat it
@@ -254,7 +292,8 @@ export async function placeOrder(
       // restaurant's own name for the area, whatever the client sent.
       if (quote.locality) input.address!.city = quote.locality;
     }
-    const totalCents = itemsCents + feeCents;
+    // What the basket is worth before any reward is applied.
+    const grossCents = itemsCents + feeCents;
     const customerId = opts?.customerId ?? null;
 
     // Per-venue running receipt number. Serialised with a
@@ -283,11 +322,20 @@ export async function placeOrder(
     if (clientRequestId) {
       const existing = await tx.order.findFirst({
         where: { venueId: context.venueId, clientRequestId },
-        select: { id: true, orderNumber: true, totalCents: true, currency: true },
+        select: {
+          id: true,
+          orderNumber: true,
+          totalCents: true,
+          currency: true,
+          discountCents: true,
+          paymentProvider: true,
+        },
       });
       if (existing) {
         // The STORED totals win, not the ones just recomputed — the
-        // guest is owed exactly the order that was created.
+        // guest is owed exactly the order that was created. That matters
+        // doubly with a reward: re-running the claim would spend a
+        // second voucher for one basket.
         return {
           ok: true as const,
           value: {
@@ -296,11 +344,34 @@ export async function placeOrder(
             totalCents: existing.totalCents,
             currency: existing.currency,
             receiptToken: signReceiptToken(existing.id, context.tenantId),
+            discountCents: existing.discountCents,
+            chargedCents: existing.totalCents,
+            paidByVoucher: existing.paymentProvider === VOUCHER_PROVIDER,
             replayed: true as const,
           },
         };
       }
     }
+
+    // Reward redemption. Deliberately AFTER the advisory lock and the
+    // replay check: the lock serialises this venue's checkouts, so the
+    // claim below cannot interleave with another order of the guest's,
+    // and a retry of a submit that already succeeded never reaches it.
+    const claim =
+      input.redeemVoucher && customerId
+        ? await claimArmedVoucher(tx, customerId, grossCents)
+        : null;
+    const discountCents = claim?.discountCents ?? 0;
+    // The CHARGED total. Line items keep their own prices — the receipt
+    // shows the reward as its own row rather than quietly repricing the
+    // food, because the kitchen and the tax record both need the real
+    // menu prices.
+    const totalCents = grossCents - discountCents;
+    // A reward that covers the whole bill leaves nothing to collect, so
+    // the order is born settled: the kitchen ticket and the receipt go
+    // out at once, exactly as they do for an order paid online, and no
+    // payment sheet is ever opened for €0.00.
+    const paidByVoucher = discountCents > 0 && totalCents === 0;
 
     const max = await tx.order.aggregate({
       where: { venueId: context.venueId },
@@ -322,6 +393,9 @@ export async function placeOrder(
         deliveryAddress: orderType === "delivery" && input.address ? input.address : undefined,
         requestedFor,
         totalCents,
+        discountCents,
+        voucherId: claim?.voucherId ?? null,
+        ...(paidByVoucher ? { paymentStatus: "paid", paymentProvider: VOUCHER_PROVIDER } : {}),
         currency,
         items: {
           create: [
@@ -355,6 +429,12 @@ export async function placeOrder(
       select: { id: true },
     });
 
+    // The voucher was claimed before the order existed; now it can point
+    // at the order it paid for (and the history line can name it).
+    if (claim && customerId) {
+      await attachVoucherToOrder(tx, context.tenantId, customerId, claim, order.id);
+    }
+
     // Back-fill the signed-in guest's profile from what they just typed,
     // so the next checkout prefills itself. "Last used" semantics: a
     // newer value overwrites an older one. Only ever ADDITIVE — a
@@ -384,6 +464,9 @@ export async function placeOrder(
         totalCents,
         currency,
         receiptToken: signReceiptToken(order.id, context.tenantId),
+        discountCents,
+        chargedCents: totalCents,
+        paidByVoucher,
       },
     };
   });
@@ -404,6 +487,11 @@ export interface ReceiptOrder extends OrderFulfilment {
   customerEmail: string | null;
   paymentStatus: string;
   paymentProvider: string | null;
+  /** Loyalty reward applied to this order (0 = none). The item lines keep
+   *  their menu prices, so every receipt surface shows this as its own
+   *  "Reward −€20.00" row between the lines and the total. */
+  discountCents: number;
+  /** The CHARGED total: already net of `discountCents`. */
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -439,6 +527,7 @@ export async function getOrderForReceipt(
         deliveryAddress: true,
         paymentStatus: true,
         paymentProvider: true,
+        discountCents: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -481,8 +570,11 @@ export interface KitchenOrder extends OrderFulfilment {
   tableNumber: string | null;
   status: string;
   paymentStatus: string;
-  /** "stripe" | "paypal" when paid online; null = settled at the restaurant. */
+  /** "stripe" | "paypal" when paid online, "voucher" when a reward
+   *  covered it in full; null = settled at the restaurant. */
   paymentProvider: string | null;
+  /** Loyalty reward applied (0 = none); `totalCents` is already net of it. */
+  discountCents: number;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -515,6 +607,7 @@ export async function listRecentOrders(userId: string, limit = 50): Promise<Kitc
         status: true,
         paymentStatus: true,
         paymentProvider: true,
+        discountCents: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -548,6 +641,7 @@ export async function getKitchenOrder(
         status: true,
         paymentStatus: true,
         paymentProvider: true,
+        discountCents: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -634,6 +728,10 @@ export interface OrderTracking {
   status: string;
   orderType: string;
   paymentStatus: string;
+  /** "stripe" | "paypal" | "voucher" | null (settled at the restaurant). */
+  paymentProvider: string | null;
+  /** Loyalty reward applied (0 = none); `totalCents` is already net of it. */
+  discountCents: number;
   totalCents: number;
   currency: string;
   requestedFor: Date | null;
@@ -657,6 +755,8 @@ export async function getOrderTracking(
         status: true,
         orderType: true,
         paymentStatus: true,
+        paymentProvider: true,
+        discountCents: true,
         totalCents: true,
         currency: true,
         requestedFor: true,

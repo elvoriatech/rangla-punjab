@@ -16,7 +16,15 @@ import { BASE_URL } from "../api";
 import { GOOGLE_NATIVE, useAuth, type AccountOrder } from "../auth";
 import { GoogleButton } from "../google-button";
 import { fill, LANGS, localeTag, useI18n } from "../i18n";
-import { isOfferable, PointsBar, RewardSheet, shortDate, useLoyalty } from "../loyalty";
+import {
+  isOfferable,
+  isRedeemed,
+  orderNo,
+  PointsBar,
+  RewardSheet,
+  shortDate,
+  useLoyalty,
+} from "../loyalty";
 import { PrimaryButton } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
@@ -82,14 +90,33 @@ export function AccountScreen({
   const loyaltyConfig = loyalty ?? menu.loyalty;
   const showRewards = Boolean(auth.token && menu.loyalty?.enabled && loyaltyConfig);
   const vouchers = (loyalty?.vouchers ?? []).filter(isOfferable);
+  // Recently spent rewards, kept visible for a moment: "where did my
+  // reward go" is the first question after one disappears.
+  const usedVouchers = (loyalty?.vouchers ?? [])
+    .filter((v) => isRedeemed(v) && v.redeemedOrderNumber !== null)
+    .slice(0, 3);
   const currency = menu.venue.currency;
+  // What a voucher-shaped row was worth. The entry carries its own value
+  // (vouchers minted under an older threshold keep theirs); the
+  // programme's current reward value is only the fallback for a server
+  // that predates the field.
+  const entryValue = (entry: ApiLoyaltyEntry): string =>
+    money(entry.valueCents ?? loyaltyConfig?.rewardValueCents ?? 0, currency);
   const historyLabel = (entry: ApiLoyaltyEntry): string => {
     if (entry.reason === "reversal") return t.rewardsCancelled;
-    if (entry.reason === "voucher") return t.rewardsReward;
+    if (entry.reason === "voucher") return `${t.rewardsReward} · ${entryValue(entry)}`;
+    // A redemption moves no points (delta 0) — it's the note that a
+    // reward was spent, so it names the money and the order instead.
+    if (entry.reason === "redeem") {
+      const spent = fill(t.rewardsRedeemed, { value: entryValue(entry) });
+      return entry.orderNumber === null
+        ? spent
+        : `${spent} · ${t.rewardsOrder} #${orderNo(entry.orderNumber)}`;
+    }
     if (entry.reason === "order") {
       return entry.orderNumber === null
         ? t.rewardsOrder
-        : `${t.rewardsOrder} #${String(entry.orderNumber).padStart(4, "0")}`;
+        : `${t.rewardsOrder} #${orderNo(entry.orderNumber)}`;
     }
     return t.rewardsAdjust;
   };
@@ -333,6 +360,19 @@ export function AccountScreen({
               </View>
             ) : null}
 
+            {usedVouchers.length > 0 ? (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                {usedVouchers.map((v) => (
+                  <View key={v.id} style={[styles.voucherRow, styles.voucherRowUsed]}>
+                    <Text style={styles.voucherUsedText}>
+                      {fill(t.rewardsMeal, { value: money(v.valueCents, currency) })} ·{" "}
+                      {fill(t.rewardsUsedOn, { number: orderNo(v.redeemedOrderNumber ?? 0) })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             <View style={{ marginTop: 12 }}>
               <PrimaryButton label={t.rewardsCheck} onPress={() => setRewardOpen(true)} />
             </View>
@@ -345,11 +385,14 @@ export function AccountScreen({
                 const when = shortDate(entry.createdAt, tag);
                 return (
                   <View key={entry.id} style={styles.historyRow}>
+                    {/* A redemption costs no points, so a "+0" would be
+                        noise — the gift marks the row instead. */}
                     <Text
                       style={[styles.historyDelta, entry.delta < 0 && { color: colors.inkSoft }]}
                     >
-                      {entry.delta < 0 ? "−" : "+"}
-                      {Math.abs(entry.delta)}
+                      {entry.reason === "redeem"
+                        ? "🎁"
+                        : `${entry.delta < 0 ? "−" : "+"}${Math.abs(entry.delta)}`}
                     </Text>
                     <Text style={styles.historyLabel} numberOfLines={1}>
                       {historyLabel(entry)}
@@ -539,6 +582,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   voucherText: { color: colors.ink, ...fonts.bodySemi, fontSize: 13.5 },
+  // A spent reward: the same card, stood down — no gold border, no claim
+  // on the guest's attention.
+  voucherRowUsed: { borderColor: colors.line, borderWidth: 1, backgroundColor: colors.creamCard },
+  voucherUsedText: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, flex: 1 },
   armedPill: { color: colors.gold, ...fonts.bodyBold, fontSize: 11 },
   historyRow: {
     flexDirection: "row",
