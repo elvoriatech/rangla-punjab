@@ -57,6 +57,12 @@ const envSchema = z.object({
   // connected accounts) and each gets its OWN signing secret. Dev's
   // `stripe listen` shares one secret for both, so this stays unset there.
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().min(1).optional(),
+  // Public identifier, NOT a secret — it is safe in a client bundle and in
+  // an app binary. The mobile app's native PaymentSheet needs it alongside
+  // the PaymentIntent's client secret. We serve it from the intent endpoint
+  // rather than baking it into the app, so rotating the key (or switching
+  // Stripe accounts) never costs an app-store rebuild.
+  STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
 
   // PayPal (restaurant's OWN business account — single-merchant checkout).
   // Both optional so dev + test run on the fake provider; the real REST

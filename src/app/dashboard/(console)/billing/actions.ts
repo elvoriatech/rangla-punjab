@@ -33,12 +33,22 @@ export async function setupPaymentsAction(): Promise<void> {
 export async function saveOwnKeysAction(form: FormData): Promise<void> {
   const userId = await requireUser();
   const { updateOwnKeys } = await import("@/lib/tenant-payment-keys");
+  const base = (await venueAdminBase(userId)) ?? "/dashboard";
+
+  // The publishable key is public, so it is stored (and echoed) in the
+  // clear — but pasting the SECRET key into this field would leak it into
+  // the app, so refuse anything that isn't shaped like `pk_…`.
+  const publishable = String(form.get("ownPublishable") ?? "").trim();
+  if (publishable && !publishable.startsWith("pk_")) {
+    redirect(`${base}/billing?ownkeys=badpublishable`);
+  }
+
   await updateOwnKeys(userId, {
     secret: String(form.get("ownSecret") ?? ""),
     webhook: String(form.get("ownWebhook") ?? ""),
+    publishable,
     enabled: form.get("ownEnabled") === "on",
   });
-  const base = (await venueAdminBase(userId)) ?? "/dashboard";
   redirect(`${base}/billing?ownkeys=saved`);
 }
 

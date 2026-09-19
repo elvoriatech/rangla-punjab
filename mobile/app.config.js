@@ -47,7 +47,24 @@ module.exports = ({ config }) => {
   // different logos in one icon.
   if (generated.android?.adaptiveIcon) android.adaptiveIcon = generated.android.adaptiveIcon;
 
-  const plugins = [...(config.plugins ?? []), "expo-localization", "expo-secure-store"];
+  const plugins = [
+    ...(config.plugins ?? []),
+    "expo-localization",
+    "expo-secure-store",
+    "expo-web-browser",
+    // Native Stripe PaymentSheet. Unconditional: the publishable key is NOT
+    // baked into the build, it arrives from the server per order, so there is
+    // no credential to gate this on. `enableGooglePay` writes the
+    // `com.google.android.gms.wallet.api.enabled` manifest flag Google Pay
+    // needs.
+    //
+    // Apple Pay is deliberately OUT of scope and human-gated: it needs an
+    // Apple Developer merchant id and a certificate uploaded to Stripe. Once
+    // those exist, add `merchantIdentifier: "merchant.com.elvoria.ranglapunjab"`
+    // here and pass `applePay: { merchantCountryCode: "DE" }` to
+    // `initPaymentSheet` (see src/payments.ts and BUILDS.md).
+    ["@stripe/stripe-react-native", { enableGooglePay: true }],
+  ];
   // Native one-tap Google sign-in is opt-in per build: without the iOS
   // client id there is no URL scheme to register, and the plugin throws
   // rather than shipping a half-configured sheet.

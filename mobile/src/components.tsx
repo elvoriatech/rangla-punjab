@@ -47,17 +47,23 @@ export function SectionTitle({
 
 export function PrimaryButton({
   label,
+  busyLabel,
   onPress,
   disabled,
   busy,
   tone = "gold",
 }: {
   label: string;
+  /** Shown beside the spinner while `busy`. Use it when the wait has its
+   *  own meaning the guest should read — "Opening payment…" is not the
+   *  same wait as placing the order. Omit it for a bare spinner. */
+  busyLabel?: string;
   onPress: () => void;
   disabled?: boolean;
   busy?: boolean;
   tone?: "gold" | "red";
 }): React.ReactElement {
+  const textStyle = [styles.primaryBtnText, tone === "red" && { color: colors.onRed }];
   return (
     <Pressable
       onPress={onPress}
@@ -70,11 +76,12 @@ export function PrimaryButton({
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={tone === "red" ? colors.onRed : colors.ink} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <ActivityIndicator color={tone === "red" ? colors.onRed : colors.ink} />
+          {busyLabel ? <Text style={textStyle}>{busyLabel}</Text> : null}
+        </View>
       ) : (
-        <Text style={[styles.primaryBtnText, tone === "red" && { color: colors.onRed }]}>
-          {label}
-        </Text>
+        <Text style={textStyle}>{label}</Text>
       )}
     </Pressable>
   );

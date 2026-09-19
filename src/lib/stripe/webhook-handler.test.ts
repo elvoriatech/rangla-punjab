@@ -132,6 +132,96 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
     expect(order.paymentStatus).toBe("paid");
   });
 
+  it("payment_intent.succeeded settles the order paid in the app's native sheet", async () => {
+    const { tenantId, userId } = await seedTenant();
+    createdTenantIds.push(tenantId);
+    createdUserIds.push(userId);
+
+    const orderId = await asTenant(tenantId, async (tx) => {
+      const venue = await tx.venue.create({
+        data: { tenantId, name: "Sheet Venue", slug: `sheet-${randomUUID().slice(0, 8)}` },
+        select: { id: true },
+      });
+      const order = await tx.order.create({
+        data: {
+          tenantId,
+          venueId: venue.id,
+          orderType: "dine_in",
+          orderNumber: 2,
+          currency: "EUR",
+          totalCents: 2490,
+          paymentStatus: "pending",
+          paymentRef: `pi_${randomUUID()}`,
+        },
+        select: { id: true },
+      });
+      return order.id;
+    });
+
+    // No checkout session exists for an in-app payment — the metadata on
+    // the PaymentIntent itself is the whole routing key.
+    const event: StripeEvent = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.succeeded",
+      data: { object: { id: "pi_x", amount: 2490, metadata: { orderId, tenantId } } },
+    };
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+
+    const order = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
+    );
+    expect(order.paymentStatus).toBe("paid");
+  });
+
+  it("payment_intent.succeeded without our metadata touches nothing", async () => {
+    // Someone else's PaymentIntent on the same account (a manual charge in
+    // the Stripe Dashboard, say) must not be mistaken for one of our orders.
+    const event: StripeEvent = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.succeeded",
+      data: { object: { id: "pi_unrelated", amount: 100 } },
+    };
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+  });
+
+  it("payment_intent.payment_failed leaves the order pending so the guest can retry", async () => {
+    const { tenantId, userId } = await seedTenant();
+    createdTenantIds.push(tenantId);
+    createdUserIds.push(userId);
+
+    const orderId = await asTenant(tenantId, async (tx) => {
+      const venue = await tx.venue.create({
+        data: { tenantId, name: "Decline Venue", slug: `decl-${randomUUID().slice(0, 8)}` },
+        select: { id: true },
+      });
+      const order = await tx.order.create({
+        data: {
+          tenantId,
+          venueId: venue.id,
+          orderType: "dine_in",
+          orderNumber: 3,
+          currency: "EUR",
+          totalCents: 1200,
+          paymentStatus: "pending",
+        },
+        select: { id: true },
+      });
+      return order.id;
+    });
+
+    const event: StripeEvent = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.payment_failed",
+      data: { object: { id: "pi_declined", metadata: { orderId, tenantId } } },
+    };
+    expect((await handleStripeEvent(event)).status).toBe(200);
+
+    const order = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
+    );
+    expect(order.paymentStatus).toBe("pending");
+  });
+
   it("account.updated mirrors charges_enabled onto the tenant", async () => {
     const { tenantId, userId } = await seedTenant();
     createdTenantIds.push(tenantId);

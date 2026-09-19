@@ -56,6 +56,20 @@ export async function handleStripeEvent(event: StripeEvent): Promise<WebhookOutc
     case "checkout.session.completed":
       await handleCheckoutCompleted(event);
       return { status: 200, kind: "processed" };
+    case "payment_intent.succeeded":
+      // Native app payment sheet (P-app): the guest confirmed a bare
+      // PaymentIntent, so there is no checkout session — but the
+      // orderId/tenantId metadata is identical, so settlement is too.
+      await handleOrderSettlement(event, event.data.object as HasMetadata);
+      return { status: 200, kind: "processed" };
+    case "payment_intent.payment_failed":
+      // Deliberately NOT a state change: the order stays `pending` so the
+      // guest can retry in the sheet with another card. Only logged.
+      logger.info("stripe.order.payment_failed", {
+        eventId: event.id,
+        orderId: (event.data.object as HasMetadata).metadata?.orderId ?? null,
+      });
+      return { status: 200, kind: "processed" };
     case "account.updated":
       await handleAccountUpdated(event);
       return { status: 200, kind: "processed" };
@@ -66,23 +80,29 @@ export async function handleStripeEvent(event: StripeEvent): Promise<WebhookOutc
 }
 
 async function handleCheckoutCompleted(event: StripeEvent): Promise<void> {
-  const session = event.data.object as CheckoutSessionShape;
-
   // Guest ORDER payment (mode=payment, created on the restaurant's
   // connected account — arrives via the Connect webhook). Routed by the
-  // orderId metadata stamped in createOrderCheckout; settlement is
-  // idempotent, so Stripe retries converge.
-  const orderId = session.metadata?.orderId;
-  if (orderId) {
-    const orderTenantId = session.metadata?.tenantId;
-    if (!orderTenantId) {
-      logger.warn("stripe.order.missing_tenant", { eventId: event.id, orderId });
-      return;
-    }
-    const settled = await markOrderPaid(orderTenantId, orderId);
-    logger.info("stripe.order.paid", { eventId: event.id, orderId, settled });
+  // orderId metadata stamped in createOrderCheckout.
+  await handleOrderSettlement(event, event.data.object as CheckoutSessionShape);
+}
+
+/**
+ * Settle whatever object carries our `orderId`/`tenantId` metadata — a
+ * checkout session (web) or a PaymentIntent (native app sheet). Both are
+ * stamped identically at creation, so one settlement path serves both.
+ * Idempotent, so Stripe retries converge; an object without our metadata
+ * belongs to someone else's flow and is logged, not thrown on.
+ */
+async function handleOrderSettlement(event: StripeEvent, object: HasMetadata): Promise<void> {
+  const orderId = object.metadata?.orderId;
+  if (!orderId) return;
+  const orderTenantId = object.metadata?.tenantId;
+  if (!orderTenantId) {
+    logger.warn("stripe.order.missing_tenant", { eventId: event.id, orderId });
     return;
   }
+  const settled = await markOrderPaid(orderTenantId, orderId);
+  logger.info("stripe.order.paid", { eventId: event.id, orderId, settled });
 }
 
 async function handleAccountUpdated(event: StripeEvent): Promise<void> {

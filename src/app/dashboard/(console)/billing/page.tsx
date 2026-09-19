@@ -109,6 +109,16 @@ export default async function BillingPage({
           </p>
         ) : null}
 
+        {ownkeys === "badpublishable" ? (
+          <p
+            role="alert"
+            className="mt-3 border-l-4 border-[#a32e2e] bg-[#fbeceb] px-4 py-2 text-sm text-[#7d2222]"
+          >
+            That doesn&apos;t look like a publishable key. It starts with <code>pk_test_</code> or{" "}
+            <code>pk_live_</code> — never <code>sk_</code>. Nothing was saved.
+          </p>
+        ) : null}
+
         {ownKeysMode ? (
           <>
             <p className="mt-3 text-sm text-brand-green/70">
@@ -143,6 +153,27 @@ export default async function BillingPage({
                   className="mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
                 />
               </label>
+              <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+                Publishable key (pk_…)
+                <span className="ml-2 normal-case tracking-normal text-brand-green/50">
+                  — needed for card payments inside the phone app
+                </span>
+                <input
+                  type="text"
+                  name="ownPublishable"
+                  autoComplete="off"
+                  spellCheck={false}
+                  defaultValue={ownKeys?.publishable ?? ""}
+                  placeholder="pk_live_…"
+                  className="mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 font-mono text-sm text-brand-green outline-none focus:border-brand-green"
+                />
+                <span className="mt-1 block normal-case tracking-normal text-brand-green/60">
+                  Sits next to the secret key under{" "}
+                  <span className="font-medium">Developers → API keys</span>. This one is public —
+                  it identifies your account to the app and cannot move money on its own, so it is
+                  shown in full.
+                </span>
+              </label>
               <label className="flex items-center gap-2 text-sm text-brand-green">
                 <input
                   type="checkbox"
@@ -168,10 +199,12 @@ export default async function BillingPage({
                 signing secret, go to{" "}
                 <span className="font-medium">Developers → Webhooks → Add endpoint</span>, enter{" "}
                 <code className="text-brand-green">{`${siteUrl()}/api/stripe/own-webhook`}</code>,
-                select the event <span className="font-medium">checkout.session.completed</span>,
-                then copy the endpoint&apos;s signing secret (
-                <code className="text-brand-green">whsec_…</code>). The webhook is what marks an
-                order as paid, so without it orders stay pending even after the card is charged.
+                select the events <span className="font-medium">checkout.session.completed</span>{" "}
+                and <span className="font-medium">payment_intent.succeeded</span> (the second one is
+                how payments made inside the phone app are confirmed), then copy the endpoint&apos;s
+                signing secret (<code className="text-brand-green">whsec_…</code>). The webhook is
+                what marks an order as paid, so without it orders stay pending even after the card
+                is charged.
               </p>
               <SaveChangesButton
                 pendingLabel="Saving…"

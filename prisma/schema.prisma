@@ -104,6 +104,11 @@ model Tenant {
   stripeOwnWebhookEnc  String?  @map("stripe_own_webhook_enc")
   stripeOwnWebhookMask String?  @map("stripe_own_webhook_mask")
   stripeOwnEnabled     Boolean  @default(false) @map("stripe_own_enabled")
+  /// Publishable key (pk_…) of the same own account. Public by design —
+  /// stored in plain text and shown unmasked, because the mobile app's
+  /// native payment sheet has to receive it verbatim. Unset falls back to
+  /// the deployment's STRIPE_PUBLISHABLE_KEY.
+  stripeOwnPublishable String?  @map("stripe_own_publishable")
   /// PayPal, same posture as the Stripe own-keys above: the restaurant's
   /// own REST app credentials, encrypted at rest, masked when shown. Unset
   /// falls back to the deployment-wide PAYPAL_* env vars.

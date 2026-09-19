@@ -12,6 +12,9 @@ import { encryptSecret, decryptSecret, maskSecret } from "./secrets";
 export interface OwnKeysStatus {
   secretMask: string | null;
   webhookMask: string | null;
+  /** Publishable key in the clear — it is a public identifier, not a
+   *  secret, and the mobile payment sheet needs it verbatim. */
+  publishable: string | null;
   enabled: boolean;
   /** True once a secret key has been stored. */
   hasSecret: boolean;
@@ -24,12 +27,14 @@ export async function getOwnKeysStatus(userId: string): Promise<OwnKeysStatus> {
         stripeOwnSecretMask: true,
         stripeOwnWebhookMask: true,
         stripeOwnSecretEnc: true,
+        stripeOwnPublishable: true,
         stripeOwnEnabled: true,
       },
     });
     return {
       secretMask: t?.stripeOwnSecretMask ?? null,
       webhookMask: t?.stripeOwnWebhookMask ?? null,
+      publishable: t?.stripeOwnPublishable ?? null,
       enabled: t?.stripeOwnEnabled ?? false,
       hasSecret: Boolean(t?.stripeOwnSecretEnc),
     };
@@ -68,10 +73,15 @@ export async function getOwnKeys(userId: string): Promise<OwnKeys> {
  */
 export async function updateOwnKeys(
   userId: string,
-  patch: { secret?: string; webhook?: string; enabled: boolean },
+  patch: { secret?: string; webhook?: string; publishable?: string; enabled: boolean },
 ): Promise<void> {
   await asUser(userId, async (tx) => {
     const data: Record<string, string | boolean> = { stripeOwnEnabled: patch.enabled };
+    // Public identifier — stored as typed, not encrypted or masked, because
+    // the app receives it verbatim. Blank keeps the current value, like the
+    // secret fields, so a save that only flips `enabled` is harmless.
+    const publishable = patch.publishable?.trim();
+    if (publishable) data.stripeOwnPublishable = publishable;
     const secret = patch.secret?.trim();
     if (secret) {
       data.stripeOwnSecretEnc = encryptSecret(secret);

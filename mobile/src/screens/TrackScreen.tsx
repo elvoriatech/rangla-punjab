@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as ExpoLinking from "expo-linking";
 import type { ApiTracking } from "../api";
-import { fetchOrderStatus, payPageUrl, receiptUrl } from "../api";
+import { fetchOrderStatus, payPageUrl, receiptUrl, startHostedPayment } from "../api";
+import { confirmFakePayment, openInAppBrowser, openPayPage, payWithCard } from "../payments";
 import { BrandHeader } from "../components";
 import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
 import { useI18n } from "../i18n";
@@ -16,17 +17,29 @@ import { useI18n } from "../i18n";
 export function TrackScreen({
   orderId,
   token,
-  canPayOnline,
+  merchantName,
+  canPayCard,
+  canPayPaypal,
+  note,
   onBack,
 }: {
   orderId: string;
   token: string;
-  canPayOnline: boolean;
+  /** Shown in the Stripe sheet's header — the venue, not the platform. */
+  merchantName: string;
+  canPayCard: boolean;
+  canPayPaypal: boolean;
+  /** Set when the guest just came from the cart with an unfinished
+   *  payment; shown once, above the pay buttons. */
+  note?: "cancelled" | "failed";
   onBack: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
   const [tracking, setTracking] = useState<ApiTracking | null>(null);
   const [error, setError] = useState(false);
+  const [busy, setBusy] = useState(false);
+  /** Dev/CI provider: an open fake intent waiting for the test button. */
+  const [fakeRef, setFakeRef] = useState<string | null>(null);
   const reloadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -60,6 +73,52 @@ export function TrackScreen({
       if (timer) clearTimeout(timer);
     };
   }, [orderId, token]);
+
+  // The cart's note is a one-off explanation of how the guest got here,
+  // not a state of the order — it goes away as soon as they try again.
+  const [banner, setBanner] = useState<"cancelled" | "failed" | null>(note ?? null);
+
+  const deepLink = ExpoLinking.createURL("payment-return");
+
+  async function startCard(): Promise<void> {
+    if (busy) return;
+    setBusy(true);
+    setBanner(null);
+    const outcome = await payWithCard(orderId, token, { merchantDisplayName: merchantName });
+    if (typeof outcome === "object") {
+      setFakeRef(outcome.fake.ref);
+      setBusy(false);
+      return;
+    }
+    if (outcome === "unavailable") {
+      const hosted = await startHostedPayment(orderId, token);
+      await openPayPage(hosted.ok ? hosted.url : payPageUrl(orderId, token, deepLink), deepLink);
+    } else if (outcome === "cancelled" || outcome === "failed") {
+      setBanner(outcome);
+    }
+    setBusy(false);
+    // The sheet resolved or the browser tab closed — read the truth from
+    // the server rather than trusting the client's own outcome.
+    reloadRef.current();
+  }
+
+  async function startPaypal(): Promise<void> {
+    if (busy) return;
+    setBusy(true);
+    setBanner(null);
+    await openPayPage(payPageUrl(orderId, token, deepLink), deepLink);
+    setBusy(false);
+    reloadRef.current();
+  }
+
+  async function settleFake(): Promise<void> {
+    if (busy || !fakeRef) return;
+    setBusy(true);
+    await confirmFakePayment(orderId, token, fakeRef);
+    setFakeRef(null);
+    setBusy(false);
+    reloadRef.current();
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -159,20 +218,47 @@ export function TrackScreen({
               {tracking.paymentStatus === "paid" ? t.paidOnline : t.payAtRest}
             </Text>
 
-            {canPayOnline && tracking.paymentStatus !== "paid" ? (
-              <Pressable
-                onPress={() =>
-                  void Linking.openURL(
-                    payPageUrl(orderId, token, ExpoLinking.createURL("payment-return")),
-                  )
-                }
-                style={styles.payBtn}
-              >
-                <Text style={styles.payBtnText}>{t.payOnline}</Text>
-              </Pressable>
+            {tracking.paymentStatus !== "paid" ? (
+              <>
+                {banner ? (
+                  <Text style={styles.payBanner}>
+                    {banner === "cancelled" ? t.payCancelledNote : t.payFailedNote}
+                  </Text>
+                ) : null}
+                {fakeRef ? (
+                  <Pressable
+                    onPress={() => void settleFake()}
+                    disabled={busy}
+                    style={[styles.payBtn, busy && { opacity: 0.6 }]}
+                  >
+                    <Text style={styles.payBtnText}>{t.simulatePayment}</Text>
+                  </Pressable>
+                ) : (
+                  <>
+                    {canPayCard ? (
+                      <Pressable
+                        onPress={() => void startCard()}
+                        disabled={busy}
+                        style={[styles.payBtn, busy && { opacity: 0.6 }]}
+                      >
+                        <Text style={styles.payBtnText}>{t.payWithCard}</Text>
+                      </Pressable>
+                    ) : null}
+                    {canPayPaypal ? (
+                      <Pressable
+                        onPress={() => void startPaypal()}
+                        disabled={busy}
+                        style={[styles.payBtn, busy && { opacity: 0.6 }]}
+                      >
+                        <Text style={styles.payBtnText}>{t.payWithPaypal}</Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                )}
+              </>
             ) : null}
             <Pressable
-              onPress={() => void Linking.openURL(receiptUrl(orderId, token, lang))}
+              onPress={() => void openInAppBrowser(receiptUrl(orderId, token, lang))}
               style={styles.receiptBtn}
             >
               <Text style={styles.receiptBtnText}>{t.receiptPdf}</Text>
@@ -257,6 +343,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   payBtnText: { color: colors.creamCard, ...fonts.bodyHeavy, fontSize: 13 },
+  payBanner: {
+    marginTop: 12,
+    backgroundColor: "#fdeee6",
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: 10,
+    color: colors.ink,
+    ...fonts.bodySemi,
+    fontSize: 12.5,
+  },
   receiptBtn: {
     marginTop: 14,
     borderRadius: radius.pill,

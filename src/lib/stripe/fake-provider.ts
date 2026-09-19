@@ -10,6 +10,7 @@ import type {
   ConnectAccountStatus,
   ConnectOnboardingLink,
   OrderCheckoutRef,
+  PaymentIntentRef,
 } from "./provider";
 
 /**
@@ -202,6 +203,27 @@ export class FakeStripeProvider implements StripeProvider {
     });
     const sep = input.payPageUrl.includes("?") ? "&" : "?";
     return { ref, url: `${input.payPageUrl}${sep}ref=${ref}` };
+  }
+
+  async createDirectPaymentIntent(input: {
+    orderId: string;
+    tenantId: string;
+    amountCents: number;
+    currency: string;
+    label: string;
+  }): Promise<PaymentIntentRef> {
+    // Registered in the SAME map as the fake checkouts, so `/pay/confirm`
+    // and `settleOrderCheckout` settle an intent with no extra branch —
+    // the app's dev/demo "pay" button lands exactly where the web one does.
+    const ref = `pi_fake_${randomUUID().replace(/-/g, "").slice(0, 14)}`;
+    this.orderCheckouts.set(ref, {
+      orderId: input.orderId,
+      tenantId: input.tenantId,
+      amountCents: input.amountCents,
+      feeCents: 0,
+      paid: false,
+    });
+    return { ref, clientSecret: `${ref}_secret_test` };
   }
 
   /** Test/dev hook: settle a fake checkout, like Stripe's webhook would. */

@@ -103,6 +103,28 @@ describe("FakeStripeProvider — CRUD stubs return usable references", () => {
     expect(s.url).toContain(encodeURIComponent("https://elvoria.eu/dashboard/billing"));
   });
 
+  it("createDirectPaymentIntent returns a ref + client secret the confirm path can settle", async () => {
+    const intent = await fake.createDirectPaymentIntent({
+      orderId: "order_1",
+      tenantId: "t1",
+      amountCents: 2490,
+      currency: "EUR",
+      label: "Rangla Punjab — order #0007",
+    });
+    expect(intent.ref).toMatch(/^pi_fake_/);
+    // The sheet needs a secret scoped to this exact intent, never a bare id.
+    expect(intent.clientSecret).toBe(`${intent.ref}_secret_test`);
+
+    // Registered in the same map as a fake checkout, so the existing
+    // /pay/confirm settlement path works on an intent with no new branch.
+    expect(fake.settleOrderCheckout(intent.ref)).toEqual({
+      orderId: "order_1",
+      tenantId: "t1",
+    });
+    // …and only once: a replayed settle is a no-op, like the webhook guard.
+    expect(fake.settleOrderCheckout(intent.ref)).toBeNull();
+  });
+
   it("retrieveSubscription returns null for unseeded ids and the seeded value otherwise", async () => {
     expect(await fake.retrieveSubscription("sub_missing")).toBeNull();
     fake.seedSubscription({

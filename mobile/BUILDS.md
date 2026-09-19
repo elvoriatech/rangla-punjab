@@ -96,6 +96,59 @@ Google Cloud OAuth clients (including the Android release SHA-1 from the
 EAS keystore), pasting them into `eas.json`, and setting `GOOGLE_CLIENT_ID`
 / `GOOGLE_CLIENT_SECRET` on the server.
 
+## Payments in the app
+
+The guest picks a payment method in the cart **before** placing the order.
+Cash places and stops; card and PayPal place the order first (a declined
+card must never cost someone their basket) and pay immediately after.
+
+**Card / Google Pay — the native sheet.**
+`@stripe/stripe-react-native` is a native module, so it does **not** exist
+in Expo Go or on web. It is loaded through `src/stripe-module.ts` /
+`src/stripe-module.web.ts`, which hand back `null` instead of throwing —
+a plain lazy `require()` was not enough, because Metro follows requires
+statically and the web export failed on the package's native specs. When
+the module is absent the app falls back to the hosted checkout page opened
+in Custom Tabs / SFSafariViewController (`expo-web-browser`), which is also
+where PayPal lives. So Expo Go still pays, just through the browser.
+
+**No publishable key is baked into the build.** `POST /api/orders/{id}/pay/intent`
+returns it alongside the client secret, so moving the venue from Stripe
+test keys to live keys is a server change — no rebuild, no resubmission.
+
+**Google Pay** is enabled by the config plugin in `app.config.js`
+(`enableGooglePay: true` writes the `com.google.android.gms.wallet.api.enabled`
+manifest flag). The sheet runs against Google's **test environment** while
+the venue's key is a `pk_test_` key. Production Google Pay additionally
+needs the app approved in the **Google Pay & Wallet Console** (Business
+profile + an integration request against the release package name) — until
+then a production build shows test cards only.
+
+**3-D Secure** returns to `<scheme>://stripe-redirect` (`ranglapunjab://stripe-redirect`).
+The scheme comes from `brand.generated.json` via `expo-constants`; nothing
+to register by hand, but a venue rebranded to a different scheme gets the
+new return URL automatically.
+
+**Dev / CI.** When the server has no payment provider configured it mints a
+**fake** intent (`mode: "fake"`), which has no sheet at all. The app then
+shows a clearly-labelled "Simulate payment (test)" button that calls
+`POST /api/orders/{id}/pay/confirm`. It can never appear against a real
+Stripe account.
+
+⛔ **Apple Pay is human-gated and deliberately not wired.** To enable it:
+1. Create the merchant id `merchant.com.elvoria.ranglapunjab` in the Apple
+   Developer account.
+2. Generate the Apple Pay payment-processing certificate from Stripe and
+   upload it in the Apple Developer portal (Stripe Dashboard → Settings →
+   Payments → Apple Pay).
+3. Add `merchantIdentifier: "merchant.com.elvoria.ranglapunjab"` to the
+   `["@stripe/stripe-react-native", { … }]` plugin options in
+   `app.config.js` — that writes the `com.apple.developer.in-app-payments`
+   entitlement.
+4. Pass `applePay: { merchantCountryCode: "DE" }` to `initPaymentSheet` in
+   `src/payments.ts`.
+5. Rebuild and resubmit: the entitlement is part of the binary.
+
 ## Android APK (sideloadable, no store needed)
 ```bash
 cd mobile

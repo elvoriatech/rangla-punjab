@@ -1,5 +1,7 @@
 import { asTenant, asUser } from "./tenant";
 import { getStripeProvider, stripeProviderForKey, stripeDirectChargeAvailable } from "./stripe";
+import type { StripeProvider } from "./stripe/provider";
+import { resolvePublishableKey } from "./stripe/publishable-key";
 import { computePlatformFeeCents, getOperatorSettings } from "./operator-settings";
 import { decryptSecret } from "./secrets";
 import { siteUrl } from "./site-url";
@@ -102,6 +104,39 @@ export type PayResult =
   | { ok: true; url: string }
   | { ok: false; error: "invalid_token" | "not_found" | "not_available" | "already_paid" };
 
+/** The own-keys columns the direct-charge routing reads. */
+interface OwnKeyColumns {
+  stripeOwnEnabled: boolean;
+  stripeOwnSecretEnc: string | null;
+  stripeOwnWebhookEnc: string | null;
+}
+
+/**
+ * Which Stripe account charges this order directly (no Connect, no
+ * platform fee)? Keys pasted in Dashboard → Payments describe the
+ * restaurant's own account and win; otherwise the deployment's STRIPE_*
+ * keys ARE that account (single-restaurant build). Null means nothing may
+ * charge — in practice a fake provider in production, which must never
+ * mark an order paid without money moving.
+ *
+ * Shared by the hosted-checkout path and the native-payment-sheet path so
+ * the two can never disagree about whose account the guest is paying.
+ */
+async function selectDirectChargeProvider(
+  tenant: OwnKeyColumns,
+  shared: StripeProvider,
+): Promise<{ provider: StripeProvider; ownKeys: boolean } | null> {
+  const ownSecret = tenant.stripeOwnEnabled ? decryptSecret(tenant.stripeOwnSecretEnc) : null;
+  if (ownSecret) {
+    return {
+      provider: await stripeProviderForKey(ownSecret, decryptSecret(tenant.stripeOwnWebhookEnc)),
+      ownKeys: true,
+    };
+  }
+  if (await stripeDirectChargeAvailable(false)) return { provider: shared, ownKeys: false };
+  return null;
+}
+
 /** Create the checkout for one order. Guest-facing: authenticated by
  *  the order's HMAC receipt token, priced from the stored order —
  *  nothing from the client is trusted. */
@@ -153,14 +188,10 @@ export async function createOrderPayment(
     // account. Only a fake provider in production is refused, so an
     // order can never be "paid" without money moving.
     if (settings.feeMode === "upfront") {
-      const ownSecret = tenant.stripeOwnEnabled ? decryptSecret(tenant.stripeOwnSecretEnc) : null;
-      const ownProvider = ownSecret
-        ? await stripeProviderForKey(ownSecret, decryptSecret(tenant.stripeOwnWebhookEnc))
-        : (await stripeDirectChargeAvailable(false))
-          ? provider
-          : null;
-      if (!ownProvider) return { ok: false, error: "not_available" as const };
+      const direct = await selectDirectChargeProvider(tenant, provider);
+      if (!direct) return { ok: false, error: "not_available" as const };
       {
+        const ownProvider = direct.provider;
         const checkout = await ownProvider.createDirectCheckout({
           orderId: order.id,
           tenantId,
@@ -186,7 +217,7 @@ export async function createOrderPayment(
           feeCents: 0,
           mode: ownProvider.mode,
           own: true,
-          ownKeys: Boolean(ownSecret),
+          ownKeys: direct.ownKeys,
         });
         return { ok: true as const, url: checkout.url };
       }
@@ -223,6 +254,135 @@ export async function createOrderPayment(
     });
     log.info("payment.checkout_created", { orderId, tenantId, feeCents, mode: provider.mode });
     return { ok: true as const, url: checkout.url };
+  });
+}
+
+export type PaymentIntentResult =
+  | {
+      ok: true;
+      mode: "real" | "fake";
+      ref: string;
+      clientSecret: string;
+      /** Null only in fake mode, where the app shows its dev pay button
+       *  instead of Stripe's sheet. */
+      publishableKey: string | null;
+      amountCents: number;
+      currency: string;
+      merchantName: string;
+    }
+  | {
+      ok: false;
+      error:
+        | "invalid_token"
+        | "not_found"
+        | "not_available"
+        | "already_paid"
+        | "publishable_key_missing";
+    };
+
+/**
+ * The native-app sibling of `createOrderPayment`: instead of a hosted
+ * checkout URL to open in a browser, hand back a PaymentIntent the app's
+ * Stripe PaymentSheet confirms in-process. Same auth (the order's HMAC
+ * receipt token), same server-side pricing — nothing from the client is
+ * trusted — and the same account routing, so an order can be started on
+ * either surface and settles through the same webhook.
+ *
+ * Only the direct-charge (upfront) model is supported: a Connect
+ * destination charge needs an application fee and the connected account's
+ * own publishable key, which this contract has no room for. Percentage
+ * deployments get `not_available` and the app falls back to /pay.
+ *
+ * Re-calling for an unpaid order mints a FRESH intent and overwrites
+ * `paymentRef`. That is the retry path (guest dismissed the sheet, card
+ * declined); the abandoned intent expires on Stripe's side and can never
+ * settle an order the new ref has since paid, because settlement is
+ * keyed on orderId and idempotent.
+ */
+export async function createOrderPaymentIntent(
+  tenantId: string,
+  orderId: string,
+  token: string,
+): Promise<PaymentIntentResult> {
+  const verified = verifyReceiptToken(token);
+  if (!verified || verified.orderId !== orderId || verified.tenantId !== tenantId) {
+    return { ok: false, error: "invalid_token" };
+  }
+  const shared = await getStripeProvider();
+  return asTenant(tenantId, async (tx) => {
+    const [tenant, order] = await Promise.all([
+      tx.tenant.findFirstOrThrow({
+        select: {
+          stripeOwnEnabled: true,
+          stripeOwnSecretEnc: true,
+          stripeOwnWebhookEnc: true,
+          stripeOwnPublishable: true,
+        },
+      }),
+      tx.order.findFirst({
+        where: { id: orderId },
+        select: {
+          id: true,
+          orderNumber: true,
+          totalCents: true,
+          currency: true,
+          paymentStatus: true,
+          venue: { select: { name: true } },
+        },
+      }),
+    ]);
+    if (!order) return { ok: false, error: "not_found" as const };
+    if (order.paymentStatus === "paid") return { ok: false, error: "already_paid" as const };
+
+    const settings = await getOperatorSettings();
+    if (settings.feeMode !== "upfront") return { ok: false, error: "not_available" as const };
+
+    const direct = await selectDirectChargeProvider(tenant, shared);
+    if (!direct) return { ok: false, error: "not_available" as const };
+
+    // A real intent without its matching publishable key is unusable in
+    // the app — refuse here rather than hand out a secret the sheet
+    // cannot open, so the app falls back to the hosted checkout.
+    const publishableKey = direct.provider.mode === "real" ? resolvePublishableKey(tenant) : null;
+    if (direct.provider.mode === "real" && !publishableKey) {
+      return { ok: false, error: "publishable_key_missing" as const };
+    }
+
+    const label = `${order.venue.name} — order #${String(order.orderNumber).padStart(4, "0")}`;
+    const intent = await direct.provider.createDirectPaymentIntent({
+      orderId: order.id,
+      tenantId,
+      amountCents: order.totalCents,
+      currency: order.currency,
+      label,
+    });
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: "pending",
+        paymentRef: intent.ref,
+        paymentProvider: "stripe",
+        applicationFeeCents: 0,
+      },
+    });
+    log.info("payment.intent_created", {
+      orderId,
+      tenantId,
+      feeCents: 0,
+      mode: direct.provider.mode,
+      own: true,
+      ownKeys: direct.ownKeys,
+    });
+    return {
+      ok: true as const,
+      mode: direct.provider.mode,
+      ref: intent.ref,
+      clientSecret: intent.clientSecret,
+      publishableKey,
+      amountCents: order.totalCents,
+      currency: order.currency,
+      merchantName: order.venue.name,
+    };
   });
 }
 

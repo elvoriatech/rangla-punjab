@@ -64,6 +64,15 @@ export interface OrderCheckoutRef {
   ref: string;
 }
 
+export interface PaymentIntentRef {
+  /** The PaymentIntent id — stored on the order as `paymentRef`, exactly
+   *  like a checkout session id, so settlement is ref-shaped either way. */
+  ref: string;
+  /** Handed to the mobile app's native PaymentSheet. Useless without the
+   *  matching publishable key, and scoped to this one intent. */
+  clientSecret: string;
+}
+
 export interface StripeProvider {
   readonly mode: "real" | "fake";
 
@@ -140,4 +149,19 @@ export interface StripeProvider {
     cancelUrl: string;
     payPageUrl: string;
   }): Promise<OrderCheckoutRef>;
+
+  /** The native-payment-sheet sibling of `createDirectCheckout`: a bare
+   *  PaymentIntent on THIS provider's own account (no connected account,
+   *  no application fee), whose client secret the mobile app confirms
+   *  in-process instead of bouncing the guest to a hosted page. Same
+   *  `metadata.orderId/tenantId` contract, so the webhook settles it the
+   *  same way — `payment_intent.succeeded` rather than
+   *  `checkout.session.completed`. */
+  createDirectPaymentIntent(input: {
+    orderId: string;
+    tenantId: string;
+    amountCents: number;
+    currency: string;
+    label: string;
+  }): Promise<PaymentIntentRef>;
 }

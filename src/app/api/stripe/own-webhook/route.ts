@@ -44,15 +44,21 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as { metadata?: Record<string, string | null> };
-      const orderId = session.metadata?.orderId;
+    // `checkout.session.completed` is the hosted-checkout (web) settlement;
+    // `payment_intent.succeeded` is the same order paid through the mobile
+    // app's native payment sheet. Both objects carry the orderId/tenantId
+    // metadata we stamped at creation, so they settle identically.
+    if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
+      const object = event.data.object as { metadata?: Record<string, string | null> };
+      const orderId = object.metadata?.orderId;
       const tenantId =
-        session.metadata?.tenantId ??
+        object.metadata?.tenantId ??
         tenant?.id ??
         (await prisma.tenant.findFirst({ select: { id: true } }))?.id;
       if (orderId && tenantId) await markOrderPaid(tenantId, orderId);
     }
+    // payment_intent.payment_failed is deliberately ignored: the order
+    // stays pending so the guest can retry with another card.
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {
     captureException(err, { eventId: event.id, eventType: event.type });

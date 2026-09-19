@@ -43,6 +43,9 @@ type Tab = "home" | "menu" | "cart" | "orders" | "info";
 interface TrackTarget {
   orderId: string;
   token: string;
+  /** Carried over from the cart when a payment was cancelled or failed —
+   *  the order stands, only the payment didn't. */
+  note?: "cancelled" | "failed";
 }
 
 function Shell(): React.ReactElement {
@@ -81,9 +84,9 @@ function Shell(): React.ReactElement {
   }, [menu, reconcile]);
 
   const onAdd = useCallback((item: ApiItem) => cart.add(item), [cart]);
-  const onPlaced = useCallback((order: PlacedOrder) => {
+  const onPlaced = useCallback((order: PlacedOrder, note?: "cancelled" | "failed") => {
     setOrdersRefresh((n) => n + 1);
-    setTrack({ orderId: order.orderId, token: order.receiptToken });
+    setTrack({ orderId: order.orderId, token: order.receiptToken, note });
   }, []);
   const onOpenStored = useCallback((order: StoredOrder) => {
     setTrack({ orderId: order.orderId, token: order.receiptToken });
@@ -112,7 +115,10 @@ function Shell(): React.ReactElement {
       <TrackScreen
         orderId={track.orderId}
         token={track.token}
-        canPayOnline={Boolean(menu.ordering.onlinePayment || menu.ordering.paypal)}
+        merchantName={menu.venue.name}
+        canPayCard={Boolean(menu.ordering.onlinePayment)}
+        canPayPaypal={Boolean(menu.ordering.paypal)}
+        note={track.note}
         onBack={() => setTrack(null)}
       />
     );

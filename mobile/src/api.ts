@@ -123,8 +123,10 @@ export interface PlaceOrderInput {
   /** Optional, any order type: the receipt (with VAT split) is emailed here. */
   customerEmail?: string;
   /** Tells the server when to mail the receipt: now (cash) or once an
-   *  online payment settles. The app places first and offers online
-   *  payment afterwards, so it sends "cash". */
+   *  online payment settles. The guest picks the method in the cart
+   *  BEFORE placing, so this is their actual choice — the order is still
+   *  created first and paid immediately afterwards (sheet or web page),
+   *  because a card that fails must not lose the basket. */
   intendedPayment?: "cash" | "card" | "paypal";
   address?: { street: string; zip: string; city?: string; note?: string };
 }
@@ -240,6 +242,101 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
   const body = (await res.json().catch(() => null)) as { ok?: boolean; order?: ApiTracking } | null;
   if (!res.ok || !body?.ok || !body.order) throw new Error(`status ${res.status}`);
   return body.order;
+}
+
+/**
+ * One payable attempt at an order, minted by the server.
+ *
+ * `mode` is the provider seam: "real" is a Stripe PaymentIntent whose
+ * `clientSecret` + `publishableKey` drive the native sheet; "fake" is the
+ * dev/CI provider, which has no sheet at all — the app settles it through
+ * `confirmFakePayment` behind an obviously-labelled test button.
+ */
+export interface PaymentIntentInfo {
+  mode: "real" | "fake";
+  /** Provider reference; `confirmFakePayment` needs it in fake mode. */
+  ref: string;
+  clientSecret: string;
+  /** Null when the venue's Stripe account has no publishable key yet — the
+   *  server answers 409 in that case, so this is belt and braces. */
+  publishableKey: string | null;
+  amountCents: number;
+  currency: string;
+  merchantName: string;
+}
+
+export async function createPaymentIntent(
+  orderId: string,
+  token: string,
+): Promise<{ ok: true; intent: PaymentIntentInfo } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/pay/intent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = (await res.json().catch(() => null)) as
+      (Partial<PaymentIntentInfo> & { error?: string }) | null;
+    if (!res.ok || !body || typeof body.clientSecret !== "string") {
+      return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+    }
+    return {
+      ok: true,
+      intent: {
+        mode: body.mode === "fake" ? "fake" : "real",
+        ref: String(body.ref ?? ""),
+        clientSecret: body.clientSecret,
+        publishableKey: typeof body.publishableKey === "string" ? body.publishableKey : null,
+        amountCents: Number(body.amountCents ?? 0),
+        currency: String(body.currency ?? "eur"),
+        merchantName: String(body.merchantName ?? ""),
+      },
+    };
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+/** Settles a FAKE intent (dev/CI only — the real provider settles through
+ *  Stripe and its webhook). */
+export async function confirmFakePayment(
+  orderId: string,
+  token: string,
+  ref: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/pay/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, ref }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** The hosted checkout page (Stripe Checkout, or the local fake pay page).
+ *  The fallback whenever the native sheet can't run: Expo Go, web, a venue
+ *  without a publishable key. */
+export async function startHostedPayment(
+  orderId: string,
+  token: string,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/orders/${encodeURIComponent(orderId)}/pay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    if (!res.ok || typeof body?.url !== "string") {
+      return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+    }
+    return { ok: true, url: body.url };
+  } catch {
+    return { ok: false, error: "network" };
+  }
 }
 
 export function payPageUrl(orderId: string, token: string, appReturnUrl?: string): string {

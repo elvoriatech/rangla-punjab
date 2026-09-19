@@ -10,6 +10,7 @@ import type {
   ConnectAccountStatus,
   ConnectOnboardingLink,
   OrderCheckoutRef,
+  PaymentIntentRef,
 } from "./provider";
 
 /**
@@ -255,5 +256,30 @@ export class RealStripeProvider implements StripeProvider {
       cancel_url: input.cancelUrl,
     });
     return { ref: session.id, url: session.url ?? input.cancelUrl };
+  }
+
+  async createDirectPaymentIntent(input: {
+    orderId: string;
+    tenantId: string;
+    amountCents: number;
+    currency: string;
+    label: string;
+  }): Promise<PaymentIntentRef> {
+    // Same posture as createDirectCheckout: no `stripeAccount` header and
+    // no application fee, because this client IS the restaurant's account.
+    // `automatic_payment_methods` lets Stripe decide what the sheet offers
+    // (cards, Apple Pay, Google Pay, local methods) from the account's own
+    // Dashboard settings, so adding a method never needs an app release.
+    const intent = await this.stripe.paymentIntents.create({
+      amount: input.amountCents,
+      currency: input.currency.toLowerCase(),
+      automatic_payment_methods: { enabled: true },
+      description: input.label,
+      metadata: { orderId: input.orderId, tenantId: input.tenantId },
+    });
+    if (!intent.client_secret) {
+      throw new Error("Stripe returned a PaymentIntent without a client secret");
+    }
+    return { ref: intent.id, clientSecret: intent.client_secret };
   }
 }

@@ -183,6 +183,31 @@ installs need an Apple Developer account). Set `EXPO_PUBLIC_API_URL` in
 cd mobile && npx eas-cli build -p android --profile preview
 ```
 
+### Paying in the app (card, Google Pay, PayPal)
+
+The guest picks the payment method on the cart screen, then taps **Pay**.
+
+| Method | What opens | Needs |
+| --- | --- | --- |
+| Card / Google Pay | Stripe's native payment sheet inside the app (3-D Secure handled in the sheet) | a native build + `STRIPE_PUBLISHABLE_KEY` on the server |
+| PayPal | The web pay page in an in-app browser tab; PayPal hands off to its own app when installed | PayPal keys (env or Dashboard → Payments) |
+| Cash | Nothing; the kitchen ticket goes out at once | `cash` in the venue's accepted payments |
+
+The order is created first with the chosen intent, and the kitchen ticket and
+receipt email for card and PayPal orders only go out once the webhook confirms
+payment. Closing the app after paying is safe.
+
+**Keys.** The server hands the app the publishable key together with the
+PaymentIntent, so swapping `pk_test_` for `pk_live_` in `prod.env` (or in
+Dashboard → Payments, next to the secret key) takes effect on every installed
+app without a store release. Test and live use the same code path.
+
+**Without Stripe keys** (local dev, CI) the fake provider runs and the app shows
+a **Simulate payment (test)** button in place of the sheet. **In Expo Go** the
+native Stripe module is not linked, so the app falls back to Stripe's hosted
+checkout page in an in-app browser tab. **Apple Pay** is deliberately not wired
+up yet; the human steps are listed in [mobile/BUILDS.md](mobile/BUILDS.md).
+
 ### Google sign-in in the app (one-tap)
 
 Guests can sign in or register with one tap on **Continue with Google**
@@ -295,6 +320,7 @@ Everything below is data or config — no code changes.
 | `EMAIL_TRANSPORT` | `mailhog` (dev) · `resend` (prod, needs `RESEND_API_KEY`) |
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`, `PAYPAL_WEBHOOK_ID` | Deployment-wide PayPal (a restaurant can instead enter its own in the dashboard) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | The restaurant's Stripe account (guests are charged on it directly) unless keys are pasted in Dashboard → Payments; unset ⇒ the built-in fake provider, so dev never charges a card |
+| `STRIPE_PUBLISHABLE_KEY` | `pk_…` for the app's native payment sheet; public, not a secret. Served to the app at runtime, so test → live needs no rebuild |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enables "Sign in with Google" for guests; unset ⇒ email sign-up only |
 | `GOOGLE_MOBILE_CLIENT_IDS` | Comma-separated iOS + Android OAuth client ids the app's one-tap ID tokens may carry; unset ⇒ only `GOOGLE_CLIENT_ID` is accepted (see §5, Google sign-in in the app) |
 
@@ -318,8 +344,9 @@ Everything below is data or config — no code changes.
 - **PayPal** — same page: Client ID, Secret, Webhook ID, Sandbox/Live, enable.
   Falls back to the `PAYPAL_*` env vars when unset.
 - Webhook endpoints to register with the provider:
-  - Stripe: `https://<domain>/api/stripe/webhook` (event
-    `checkout.session.completed`). Its signing secret is `STRIPE_WEBHOOK_SECRET`
+  - Stripe: `https://<domain>/api/stripe/webhook` (events
+    `checkout.session.completed` for the website and `payment_intent.succeeded`
+    for the app's payment sheet). Its signing secret is `STRIPE_WEBHOOK_SECRET`
     in `prod.env`, or — if you use dashboard keys — paste it in Dashboard →
     Payments and register `/api/stripe/own-webhook` instead. Both URLs settle
     orders; only the secret they are verified with differs.

@@ -11,8 +11,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as ExpoLinking from "expo-linking";
 import type { ApiMenu, OrderType, PlacedOrder } from "../api";
-import { placeOrder } from "../api";
+import { payPageUrl, placeOrder, startHostedPayment } from "../api";
+import { confirmFakePayment, openPayPage, payWithCard } from "../payments";
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { useI18n } from "../i18n";
@@ -21,10 +23,17 @@ import { BrandHeader, PrimaryButton, QtyStepper } from "../components";
 import { GoogleButton } from "../google-button";
 import { colors, fonts, money, radius } from "../theme";
 
+/** How the guest chose to pay, decided BEFORE the order is placed. */
+type PayMethod = "card" | "paypal" | "cash";
+
 /**
  * Warenkorb + Kasse — the mockup's cart and checkout as one flow.
  * The server re-prices everything and validates required fields again;
  * this screen's checks exist for a friendly error, not for security.
+ *
+ * Payment is picked here, not after the fact: the order is still created
+ * first (a declined card must not cost the guest their basket), but the
+ * button says "Pay" and the sheet opens the moment the order lands.
  */
 export function CartScreen({
   menu,
@@ -33,7 +42,7 @@ export function CartScreen({
 }: {
   menu: ApiMenu;
   presetType: OrderType | null;
-  onPlaced: (order: PlacedOrder) => void;
+  onPlaced: (order: PlacedOrder, note?: "cancelled" | "failed") => void;
 }): React.ReactElement {
   const cart = useCart();
   const auth = useAuth();
@@ -62,7 +71,42 @@ export function CartScreen({
   const [zip, setZip] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  /** True only while the payment step runs, so the button can say what it
+   *  is waiting for instead of spinning anonymously. */
+  const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Dev/CI provider only: the order is placed and a fake intent is open,
+   *  waiting for the obviously-labelled test button. */
+  const [fakePending, setFakePending] = useState<{ order: PlacedOrder; ref: string } | null>(null);
+
+  // What this venue can actually take. "card" covers the native Stripe
+  // sheet AND Google Pay — same intent, the sheet decides which of them
+  // the phone can show. Cash is offered when the venue accepts it, and
+  // always when there is no online route at all, so the list is never empty.
+  const payOptions = useMemo(() => {
+    const list: { key: PayMethod; label: string; emoji: string }[] = [];
+    if (menu.ordering.onlinePayment) list.push({ key: "card", label: t.methodCard, emoji: "💳" });
+    if (menu.ordering.paypal) list.push({ key: "paypal", label: t.methodPaypal, emoji: "🅿️" });
+    const cash = (menu.ordering.acceptedPayments ?? []).includes("cash");
+    if (cash || list.length === 0) {
+      list.push({
+        key: "cash",
+        label: orderType === "delivery" ? t.methodCashDelivery : t.methodCash,
+        emoji: "💶",
+      });
+    }
+    return list;
+  }, [menu.ordering, orderType, t]);
+
+  const [payMethod, setPayMethod] = useState<PayMethod>(() =>
+    menu.ordering.onlinePayment ? "card" : menu.ordering.paypal ? "paypal" : "cash",
+  );
+  const payHint =
+    payMethod === "card"
+      ? t.payHintCard
+      : payMethod === "paypal"
+        ? t.payHintPaypal
+        : t.payAtRestaurant;
 
   // Restaurant-configured delivery areas: the guest PICKS a postcode and
   // the locality autofills; fee/minimum/free-over come from that row.
@@ -135,7 +179,7 @@ export function CartScreen({
         customerName: needsContact ? name.trim() : undefined,
         customerPhone: needsContact ? phone.trim() : undefined,
         customerEmail: email.trim() || undefined,
-        intendedPayment: "cash",
+        intendedPayment: payMethod,
         address:
           orderType === "delivery"
             ? {
@@ -148,8 +192,8 @@ export function CartScreen({
       },
       auth.token,
     );
-    setBusy(false);
     if (!result.ok) {
+      setBusy(false);
       const messages: Record<string, string> = {
         ordering_paused: t.orderingPaused,
         outside_delivery_area: t.outsideArea,
@@ -174,7 +218,67 @@ export function CartScreen({
       placedAt: new Date().toISOString(),
     });
     cart.clear();
-    onPlaced(result.order);
+    const order = result.order;
+
+    if (payMethod === "cash") {
+      setBusy(false);
+      onPlaced(order);
+      return;
+    }
+
+    // From here the order EXISTS. Every branch below ends on the tracking
+    // screen — a cancelled or failed payment is still a live order the
+    // guest can pay again there, or at the counter.
+    setPaying(true);
+    const deepLink = ExpoLinking.createURL("payment-return");
+    const done = (note?: "cancelled" | "failed"): void => {
+      setPaying(false);
+      setBusy(false);
+      onPlaced(order, note);
+    };
+
+    if (payMethod === "paypal") {
+      // PayPal's button lives on our web pay page; the in-app browser
+      // closes itself when that page returns to the deep link.
+      await openPayPage(payPageUrl(order.orderId, order.receiptToken, deepLink), deepLink);
+      done();
+      return;
+    }
+
+    const outcome = await payWithCard(order.orderId, order.receiptToken, {
+      merchantDisplayName: menu.venue.name,
+    });
+    if (typeof outcome === "object") {
+      // Fake provider (dev/CI): no sheet exists, so hand over to the test
+      // button rather than pretending the payment went through.
+      setPaying(false);
+      setBusy(false);
+      setFakePending({ order, ref: outcome.fake.ref });
+      return;
+    }
+    if (outcome === "unavailable") {
+      // Expo Go, web, or a venue without a publishable key — the hosted
+      // checkout page can still take the money.
+      const hosted = await startHostedPayment(order.orderId, order.receiptToken);
+      const url = hosted.ok ? hosted.url : payPageUrl(order.orderId, order.receiptToken, deepLink);
+      await openPayPage(url, deepLink);
+      done();
+      return;
+    }
+    done(outcome === "paid" ? undefined : outcome);
+  }
+
+  /** Settles the dev provider's intent. Never reachable against a real
+   *  Stripe account — the server only mints fake intents when it has no
+   *  live provider configured. */
+  async function settleFake(): Promise<void> {
+    if (!fakePending || busy) return;
+    setBusy(true);
+    const { order, ref } = fakePending;
+    await confirmFakePayment(order.orderId, order.receiptToken, ref);
+    setBusy(false);
+    setFakePending(null);
+    onPlaced(order);
   }
 
   return (
@@ -185,7 +289,28 @@ export function CartScreen({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}>
-          {cart.lines.length === 0 ? (
+          {fakePending ? (
+            /* Dev/CI only: the basket is already cleared and the order is
+               live, so this panel replaces the cart until the test intent
+               is settled. Labelled as a test so it can never be mistaken
+               for a real payment. */
+            <View style={styles.fakeBox}>
+              <Text style={styles.emptyTitle}>
+                {t.orderNo} #{String(fakePending.order.orderNumber).padStart(4, "0")}
+              </Text>
+              <Text style={styles.emptySub}>
+                {money(fakePending.order.totalCents, menu.venue.currency)}
+              </Text>
+              <View style={{ alignSelf: "stretch", marginTop: 12 }}>
+                <PrimaryButton
+                  label={t.simulatePayment}
+                  tone="red"
+                  busy={busy}
+                  onPress={() => void settleFake()}
+                />
+              </View>
+            </View>
+          ) : cart.lines.length === 0 ? (
             <View style={styles.empty}>
               <Text style={{ ...fonts.body, fontSize: 40 }}>🛒</Text>
               <Text style={styles.emptyTitle}>{t.cartEmpty}</Text>
@@ -437,19 +562,50 @@ export function CartScreen({
                 <Row label={t.total} value={money(grandTotal, menu.venue.currency)} bold />
               </View>
 
+              {/* One option = no choice to make; the hint below still says
+                  what will happen. */}
+              {payOptions.length > 1 ? (
+                <View style={{ gap: 6, marginTop: 4 }}>
+                  <Text style={styles.fieldLabel}>{t.paymentMethod}</Text>
+                  <View style={[styles.typeRow, { marginTop: 0 }]}>
+                    {payOptions.map((option) => (
+                      <Pressable
+                        key={option.key}
+                        onPress={() => setPayMethod(option.key)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: payMethod === option.key }}
+                        style={[styles.typeChip, payMethod === option.key && styles.typeChipActive]}
+                      >
+                        <Text style={{ ...fonts.body, fontSize: 18 }}>{option.emoji}</Text>
+                        <Text
+                          style={[
+                            styles.typeChipText,
+                            payMethod === option.key && { color: colors.red },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <PrimaryButton
-                label={`${t.placeOrder} · ${money(grandTotal, menu.venue.currency)}`}
+                label={
+                  payMethod === "cash"
+                    ? `${t.placeOrder} · ${money(grandTotal, menu.venue.currency)}`
+                    : `${t.payNow} ${money(grandTotal, menu.venue.currency)}`
+                }
+                busyLabel={paying ? t.openingPayment : undefined}
                 tone="red"
                 onPress={() => void submit()}
                 disabled={missing}
                 busy={busy}
               />
-              <Text style={styles.payNote}>
-                {menu.ordering.onlinePayment || menu.ordering.paypal
-                  ? t.payAfterOrder
-                  : t.payAtRestaurant}
-              </Text>
+              <Text style={styles.payNote}>{payHint}</Text>
             </>
           )}
         </ScrollView>
@@ -513,6 +669,16 @@ function Row({
 
 const styles = StyleSheet.create({
   empty: { alignItems: "center", gap: 6, paddingVertical: 60 },
+  fakeBox: {
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+  },
   emptyTitle: { color: colors.ink, fontSize: 17, ...fonts.bodyBold },
   emptySub: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
   line: {
