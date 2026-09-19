@@ -2,11 +2,16 @@
 
 import { updateVenueBanner, updateVenueHours, updateVenueOrdering } from "@/lib/venue-service";
 import type { DayHours, Weekday } from "@/lib/opening-hours";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUserId } from "@/lib/auth";
+import { clientIp } from "@/lib/client-ip";
 import { saveUploadedImage } from "@/lib/media-service";
+import { checkRateLimit, GOOGLE_LOOKUP_IP } from "@/lib/rate-limit";
+import { searchPlaces } from "@/lib/google-rating";
 import {
+  refreshVenueGoogleRating,
   updateVenueGooglePlaceId,
   updateVenueHalalFilter,
   updateVenueLocalization,
@@ -162,6 +167,68 @@ export async function saveGoogleAction(form: FormData): Promise<void> {
   const userId = await requireUser();
   const result = await updateVenueGooglePlaceId(userId, String(form.get("googlePlaceId") ?? ""));
   return finish(userId, result.ok, "google");
+}
+
+/** Redirect back to Settings with query params that aren't the
+ *  saved/error pair — the search results and the query that produced
+ *  them. No CDN purge: a search changes nothing a guest can see. */
+async function finishGoogleSearch(userId: string, params: URLSearchParams): Promise<never> {
+  const path = `${(await venueAdminBase(userId)) ?? "/dashboard"}/settings`;
+  redirect(`${path}?${params.toString()}`);
+}
+
+/** Owner-session + per-IP ceiling shared by the two lookup actions. Server
+ *  actions don't receive the Request; `headers()` carries the same proxy
+ *  headers, so the trust boundary stays in `clientIp()`. */
+async function googleLookupAllowed(): Promise<boolean> {
+  const ip = clientIp(new Request("http://action.local", { headers: await headers() }));
+  const rl = await checkRateLimit(GOOGLE_LOOKUP_IP, ip);
+  return rl.ok;
+}
+
+/**
+ * P7-14 — "Find my Place ID": Places Text Search for the owner's own
+ * restaurant, so setting the rating up never means leaving the dashboard
+ * for Google's developer tooling.
+ *
+ * Results ride back through the query string rather than any session or
+ * cookie state: this page is a plain form round-trip, and a redirect that
+ * carries its own answer is the only version of that which works with JS
+ * off. They are capped at five short rows for the same reason.
+ */
+export async function searchGooglePlaceAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const query = String(form.get("googleQuery") ?? "").trim();
+  const params = new URLSearchParams({ google_q: query });
+
+  if (!(await googleLookupAllowed())) {
+    params.set("error", "google_rate_limited");
+    return finishGoogleSearch(userId, params);
+  }
+
+  const result = await searchPlaces(query);
+  if (!result.ok) {
+    params.set("error", `google_${result.error}`);
+    return finishGoogleSearch(userId, params);
+  }
+  params.set("google_search", JSON.stringify(result.places));
+  return finishGoogleSearch(userId, params);
+}
+
+/**
+ * P7-14 — "Refresh rating now": the 24-hour cache bypassed on purpose, so
+ * an owner who has just saved a Place ID can confirm it names the right
+ * restaurant instead of waiting for a guest to open the menu.
+ */
+export async function refreshGoogleRatingAction(): Promise<void> {
+  const userId = await requireUser();
+  if (!(await googleLookupAllowed())) return finish(userId, false, "google_rate_limited");
+  const result = await refreshVenueGoogleRating(userId);
+  // A fresh number changes the public menu, so the success path purges
+  // the CDN — which `finish(ok: true)` already does.
+  return result.ok
+    ? finish(userId, true, "google_refreshed")
+    : finish(userId, false, `google_${result.error}`);
 }
 
 export async function saveLocalizationAction(form: FormData): Promise<void> {

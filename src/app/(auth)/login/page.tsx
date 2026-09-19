@@ -72,8 +72,12 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen bg-cream text-ink">
       {/* Brand pane — the thesis, not a decoration. */}
+      {/* The pane itself is no longer aria-hidden: it now holds a real link
+          back to the menu, and a focusable control inside an aria-hidden
+          subtree is an axe violation. Everything that was only decorative
+          or duplicative keeps its own aria-hidden, so the announced output
+          is unchanged apart from that one link. */}
       <aside
-        aria-hidden="true"
         style={themeStyle}
         className="relative hidden w-[44%] flex-col justify-between overflow-hidden bg-[var(--menu-bg)] p-12 text-[var(--menu-text)] lg:flex"
       >
@@ -82,6 +86,7 @@ export default async function LoginPage({
             URI cannot read one, which is why the old panel stayed gold on
             every theme. */}
         <div
+          aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.10]"
           style={{
             backgroundImage:
@@ -90,23 +95,35 @@ export default async function LoginPage({
           }}
         />
         <div className="relative">
-          <div className="flex items-center gap-3">
+          {/* The brand mark doubles as the way out: click the restaurant and
+              you land on its public menu. */}
+          <Link
+            href="/"
+            aria-label={`${displayName} — back to the menu`}
+            className="group inline-flex items-center gap-3 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--menu-accent)]"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logoSrc} alt="" className="h-11 w-11 rounded-xl object-cover" />
-            <span className="text-sm uppercase tracking-[0.34em] text-[var(--menu-accent)]">
+            <span className="text-sm uppercase tracking-[0.34em] text-[var(--menu-accent)] underline-offset-4 group-hover:underline">
               {displayName}
             </span>
-          </div>
-          <h2 className="mt-14 max-w-md font-serif text-[2.6rem] font-medium leading-[1.15]">
+          </Link>
+          <h2
+            aria-hidden="true"
+            className="mt-14 max-w-md font-serif text-[2.6rem] font-medium leading-[1.15]"
+          >
             Your menu, your kitchen, your tables.
           </h2>
-          <p className="mt-4 max-w-sm text-sm leading-relaxed text-[var(--menu-text-soft)]">
+          <p
+            aria-hidden="true"
+            className="mt-4 max-w-sm text-sm leading-relaxed text-[var(--menu-text-soft)]"
+          >
             Change a dish, correct a price, take the evening&apos;s orders — everything{" "}
             {displayName} runs from is behind this door.
           </p>
         </div>
 
-        <ul className="relative space-y-4 text-sm text-[var(--menu-text)]/85">
+        <ul aria-hidden="true" className="relative space-y-4 text-sm text-[var(--menu-text)]/85">
           {(
             [
               ["🍽", "Edit dishes, prices and photos — live the moment you publish"],
@@ -123,7 +140,10 @@ export default async function LoginPage({
           ))}
         </ul>
 
-        <p className="relative text-[11px] uppercase tracking-[0.3em] text-[var(--menu-text-soft)]/70">
+        <p
+          aria-hidden="true"
+          className="relative text-[11px] uppercase tracking-[0.3em] text-[var(--menu-text-soft)]/70"
+        >
           Staff access · {displayName}
         </p>
       </aside>
@@ -189,6 +209,16 @@ export default async function LoginPage({
               Log in
             </button>
           </form>
+
+          {/* Way out for anyone who landed here by accident — the owner asked
+              for it. Outlined secondary, same tracking as the primary button
+              so the two read as one stack. Plain link: works without JS. */}
+          <Link
+            href="/"
+            className="mt-4 flex items-center justify-center gap-2 border border-ink/25 px-4 py-3 text-xs font-medium uppercase tracking-[0.18em] text-muted transition-colors hover:border-ink/50 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange"
+          >
+            <span aria-hidden="true">←</span> Back to the menu
+          </Link>
         </div>
       </section>
     </main>

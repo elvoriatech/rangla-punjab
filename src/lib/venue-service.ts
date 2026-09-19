@@ -338,7 +338,13 @@ export async function updateVenueName(
 /* Google rating (P7-14)                                               */
 /* ------------------------------------------------------------------ */
 
-import { parseCachedRating, reviewUrl, type CachedRating } from "./google-rating";
+import {
+  parseCachedRating,
+  refreshVenueRatingNow,
+  reviewUrl,
+  type CachedRating,
+  type RatingError,
+} from "./google-rating";
 
 export interface VenueGoogleSettings {
   /** The owner's Place ID, or null when they have not set one. */
@@ -414,6 +420,38 @@ export async function updateVenueGooglePlaceId(
     });
     return { ok: true as const, value: undefined };
   });
+}
+
+/** Why the owner's "Refresh rating now" produced no new number. The
+ *  Google-side reasons plus the two local ones a session can hit. */
+export type VenueRatingRefreshError = RatingError | "no_venue" | "no_place_id";
+
+export type VenueRatingRefreshResult =
+  { ok: true; rating: CachedRating } | { ok: false; error: VenueRatingRefreshError };
+
+/**
+ * Read this venue's rating from Google right now, cache be damned.
+ *
+ * The background refresher waits a day between reads because a rating
+ * moves slowly and every read is billable. An owner who has just pasted a
+ * Place ID is the one case where that wait is wrong: they want to know
+ * *this minute* whether the id they chose is the right restaurant, and
+ * they can only press the button as often as the limiter allows.
+ *
+ * Never throws — every failure comes back as a code the settings page
+ * turns into a sentence.
+ */
+export async function refreshVenueGoogleRating(userId: string): Promise<VenueRatingRefreshResult> {
+  const venue = await asUser(userId, (tx) =>
+    tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true, tenantId: true, googlePlaceId: true },
+    }),
+  );
+  if (!venue) return { ok: false, error: "no_venue" };
+  if (!venue.googlePlaceId) return { ok: false, error: "no_place_id" };
+  const result = await refreshVenueRatingNow(venue.tenantId, venue.id, venue.googlePlaceId);
+  return result.ok ? { ok: true, rating: result.cached } : { ok: false, error: result.error };
 }
 
 /**

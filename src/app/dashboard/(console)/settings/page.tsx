@@ -17,11 +17,14 @@ import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
 import { uploadedImageUrl } from "@/lib/menu-images";
 import { siteUrl } from "@/lib/public-menu";
 import { DeliveryAreasEditor } from "./delivery-areas-editor";
+import type { PlaceSuggestion } from "@/lib/google-rating";
 import {
+  refreshGoogleRatingAction,
   removeBannerAction,
   removeLogoAction,
   saveBannerAction,
   saveGoogleAction,
+  searchGooglePlaceAction,
   saveHalalAction,
   saveLocalizationAction,
   saveHoursAction,
@@ -39,7 +42,7 @@ import { SubmitButton } from "@/components/submit-button";
  * saved.
  */
 
-const MESSAGES: Record<string, { saved: string; error: string }> = {
+const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   name: {
     saved: "Name saved. It shows everywhere — menu, QR page, and this dashboard.",
     error: "The name can't be empty. Enter a name up to 120 characters.",
@@ -82,6 +85,43 @@ const MESSAGES: Record<string, { saved: string; error: string }> = {
     error:
       "That doesn't look like a Google Place ID. Copy it from Google's Place ID finder, or leave the field empty to show no rating.",
   },
+  // Google lookup outcomes (P7-14). Each one names the thing that is
+  // actually wrong AND who can fix it — an owner reading "it didn't work"
+  // has no way to tell a missing server key from a typo'd restaurant name.
+  google_refreshed: {
+    saved: "Rating refreshed from Google. The new number is on your menu right away.",
+  },
+  google_no_api_key: {
+    error:
+      "GOOGLE_PLACES_API_KEY is not set on the server (prod.env) — after adding it, recreate the app container (docker compose up -d).",
+  },
+  google_api_not_enabled: {
+    error:
+      "Places API (New) is not enabled for this key's Google Cloud project. Enable it in the Cloud console, then try again.",
+  },
+  google_key_invalid: {
+    error:
+      "Google rejected the API key. Check GOOGLE_PLACES_API_KEY and any restrictions set on it in the Cloud console.",
+  },
+  google_quota: {
+    error: "Google quota exceeded — try later.",
+  },
+  google_not_found: {
+    error:
+      "No place found for that search. Try the restaurant name with the street or city, exactly as it appears on Google Maps.",
+  },
+  google_network: {
+    error: "Couldn't reach Google just now. Try again in a moment.",
+  },
+  google_unknown: {
+    error: "Google's answer wasn't one we understood. Try again, or check the server logs.",
+  },
+  google_no_place_id: {
+    error: "Save a Google Place ID first — there's nothing to refresh yet.",
+  },
+  google_rate_limited: {
+    error: "Too many Google lookups from here. Wait a few minutes and try again.",
+  },
   localization: {
     saved:
       "Currency and languages saved. Prices on the draft use the new currency — publish to show guests.",
@@ -89,10 +129,46 @@ const MESSAGES: Record<string, { saved: string; error: string }> = {
   },
 };
 
+/**
+ * The Place ID search results, handed back through the redirect URL (the
+ * only place a zero-JS form round-trip can carry them). Everything here
+ * arrived in a query string the owner could have typed themselves, so the
+ * shape is re-checked and the list re-capped on the way in; React escapes
+ * the text itself.
+ */
+function parsePlaceSuggestions(raw: string | undefined): PlaceSuggestion[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (p): p is PlaceSuggestion =>
+          !!p &&
+          typeof p === "object" &&
+          typeof (p as PlaceSuggestion).id === "string" &&
+          (p as PlaceSuggestion).id.length > 0,
+      )
+      .slice(0, 5)
+      .map((p) => ({
+        id: p.id.slice(0, 255),
+        name: String(p.name ?? "").slice(0, 160),
+        address: String(p.address ?? "").slice(0, 160),
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; error?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    error?: string;
+    google_search?: string;
+    google_q?: string;
+  }>;
 }): Promise<React.ReactElement> {
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
@@ -117,7 +193,13 @@ export default async function SettingsPage({
         timeZone: "Europe/Berlin",
       }).format(new Date(google.rating.fetchedAt))
     : null;
-  const { saved, error } = await searchParams;
+  const { saved, error, google_search: googleSearch, google_q: googleQuery } = await searchParams;
+  const placeSuggestions = parsePlaceSuggestions(googleSearch);
+  // Prefill the search box with what the owner would have typed anyway.
+  // The venue row carries a name but no address, so the name is the whole
+  // prefill — the helper text asks for the town, which is what actually
+  // disambiguates two restaurants with the same name.
+  const placeQuery = googleQuery ?? venue.name;
 
   const banner = saved
     ? { kind: "saved" as const, text: MESSAGES[saved]?.saved }
@@ -263,42 +345,109 @@ export default async function SettingsPage({
         </div>
       </section>
 
-      {/* Google rating + review link (P7-14) */}
-      <form action={saveGoogleAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
+      {/* Google rating + review link (P7-14). A <section> of sibling
+          forms rather than one form: the search, the save, each result's
+          "Use this", and the refresh are four different posts, and HTML
+          has no nested forms. */}
+      <section aria-label="Google" className="mt-6 border border-ink/15 bg-card px-6 py-5">
         <p className="text-sm font-medium">Google</p>
         <p className="mt-1 text-xs text-muted">
           Show your Google star rating under your restaurant name — on the menu and in the app —
-          with a link that opens Google&rsquo;s &ldquo;write a review&rdquo; form. Leave the field
-          empty to show nothing.
+          with a link that opens Google&rsquo;s &ldquo;write a review&rdquo; form. Leave the Place
+          ID empty to show nothing.
         </p>
-        <label className="mt-4 block text-sm">
-          <span className="font-medium">Google Place ID</span>
-          <input
-            type="text"
-            name="googlePlaceId"
-            inputMode="text"
-            maxLength={255}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
-            defaultValue={google?.placeId ?? ""}
-            className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-ink"
-          />
-        </label>
-        <p className="mt-2 text-xs text-muted">
-          Find yours with{" "}
-          <a
-            href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2"
+
+        {/* Find my Place ID — the whole setup without leaving this page */}
+        <form action={searchGooglePlaceAction} className="mt-4">
+          <label className="block text-sm">
+            <span className="font-medium">Find my Place ID</span>
+            <input
+              type="text"
+              name="googleQuery"
+              maxLength={200}
+              autoComplete="off"
+              defaultValue={placeQuery}
+              placeholder="Restaurant name, street and town"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+          <p className="mt-1 text-xs text-muted">
+            Search Google for your restaurant — name plus street or town works best — then pick
+            yours from the results.
+          </p>
+          <SubmitButton
+            pendingLabel="Searching…"
+            className="mt-3 border border-ink/30 px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] hover:bg-cream"
           >
-            Google&rsquo;s Place ID finder
-          </a>
-          : search for your restaurant on the map and copy the ID it shows.
-        </p>
+            Search
+          </SubmitButton>
+        </form>
+
+        {placeSuggestions.length > 0 ? (
+          <ul className="mt-4 divide-y divide-ink/10 border border-ink/10">
+            {placeSuggestions.map((place) => (
+              <li
+                key={place.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
+              >
+                <span className="min-w-0 text-sm">
+                  <span className="font-medium">{place.name || "Unnamed place"}</span>
+                  {place.address ? <span className="text-muted"> — {place.address}</span> : null}
+                  <span className="mt-0.5 block break-all font-mono text-[11px] text-muted">
+                    {place.id}
+                  </span>
+                </span>
+                <form action={saveGoogleAction}>
+                  <input type="hidden" name="googlePlaceId" value={place.id} />
+                  <SubmitButton
+                    pendingLabel="Saving…"
+                    className="shrink-0 bg-orange px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+                  >
+                    Use this
+                  </SubmitButton>
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <form action={saveGoogleAction} className="mt-5 border-t border-ink/10 pt-5">
+          <label className="block text-sm">
+            <span className="font-medium">Google Place ID</span>
+            <input
+              type="text"
+              name="googlePlaceId"
+              inputMode="text"
+              maxLength={255}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+              defaultValue={google?.placeId ?? ""}
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-ink"
+            />
+          </label>
+          <p className="mt-2 text-xs text-muted">
+            Or paste one yourself — Google&rsquo;s own{" "}
+            <a
+              href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2"
+            >
+              Place ID finder
+            </a>{" "}
+            shows it for any restaurant on the map.
+          </p>
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+          >
+            Save Place ID
+          </SubmitButton>
+        </form>
+
         {google?.rating ? (
-          <p className="mt-3 text-sm">
+          <p className="mt-4 text-sm">
             <span aria-hidden="true" className="text-gold-dark">
               ★
             </span>{" "}
@@ -306,7 +455,7 @@ export default async function SettingsPage({
             last refreshed {googleRefreshedLabel}
           </p>
         ) : google?.placeId ? (
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-4 text-xs text-muted">
             No rating read yet. Ratings refresh by themselves once a day, the first time somebody
             opens your menu — provided this deployment has a Google Places API key.
           </p>
@@ -324,13 +473,21 @@ export default async function SettingsPage({
             </a>
           </p>
         ) : null}
-        <SubmitButton
-          pendingLabel="Saving…"
-          className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
-        >
-          Save Place ID
-        </SubmitButton>
-      </form>
+        {google?.placeId ? (
+          <form action={refreshGoogleRatingAction} className="mt-3">
+            <SubmitButton
+              pendingLabel="Asking Google…"
+              className="border border-ink/30 px-5 py-2 text-xs font-medium uppercase tracking-[0.18em] hover:bg-cream"
+            >
+              Refresh rating now
+            </SubmitButton>
+            <span className="mt-1 block text-xs text-muted">
+              Reads Google straight away instead of waiting for the once-a-day refresh — the way to
+              check a Place ID you just saved is the right restaurant.
+            </span>
+          </form>
+        ) : null}
+      </section>
 
       {/* Currency + languages */}
       <form action={saveLocalizationAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">

@@ -1,21 +1,26 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { signupUser } from "./auth-service";
 import { prisma } from "./db";
 import {
   FakeRatingProvider,
+  GooglePlacesProvider,
   RATING_TTL_MS,
   __fakeRating,
   fetchPlaceRating,
   getRatingProvider,
   getVenueRating,
   isRatingStale,
+  mapPlacesError,
   parseCachedRating,
   publicRating,
   refreshVenueRating,
+  refreshVenueRatingNow,
   reviewUrl,
   scheduleVenueRatingRefresh,
+  searchPlaces,
+  type RatingError,
 } from "./google-rating";
 import { asTenant } from "./tenant";
 
@@ -67,6 +72,177 @@ describe("rating provider selection", () => {
     __fakeRating().reset();
     expect(await fetchPlaceRating("")).toBeNull();
     expect(__fakeRating().calls).toHaveLength(0);
+  });
+});
+
+describe("Places error mapping", () => {
+  // Google says the same failure two ways; the prose is the specific one.
+  const cases: Array<[string, number, unknown, RatingError]> = [
+    [
+      "a project without Places API (New) switched on",
+      403,
+      {
+        error: {
+          code: 403,
+          status: "PERMISSION_DENIED",
+          message: "Places API (New) has not been used in project 1234 before or it is disabled.",
+        },
+      },
+      "api_not_enabled",
+    ],
+    [
+      "a key Google will not accept",
+      400,
+      { error: { code: 400, status: "INVALID_ARGUMENT", message: "API key not valid." } },
+      "key_invalid",
+    ],
+    [
+      "a key restricted away from this server",
+      403,
+      {
+        error: {
+          code: 403,
+          status: "PERMISSION_DENIED",
+          message: "Requests from referer <empty> are blocked.",
+        },
+      },
+      "key_invalid",
+    ],
+    [
+      "quota burned through",
+      429,
+      { error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "Quota exceeded." } },
+      "quota",
+    ],
+    [
+      "a place id that names nothing",
+      404,
+      { error: { code: 404, status: "NOT_FOUND", message: "Requested entity was not found." } },
+      "not_found",
+    ],
+    ["an HTML 502 from something in between", 502, null, "network"],
+    ["a shape we have never seen", 418, { teapot: true }, "unknown"],
+  ];
+
+  it.each(cases)("%s → %s", (_label, status, body, expected) => {
+    expect(mapPlacesError(status, body)).toBe(expected);
+  });
+});
+
+describe("GooglePlacesProvider against a mocked fetch", () => {
+  const provider = new GooglePlacesProvider("test-key");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function stub(status: number, body: unknown): void {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
+
+  it("reads a rating and keeps the reason when Google refuses", async () => {
+    stub(200, { rating: 4.7, userRatingCount: 440 });
+    expect(await provider.lookup(PLACE_ID)).toEqual({
+      ok: true,
+      rating: { rating: 4.7, count: 440 },
+    });
+
+    stub(403, {
+      error: { status: "PERMISSION_DENIED", message: "Places API (New) has not been used" },
+    });
+    expect(await provider.lookup(PLACE_ID)).toEqual({ ok: false, error: "api_not_enabled" });
+    // The legacy null-returning face of the same call is unchanged.
+    expect(await provider.fetch(PLACE_ID)).toBeNull();
+  });
+
+  it("a place with no reviews yet is not_found, not a crash", async () => {
+    stub(200, {});
+    expect(await provider.lookup(PLACE_ID)).toEqual({ ok: false, error: "not_found" });
+  });
+
+  it("searches Text Search with the field mask and the api key", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          places: [
+            {
+              id: PLACE_ID,
+              displayName: { text: "Rangla Punjab", languageCode: "en" },
+              formattedAddress: "Hauptstr. 1, 10827 Berlin",
+            },
+            { id: "ChIJsecond", displayName: { text: "Rangla Punjab 2" } },
+            { notAPlace: true },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    expect(await provider.searchPlaces("Rangla Punjab Berlin")).toEqual({
+      ok: true,
+      places: [
+        { id: PLACE_ID, name: "Rangla Punjab", address: "Hauptstr. 1, 10827 Berlin" },
+        { id: "ChIJsecond", name: "Rangla Punjab 2", address: "" },
+      ],
+    });
+
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://places.googleapis.com/v1/places:searchText");
+    expect(init.method).toBe("POST");
+    const headers = init.headers as Record<string, string>;
+    expect(headers["X-Goog-Api-Key"]).toBe("test-key");
+    expect(headers["X-Goog-FieldMask"]).toBe(
+      "places.id,places.displayName,places.formattedAddress",
+    );
+    expect(JSON.parse(String(init.body))).toEqual({
+      textQuery: "Rangla Punjab Berlin",
+      maxResultCount: 5,
+    });
+  });
+
+  it("an empty result set is not_found, and a refusal keeps its code", async () => {
+    stub(200, { places: [] });
+    expect(await provider.searchPlaces("nowhere")).toEqual({ ok: false, error: "not_found" });
+
+    stub(429, { error: { status: "RESOURCE_EXHAUSTED", message: "Quota exceeded" } });
+    expect(await provider.searchPlaces("anything")).toEqual({ ok: false, error: "quota" });
+  });
+
+  it("never throws when the transport does", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNRESET"));
+    expect(await provider.lookup(PLACE_ID)).toEqual({ ok: false, error: "network" });
+    expect(await provider.searchPlaces("x")).toEqual({ ok: false, error: "network" });
+    expect(await provider.fetch(PLACE_ID)).toBeNull();
+  });
+});
+
+describe("searchPlaces on the fake", () => {
+  beforeEach(() => __fakeRating().reset());
+
+  it("hands back what the fake staged, trimmed and capped", async () => {
+    __fakeRating().nextSearch = [
+      { id: PLACE_ID, name: "Rangla Punjab", address: "Hauptstr. 1, Berlin" },
+    ];
+    expect(await searchPlaces("  Rangla Punjab Berlin  ")).toEqual({
+      ok: true,
+      places: [{ id: PLACE_ID, name: "Rangla Punjab", address: "Hauptstr. 1, Berlin" }],
+    });
+    // Trimmed before it reaches the provider — the query is billed as typed.
+    expect(__fakeRating().searches).toEqual(["Rangla Punjab Berlin"]);
+  });
+
+  it("an un-keyed deployment says so instead of pretending nothing matched", async () => {
+    expect(await searchPlaces("Rangla Punjab")).toEqual({ ok: false, error: "no_api_key" });
+  });
+
+  it("a blank query never costs a request", async () => {
+    expect(await searchPlaces("   ")).toEqual({ ok: false, error: "not_found" });
+    expect(__fakeRating().searches).toHaveLength(0);
   });
 });
 
@@ -229,6 +405,28 @@ describe("the cache against a real venue row", () => {
     // the write is guarded away and the venue keeps no rating at all.
     expect(await refreshVenueRating(tenantId, venueId, PLACE_ID)).toMatchObject({ rating: 5 });
     expect(await getVenueRating(tenantId, venueId)).toBeNull();
+  });
+
+  it("refreshVenueRatingNow keeps the reason the owner's button needs", async () => {
+    await asTenant(tenantId, (tx) =>
+      tx.venue.update({ where: { id: venueId }, data: { googlePlaceId: PLACE_ID } }),
+    );
+
+    // No key in this process ⇒ the fake ⇒ the honest reason, not "null".
+    expect(await refreshVenueRatingNow(tenantId, venueId, PLACE_ID)).toEqual({
+      ok: false,
+      error: "no_api_key",
+    });
+
+    __fakeRating().nextError = "quota";
+    expect(await refreshVenueRatingNow(tenantId, venueId, PLACE_ID)).toEqual({
+      ok: false,
+      error: "quota",
+    });
+
+    __fakeRating().next = { rating: 4.7, count: 440 };
+    const ok = await refreshVenueRatingNow(tenantId, venueId, PLACE_ID);
+    expect(ok.ok && ok.cached).toMatchObject({ rating: 4.7, count: 440 });
   });
 
   it("never throws for a venue that does not exist", async () => {

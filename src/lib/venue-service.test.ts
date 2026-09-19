@@ -3,10 +3,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "./db";
 import { signupUser } from "./auth-service";
 import { asTenant, asUser } from "./tenant";
+import { __fakeRating } from "./google-rating";
 import {
   getMenuCounts,
   getVenueForUser,
   getVenueGoogle,
+  refreshVenueGoogleRating,
   updateVenueGooglePlaceId,
   updateVenueAppearance,
   updateVenueLocalization,
@@ -205,5 +207,40 @@ describe("venue-service (owner dashboard)", () => {
     for (const bad of ["abc", "has spaces", "https://maps.google.com/?cid=1", "x".repeat(256)]) {
       expect((await updateVenueGooglePlaceId(userId, bad)).ok, bad).toBe(false);
     }
+  });
+
+  it("refreshVenueGoogleRating bypasses the daily cache and names its failures (P7-14)", async () => {
+    const { userId } = await signupWithVenue();
+    const PLACE = "ChIJN1t_tDeuEmsRUsoyG83frY4";
+    __fakeRating().reset();
+
+    // Nothing to refresh before a Place ID is saved — and no billable
+    // request spent finding that out.
+    expect(await refreshVenueGoogleRating(userId)).toEqual({ ok: false, error: "no_place_id" });
+    expect(__fakeRating().calls).toHaveLength(0);
+
+    expect((await updateVenueGooglePlaceId(userId, PLACE)).ok).toBe(true);
+
+    // No API key in this process, so the owner is told exactly that
+    // rather than "nothing happened".
+    expect(await refreshVenueGoogleRating(userId)).toEqual({ ok: false, error: "no_api_key" });
+    expect(__fakeRating().calls).toEqual([PLACE]);
+
+    __fakeRating().next = { rating: 4.7, count: 440 };
+    const refreshed = await refreshVenueGoogleRating(userId);
+    expect(refreshed.ok && refreshed.rating).toMatchObject({ rating: 4.7, count: 440 });
+
+    // The number is cached on the venue, so the card shows it at once —
+    // no waiting for a guest to open the menu.
+    const card = await getVenueGoogle(userId);
+    if (!card.ok) throw new Error("no venue");
+    expect(card.value.rating).toMatchObject({ rating: 4.7, count: 440 });
+
+    // And a second press goes straight back to Google: the 24 h TTL is
+    // the background refresher's rule, not this button's.
+    __fakeRating().next = { rating: 4.8, count: 441 };
+    const again = await refreshVenueGoogleRating(userId);
+    expect(again.ok && again.rating).toMatchObject({ rating: 4.8, count: 441 });
+    __fakeRating().reset();
   });
 });

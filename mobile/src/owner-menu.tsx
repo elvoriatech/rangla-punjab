@@ -7,6 +7,11 @@ import { useI18n } from "./i18n";
 import { openInAppBrowser } from "./payments";
 import { CHEVRON_FORWARD, colors, fonts, radius } from "./theme";
 
+/** How long to wait for an `onDismiss` that only iOS ever sends. Long
+ *  enough to cover the slide-out (~300 ms), short enough that Android
+ *  feels immediate. */
+const DISMISS_FALLBACK_MS = 350;
+
 /**
  * The owner's menu — everything the restaurant can do that isn't a tab.
  *
@@ -54,13 +59,66 @@ export function OwnerMenuSheet({
     ]);
   };
 
+  // Tab switches are pure React state: closing the sheet and switching in
+  // the same tick is fine, because nothing native is presented.
   const go = (action: () => void): void => {
     onClose();
     action();
   };
 
+  /**
+   * Anything that presents a NATIVE screen (the in-app browser) must wait
+   * for this sheet's own view controller to finish going away.
+   *
+   * Presenting SFSafariViewController while the `<Modal>` is mid-dismissal
+   * leaves iOS with a stale presented layer that swallows every touch —
+   * the app looks frozen until it is force-quit. So the action is parked
+   * in a ref, `onClose()` starts the slide-out, and the ref is run from
+   * `onDismiss` (iOS, fires once the animation is done). Android never
+   * fires `onDismiss`, hence the timer; whichever arrives first wins and
+   * cancels the other, so the action runs exactly once.
+   */
+  const pending = React.useRef<(() => void) | null>(null);
+  const fallback = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runPending = React.useCallback((): void => {
+    if (fallback.current !== null) {
+      clearTimeout(fallback.current);
+      fallback.current = null;
+    }
+    const action = pending.current;
+    pending.current = null;
+    action?.();
+  }, []);
+
+  // Unmounting (signing out drops the whole owner UI) must not fire a
+  // queued action into a tree that is no longer there.
+  React.useEffect(
+    () => () => {
+      if (fallback.current !== null) clearTimeout(fallback.current);
+      fallback.current = null;
+      pending.current = null;
+    },
+    [],
+  );
+
+  const goAfterDismiss = (action: () => void): void => {
+    // A second tap while one is already queued is a no-op, not a second
+    // present.
+    if (pending.current !== null) return;
+    pending.current = action;
+    onClose();
+    fallback.current = setTimeout(runPending, DISMISS_FALLBACK_MS);
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+      onDismiss={runPending}
+    >
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t.close}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.header}>
@@ -86,7 +144,7 @@ export function OwnerMenuSheet({
           <Row
             icon="open-outline"
             label={t.ownerDashboard}
-            onPress={() => go(() => void openInAppBrowser(`${BASE_URL}/dashboard`))}
+            onPress={() => goAfterDismiss(() => void openInAppBrowser(`${BASE_URL}/dashboard`))}
           />
           <View style={styles.rule} />
           <Row icon="log-out-outline" label={t.signOutStaff} danger onPress={confirmSignOut} />

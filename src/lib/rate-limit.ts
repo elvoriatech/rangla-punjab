@@ -236,3 +236,15 @@ export const ISSUE_IP: RateLimitConfig = {
   windowSec: 600,
   failOpen: true,
 };
+// Google Places lookups from the owner's Settings page (P7-14): the
+// "find my Place ID" search and "refresh rating now". Already behind an
+// owner session, so this is not abuse defence — it bounds what a stuck
+// finger on a BILLABLE third-party API can cost. Setting up a Place ID
+// takes two or three searches; 20 per 10 minutes is far above that.
+// failOpen: a Redis blip must not lock an owner out of their own setup.
+export const GOOGLE_LOOKUP_IP: RateLimitConfig = {
+  scope: "google-lookup:ip",
+  limit: 20,
+  windowSec: 600,
+  failOpen: true,
+};

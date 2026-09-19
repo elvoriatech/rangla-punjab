@@ -64,24 +64,156 @@ export interface VenueRatingRow {
   googleRating: unknown;
 }
 
+/**
+ * Why a lookup produced no number. The background refresher does not care
+ * (any failure means "keep yesterday's number"), but the owner pressing
+ * "Search" or "Refresh rating now" in Settings absolutely does: "the key
+ * is missing from prod.env" and "Google has never heard of that place"
+ * need completely different things done about them, and an owner who is
+ * told only "it didn't work" has no way to tell which one they are in.
+ */
+export type RatingError =
+  "no_api_key" | "api_not_enabled" | "key_invalid" | "quota" | "not_found" | "network" | "unknown";
+
+/** One Text Search hit, trimmed to what the owner needs to recognise
+ *  their own restaurant in a list of five. */
+export interface PlaceSuggestion {
+  id: string;
+  name: string;
+  address: string;
+}
+
+export type PlaceSearchResult =
+  { ok: true; places: PlaceSuggestion[] } | { ok: false; error: RatingError };
+
+export type RatingLookupResult =
+  { ok: true; rating: PlaceRating } | { ok: false; error: RatingError };
+
 export interface RatingProvider {
   readonly mode: "real" | "fake";
   /** Never throws: an outage, a 403 over billing, or a body we don't
    *  recognise all come back as `null`, which means "no fresher number
    *  today" — the cached one stays exactly as it was. */
   fetch(placeId: string): Promise<PlaceRating | null>;
+  /** The same call as {@link fetch}, with the reason kept. Never throws. */
+  lookup(placeId: string): Promise<RatingLookupResult>;
+  /** Places Text Search — "Rangla Punjab Berlin" in, up to five candidate
+   *  Place IDs out. Never throws. */
+  searchPlaces(query: string): Promise<PlaceSearchResult>;
 }
 
 /** Refresh at most once a day per venue. */
 export const RATING_TTL_MS = 24 * 60 * 60 * 1000;
 
 const PLACES_BASE = "https://places.googleapis.com/v1/places";
+const SEARCH_URL = `${PLACES_BASE}:searchText`;
+/** Google's own ceiling for the picker; also all an owner will read. */
+const SEARCH_MAX_RESULTS = 5;
+/** A name or address longer than this is a body of text, not a label —
+ *  and every character rides back through a redirect URL. */
+const SUGGESTION_FIELD_MAX = 160;
+
+/**
+ * Turn a Places failure into one of our seven codes.
+ *
+ * Google says the same thing two ways — an HTTP status and a
+ * `error.status` / `error.message` pair — and the pair is by far the more
+ * specific of the two: a 403 is "enable the API", "the key is restricted"
+ * or "billing lapsed" depending only on the prose. So the message is read
+ * first, the gRPC status second, and the bare HTTP code last, as the
+ * fallback for a body we couldn't parse at all.
+ *
+ * The distinction earning its keep here is `api_not_enabled` vs
+ * `key_invalid`: both are 403-shaped, and the fix for one (click Enable
+ * in the Cloud console) does nothing for the other (paste a different
+ * key). Collapsing them would send an owner to the wrong screen.
+ */
+export function mapPlacesError(status: number, body: unknown): RatingError {
+  const err = (body as { error?: { status?: unknown; message?: unknown } } | null)?.error;
+  const gStatus = typeof err?.status === "string" ? err.status.toUpperCase() : "";
+  const message = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+
+  if (message.includes("api key not valid") || message.includes("api_key_invalid")) {
+    return "key_invalid";
+  }
+  if (
+    message.includes("has not been used") ||
+    message.includes("is disabled") ||
+    message.includes("not enabled")
+  ) {
+    return "api_not_enabled";
+  }
+  switch (gStatus) {
+    // A PERMISSION_DENIED whose prose didn't name a disabled API is a key
+    // problem: wrong key, wrong project, or an application restriction
+    // this server can't satisfy.
+    case "PERMISSION_DENIED":
+    case "UNAUTHENTICATED":
+      return "key_invalid";
+    case "INVALID_ARGUMENT":
+      return "key_invalid";
+    case "RESOURCE_EXHAUSTED":
+      return "quota";
+    case "NOT_FOUND":
+      return "not_found";
+    default:
+      break;
+  }
+  switch (status) {
+    case 400:
+    case 401:
+    case 403:
+      return "key_invalid";
+    case 404:
+      return "not_found";
+    case 429:
+      return "quota";
+    default:
+      return status >= 500 ? "network" : "unknown";
+  }
+}
+
+/** Google's error envelope, if the body is JSON at all. A 502 from a
+ *  proxy in between is HTML, and must not become an exception. */
+async function safeJson(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function parseSuggestions(raw: unknown): PlaceSuggestion[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PlaceSuggestion[] = [];
+  for (const entry of raw.slice(0, SEARCH_MAX_RESULTS)) {
+    if (!entry || typeof entry !== "object") continue;
+    const p = entry as { id?: unknown; displayName?: unknown; formattedAddress?: unknown };
+    const id = typeof p.id === "string" ? p.id.trim() : "";
+    if (!id || id.length > 255) continue;
+    const name =
+      p.displayName && typeof p.displayName === "object"
+        ? String((p.displayName as { text?: unknown }).text ?? "")
+        : "";
+    const address = typeof p.formattedAddress === "string" ? p.formattedAddress : "";
+    out.push({
+      id,
+      name: name.slice(0, SUGGESTION_FIELD_MAX),
+      address: address.slice(0, SUGGESTION_FIELD_MAX),
+    });
+  }
+  return out;
+}
 
 /**
  * Places API (New). One GET per venue per day, with a field mask narrow
  * enough to stay in the cheapest SKU: asking for `rating,userRatingCount`
  * and nothing else is the difference between the Essentials tier and a
  * full place read.
+ *
+ * Text Search (the owner's "find my Place ID" box) is the one call here
+ * that is NOT on any hot path — it happens once, during setup, behind an
+ * owner session and a rate limit, so it may be as expensive as it likes.
  */
 export class GooglePlacesProvider implements RatingProvider {
   readonly mode = "real" as const;
@@ -89,6 +221,11 @@ export class GooglePlacesProvider implements RatingProvider {
   constructor(private readonly apiKey: string) {}
 
   async fetch(placeId: string): Promise<PlaceRating | null> {
+    const result = await this.lookup(placeId);
+    return result.ok ? result.rating : null;
+  }
+
+  async lookup(placeId: string): Promise<RatingLookupResult> {
     try {
       const url = `${PLACES_BASE}/${encodeURIComponent(placeId)}?fields=rating,userRatingCount`;
       const res = await fetch(url, {
@@ -98,14 +235,50 @@ export class GooglePlacesProvider implements RatingProvider {
         cache: "no-store",
       });
       if (!res.ok) {
-        log.warn("google_rating.http_error", { status: res.status });
-        return null;
+        const error = mapPlacesError(res.status, await safeJson(res));
+        log.warn("google_rating.http_error", { status: res.status, error });
+        return { ok: false, error };
       }
       const json = (await res.json()) as { rating?: unknown; userRatingCount?: unknown };
-      return parsePlaceRating(json.rating, json.userRatingCount);
+      const rating = parsePlaceRating(json.rating, json.userRatingCount);
+      // A real place with no reviews yet answers 200 with no `rating`
+      // field at all. There is nothing to show and nothing to retry.
+      if (!rating) return { ok: false, error: "not_found" };
+      return { ok: true, rating };
     } catch (err) {
       captureException(err, { where: "google-rating", placeId });
-      return null;
+      return { ok: false, error: "network" };
+    }
+  }
+
+  async searchPlaces(query: string): Promise<PlaceSearchResult> {
+    try {
+      const res = await fetch(SEARCH_URL, {
+        method: "POST",
+        headers: {
+          "X-Goog-Api-Key": this.apiKey,
+          // The field mask is mandatory on searchText and also the whole
+          // billing story: id + name + address is the Text Search Essentials
+          // SKU, and adding one more field silently moves the call up a tier.
+          "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ textQuery: query, maxResultCount: SEARCH_MAX_RESULTS }),
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const error = mapPlacesError(res.status, await safeJson(res));
+        log.warn("google_rating.search_http_error", { status: res.status, error });
+        return { ok: false, error };
+      }
+      const json = (await res.json()) as { places?: unknown };
+      const places = parseSuggestions(json.places);
+      // Google answers 200 with an empty body when nothing matched.
+      if (places.length === 0) return { ok: false, error: "not_found" };
+      return { ok: true, places };
+    } catch (err) {
+      captureException(err, { where: "google-rating-search" });
+      return { ok: false, error: "network" };
     }
   }
 }
@@ -118,20 +291,49 @@ export class GooglePlacesProvider implements RatingProvider {
  */
 export class FakeRatingProvider implements RatingProvider {
   readonly mode = "fake" as const;
-  /** Every Place ID handed to `fetch`, oldest first. */
+  /** Every Place ID handed to `fetch`/`lookup`, oldest first. */
   readonly calls: string[] = [];
+  /** Every text query handed to `searchPlaces`, oldest first. */
+  readonly searches: string[] = [];
   /** What the next fetch answers. Null (the default) = "Google had
    *  nothing for us", which is also what an un-keyed deployment means. */
   next: PlaceRating | null = null;
+  /** What an unstaged lookup fails with. `no_api_key` by default,
+   *  because the fake IS the un-keyed deployment: an owner who presses
+   *  "Refresh rating now" on a box with no key gets told exactly that. */
+  nextError: RatingError = "no_api_key";
+  /** What the next search answers, when staged. */
+  nextSearch: PlaceSuggestion[] | null = null;
+  /** Force a specific search failure, staged or not. */
+  nextSearchError: RatingError | null = null;
 
   async fetch(placeId: string): Promise<PlaceRating | null> {
+    const result = await this.lookup(placeId);
+    return result.ok ? result.rating : null;
+  }
+
+  async lookup(placeId: string): Promise<RatingLookupResult> {
     this.calls.push(placeId);
-    return this.next;
+    if (this.next) return { ok: true, rating: this.next };
+    return { ok: false, error: this.nextError };
+  }
+
+  async searchPlaces(query: string): Promise<PlaceSearchResult> {
+    this.searches.push(query);
+    if (this.nextSearchError) return { ok: false, error: this.nextSearchError };
+    if (this.nextSearch && this.nextSearch.length > 0) {
+      return { ok: true, places: this.nextSearch.slice(0, SEARCH_MAX_RESULTS) };
+    }
+    return { ok: false, error: this.nextError };
   }
 
   reset(): void {
     this.calls.length = 0;
+    this.searches.length = 0;
     this.next = null;
+    this.nextError = "no_api_key";
+    this.nextSearch = null;
+    this.nextSearchError = null;
   }
 }
 
@@ -167,6 +369,23 @@ export function getRatingProvider(): RatingProvider {
 export async function fetchPlaceRating(placeId: string): Promise<PlaceRating | null> {
   if (!placeId) return null;
   return getRatingProvider().fetch(placeId);
+}
+
+/** How much text we will hand Google. A restaurant name plus a city is
+ *  well under this; anything longer is a paste accident. */
+const SEARCH_QUERY_MAX = 200;
+
+/**
+ * "Rangla Punjab, Berlin" → up to five Place IDs the owner can recognise.
+ *
+ * The seam's own entry point for the Settings picker. Never throws, and
+ * never calls out on an empty query — an owner who submits a blank box
+ * should not spend a billable request to be told nothing matched.
+ */
+export async function searchPlaces(query: string): Promise<PlaceSearchResult> {
+  const q = query.trim().slice(0, SEARCH_QUERY_MAX);
+  if (!q) return { ok: false, error: "not_found" };
+  return getRatingProvider().searchPlaces(q);
 }
 
 /**
@@ -236,10 +455,31 @@ export async function refreshVenueRating(
   venueId: string,
   placeId: string,
 ): Promise<CachedRating | null> {
+  const result = await refreshVenueRatingNow(tenantId, venueId, placeId);
+  return result.ok ? result.cached : null;
+}
+
+export type RatingRefreshResult =
+  { ok: true; cached: CachedRating } | { ok: false; error: RatingError };
+
+/**
+ * {@link refreshVenueRating} with the failure reason kept, for the owner
+ * pressing "Refresh rating now" in Settings. Same write, same guard, same
+ * "a bad day at Google never empties the cache" promise — the only
+ * difference is that the caller learns WHY nothing was written.
+ *
+ * Never throws.
+ */
+export async function refreshVenueRatingNow(
+  tenantId: string,
+  venueId: string,
+  placeId: string,
+): Promise<RatingRefreshResult> {
   try {
-    const fresh = await fetchPlaceRating(placeId);
-    if (!fresh) return null;
-    const cached: CachedRating = { ...fresh, fetchedAt: new Date().toISOString() };
+    if (!placeId) return { ok: false, error: "not_found" };
+    const lookup = await getRatingProvider().lookup(placeId);
+    if (!lookup.ok) return lookup;
+    const cached: CachedRating = { ...lookup.rating, fetchedAt: new Date().toISOString() };
     await asTenant(tenantId, (tx) =>
       tx.venue.updateMany({
         // Guarded on the Place ID: if the owner changed it while the
@@ -252,10 +492,10 @@ export async function refreshVenueRating(
       }),
     );
     log.info("google_rating.refreshed", { tenantId, venueId, count: cached.count });
-    return cached;
+    return { ok: true, cached };
   } catch (err) {
     captureException(err, { tenantId, venueId, where: "google-rating" });
-    return null;
+    return { ok: false, error: "unknown" };
   }
 }
 

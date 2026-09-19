@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -143,14 +143,16 @@ export function IssueSheet({
   const [error, setError] = useState<string | null>(null);
   /** The photo the reader tapped, shown full-size over the sheet. */
   const [viewer, setViewer] = useState<string | null>(null);
+  /** True while the system picker is up, so a double tap cannot ask iOS
+   *  to present a second one on top of the first. */
+  const picking = useRef(false);
 
   const statusLabels = t.issueStatusLabels as Record<string, string>;
   const errorLabels = t.issueErrors as Record<string, string>;
 
   // Staff photos are behind the staff token: the image request carries it
   // as a header, exactly like every other staff call.
-  const photoHeaders =
-    target?.mode === "staff" ? { "X-Staff-Token": target.token } : undefined;
+  const photoHeaders = target?.mode === "staff" ? { "X-Staff-Token": target.token } : undefined;
 
   const key = target
     ? target.mode === "guest"
@@ -206,11 +208,17 @@ export function IssueSheet({
   const resolved = thread?.status === "resolved";
   // The guest may write while a thread is open, or open one inside the
   // window. The restaurant may always write, even on a resolved thread.
-  const canWrite =
-    target?.mode === "staff" ? Boolean(thread) : thread ? !resolved : canReport;
+  const canWrite = target?.mode === "staff" ? Boolean(thread) : thread ? !resolved : canReport;
   const windowClosed = target?.mode === "guest" && !thread && !canReport && loaded && !failed;
 
   async function pickPhoto(): Promise<void> {
+    // NOTE: this presents the system picker while the sheet is still
+    // VISIBLE, which is safe — iOS is happy to stack a presenter on a
+    // settled modal. What is NOT safe is closing the sheet and
+    // presenting in the same tick (see `owner-menu.tsx`), so nothing on
+    // this path calls `onClose()`.
+    if (picking.current) return;
+    picking.current = true;
     setError(null);
     try {
       // Asked LAZILY, on the first tap: a guest who never attaches a
@@ -243,6 +251,8 @@ export function IssueSheet({
       });
     } catch {
       setError(t.issuePhotoFailed);
+    } finally {
+      picking.current = false;
     }
   }
 
@@ -329,11 +339,7 @@ export function IssueSheet({
   };
 
   const title =
-    target?.mode === "staff"
-      ? t.issueStaffTitle
-      : thread
-        ? t.issueTitleThread
-        : t.issueTitle;
+    target?.mode === "staff" ? t.issueStaffTitle : thread ? t.issueTitleThread : t.issueTitle;
 
   return (
     <Modal visible={target !== null} animationType="slide" transparent onRequestClose={onClose}>
@@ -357,9 +363,7 @@ export function IssueSheet({
                 ) : null}
               </View>
               {thread ? (
-                <View
-                  style={[styles.statusPill, resolved ? styles.pillDone : styles.pillActive]}
-                >
+                <View style={[styles.statusPill, resolved ? styles.pillDone : styles.pillActive]}>
                   <Text
                     style={[
                       styles.statusText,
@@ -423,7 +427,9 @@ export function IssueSheet({
                           key={message.id}
                           style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
                         >
-                          <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
+                          <View
+                            style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}
+                          >
                             <Text style={[styles.who, mine && styles.whoMine]}>{who}</Text>
                             {message.body ? (
                               <Text style={[styles.body, mine && styles.bodyMine]}>

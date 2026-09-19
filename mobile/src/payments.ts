@@ -284,15 +284,40 @@ export async function payWithPaypal(orderId: string, token: string): Promise<voi
   );
 }
 
-/** The receipt PDF and anything else that is read, not transacted. */
+/** True between "present the in-app browser" and "it is gone again".
+ *  Module-level on purpose: two different screens may race to open one,
+ *  and iOS answers a second present-while-presenting with a stale layer
+ *  that eats every touch. */
+let browserOpen = false;
+
+/**
+ * The receipt PDF, the dashboard, and anything else that is read rather
+ * than transacted.
+ *
+ * Callers that open this from inside a `<Modal>` must wait for the modal
+ * to finish dismissing first (see `owner-menu.tsx`) — presenting on top
+ * of a dismissing view controller is the other half of the same iOS bug.
+ */
 export async function openInAppBrowser(url: string): Promise<void> {
   if (Platform.OS === "web") {
     await Linking.openURL(url);
     return;
   }
+  if (browserOpen) return;
+  browserOpen = true;
   try {
-    await WebBrowser.openBrowserAsync(url);
+    await WebBrowser.openBrowserAsync(url, {
+      // An explicit ✕ rather than "Done": this is a page to read and
+      // leave, not a flow that finishes.
+      dismissButtonStyle: "close",
+      // The default `overFullScreen` keeps our view visible underneath,
+      // which is exactly the layering that traps touches when the sheet
+      // below is still animating away.
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+    });
   } catch {
     await Linking.openURL(url).catch(() => {});
+  } finally {
+    browserOpen = false;
   }
 }
