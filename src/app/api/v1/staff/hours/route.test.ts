@@ -28,6 +28,46 @@ interface HoursBody {
   openNow?: boolean;
 }
 
+const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const VENUE_TZ = "Europe/Berlin";
+
+/**
+ * Minutes since midnight in `timezone`, computed here with plain `Intl`
+ * rather than via `localDayMinutes` — the openNow test below cross-checks
+ * the service against a venue-local clock derived INDEPENDENTLY of the code
+ * it is testing, so the assertion can't pass by sharing a bug.
+ */
+function venueLocalMinutes(timezone: string, at: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(at);
+  const hh = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const mm = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return hh * 60 + mm;
+}
+
+function hhmm(mins: number): string {
+  const m = ((mins % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/**
+ * A week carrying the SAME `±halfWidth` window on all seven days, centred on
+ * a venue-local minute-of-day. Identical every day on purpose: the answer
+ * then turns on the minute-of-day alone, so a weekday rolling over mid-test
+ * cannot flip it, and a window that wraps past midnight is just the overnight
+ * case the service already handles.
+ */
+function weekAround(centreMins: number, halfWidth = 90): Record<string, unknown> {
+  const slot = { open: hhmm(centreMins - halfWidth), close: hhmm(centreMins + halfWidth) };
+  return Object.fromEntries(DAYS.map((d) => [d, { closed: false, slots: [slot] }]));
+}
+
+const CLOSED_WEEK = Object.fromEntries(DAYS.map((d) => [d, { closed: true, slots: [] }]));
+
 const FULL_WEEK = {
   mon: { closed: false, slots: [{ open: "11:00", close: "22:00" }] },
   tue: { closed: false, slots: [{ open: "11:00", close: "22:00" }] },
@@ -179,26 +219,29 @@ describe("/api/v1/staff/hours", () => {
   });
 
   it("reports openNow from the venue's clock, not the caller's", async () => {
-    const open = await patch({
-      hours: Object.fromEntries(
-        ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [
-          d,
-          { closed: false, slots: [{ open: "00:00", close: "23:59" }] },
-        ]),
-      ),
-    });
+    // Both windows are built from the VENUE's wall clock (Europe/Berlin), so
+    // this test reads the same at any hour and under any process TZ. The old
+    // fixture was a literal 00:00–23:59, which is CLOSED for the venue-local
+    // minute 23:59 (close is exclusive) — the CI flake at 23:59 Berlin.
+    const nowMins = venueLocalMinutes(VENUE_TZ);
+
+    // Open: a three-hour window centred on venue-local now. A caller-clock
+    // implementation reads 90+ minutes off centre for any TZ at least that
+    // far from Berlin (CI runs UTC, two hours off) and answers false here.
+    const open = await patch({ hours: weekAround(nowMins) });
     expect(open.body.openNow).toBe(true);
 
-    const shut = await patch({
-      hours: Object.fromEntries(
-        ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [
-          d,
-          { closed: true, slots: [] },
-        ]),
-      ),
-    });
+    // Shut: the same window moved twelve hours along the venue's clock, so
+    // venue-local now sits 10.5 h clear of either edge. It is, however,
+    // exactly "now" for a clock half a day off (TZ=Pacific/Kiritimati), so a
+    // process-clock implementation answers true here and fails.
+    const shut = await patch({ hours: weekAround(nowMins + 12 * 60) });
     expect(shut.body.openNow).toBe(false);
-    expect(shut.body.hours?.mon).toEqual({ closed: true, slots: [] });
+
+    // And an explicitly closed week is closed whatever any clock says.
+    const closed = await patch({ hours: CLOSED_WEEK });
+    expect(closed.body.openNow).toBe(false);
+    expect(closed.body.hours?.mon).toEqual({ closed: true, slots: [] });
   });
 
   it("accepts a partial week and closes every day it was not told about", async () => {
