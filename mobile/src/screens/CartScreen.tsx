@@ -42,7 +42,10 @@ export function CartScreen({
 }: {
   menu: ApiMenu;
   presetType: OrderType | null;
-  onPlaced: (order: PlacedOrder, note?: "cancelled" | "failed") => void;
+  onPlaced: (
+    order: PlacedOrder,
+    info: { payment: "card" | "paypal" | "cash"; note?: "cancelled" | "failed"; paid?: boolean },
+  ) => void;
 }): React.ReactElement {
   const cart = useCart();
   const auth = useAuth();
@@ -212,13 +215,14 @@ export function CartScreen({
       currency: menu.venue.currency,
       orderType,
       placedAt: new Date().toISOString(),
+      payment: payMethod,
     });
     cart.clear();
     const order = result.order;
 
     if (payMethod === "cash") {
       setBusy(false);
-      onPlaced(order);
+      onPlaced(order, { payment: "cash" });
       return;
     }
 
@@ -227,10 +231,10 @@ export function CartScreen({
     // guest can pay again there, or at the counter.
     setPaying(true);
     const deepLink = ExpoLinking.createURL("payment-return");
-    const done = (note?: "cancelled" | "failed"): void => {
+    const done = (note?: "cancelled" | "failed", paid?: boolean): void => {
       setPaying(false);
       setBusy(false);
-      onPlaced(order, note);
+      onPlaced(order, { payment: payMethod, note, paid });
     };
 
     if (payMethod === "paypal") {
@@ -261,7 +265,11 @@ export function CartScreen({
       done();
       return;
     }
-    done(outcome === "paid" ? undefined : outcome);
+    // Stripe only reports success once the PaymentIntent succeeded, so
+    // the tracking screen can treat the order as paid before the webhook
+    // lands, instead of offering to pay a second time.
+    if (outcome === "paid") done(undefined, true);
+    else done(outcome);
   }
 
   /** Settles the dev provider's intent. Never reachable against a real
@@ -274,7 +282,7 @@ export function CartScreen({
     await confirmFakePayment(order.orderId, order.receiptToken, ref);
     setBusy(false);
     setFakePending(null);
-    onPlaced(order);
+    onPlaced(order, { payment: "card", paid: true });
   }
 
   return (

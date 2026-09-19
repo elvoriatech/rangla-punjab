@@ -20,6 +20,8 @@ export function TrackScreen({
   merchantName,
   canPayCard,
   canPayPaypal,
+  payment,
+  paidHint,
   note,
   onBack,
 }: {
@@ -32,6 +34,12 @@ export function TrackScreen({
   /** Set when the guest just came from the cart with an unfinished
    *  payment; shown once, above the pay buttons. */
   note?: "cancelled" | "failed";
+  /** How the guest chose to pay at checkout, when this device knows. A
+   *  cash order never gets online pay buttons — the guest decided. */
+  payment?: "card" | "paypal" | "cash";
+  /** The Stripe sheet reported success just now: render "paid" at once
+   *  and poll quickly until the webhook has settled the order. */
+  paidHint?: boolean;
   onBack: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
@@ -40,6 +48,10 @@ export function TrackScreen({
   const [busy, setBusy] = useState(false);
   /** Dev/CI provider: an open fake intent waiting for the test button. */
   const [fakeRef, setFakeRef] = useState<string | null>(null);
+  /** Client-side proof of payment (sheet success), ahead of the webhook. */
+  const [confirmed, setConfirmed] = useState(Boolean(paidHint));
+  const confirmedRef = useRef(confirmed);
+  confirmedRef.current = confirmed;
   const reloadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -52,7 +64,10 @@ export function TrackScreen({
         if (!alive) return;
         setTracking(next);
         setError(false);
-        if (next.status !== "done") timer = setTimeout(() => void load(), 10_000);
+        // Waiting on the webhook after a confirmed payment: poll fast so
+        // "Paid" settles within seconds, not at the next 10 s tick.
+        const wait = confirmedRef.current && next.paymentStatus !== "paid" ? 3_000 : 10_000;
+        if (next.status !== "done") timer = setTimeout(() => void load(), wait);
       } catch {
         if (!alive) return;
         setError(true);
@@ -93,6 +108,8 @@ export function TrackScreen({
     if (outcome === "unavailable") {
       const hosted = await startHostedPayment(orderId, token);
       await openPayPage(hosted.ok ? hosted.url : payPageUrl(orderId, token, deepLink), deepLink);
+    } else if (outcome === "paid") {
+      setConfirmed(true);
     } else if (outcome === "cancelled" || outcome === "failed") {
       setBanner(outcome);
     }
@@ -116,6 +133,7 @@ export function TrackScreen({
     setBusy(true);
     await confirmFakePayment(orderId, token, fakeRef);
     setFakeRef(null);
+    setConfirmed(true);
     setBusy(false);
     reloadRef.current();
   }
@@ -215,10 +233,17 @@ export function TrackScreen({
               <Text style={styles.totalValue}>{money(tracking.totalCents, tracking.currency)}</Text>
             </View>
             <Text style={styles.payState}>
-              {tracking.paymentStatus === "paid" ? t.paidOnline : t.payAtRest}
+              {tracking.paymentStatus === "paid"
+                ? t.paidOnline
+                : confirmed
+                  ? t.payConfirming
+                  : payment === "cash" || (payment === undefined && !canPayCard && !canPayPaypal)
+                    ? t.payAtRest
+                    : t.payNotYet}
             </Text>
 
-            {tracking.paymentStatus !== "paid" ? (
+            {/* Settled (server or sheet) or chosen cash: nothing left to pay. */}
+            {tracking.paymentStatus !== "paid" && !confirmed && payment !== "cash" ? (
               <>
                 {banner ? (
                   <Text style={styles.payBanner}>

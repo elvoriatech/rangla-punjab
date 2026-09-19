@@ -14,6 +14,9 @@ export interface StoredOrder {
   currency: string;
   orderType: string;
   placedAt: string; // ISO
+  /** How the guest chose to pay at checkout. Absent on orders stored by
+   *  older builds — treated as "unknown", i.e. the pay buttons may show. */
+  payment?: "card" | "paypal" | "cash";
 }
 
 const KEY = "rangla-orders-v1";

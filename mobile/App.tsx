@@ -43,9 +43,13 @@ type Tab = "home" | "menu" | "cart" | "orders" | "info";
 interface TrackTarget {
   orderId: string;
   token: string;
+  /** How the guest chose to pay, when this device knows. */
+  payment?: "card" | "paypal" | "cash";
   /** Carried over from the cart when a payment was cancelled or failed —
    *  the order stands, only the payment didn't. */
   note?: "cancelled" | "failed";
+  /** The card sheet already succeeded — show paid before the webhook lands. */
+  paid?: boolean;
 }
 
 function Shell(): React.ReactElement {
@@ -84,12 +88,18 @@ function Shell(): React.ReactElement {
   }, [menu, reconcile]);
 
   const onAdd = useCallback((item: ApiItem) => cart.add(item), [cart]);
-  const onPlaced = useCallback((order: PlacedOrder, note?: "cancelled" | "failed") => {
-    setOrdersRefresh((n) => n + 1);
-    setTrack({ orderId: order.orderId, token: order.receiptToken, note });
-  }, []);
+  const onPlaced = useCallback(
+    (
+      order: PlacedOrder,
+      info: { payment: "card" | "paypal" | "cash"; note?: "cancelled" | "failed"; paid?: boolean },
+    ) => {
+      setOrdersRefresh((n) => n + 1);
+      setTrack({ orderId: order.orderId, token: order.receiptToken, ...info });
+    },
+    [],
+  );
   const onOpenStored = useCallback((order: StoredOrder) => {
-    setTrack({ orderId: order.orderId, token: order.receiptToken });
+    setTrack({ orderId: order.orderId, token: order.receiptToken, payment: order.payment });
   }, []);
 
   if (!menu || !welcomed) {
@@ -118,6 +128,8 @@ function Shell(): React.ReactElement {
         merchantName={menu.venue.name}
         canPayCard={Boolean(menu.ordering.onlinePayment)}
         canPayPaypal={Boolean(menu.ordering.paypal)}
+        payment={track.payment}
+        paidHint={track.paid}
         note={track.note}
         onBack={() => setTrack(null)}
       />
