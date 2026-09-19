@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { QtyStepper } from "./components";
 import Svg, { Circle, Path } from "react-native-svg";
 import type { ApiMenu } from "./api";
 import { createReservation } from "./api";
@@ -43,7 +44,7 @@ export function ReserveSheet({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
-  const [picker, setPicker] = useState<"date" | "time" | "guests" | null>(null);
+  const [picker, setPicker] = useState<"date" | "time" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -99,19 +100,13 @@ export function ReserveSheet({
       ? slots.map((s) => ({ label: dateLabel(s.date), value: s.date }))
       : picker === "time"
         ? times.map((x) => ({ label: x, value: x }))
-        : picker === "guests"
-          ? Array.from({ length: 12 }, (_, i) => ({
-              label: `${i + 1} ${i === 0 ? t.guest : t.guests}`,
-              value: String(i + 1),
-            }))
-          : [];
+        : [];
 
   const choose = (value: string): void => {
     if (picker === "date") {
       setDate(value);
       setTime(""); // a new day has its own windows
     } else if (picker === "time") setTime(value);
-    else if (picker === "guests") setGuests(Number(value));
     setPicker(null);
   };
 
@@ -166,11 +161,20 @@ export function ReserveSheet({
                     style={{ flex: 1 }}
                   />
                 </View>
-                <Picker
-                  label={t.resGuests}
-                  value={`${guests} ${guests === 1 ? t.guest : t.guests}`}
-                  onPress={() => setPicker("guests")}
-                />
+                {/* Party size: plus / minus, one tap per guest (1–20, the
+                    server's bounds), instead of a list to scroll. */}
+                <View style={{ gap: 4 }}>
+                  <Text style={styles.fieldLabel}>{t.resGuests}</Text>
+                  <View style={styles.guestsRow}>
+                    <Text style={styles.guestsValue}>
+                      {guests} {guests === 1 ? t.guest : t.guests}
+                    </Text>
+                    <QtyStepper
+                      quantity={guests}
+                      onChange={(next) => setGuests(Math.min(20, Math.max(1, next)))}
+                    />
+                  </View>
+                </View>
 
                 <Field
                   label={t.name}
@@ -216,8 +220,7 @@ export function ReserveSheet({
               {options.map((o) => {
                 const selected =
                   (picker === "date" && o.value === date) ||
-                  (picker === "time" && o.value === time) ||
-                  (picker === "guests" && Number(o.value) === guests);
+                  (picker === "time" && o.value === time);
                 return (
                   <Pressable
                     key={o.value}
@@ -384,6 +387,18 @@ const styles = StyleSheet.create({
   optionActive: { backgroundColor: "#fdeee6" },
   optionText: { color: colors.ink, ...fonts.body, fontSize: 15 },
   optionTextActive: { color: colors.red, ...fonts.bodyHeavy },
+  guestsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    backgroundColor: colors.creamCard,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  guestsValue: { color: colors.ink, fontSize: 15, ...fonts.bodyBold },
 });
 
 /**

@@ -38,6 +38,22 @@ const FIELD_SELECT =
   FIELD +
   " [&>option]:bg-[var(--menu-surface)] [&>option]:text-[var(--menu-surface-text,var(--menu-text))]";
 /** The one dominant fill in the panel — surface accent + its own ink. */
+/** Party-size bounds — the same 1..20 the reservation endpoint enforces. */
+const MIN_GUESTS = 1;
+const MAX_GUESTS = 20;
+/** The ± buttons and the count inherit the panel's ink, like every field. */
+const STEP_BTN =
+  "flex h-11 w-11 items-center justify-center rounded-full border " +
+  "border-[var(--menu-surface-text,var(--menu-text))]/40 text-2xl leading-none " +
+  "text-[var(--menu-surface-text,var(--menu-text))] transition " +
+  "hover:border-[var(--menu-surface-accent,var(--menu-accent))] active:scale-95 " +
+  "disabled:cursor-not-allowed disabled:opacity-35";
+const STEP_BOX =
+  "mt-1 flex items-center justify-between rounded-md border " +
+  "border-[var(--menu-surface-text,var(--menu-text))]/25 " +
+  "bg-[var(--menu-surface-text,var(--menu-text))]/[0.08] px-2 py-1.5 " +
+  "text-[var(--menu-surface-text,var(--menu-text))]";
+
 const CTA =
   "w-full rounded-md bg-[var(--menu-surface-accent,var(--menu-accent))] py-3.5 text-base " +
   "font-semibold text-[var(--menu-on-surface-accent,var(--menu-bg))] hover:opacity-90 disabled:opacity-50";
@@ -270,20 +286,39 @@ export function ReserveDialog({
                   </label>
                 </div>
 
-                <label className="block">
-                  <span className={FIELD_LABEL}>{t.reserve.guests}</span>
-                  <select
-                    value={guests}
-                    onChange={(e) => setGuests(Number(e.target.value))}
-                    className={FIELD_SELECT}
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>
-                        {t.reserve.guestCount(n)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {/* Party size as a stepper, not a dropdown: one tap per guest,
+                    no list to scroll. Bounds match the server (1–20). */}
+                <div className="block">
+                  <span className={FIELD_LABEL} id="reserve-guests-label">
+                    {t.reserve.guests}
+                  </span>
+                  <div role="group" aria-labelledby="reserve-guests-label" className={STEP_BOX}>
+                    <button
+                      type="button"
+                      onClick={() => setGuests((g) => Math.max(MIN_GUESTS, g - 1))}
+                      disabled={guests <= MIN_GUESTS}
+                      aria-label={`− 1 · ${t.reserve.guests}`}
+                      className={STEP_BTN}
+                    >
+                      −
+                    </button>
+                    <span
+                      className="min-w-[8ch] text-center text-base font-semibold"
+                      aria-live="polite"
+                    >
+                      {t.reserve.guestCount(guests)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setGuests((g) => Math.min(MAX_GUESTS, g + 1))}
+                      disabled={guests >= MAX_GUESTS}
+                      aria-label={`+ 1 · ${t.reserve.guests}`}
+                      className={STEP_BTN}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
                 <label className="block">
                   <span className={FIELD_LABEL}>{t.reserve.name}</span>
