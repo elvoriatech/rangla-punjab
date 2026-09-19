@@ -105,6 +105,7 @@ interface MenuPayload {
       mobile: Entry | null;
       whatsapp: Entry | null;
     } | null;
+    appLinks: { ios?: string; android?: string; apk?: string } | null;
   };
   ordering: { acceptsAsapNow: boolean; requestSlots: string[] };
   offerCount: number;
@@ -208,6 +209,30 @@ describe("GET /api/v1/menu — ?locale", () => {
         display: "+49 1701 234567",
         href: "https://wa.me/491701234567",
       },
+    });
+  });
+
+  it("sends the app links, or an explicit null", async () => {
+    const fx = await fixture();
+    // Always present, like `contact`: the app reads `venue.appLinks` and
+    // nothing else, so "absent" must never be a third state.
+    const before = await read(fx.slug);
+    expect(before.venue).toHaveProperty("appLinks");
+    expect(before.venue.appLinks).toBeNull();
+
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          appLinks: {
+            ios: "https://apps.apple.com/de/app/elvoria/id1",
+            android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+          },
+        },
+      }),
+    );
+    expect((await read(fx.slug)).venue.appLinks).toEqual({
+      ios: "https://apps.apple.com/de/app/elvoria/id1",
+      android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
     });
   });
 

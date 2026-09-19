@@ -995,10 +995,6 @@ export function BoardScreen({
           </View>
         </View>
 
-        <Text style={styles.section}>
-          {t.boardOpen}
-          {open.length > 0 ? ` · ${open.length}` : ""}
-        </Text>
         {open.length === 0 ? (
           loaded ? (
             <View style={styles.empty}>

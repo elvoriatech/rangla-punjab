@@ -18,6 +18,7 @@ import type { EffectiveOrdering } from "@/lib/ordering-config";
 import type { LoyaltyConfig } from "@/lib/loyalty-config";
 import type { OpeningHours, OpenState } from "@/lib/opening-hours";
 import { acceptedPaymentIds, PaymentMarks } from "./payment-marks";
+import { AppStoreBadge, GooglePlayBadge } from "./app-badges";
 import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
 import { AddToOrderButton, type AddToOrderLabels } from "./order/add-button";
 import { CartDrawer } from "./order/cart-lazy";
@@ -357,6 +358,10 @@ export function MenuView({
   // the loader — number, display string and `tel:` / `wa.me` href — so the
   // page renders links rather than deriving them a second time.
   const contact = menu.venue.contact ?? null;
+  // "Get the app": the store listings + a direct APK, already validated by
+  // the loader. Null for every venue whose owner has published none, which
+  // hides the footer section AND the header link in one check.
+  const appLinks = menu.venue.appLinks ?? null;
   const showIcons = menu.venue.branding.categoryIcons === "icons";
   // Owner-chosen category navigation for LARGE screens: "side" renders a
   // sticky left rail and drops the top-bar tabs on lg+. Phones always
@@ -447,6 +452,7 @@ export function MenuView({
             rating={menu.rating}
             openNow={openNow}
             reserve={reserve}
+            hasApp={appLinks !== null}
             t={t}
             locale={locale}
           />
@@ -465,6 +471,7 @@ export function MenuView({
           offeredDiets={offeredDiets}
           openNow={openNow}
           reserve={reserve}
+          hasApp={appLinks !== null}
           sideNav={sideNav}
           hero={Boolean(menu.venue.branding.bannerKey)}
           t={t}
@@ -619,6 +626,72 @@ export function MenuView({
                 </a>
               ) : null}
             </nav>
+          ) : null}
+          {/* "Get the app" — the landing spot for the header's jump link,
+              and the only place in the product a guest is offered the
+              venue's own app. Every piece is an ordinary anchor, so the
+              whole section works with JS off. Absent entirely until an
+              owner publishes a link, and each of the three renders only
+              when it holds one. The badges are our own brand-neutral
+              artwork (see `app-badges.tsx`) rather than Apple's or
+              Google's own files. */}
+          {appLinks ? (
+            <section
+              id="get-the-app"
+              aria-label={t.app.title}
+              className="w-full scroll-mt-32 border-t border-[var(--menu-surface-text,var(--menu-text))]/15 pt-6 text-[var(--menu-surface-text,var(--menu-text))]"
+            >
+              <h2 className="text-sm font-semibold">{t.app.title}</h2>
+              <p className="mt-1 text-xs opacity-80">{t.app.blurb}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {appLinks.ios ? (
+                  <a
+                    href={appLinks.ios}
+                    target="_blank"
+                    rel="noopener"
+                    aria-label={t.app.storeAria(`${t.app.iosTop} ${t.app.iosName}`)}
+                    className="inline-flex"
+                  >
+                    <AppStoreBadge
+                      topLine={t.app.iosTop}
+                      storeName={t.app.iosName}
+                      className="h-[46px] w-[153px]"
+                    />
+                  </a>
+                ) : null}
+                {appLinks.android ? (
+                  <a
+                    href={appLinks.android}
+                    target="_blank"
+                    rel="noopener"
+                    aria-label={t.app.storeAria(`${t.app.androidTop} ${t.app.androidName}`)}
+                    className="inline-flex"
+                  >
+                    <GooglePlayBadge
+                      topLine={t.app.androidTop}
+                      storeName={t.app.androidName}
+                      className="h-[46px] w-[153px]"
+                    />
+                  </a>
+                ) : null}
+                {appLinks.apk ? (
+                  /* Deliberately a plain button, not a third badge: a file
+                     the venue hosts itself is not a store listing, and
+                     dressing it as one would be the wrong promise. */
+                  <a
+                    href={appLinks.apk}
+                    download
+                    className="inline-flex h-[46px] items-center rounded-[9px] border border-current/45 px-4 text-xs font-semibold no-underline"
+                  >
+                    {t.app.apk}
+                  </a>
+                ) : null}
+              </div>
+              {/* Said before the tap, not after: an unexplained Android
+                  "install unknown apps" prompt is what makes a guest back
+                  out of a download they asked for. */}
+              {appLinks.apk ? <p className="mt-2 text-xs opacity-75">{t.app.apkHint}</p> : null}
+            </section>
           ) : null}
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-baseline sm:justify-between">
             {/* Footer = ON the surface: page-ink (--menu-text-soft) was
@@ -1665,6 +1738,7 @@ function HeroBanner({
   rating,
   openNow,
   reserve,
+  hasApp = false,
   t,
   locale,
 }: {
@@ -1672,6 +1746,10 @@ function HeroBanner({
   rating?: PublicMenu["rating"];
   openNow?: OpenState;
   reserve?: { slug: string; hours: OpeningHours; timezone: string };
+  /** True once the owner has published at least one app link — the jump
+   *  link renders only then, because it would otherwise scroll a guest to
+   *  a footer section that isn't there. */
+  hasApp?: boolean;
   t: MenuCopy;
   locale: string;
 }): React.ReactElement {
@@ -1697,6 +1775,7 @@ function HeroBanner({
         {reserve ? (
           <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
         ) : null}
+        {hasApp ? <AppJumpLink t={t} onDark /> : null}
       </div>
       <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
         <VenueMark venue={venue} />
@@ -1725,6 +1804,7 @@ function StickyBar({
   offeredDiets,
   openNow,
   reserve,
+  hasApp = false,
   sideNav = false,
   hero = false,
   t,
@@ -1744,6 +1824,9 @@ function StickyBar({
   offeredDiets: string[];
   openNow?: OpenState;
   reserve?: { slug: string; hours: OpeningHours; timezone: string };
+  /** See `HeroBanner` — the jump link is only ever offered when there is
+   *  something at the other end of it. */
+  hasApp?: boolean;
   sideNav?: boolean;
   /** Banner hero above carries logo + open pill — this bar then holds
    *  only the menu controls (categories + diets), grouped together. */
@@ -1785,12 +1868,14 @@ function StickyBar({
               t={t}
             />
           </div>
-          {/* Open/closed pill + reserve button: right corner at every width. */}
+          {/* Open/closed pill + reserve button + app jump: right corner at
+              every width. */}
           <div className="flex shrink-0 items-center gap-2">
             <OpenBadge state={openNow} t={t} locale={locale} />
             {reserve ? (
               <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
             ) : null}
+            {hasApp ? <AppJumpLink t={t} /> : null}
           </div>
         </div>
       )}
@@ -1820,6 +1905,40 @@ function StickyBar({
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * Compact "📱 App" link in the header.
+ *
+ * A plain in-page anchor to the footer's `#get-the-app` section — the
+ * browser scrolls to it with no JavaScript, which is the contract for
+ * every public page here, and `scroll-behavior` is left to the user's own
+ * `prefers-reduced-motion` setting rather than forced smooth.
+ *
+ * A jump rather than a dropdown of three store links because the header
+ * shares a 320px row with the open pill and the reserve button: one word
+ * and an emoji is all the room there is, and the footer section it lands
+ * on can afford the badges, the blurb and the install warning.
+ *
+ * The emoji is `aria-hidden` and the anchor carries its own label, so a
+ * screen reader hears "Get the app — jump to the download links", not
+ * "mobile phone App".
+ */
+function AppJumpLink({ t, onDark = false }: { t: MenuCopy; onDark?: boolean }): React.ReactElement {
+  return (
+    <a
+      href="#get-the-app"
+      aria-label={t.app.navAria}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium no-underline ${
+        onDark
+          ? "border-white/40 bg-black/45 text-white backdrop-blur"
+          : "border-[var(--menu-text)]/25 text-[var(--menu-text)]/85 hover:border-[var(--menu-text)]/50"
+      }`}
+    >
+      <span aria-hidden="true">📱</span>
+      {t.app.navLabel}
+    </a>
   );
 }
 

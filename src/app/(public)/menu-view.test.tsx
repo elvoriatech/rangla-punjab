@@ -398,6 +398,86 @@ describe("MenuView", () => {
     const html = renderToStaticMarkup(<MenuView menu={empty} activeDiets={new Set(["halal"])} />);
     expect(html).toContain("No dishes match every diet");
   });
+
+  /* ---------------- "Get the app" (footer + header jump) ---------------- */
+
+  it("shows nothing about an app until the owner publishes a link", () => {
+    const html = renderToStaticMarkup(<MenuView menu={fixture} />);
+    expect(html).not.toContain("get-the-app");
+    expect(html).not.toContain("Get the app");
+    expect(html).not.toContain("App Store");
+    expect(html).not.toContain(".apk");
+  });
+
+  it("renders both store badges, the apk button and the header jump link", () => {
+    const withApp: PublicMenu = {
+      ...fixture,
+      venue: {
+        ...fixture.venue,
+        appLinks: {
+          ios: "https://apps.apple.com/de/app/elvoria/id1",
+          android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+          apk: "https://elvoria.example/downloads/app.apk",
+        },
+      },
+    };
+    const html = renderToStaticMarkup(<MenuView menu={withApp} />);
+
+    // The footer section, and the header anchor that jumps to it — a plain
+    // fragment link, so the whole thing works with JS off.
+    expect(html).toContain('id="get-the-app"');
+    expect(html).toContain('href="#get-the-app"');
+    expect(html).toContain("Get the app");
+
+    // Badges: our own artwork, carrying the familiar wording.
+    expect(html).toContain("App Store");
+    expect(html).toContain("Google Play");
+    expect(html).toContain("Download on the App Store (opens in a new tab)");
+    expect(html).toContain("Get it on Google Play (opens in a new tab)");
+
+    // Store links leave the site and must not hand the opener over.
+    expect(html).toContain('href="https://apps.apple.com/de/app/elvoria/id1"');
+    expect(html).toContain('href="https://play.google.com/store/apps/details?id=com.elvoria.menu"');
+    expect(html).toMatch(/apps\.apple\.com[^>]*target="_blank"/);
+    expect(html).toMatch(/apps\.apple\.com[^>]*rel="noopener"/);
+    expect(html).toMatch(/play\.google\.com[^>]*rel="noopener"/);
+
+    // The APK is a download, not a store listing: plain button, `download`
+    // attribute, and the Android warning said before the tap.
+    expect(html).toContain("Download Android app (.apk)");
+    expect(html).toMatch(/app\.apk"[^>]*download/);
+    expect(html).toContain("Android will ask you to allow the install.");
+  });
+
+  it("renders only the slots the owner filled in", () => {
+    const apkOnly: PublicMenu = {
+      ...fixture,
+      venue: { ...fixture.venue, appLinks: { apk: "https://elvoria.example/app.apk" } },
+    };
+    const html = renderToStaticMarkup(<MenuView menu={apkOnly} />);
+    expect(html).toContain('id="get-the-app"');
+    expect(html).toContain("Download Android app (.apk)");
+    // No badge for a store the venue is not on.
+    expect(html).not.toContain("App Store");
+    expect(html).not.toContain("Google Play");
+  });
+
+  it("translates the section, and leaves the store names alone", () => {
+    const withApp: PublicMenu = {
+      ...fixture,
+      locale: "de",
+      venue: {
+        ...fixture.venue,
+        appLinks: { ios: "https://apps.apple.com/de/app/elvoria/id1" },
+      },
+    };
+    const html = renderToStaticMarkup(<MenuView menu={withApp} />);
+    expect(html).toContain("App holen");
+    expect(html).toContain("Laden im");
+    // "App Store" is a brand name, not copy: identical in every locale.
+    expect(html).toContain("App Store");
+    expect(html).not.toContain("Get the app");
+  });
 });
 
 /* ------------------------------------------------------------------ */

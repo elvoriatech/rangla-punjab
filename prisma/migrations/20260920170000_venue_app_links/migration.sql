@@ -1,0 +1,26 @@
+-- "Get the app": the App Store listing, the Play listing, and a direct APK.
+--
+-- A restaurant that ships its own app has exactly one place a guest will
+-- ever look for it — the menu they already scanned at the table. Until now
+-- that link lived nowhere in the product, so owners were reduced to a
+-- printed second QR code beside the first one.
+--
+-- `{ ios, android, apk }` — each an https URL string or null, exactly as
+-- `src/lib/app-links-config.ts` writes it. The store slots are pinned to
+-- apps.apple.com / play.google.com (an official-looking badge has to go
+-- where it says it goes); the APK slot takes any https URL because the
+-- owner hosts that file on a domain only they know.
+--
+-- JSONB rather than three TEXT columns, for the same reason `venues.contact`
+-- is one: the three are only ever read and written together, and the next
+-- store a venue wants to publish (AppGallery, F-Droid, a TestFlight invite)
+-- is then an app-level change instead of another ALTER on this table.
+--
+-- NOT NULL DEFAULT '{}' like `venues.contact` / `venues.loyalty`: the empty
+-- object parses to "all three absent", which every surface already renders
+-- as nothing at all. So every existing venue keeps showing guests exactly
+-- what it shows today until its owner fills the card in.
+--
+-- No RLS work: `venues` has tenant isolation enabled, forced and policed
+-- since P1-2, and adding a column does not touch its policies or grants.
+ALTER TABLE "venues" ADD COLUMN "app_links" JSONB NOT NULL DEFAULT '{}';

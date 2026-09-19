@@ -741,6 +741,84 @@ export async function updateVenueContact(
 }
 
 /* ------------------------------------------------------------------ */
+/* App links ("Get the app")                                           */
+/* ------------------------------------------------------------------ */
+
+import {
+  APP_LINK_FIELDS,
+  normalizeAppLink,
+  parseAppLinksConfig,
+  type AppLinkField,
+  type AppLinksConfig,
+} from "./app-links-config";
+
+/** Like `ContactResult`, and for the same reason: the settings card puts
+ *  the message under the box that was refused, so "invalid" alone would
+ *  leave an owner comparing three URLs by eye. */
+export type AppLinkResult<T = undefined> =
+  { ok: true; value: T } | { ok: false; error: "no_venue" | "invalid"; field?: AppLinkField };
+
+/** What the owner has published, raw — the three URL strings or null. The
+ *  Settings card draws its inputs from this, so a saved link comes back in
+ *  the same spelling it was stored in. */
+export async function getVenueAppLinks(userId: string): Promise<AppLinkResult<AppLinksConfig>> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { appLinks: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    return { ok: true as const, value: parseAppLinksConfig(venue.appLinks) };
+  });
+}
+
+/**
+ * Save where a guest gets the app.
+ *
+ * PARTIAL by design, exactly like `updateVenueContact`: a key absent from
+ * `input` leaves that link as it was, which is what lets one card post all
+ * three and a future JSON client patch one.
+ *
+ * An empty (or whitespace-only) string is the CLEAR — deleting the text in
+ * the box and pressing save is what an owner means by "take that button off
+ * the menu". A non-empty value that is not a publishable link is a refusal
+ * naming the field, never a silently dropped URL: an owner who pastes their
+ * Play listing into the iOS box must be told, not left believing the badge
+ * is live.
+ *
+ * Nothing is written until every field validates, so a form carrying a good
+ * App Store link and a broken APK URL changes neither.
+ */
+export async function updateVenueAppLinks(
+  userId: string,
+  input: Partial<Record<AppLinkField, string | null>>,
+): Promise<AppLinkResult> {
+  const patch: Partial<Record<AppLinkField, string | null>> = {};
+  for (const field of APP_LINK_FIELDS) {
+    const raw = input[field];
+    if (raw === undefined) continue;
+    if (raw === null || (typeof raw === "string" && raw.trim() === "")) {
+      patch[field] = null;
+      continue;
+    }
+    const url = normalizeAppLink(raw, field);
+    if (url === null) return { ok: false, error: "invalid", field };
+    patch[field] = url;
+  }
+
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true, appLinks: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    const next = { ...parseAppLinksConfig(venue.appLinks), ...patch };
+    await tx.venue.update({ where: { id: venue.id }, data: { appLinks: next } });
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Opening hours (P8)                                                  */
 /* ------------------------------------------------------------------ */
 

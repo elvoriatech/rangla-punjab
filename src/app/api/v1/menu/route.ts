@@ -110,6 +110,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // `wa.me` drops it) so the app links out with one `Linking.openURL`
           // and never re-derives a rule it could get subtly wrong.
           contact: menu.venue.contact ?? null,
+          // Where a guest gets the app: `{ ios?, android?, apk? }` of https
+          // URLs, or null — never absent — when the owner has published
+          // none. Sent to the app too (rather than only to the web menu)
+          // so an "also on iPhone / Android" screen can link the other
+          // platforms without a second endpoint.
+          appLinks: menu.venue.appLinks ?? null,
         },
         ordering: {
           dineIn: access.modes.dineIn,

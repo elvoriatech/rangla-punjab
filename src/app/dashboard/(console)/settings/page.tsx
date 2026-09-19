@@ -5,6 +5,7 @@ import { getSessionUserId } from "@/lib/auth";
 import {
   getLoyaltySettings,
   getOrderingSettings,
+  getVenueAppLinks,
   getVenueContact,
   getVenueGoogle,
   getVenueHours,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/venue-service";
 import { PLAN_LABELS } from "@/lib/plan-state";
 import { MAX_NOTIFY_EMAILS, PAYMENT_METHODS } from "@/lib/ordering-config";
+import { MAX_APP_LINK_LENGTH } from "@/lib/app-links-config";
 import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
 import { uploadedImageUrl } from "@/lib/menu-images";
 import { siteUrl } from "@/lib/public-menu";
@@ -22,6 +24,7 @@ import type { PlaceSuggestion } from "@/lib/google-rating";
 import {
   clearGoogleManualRatingAction,
   refreshGoogleRatingAction,
+  saveAppLinksAction,
   removeBannerAction,
   removeLogoAction,
   saveBannerAction,
@@ -105,6 +108,27 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   },
   contact_invalid: {
     error: "Couldn't save your contact details — check the three numbers and try again.",
+  },
+  // "Get the app". Same shape as the contact card: one success line, and a
+  // refusal per box that names the link that was refused — pasting the Play
+  // listing into the Apple box is the mistake this card exists to catch.
+  app: {
+    saved: "App links saved. Guests see them in the menu footer, and in the header once set.",
+  },
+  app_ios: {
+    error:
+      "That isn't an App Store link. Copy the address of your app's page on the App Store — it starts with https://apps.apple.com/ — or empty the box to hide the badge.",
+  },
+  app_android: {
+    error:
+      "That isn't a Google Play link. Copy the address of your app's page on Google Play — it starts with https://play.google.com/ — or empty the box to hide the badge.",
+  },
+  app_apk: {
+    error:
+      "That isn't a usable download link. Paste the full https:// address of the .apk file you host, or empty the box to hide the button.",
+  },
+  app_invalid: {
+    error: "Couldn't save your app links — check the three addresses and try again.",
   },
   google: {
     saved:
@@ -224,6 +248,10 @@ export default async function SettingsPage({
   const loyalty = loyaltyResult.ok ? loyaltyResult.value : null;
   const googleResult = await getVenueGoogle(userId);
   const google = googleResult.ok ? googleResult.value : null;
+  const appLinksResult = await getVenueAppLinks(userId);
+  // Raw URLs in the boxes — what the owner sees is what is stored, so
+  // saving an untouched form is a no-op.
+  const appLinks = appLinksResult.ok ? appLinksResult.value : null;
   const contactResult = await getVenueContact(userId);
   // Raw E.164 in the boxes, not the grouped display string: what the owner
   // sees is what is stored, so saving an untouched form is a no-op.
@@ -465,6 +493,67 @@ export default async function SettingsPage({
           className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
         >
           Save contact
+        </SubmitButton>
+      </form>
+
+      {/* "Get the app" — App Store, Google Play, direct APK. One form,
+          three boxes: they are one decision ("can a guest get our app?"),
+          and every box left empty simply hides its own button. */}
+      <form action={saveAppLinksAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
+        <p className="text-sm font-medium">App</p>
+        <p className="mt-1 text-xs text-muted">
+          Shown in the website footer and header once set. Leave empty to hide.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <label className="block text-sm">
+            <span className="font-medium">App Store (iOS)</span>
+            <input
+              type="url"
+              name="appIos"
+              inputMode="url"
+              autoComplete="off"
+              maxLength={MAX_APP_LINK_LENGTH}
+              defaultValue={appLinks?.ios ?? ""}
+              placeholder="https://apps.apple.com/de/app/…"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Google Play (Android)</span>
+            <input
+              type="url"
+              name="appAndroid"
+              inputMode="url"
+              autoComplete="off"
+              maxLength={MAX_APP_LINK_LENGTH}
+              defaultValue={appLinks?.android ?? ""}
+              placeholder="https://play.google.com/store/apps/details?id=…"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Android .apk file</span>
+            <input
+              type="url"
+              name="appApk"
+              inputMode="url"
+              autoComplete="off"
+              maxLength={MAX_APP_LINK_LENGTH}
+              defaultValue={appLinks?.apk ?? ""}
+              placeholder="https://example.com/downloads/app.apk"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          The .apk is for guests who install the app directly, without a store — their phone will
+          ask them to allow the install. Host the file yourself over https.
+        </p>
+        <SubmitButton
+          pendingLabel="Saving…"
+          className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+        >
+          Save app links
         </SubmitButton>
       </form>
 

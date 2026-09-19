@@ -6,6 +6,7 @@ import { asTenant, asUser } from "./tenant";
 import { __fakeRating } from "./google-rating";
 import {
   getMenuCounts,
+  getVenueAppLinks,
   getVenueContact,
   getVenueForUser,
   getVenueGoogle,
@@ -14,6 +15,7 @@ import {
   updateVenueGoogleRatingEnabled,
   updateVenueGooglePlaceId,
   updateVenueAppearance,
+  updateVenueAppLinks,
   updateVenueContact,
   updateVenueLocalization,
   updateVenueLogo,
@@ -426,5 +428,84 @@ describe("venue-service (owner dashboard)", () => {
     if (!after.ok) throw new Error("no venue");
     expect(after.value.landline).toBe("+497531123456");
     expect(after.value.mobile).toBeNull();
+  });
+
+  /* ---------------- app links ("Get the app") ---------------- */
+
+  it("a fresh venue publishes no app at all", async () => {
+    const { userId } = await signupWithVenue();
+    const r = await getVenueAppLinks(userId);
+    if (!r.ok) throw new Error("no venue");
+    expect(r.value).toEqual({ ios: null, android: null, apk: null });
+  });
+
+  it("updateVenueAppLinks stores the three links and reads them back", async () => {
+    const { userId } = await signupWithVenue();
+    expect(
+      (
+        await updateVenueAppLinks(userId, {
+          ios: "  https://apps.apple.com/de/app/elvoria/id123456789  ",
+          android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+          apk: "https://elvoria.example/downloads/app.apk",
+        })
+      ).ok,
+    ).toBe(true);
+
+    const saved = await getVenueAppLinks(userId);
+    if (!saved.ok) throw new Error("no venue");
+    // Stored canonical — the owner's clipboard whitespace is not part of
+    // the link.
+    expect(saved.value).toEqual({
+      ios: "https://apps.apple.com/de/app/elvoria/id123456789",
+      android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+      apk: "https://elvoria.example/downloads/app.apk",
+    });
+  });
+
+  it("a patch touches only the fields it carries, and an empty box clears one", async () => {
+    const { userId } = await signupWithVenue();
+    await updateVenueAppLinks(userId, {
+      ios: "https://apps.apple.com/de/app/elvoria/id1",
+      android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+      apk: "https://elvoria.example/app.apk",
+    });
+
+    // Absent keys survive; an empty string is the clear.
+    expect((await updateVenueAppLinks(userId, { apk: "  " })).ok).toBe(true);
+    expect(
+      (await updateVenueAppLinks(userId, { ios: "https://apps.apple.com/de/app/elvoria/id2" })).ok,
+    ).toBe(true);
+
+    const after = await getVenueAppLinks(userId);
+    if (!after.ok) throw new Error("no venue");
+    expect(after.value).toEqual({
+      ios: "https://apps.apple.com/de/app/elvoria/id2",
+      android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+      apk: null,
+    });
+
+    // Explicit null is the same clear, from a JSON client rather than a form.
+    expect((await updateVenueAppLinks(userId, { android: null })).ok).toBe(true);
+    const cleared = await getVenueAppLinks(userId);
+    if (!cleared.ok) throw new Error("no venue");
+    expect(cleared.value.android).toBeNull();
+  });
+
+  it("names the bad link and writes none of the patch", async () => {
+    const { userId } = await signupWithVenue();
+    await updateVenueAppLinks(userId, { ios: "https://apps.apple.com/de/app/elvoria/id1" });
+
+    // The Play listing in the Apple box — the mistake the card exists for.
+    const bad = await updateVenueAppLinks(userId, {
+      android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+      ios: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
+    });
+    expect(bad).toEqual({ ok: false, error: "invalid", field: "ios" });
+
+    // The good half of a refused patch never lands.
+    const after = await getVenueAppLinks(userId);
+    if (!after.ok) throw new Error("no venue");
+    expect(after.value.ios).toBe("https://apps.apple.com/de/app/elvoria/id1");
+    expect(after.value.android).toBeNull();
   });
 });

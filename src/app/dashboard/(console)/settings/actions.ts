@@ -12,6 +12,7 @@ import { checkRateLimit, GOOGLE_LOOKUP_IP } from "@/lib/rate-limit";
 import { searchPlaces } from "@/lib/google-rating";
 import {
   refreshVenueGoogleRating,
+  updateVenueAppLinks,
   updateVenueContact,
   updateVenueGoogleManualRating,
   updateVenueGooglePlaceId,
@@ -187,6 +188,31 @@ export async function saveContactAction(form: FormData): Promise<void> {
     whatsapp: String(form.get("whatsapp") ?? ""),
   });
   return finish(userId, result.ok, result.ok ? "contact" : `contact_${result.field ?? "invalid"}`);
+}
+
+/**
+ * Where a guest gets the app — App Store, Google Play, direct APK.
+ *
+ * One card, three boxes, posted together for the same reason the contact
+ * numbers are: they answer one question ("can I get your app?") and an
+ * owner fixing a typo in one must not have to re-paste the others.
+ *
+ * An empty box is the clear. A box holding something that is not a
+ * publishable link is refused BY NAME (`app_ios`), because the commonest
+ * mistake here is pasting the Play listing into the Apple box — which a
+ * bare "invalid" would leave the owner hunting for.
+ *
+ * `finish(ok: true)` purges the CDN: these links are in the footer and the
+ * header of every cached copy of the public menu.
+ */
+export async function saveAppLinksAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateVenueAppLinks(userId, {
+    ios: String(form.get("appIos") ?? ""),
+    android: String(form.get("appAndroid") ?? ""),
+    apk: String(form.get("appApk") ?? ""),
+  });
+  return finish(userId, result.ok, result.ok ? "app" : `app_${result.field ?? "invalid"}`);
 }
 
 /** P7-14 — the venue's Google Place ID. Blank clears it, which turns the

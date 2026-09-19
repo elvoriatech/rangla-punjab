@@ -262,6 +262,11 @@ model Venue {
   // {} = none published. Stored normalised so the display string and the
   // `tel:` / `wa.me` links are derived, never typed twice.
   contact             Json        @default("{}")
+  // Where a guest gets the venue's own app (src/lib/app-links-config.ts):
+  // `{ ios, android, apk }`, each an https URL string or null, and {} = no
+  // app published. The store slots are pinned to apps.apple.com /
+  // play.google.com; `apk` is a direct download the owner hosts.
+  appLinks            Json        @default("{}") @map("app_links")
   // Google rating + review link (P7-14, src/lib/google-rating.ts). The
   // Place ID is the owner's own setting; `google_rating` is a CACHE of what
   // the Places API last answered — `{ rating, count, fetchedAt }`, refreshed

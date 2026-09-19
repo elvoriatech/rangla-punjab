@@ -6,6 +6,7 @@ import { currentOpenState } from "./opening-hours";
 import { parseOpeningHours } from "./opening-hours-schema";
 import { publicRating, scheduleVenueRatingRefresh, type PublicRating } from "./google-rating";
 import { parseContactConfig, publicContact, type PublicContact } from "./contact-config";
+import { parseAppLinksConfig, publicAppLinks, type PublicAppLinks } from "./app-links-config";
 import type { PreviewContext } from "./preview-context";
 
 /**
@@ -88,6 +89,16 @@ export interface PublicMenu {
      * treats absent and null identically: no contact row at all.
      */
     contact?: PublicContact | null;
+    /**
+     * Where a guest gets the venue's own app — `{ ios?, android?, apk? }`,
+     * each an https URL, with absent keys for the slots the owner left
+     * empty. Null when they have published none, which is every venue
+     * until its owner fills the Settings card in.
+     *
+     * Optional so a hand-built fixture needn't carry it; every surface
+     * treats absent and null identically: no "Get the app" section at all.
+     */
+    appLinks?: PublicAppLinks | null;
     branding: {
       primaryColor?: string;
       logoKey?: string | null;
@@ -189,6 +200,7 @@ export async function loadPublicMenu(
         timezone: true,
         hours: true,
         contact: true,
+        appLinks: true,
         branding: true,
         googlePlaceId: true,
         googleRating: true,
@@ -309,6 +321,10 @@ export async function loadPublicMenu(
         // display string are the same on the web footer, the account page
         // and in the app, so no surface builds them for itself.
         contact: publicContact(parseContactConfig(venue.contact)),
+        // Same posture as `contact`: validated once here, so the footer
+        // badges and the app's own screen link to the same three URLs and
+        // neither has to decide what counts as a store link.
+        appLinks: publicAppLinks(parseAppLinksConfig(venue.appLinks)),
         branding,
       },
       locale: effectiveLocale,

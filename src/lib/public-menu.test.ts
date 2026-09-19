@@ -191,6 +191,39 @@ describe("public menu loader", () => {
     expect((await loadPublicMenu(context!))?.venue.contact ?? null).toBeNull();
   });
 
+  it("carries the venue's app links, with the empty slots omitted", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+
+    // Every venue until its owner fills the App card in.
+    expect((await loadPublicMenu(context!))?.venue.appLinks ?? null).toBeNull();
+
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({
+        data: {
+          appLinks: {
+            ios: "https://apps.apple.com/de/app/elvoria/id1",
+            apk: "https://elvoria.example/app.apk",
+          },
+        },
+      }),
+    );
+    // Absent keys, not nulls: the footer writes `appLinks.android ? …`.
+    const links = (await loadPublicMenu(context!))?.venue.appLinks;
+    expect(links).toEqual({
+      ios: "https://apps.apple.com/de/app/elvoria/id1",
+      apk: "https://elvoria.example/app.apk",
+    });
+    expect(links).not.toHaveProperty("android");
+
+    // A hand-edited row that is not a publishable link reads as no app,
+    // never as a badge pointing somewhere it shouldn't.
+    await asUser(userId, (tx) =>
+      tx.venue.updateMany({ data: { appLinks: { ios: "http://apps.apple.com/de/app/x/id1" } } }),
+    );
+    expect((await loadPublicMenu(context!))?.venue.appLinks ?? null).toBeNull();
+  });
+
   it("tells the checkout whether an ASAP order is still possible", async () => {
     const { userId, venueSlug } = await seedPublishedMenu();
     const { compileWeekly, WEEKDAYS } = await import("./opening-hours");

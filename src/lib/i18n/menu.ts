@@ -151,6 +151,34 @@ const en = {
     /** WhatsApp leaves the site, so its link says so out loud. */
     whatsappAria: (number: string): string => `Message ${number} on WhatsApp (opens WhatsApp)`,
   },
+  /** "Get the app" — the footer section and the compact header link that
+   *  jumps to it. Store names ("App Store", "Google Play") are brand names
+   *  and stay as they are in every language; everything around them is
+   *  translated. Nothing here renders until an owner publishes a link. */
+  app: {
+    /** Compact header link, beside the open pill. Kept to one word: it
+     *  shares a row with the open/closed pill on a 320px phone. */
+    navLabel: "App",
+    /** Accessible name of that link — it is a jump, not a download. */
+    navAria: "Get the app — jump to the download links",
+    /** Heading of the footer section, and the group's accessible name. */
+    title: "Get the app",
+    /** One line under the heading. Why a guest would want it. */
+    blurb: "Order in a tap, keep your favourites and follow your order.",
+    /** Badge text. Top line is translated, the store name is not, and the
+     *  two together are the badge's accessible name. */
+    iosTop: "Download on the",
+    iosName: "App Store",
+    androidTop: "Get it on",
+    androidName: "Google Play",
+    /** Both badges leave the site, so their links say so out loud. */
+    storeAria: (badge: string): string => `${badge} (opens in a new tab)`,
+    /** The direct download, for guests with no Play Store on the phone. */
+    apk: "Download Android app (.apk)",
+    /** Said before they tap, not after: an unexplained Android warning is
+     *  what makes someone abandon the install. */
+    apkHint: "Android will ask you to allow the install.",
+  },
   hero: {
     welcomeAria: "Welcome",
     welcomeTo: "Welcome to",
@@ -280,6 +308,19 @@ const de: MenuCopy = {
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `${number} über WhatsApp anschreiben (öffnet WhatsApp)`,
   },
+  app: {
+    navLabel: "App",
+    navAria: "App holen — zu den Download-Links springen",
+    title: "App holen",
+    blurb: "Mit einem Tipp bestellen, Favoriten merken und die Bestellung verfolgen.",
+    iosTop: "Laden im",
+    iosName: "App Store",
+    androidTop: "Jetzt bei",
+    androidName: "Google Play",
+    storeAria: (badge) => `${badge} (öffnet in einem neuen Tab)`,
+    apk: "Android-App herunterladen (.apk)",
+    apkHint: "Android fragt Sie, ob die Installation erlaubt werden soll.",
+  },
   hero: {
     welcomeAria: "Willkommen",
     welcomeTo: "Willkommen bei",
@@ -408,6 +449,19 @@ const es: MenuCopy = {
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `Escribir al ${number} por WhatsApp (abre WhatsApp)`,
   },
+  app: {
+    navLabel: "App",
+    navAria: "Obtener la app: ir a los enlaces de descarga",
+    title: "Obtener la app",
+    blurb: "Pida con un toque, guarde sus favoritos y siga su pedido.",
+    iosTop: "Consíguelo en el",
+    iosName: "App Store",
+    androidTop: "Disponible en",
+    androidName: "Google Play",
+    storeAria: (badge) => `${badge} (se abre en una pestaña nueva)`,
+    apk: "Descargar la app de Android (.apk)",
+    apkHint: "Android le pedirá permiso para instalarla.",
+  },
   hero: {
     welcomeAria: "Bienvenida",
     welcomeTo: "Bienvenidos a",
@@ -535,6 +589,19 @@ const it: MenuCopy = {
     whatsapp: "WhatsApp",
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `Scrivi al ${number} su WhatsApp (apre WhatsApp)`,
+  },
+  app: {
+    navLabel: "App",
+    navAria: "Scarica l'app: vai ai link di download",
+    title: "Scarica l'app",
+    blurb: "Ordinate con un tocco, salvate i preferiti e seguite l'ordine.",
+    iosTop: "Scaricala su",
+    iosName: "App Store",
+    androidTop: "Disponibile su",
+    androidName: "Google Play",
+    storeAria: (badge) => `${badge} (si apre in una nuova scheda)`,
+    apk: "Scarica l'app Android (.apk)",
+    apkHint: "Android vi chiederà di autorizzare l'installazione.",
   },
   hero: {
     welcomeAria: "Benvenuti",
@@ -675,6 +742,19 @@ const ar: MenuCopy = {
     whatsapp: "واتساب",
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `مراسلة ${number} عبر واتساب (يفتح واتساب)`,
+  },
+  app: {
+    navLabel: "التطبيق",
+    navAria: "احصل على التطبيق — انتقل إلى روابط التنزيل",
+    title: "احصل على التطبيق",
+    blurb: "اطلبوا بلمسة واحدة، واحفظوا المفضّلة، وتابعوا طلبكم.",
+    iosTop: "نزّله من",
+    iosName: "App Store",
+    androidTop: "احصل عليه من",
+    androidName: "Google Play",
+    storeAria: (badge) => `${badge} (يفتح في تبويب جديد)`,
+    apk: "تنزيل تطبيق أندرويد (.apk)",
+    apkHint: "سيطلب منكم أندرويد السماح بالتثبيت.",
   },
   hero: {
     welcomeAria: "ترحيب",
