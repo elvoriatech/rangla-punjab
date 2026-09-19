@@ -1,7 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, fonts, logo, money, radius } from "./theme";
-import { useI18n } from "./i18n";
+import { ALLERGEN_ICONS, DIET_ICONS, useI18n } from "./i18n";
 import type { ApiItem } from "./api";
 
 /** Red screen header with the brand mark — the mockup's top bar. */
@@ -87,6 +87,65 @@ export function PrimaryButton({
   );
 }
 
+/**
+ * Diet + allergen badges stacked in the photo's top-right corner, so a
+ * guest scanning the list sees "vegan" or "contains milk" without opening
+ * the sheet. Diets first (green), then allergens (rose); anything past
+ * `max` collapses into a "+N" badge — the sheet lists everything.
+ */
+export function DishBadges({
+  item,
+  max,
+  size,
+}: {
+  item: Pick<ApiItem, "dietary" | "allergens">;
+  max: number;
+  size: "sm" | "lg";
+}): React.ReactElement | null {
+  const { t } = useI18n();
+  const dietNames = t.dietary as Record<string, string>;
+  const allergenNames = t.allergens as Record<string, string>;
+  const badges = [
+    ...item.dietary.map((d) => ({ key: `d-${d}`, icon: DIET_ICONS[d] ?? "•", diet: true })),
+    ...item.allergens.map((a) => ({ key: `a-${a}`, icon: ALLERGEN_ICONS[a] ?? "•", diet: false })),
+  ];
+  if (badges.length === 0) return null;
+  const shown = badges.slice(0, badges.length > max ? max - 1 : max);
+  const rest = badges.length - shown.length;
+  const label = [
+    ...item.dietary.map((d) => dietNames[d] ?? d),
+    item.allergens.length > 0
+      ? `${t.dishAllergens}: ${item.allergens.map((a) => allergenNames[a] ?? a).join(", ")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(". ");
+  const dim = size === "lg" ? styles.badgeLg : styles.badgeSm;
+  const glyph = size === "lg" ? styles.badgeGlyphLg : styles.badgeGlyphSm;
+  return (
+    <View
+      style={styles.badgeStack}
+      accessibilityRole="text"
+      accessibilityLabel={label}
+      pointerEvents="none"
+    >
+      {shown.map((b) => (
+        <View
+          key={b.key}
+          style={[styles.badge, dim, b.diet ? styles.badgeDiet : styles.badgeAllergen]}
+        >
+          <Text style={glyph}>{b.icon}</Text>
+        </View>
+      ))}
+      {rest > 0 ? (
+        <View style={[styles.badge, dim, styles.badgeMore]}>
+          <Text style={[glyph, styles.badgeMoreText]}>+{rest}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 /** The mockup's dish row: photo left, name + description, price, red ⊕. */
 export function DishRow({
   item,
@@ -102,7 +161,10 @@ export function DishRow({
   const { t } = useI18n();
   return (
     <Pressable style={styles.dishRow} onPress={() => onOpen?.(item)} accessibilityLabel={item.name}>
-      <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} resizeMode="cover" />
+      <View style={styles.dishPhotoBox}>
+        <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} resizeMode="cover" />
+        <DishBadges item={item} max={3} size="sm" />
+      </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={styles.dishName} numberOfLines={1}>
           {item.name}
@@ -219,12 +281,35 @@ const styles = StyleSheet.create({
   /** Reserved for two description lines, so a dish WITHOUT a description
    *  doesn't pull its price row up and break the alignment. */
   dishDescBox: { height: 36, justifyContent: "flex-start" },
+  dishPhotoBox: { width: 84, height: 84 },
   dishPhoto: {
     width: 84,
     height: 84,
     borderRadius: radius.md,
     backgroundColor: colors.line,
   },
+  // Badge column pinned to the photo's top-right (end-aligned so RTL
+  // mirrors it). Hairline + shadow so it reads on any photo.
+  badgeStack: { position: "absolute", top: 4, end: 4, gap: 3, alignItems: "flex-end" },
+  badge: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  badgeSm: { width: 22, height: 22 },
+  badgeLg: { width: 32, height: 32 },
+  badgeGlyphSm: { fontSize: 12, lineHeight: 15 },
+  badgeGlyphLg: { fontSize: 17, lineHeight: 21 },
+  badgeDiet: { backgroundColor: "#e9f3e4", borderColor: "#3f7030" },
+  badgeAllergen: { backgroundColor: "#fdeee6", borderColor: colors.red },
+  badgeMore: { backgroundColor: colors.creamCard, borderColor: colors.line },
+  badgeMoreText: { color: colors.inkSoft, ...fonts.bodyBold, fontSize: 11 },
   dishName: { color: colors.ink, fontSize: 15.5, lineHeight: 20, ...fonts.bodyBold },
   dishDesc: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, lineHeight: 18 },
   dishPrice: { color: colors.red, fontSize: 14, ...fonts.bodyBold },

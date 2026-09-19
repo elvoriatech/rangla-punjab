@@ -3,6 +3,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "rea
 import type { ApiItem } from "./api";
 import { DIET_ICONS, useI18n } from "./i18n";
 import { colors, fonts, money, radius } from "./theme";
+import { DishBadges } from "./components";
 
 /**
  * Dish details. The list rows are deliberately uniform — one line of name,
@@ -36,7 +37,13 @@ export function DishSheet({
         <Pressable style={styles.sheet} onPress={() => {}}>
           {item ? (
             <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
-              <Image source={{ uri: item.photoUrl }} style={styles.hero} resizeMode="cover" />
+              <View>
+                <Image source={{ uri: item.photoUrl }} style={styles.hero} resizeMode="cover" />
+                {/* Under the close button: badges start below it. */}
+                <View style={styles.heroBadges}>
+                  <DishBadges item={item} max={6} size="lg" />
+                </View>
+              </View>
               <Pressable style={styles.close} onPress={onClose} hitSlop={10}>
                 <Text style={styles.closeText}>×</Text>
               </Pressable>
@@ -124,6 +131,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   hero: { width: "100%", height: 210, backgroundColor: colors.line },
+  heroBadges: { position: "absolute", top: 52, end: 10, bottom: 0, start: 0 },
   close: {
     position: "absolute",
     top: 12,

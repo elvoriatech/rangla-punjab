@@ -79,6 +79,31 @@ export const DIET_ICONS: Record<string, string> = {
 };
 
 /**
+ * The 14 EU allergens (Annex II), keyed like `src/lib/allergens.ts` on the
+ * web. Purely a visual hint on the photo badges — the badge's
+ * accessibility label and the details sheet carry the translated name.
+ * Where a diet icon and an allergen icon coincide (🌾 gluten-free vs.
+ * contains gluten, 🥛 dairy-free vs. contains milk) the badge TINT tells
+ * them apart: green for diets, rose for allergens.
+ */
+export const ALLERGEN_ICONS: Record<string, string> = {
+  gluten: "🌾",
+  crustaceans: "🦐",
+  eggs: "🥚",
+  fish: "🐟",
+  peanuts: "🥜",
+  soybeans: "🫘",
+  milk: "🥛",
+  nuts: "🌰",
+  celery: "🥬",
+  mustard: "🟡",
+  sesame: "⚪",
+  sulphites: "🍷",
+  lupin: "🌸",
+  molluscs: "🐚",
+};
+
+/**
  * English is the canonical block: `Strings` is derived from it, so every
  * other language is structurally checked against it at compile time —
  * a missing or misspelled key fails `tsc`.
