@@ -83,8 +83,8 @@ export const DIET_ICONS: Record<string, string> = {
  * web. Purely a visual hint on the photo badges — the badge's
  * accessibility label and the details sheet carry the translated name.
  * Where a diet icon and an allergen icon coincide (🌾 gluten-free vs.
- * contains gluten, 🥛 dairy-free vs. contains milk) the badge TINT tells
- * them apart: green for diets, rose for allergens.
+ * contains gluten, 🥛 dairy-free vs. contains milk) the details sheet
+ * spells out which is meant.
  */
 export const ALLERGEN_ICONS: Record<string, string> = {
   gluten: "🌾",

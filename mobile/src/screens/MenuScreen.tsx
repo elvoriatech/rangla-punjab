@@ -38,6 +38,7 @@ export function MenuScreen({
               key={cat.id}
               label={cat.name}
               photoUrl={cat.photoUrl}
+              icon={cat.icon}
               active={cat.id === activeId}
               onPress={() => setActiveId(cat.id)}
             />
@@ -62,11 +63,14 @@ export function MenuScreen({
 function Chip({
   label,
   photoUrl,
+  icon,
   active,
   onPress,
 }: {
   label: string;
   photoUrl?: string | null;
+  /** Website's category emoji; shown when there is no photo. */
+  icon?: string | null;
   active: boolean;
   onPress: () => void;
 }): React.ReactElement {
@@ -74,7 +78,11 @@ function Chip({
     <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
       {/* Owner-uploaded category photo, when there is one — tiny round
           thumb so the rail stays a text rail, just richer. */}
-      {photoUrl ? <Image source={{ uri: photoUrl }} style={styles.chipPhoto} /> : null}
+      {photoUrl ? (
+        <Image source={{ uri: photoUrl }} style={styles.chipPhoto} />
+      ) : icon ? (
+        <Text style={styles.chipIcon}>{icon}</Text>
+      ) : null}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
       {active ? (
         // The mockup bubble's tail: hangs off the bottom-right, its top
@@ -111,6 +119,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   chipPhoto: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.line },
+  chipIcon: { fontSize: 16, marginEnd: 6 },
   chipActive: {
     backgroundColor: colors.red,
     borderRadius: 18,

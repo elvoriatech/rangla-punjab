@@ -156,7 +156,7 @@ export function HomeScreen({
                 <Image source={{ uri: cat.photoUrl }} style={styles.catPhoto} />
               ) : (
                 <View style={[styles.catPhoto, styles.catFallback]}>
-                  <Text style={{ ...fonts.body, fontSize: 22 }}>🍛</Text>
+                  <Text style={{ ...fonts.body, fontSize: 24 }}>{cat.icon ?? "🍛"}</Text>
                 </View>
               )}
               <Text style={styles.catName} numberOfLines={1}>

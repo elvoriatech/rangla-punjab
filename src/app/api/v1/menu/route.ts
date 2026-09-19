@@ -5,6 +5,7 @@ import { loadPublicMenu } from "@/lib/public-menu";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { menuImageUrl } from "@/lib/menu-images";
+import { categoryIcon } from "@/lib/category-icons";
 import { siteUrl } from "@/lib/site-url";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 import { isLocaleCode } from "@/lib/locales";
@@ -99,6 +100,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           id: cat.id,
           name: cat.name,
           photoUrl: cat.photoKey ? abs(menuImageUrl(cat.photoKey, cat.id, 160)) : null,
+          // The website's Appearance → "icons + names" emoji, inferred from
+          // the category name — sent so the app's rail matches the web when
+          // no photo is uploaded. Null when the venue shows names only.
+          icon: branding.categoryIcons === "icons" ? categoryIcon(cat.name) : null,
           items: cat.items.map((item) => ({
             id: item.id,
             name: item.name,

@@ -90,7 +90,7 @@ export function PrimaryButton({
 /**
  * Diet + allergen badges stacked in the photo's top-right corner, so a
  * guest scanning the list sees "vegan" or "contains milk" without opening
- * the sheet. Diets first (green), then allergens (rose); anything past
+ * the sheet. Diets first, then allergens; anything past
  * `max` collapses into a "+N" badge — the sheet lists everything.
  */
 export function DishBadges({
@@ -289,27 +289,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.line,
   },
   // Badge column pinned to the photo's top-right (end-aligned so RTL
-  // mirrors it). Hairline + shadow so it reads on any photo.
-  badgeStack: { position: "absolute", top: 4, end: 4, gap: 3, alignItems: "flex-end" },
-  badge: {
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  },
+  // mirrors it). Plain glyphs, no chip behind them — a soft drop shadow
+  // keeps them legible on a bright photo.
+  badgeStack: { position: "absolute", top: 3, end: 3, gap: 1, alignItems: "flex-end" },
+  badge: { alignItems: "center", justifyContent: "center" },
   badgeSm: { width: 22, height: 22 },
-  badgeLg: { width: 32, height: 32 },
-  badgeGlyphSm: { fontSize: 12, lineHeight: 15 },
-  badgeGlyphLg: { fontSize: 17, lineHeight: 21 },
-  badgeDiet: { backgroundColor: "#e9f3e4", borderColor: "#3f7030" },
-  badgeAllergen: { backgroundColor: "#fdeee6", borderColor: colors.red },
-  badgeMore: { backgroundColor: colors.creamCard, borderColor: colors.line },
-  badgeMoreText: { color: colors.inkSoft, ...fonts.bodyBold, fontSize: 11 },
+  badgeLg: { width: 34, height: 34 },
+  badgeGlyphSm: {
+    fontSize: 15,
+    lineHeight: 19,
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowRadius: 3,
+    textShadowOffset: { width: 0, height: 1 },
+  },
+  badgeGlyphLg: {
+    fontSize: 24,
+    lineHeight: 30,
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 1 },
+  },
+  badgeDiet: {},
+  badgeAllergen: {},
+  badgeMore: {},
+  badgeMoreText: {
+    color: "#ffffff",
+    ...fonts.bodyHeavy,
+    fontSize: 12,
+    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowRadius: 3,
+    textShadowOffset: { width: 0, height: 1 },
+  },
   dishName: { color: colors.ink, fontSize: 15.5, lineHeight: 20, ...fonts.bodyBold },
   dishDesc: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, lineHeight: 18 },
   dishPrice: { color: colors.red, fontSize: 14, ...fonts.bodyBold },

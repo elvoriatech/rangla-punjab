@@ -38,6 +38,9 @@ export interface ApiCategory {
   id: string;
   name: string;
   photoUrl: string | null;
+  /** Emoji the website shows for this category (Appearance → icons);
+   *  null/absent = names only, or an older server. */
+  icon?: string | null;
   items: ApiItem[];
 }
 export interface ApiDeliveryArea {
