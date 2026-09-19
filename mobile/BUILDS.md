@@ -41,6 +41,20 @@ Native splash: the top-level `splash` key is what this Expo version reads for
 the web/PWA path. Add `expo-splash-screen` when a native splash is needed; the
 generated splash asset is already sized for it.
 
+### Launcher icon
+
+The app icon is normally the venue logo on the brand red. To ship a finished
+icon instead, drop a **square** PNG/JPEG (1024px or larger) at
+`public/brand/<venue-slug>-mobile-app-icon.{png,jpg,jpeg}` — for this venue
+`public/brand/rangla-punjab-mobile-app-icon.jpeg` — and run
+`pnpm brand:mobile --venue <slug>` as usual (or pass `--icon <path>`). Only
+the launcher icon changes: iOS gets it edge to edge (iOS applies its own
+rounded mask), Android's adaptive foreground gets it on a white ground so the
+launcher's circle crop trims only the artwork's white margin. Splash, favicon
+and the in-app logo still come from the venue logo. An icon change is a
+**native** change: rebuild the app (`expo run:ios` / EAS), an OTA update
+cannot deliver it.
+
 ## Languages, RTL and Google sign-in
 
 ### Guest languages

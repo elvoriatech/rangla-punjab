@@ -27,6 +27,9 @@
  *   --name <text>           override the app display name
  *   --slug <slug>           override the slug that seeds scheme + store ids
  *   --logo <path>           use a local image instead of the venue's uploaded logo
+ *   --icon <path>           finished launcher icon (square, full-bleed) — replaces the
+ *                           logo-on-red icon only; splash/favicon/in-app logo unchanged.
+ *                           Default: public/brand/<slug>-mobile-app-icon.{png,jpg,jpeg} if present
  *   --hero <path>           use a local image for the hero artwork
  *   --api-url <url>         record the production API base in extra.brand.apiUrl
  *   --bundle-prefix <id>    reverse-DNS prefix for store ids (default com.elvoria)
@@ -71,6 +74,8 @@ interface Options {
   name?: string;
   slug?: string;
   logo?: string;
+  /** A finished launcher icon: used as-is for the app icon, nothing else. */
+  icon?: string;
   hero?: string;
   apiUrl?: string;
   bundlePrefix?: string;
@@ -109,6 +114,10 @@ function parseArgs(argv: string[]): Options {
       case "--slug":
         opts.slug = value(i, arg);
         i++;
+        break;
+      case "--icon":
+        opts.icon = value(i, arg);
+        i += 1;
         break;
       case "--logo":
         opts.logo = value(i, arg);
@@ -160,6 +169,7 @@ function usage(): string {
     "  --name <text>         override the app display name",
     "  --slug <slug>         override the slug seeding scheme + store ids",
     "  --logo <path>         use a local image instead of the venue's uploaded logo",
+    "  --icon <path>         finished launcher icon (square); default public/brand/<slug>-mobile-app-icon.*",
     "  --hero <path>         use a local image for the hero artwork",
     "  --api-url <url>       record the production API base in extra.brand.apiUrl",
     "  --bundle-prefix <id>  reverse-DNS prefix for store ids (default com.elvoria)",
@@ -249,6 +259,41 @@ async function loadMark(opts: Options, venue: VenueRow, brand: MobileBrand): Pro
   }
   const bytes = await monogram(brand);
   return { ...(await describe(bytes)), source: "monogram (no logo uploaded)" };
+}
+
+/**
+ * The finished launcher icon, if one exists: `--icon <path>`, else the
+ * convention `public/brand/<slug>-mobile-app-icon.{png,jpg,jpeg}` next to the
+ * web app's other brand files — so `pnpm brand:mobile --venue <slug>` keeps
+ * using it on every rebrand without anyone remembering a flag.
+ */
+async function loadFinishedIcon(
+  opts: Options,
+  brand: MobileBrand,
+): Promise<{ bytes: Buffer; source: string } | null> {
+  const candidates = opts.icon
+    ? [path.resolve(opts.icon)]
+    : ["png", "jpg", "jpeg"].map((ext) =>
+        path.join(process.cwd(), "public", "brand", `${brand.venue.slug}-mobile-app-icon.${ext}`),
+      );
+  for (const file of candidates) {
+    try {
+      const bytes = await readFile(file);
+      const meta = await sharp(bytes).metadata();
+      if (!meta.width || !meta.height || Math.abs(meta.width - meta.height) > 2) {
+        throw new Error(`${file}: launcher icon must be square (got ${meta.width}×${meta.height})`);
+      }
+      if (meta.width < 1024) {
+        console.warn(
+          `! ${path.relative(process.cwd(), file)} is ${meta.width}px — 1024px+ recommended`,
+        );
+      }
+      return { bytes, source: path.relative(process.cwd(), file) };
+    } catch (err) {
+      if (opts.icon) throw err; // an explicit flag must not fall back silently
+    }
+  }
+  return null;
 }
 
 async function describe(bytes: Buffer): Promise<Omit<Mark, "source">> {
@@ -401,18 +446,37 @@ async function buildAssets(
   brand: MobileBrand,
   mark: Mark,
   hero: Buffer,
+  /** A finished, full-bleed launcher icon. When present it IS the app icon:
+   *  iOS gets it edge to edge (the OS applies its own corner mask); Android's
+   *  adaptive foreground gets it inset on a white ground so the launcher's
+   *  circle/squircle crop trims only the artwork's own white margin. Splash,
+   *  favicon and the in-app logo still come from the venue mark. */
+  finishedIcon?: Buffer | null,
 ): Promise<Map<string, Buffer>> {
   const files = new Map<string, Buffer>();
   const rel = (assetPath: string) => assetPath.replace(/^\.\//, "");
-  files.set(
-    rel(brand.assets.icon),
-    await onGround(mark.bytes, ICON_PX, ICON_INSET, brand.colors.red),
-  );
-  files.set(
-    rel(brand.assets.adaptiveForeground),
-    await contain(mark.bytes, ICON_PX, ADAPTIVE_INSET),
-  );
-  files.set(rel(brand.assets.adaptiveBackground), await solid(ICON_PX, brand.colors.red));
+  if (finishedIcon) {
+    files.set(
+      rel(brand.assets.icon),
+      await sharp(finishedIcon)
+        .resize(ICON_PX, ICON_PX, { fit: "cover", position: "centre" })
+        .flatten({ background: "#ffffff" })
+        .png()
+        .toBuffer(),
+    );
+    files.set(rel(brand.assets.adaptiveForeground), await contain(finishedIcon, ICON_PX, 0.72));
+    files.set(rel(brand.assets.adaptiveBackground), await solid(ICON_PX, "#ffffff"));
+  } else {
+    files.set(
+      rel(brand.assets.icon),
+      await onGround(mark.bytes, ICON_PX, ICON_INSET, brand.colors.red),
+    );
+    files.set(
+      rel(brand.assets.adaptiveForeground),
+      await contain(mark.bytes, ICON_PX, ADAPTIVE_INSET),
+    );
+    files.set(rel(brand.assets.adaptiveBackground), await solid(ICON_PX, brand.colors.red));
+  }
   if (brand.assets.adaptiveMonochrome) {
     files.set(rel(brand.assets.adaptiveMonochrome), await monochromeLayer(mark.bytes, ICON_PX));
   }
@@ -536,7 +600,8 @@ async function main(): Promise<void> {
     monochrome: mark.hasAlpha,
     heroGroundHex: await heroGround(hero.bytes),
   });
-  const files = await buildAssets(brand, mark, hero.bytes);
+  const finishedIcon = await loadFinishedIcon(opts, brand);
+  const files = await buildAssets(brand, mark, hero.bytes, finishedIcon?.bytes ?? null);
 
   const manifestPath = path.join(opts.mobileDir, "brand.generated.json");
   const modulePath = path.join(opts.mobileDir, "src", "brand.generated.ts");
