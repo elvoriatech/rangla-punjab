@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Animated, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  AppState,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as ExpoLinking from "expo-linking";
@@ -21,7 +30,7 @@ import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu, OFFERS_CATEGORY_ID } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
 import { AuthProvider, useAuth } from "./src/auth";
-import { I18nProvider, useI18n } from "./src/i18n";
+import { I18nProvider, toLang, useI18n, type Lang } from "./src/i18n";
 import { listStoredOrders, type StoredOrder } from "./src/orders-store";
 import type { PushTarget } from "./src/push";
 import { registerForStaffPush, usePushRouting } from "./src/push";
@@ -50,6 +59,7 @@ import { DispatchScreen } from "./src/screens/DispatchScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { OwnerMenuSheet } from "./src/owner-menu";
 import { PasswordSheet } from "./src/password-sheet";
+import { OutlineButton } from "./src/components";
 
 /**
  * Rangla Punjab — the single-restaurant app. One hand-rolled tab shell
@@ -143,7 +153,16 @@ function Shell(): React.ReactElement {
   /** Complaints the restaurant still owes an answer or a verdict on —
    *  the owner menu's badge. Same 30 s loop as the board's count. */
   const [openIssues, setOpenIssues] = useState(0);
-  const [menu, setMenu] = useState<ApiMenu | null>(null);
+  /**
+   * The menu AND the language it is written in, kept together on purpose.
+   *
+   * They used to be two facts in one variable: `menu` alone could not say
+   * whether the dish names on screen were the ones the guest had just
+   * asked for, so a language switch left the previous language's menu up
+   * — indefinitely if the refetch failed. Pairing them makes "is this the
+   * right language?" a comparison rather than an assumption.
+   */
+  const [loaded, setLoaded] = useState<{ menu: ApiMenu; lang: Lang } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
   const [welcomed, setWelcomed] = useState(false);
@@ -178,21 +197,55 @@ function Shell(): React.ReactElement {
    * A refetch never clears `menu`: the current payload stays on screen
    * until a new one lands, so a refresh is invisible unless something
    * actually changed. A failed one leaves the last good menu in place.
+   *
+   * With ONE exception, and it is the whole point of `menuCurrent`
+   * below: a refetch triggered by a LANGUAGE change. There the payload
+   * on screen is not merely old, it is in the language the guest just
+   * asked to stop seeing — so it is taken down for the moment the new
+   * one takes to arrive, and a failure says so instead of quietly
+   * leaving German dish names under Arabic chrome.
    */
   const lastLoad = useRef(0);
+  /** Which read is the current one. Two menu requests can be in flight at
+   *  once (the language just changed, or a five-minute refresh overlapped
+   *  a switch) and nothing orders the responses — an older one landing
+   *  last used to repaint the screen in the language the guest had left. */
+  const loadSeq = useRef(0);
   const load = useCallback(
     (options?: { fresh?: boolean }) => {
+      const seq = ++loadSeq.current;
+      const wanted = lang;
       setLoadError(false);
       lastLoad.current = Date.now();
-      fetchMenu(lang, options)
-        .then(setMenu)
-        .catch(() => setLoadError(true));
+      fetchMenu(wanted, options)
+        .then((next) => {
+          if (seq !== loadSeq.current) return; // superseded mid-flight
+          // The server says which language it actually served: asking for
+          // one the venue does not publish gets the house language back.
+          // File the payload under THAT, not under what we asked for —
+          // `applyVenueLocales` below then moves the app onto it, and
+          // until it does this menu is correctly treated as not current.
+          setLoaded({ menu: next, lang: toLang(next.venue.locale) ?? wanted });
+        })
+        .catch(() => {
+          if (seq === loadSeq.current) setLoadError(true);
+        });
     },
     [lang],
   );
+  /** The language the menu on screen was last requested for — the
+   *  difference between a first load and a switch. */
+  const requestedLang = useRef<Lang | null>(null);
   useEffect(() => {
-    load();
-  }, [load]);
+    // A language change bypasses the edge copy AND both native HTTP
+    // caches (`cache: "reload"`, `Cache-Control: no-cache`): the payload
+    // is answered `public, s-maxage=60, stale-while-revalidate=300`, and
+    // a client cache applying its own heuristic freshness to that is
+    // exactly how a switch ends up showing yesterday's language.
+    const switched = requestedLang.current !== null && requestedLang.current !== lang;
+    requestedLang.current = lang;
+    load({ fresh: switched });
+  }, [lang, load]);
 
   /** An explicit re-read that bypasses the edge copy (`?fresh=1`). */
   const refresh = useCallback(() => load({ fresh: true }), [load]);
@@ -221,6 +274,14 @@ function Shell(): React.ReactElement {
       clearInterval(timer);
     };
   }, [refresh]);
+
+  /** The last payload we received, whatever language it is in. Its
+   *  untranslated parts (venue name, currency, payment methods) stay
+   *  usable while a switch is in flight. */
+  const menu = loaded?.menu ?? null;
+  /** ...and whether it is in the language the app is currently speaking.
+   *  False for exactly as long as a switch takes. */
+  const menuCurrent = loaded !== null && loaded.lang === lang;
 
   // The venue decides which languages exist: narrow the picker and the
   // device default to what it actually publishes (and that the app has
@@ -482,8 +543,21 @@ function Shell(): React.ReactElement {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <View style={{ flex: 1 }}>
-        {tab === "home" ? (
+      {/* Remounted on every language change. Screens keep menu-derived
+          snapshots of their own — the open dish sheet, a chip row, a
+          scroll offset measured against the old names — and a switch is
+          the one moment all of it is guaranteed wrong. */}
+      <View style={{ flex: 1 }} key={lang}>
+        {/* A switch is in flight: the dish text on screen is the language
+            the guest just left, so it is not shown at all. The chrome —
+            header space, the tab bar below — stays put, and the panel
+            speaks the NEW language. Account is the exception: it owns the
+            picker, and covering it would swallow the only feedback the
+            tap has (P: "Smooth: no flash of the old language"). */}
+        {!menuCurrent && tab !== "info" ? (
+          <MenuLoading error={loadError} onRetry={refresh} />
+        ) : null}
+        {menuCurrent && tab === "home" ? (
           <HomeScreen
             menu={menu}
             onAdd={onAdd}
@@ -512,7 +586,7 @@ function Shell(): React.ReactElement {
             onComplain={onComplain}
           />
         ) : null}
-        {tab === "menu" ? (
+        {menuCurrent && tab === "menu" ? (
           <MenuScreen
             menu={menu}
             initialCategoryId={categoryId}
@@ -521,23 +595,23 @@ function Shell(): React.ReactElement {
             onMenuChanged={refresh}
           />
         ) : null}
-        {tab === "cart" && !restaurant ? (
+        {menuCurrent && tab === "cart" && !restaurant ? (
           <CartScreen menu={menu} presetType={presetType} onPlaced={onPlaced} />
         ) : null}
-        {tab === "orders" && !restaurant ? (
+        {menuCurrent && tab === "orders" && !restaurant ? (
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
-        {tab === "board" && restaurant ? (
+        {menuCurrent && tab === "board" && restaurant ? (
           <BoardScreen refreshKey={boardRefresh} onOpenOwnerMenu={() => setOwnerMenu(true)} />
         ) : null}
-        {tab === "loyalty" && restaurant ? (
+        {menuCurrent && tab === "loyalty" && restaurant ? (
           <LoyaltyStaffScreen
             currency={menu.venue.currency}
             onBack={() => setTab("board")}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
-        {tab === "issues" && restaurant ? (
+        {menuCurrent && tab === "issues" && restaurant ? (
           <IssuesScreen
             // A push tap opens the thread it was about; reached from the
             // owner's burger it is just the list (P7-11).
@@ -549,7 +623,7 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
-        {tab === "rating" && restaurant ? (
+        {menuCurrent && tab === "rating" && restaurant ? (
           <RatingOwnerScreen
             venueName={menu.venue.name}
             // The rating rides on the menu payload — a saved (or
@@ -559,7 +633,7 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
-        {tab === "hours" && restaurant ? (
+        {menuCurrent && tab === "hours" && restaurant ? (
           <HoursOwnerScreen
             // Saved hours change `openNow`, `acceptsAsapNow` and today's
             // slots on the public payload every other screen reads.
@@ -568,7 +642,7 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
-        {tab === "contact" && restaurant ? (
+        {menuCurrent && tab === "contact" && restaurant ? (
           <ContactOwnerScreen
             // The phone book is published with the menu.
             onMenuChanged={refresh}
@@ -576,7 +650,7 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
-        {tab === "giftcards" && !restaurant ? (
+        {menuCurrent && tab === "giftcards" && !restaurant ? (
           <GiftCardsScreen
             menu={menu}
             onBack={() => setTab("home")}
@@ -585,23 +659,23 @@ function Shell(): React.ReactElement {
             onOpenAccount={() => setTab("info")}
           />
         ) : null}
-        {tab === "mygiftcards" && !restaurant ? (
+        {menuCurrent && tab === "mygiftcards" && !restaurant ? (
           <MyGiftCardsScreen venueName={menu.venue.name} onBack={() => setTab("info")} />
         ) : null}
-        {tab === "redeemgift" && restaurant ? (
+        {menuCurrent && tab === "redeemgift" && restaurant ? (
           <RedeemGiftCardScreen
             onBack={() => setTab("board")}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
-        {tab === "giftcardsowner" && restaurant ? (
+        {menuCurrent && tab === "giftcardsowner" && restaurant ? (
           <GiftCardsOwnerScreen
             currency={menu.venue.currency}
             onBack={() => setTab("board")}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
-        {tab === "dispatch" && restaurant && dispatchOrderId ? (
+        {menuCurrent && tab === "dispatch" && restaurant && dispatchOrderId ? (
           <DispatchScreen
             orderId={dispatchOrderId}
             onBack={() => {
@@ -614,6 +688,8 @@ function Shell(): React.ReactElement {
         {tab === "info" ? (
           <AccountScreen
             menu={menu}
+            menuLoading={!menuCurrent && !loadError}
+            menuError={!menuCurrent && loadError}
             onOpenOrder={(orderId, token) => setTrack({ orderId, token })}
             onOpenGiftCards={() => setTab("mygiftcards")}
             onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
@@ -714,6 +790,43 @@ function Shell(): React.ReactElement {
   );
 }
 
+/**
+ * The menu is being refetched in the language just picked.
+ *
+ * Deliberately opaque and deliberately full-bleed: a translucent veil
+ * over the previous language would still be a screen of German behind a
+ * haze, which is the thing the guest just asked to stop seeing. Same
+ * words as the launch screen's loading slot, in the NEW language,
+ * because that is the language the app is already speaking.
+ *
+ * "Try again" appears immediately on a failure, and after a patient wait
+ * even without one: a request that neither resolves nor rejects (a
+ * captive portal, a proxy holding the socket open) is otherwise a
+ * spinner with no way out.
+ */
+const PATIENCE_MS = 6000;
+function MenuLoading({
+  error,
+  onRetry,
+}: {
+  error: boolean;
+  onRetry: () => void;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setWaited(true), PATIENCE_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <View style={styles.menuLoading} accessibilityRole="progressbar">
+      {error ? null : <ActivityIndicator color={colors.red} />}
+      <Text style={styles.menuLoadingText}>{error ? t.bootError : t.bootLoading}</Text>
+      {error || waited ? <OutlineButton label={t.bootRetry} onPress={onRetry} /> : null}
+    </View>
+  );
+}
+
 function TabButton({
   label,
   icon,
@@ -789,6 +902,15 @@ export default function App(): React.ReactElement {
 const styles = StyleSheet.create({
   // The mockup's floating pill bar: inset from the screen edges with a
   // long rounded arc on every corner, buttons drawn in toward each other.
+  menuLoading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+    padding: 24,
+    backgroundColor: colors.cream,
+  },
+  menuLoadingText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 14, textAlign: "center" },
   tabBarWrap: { paddingHorizontal: 12, marginTop: 6 },
   tabBar: {
     flexDirection: "row",

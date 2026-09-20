@@ -171,7 +171,11 @@ interface AuthApi {
   fetchMyOrders: () => Promise<AccountOrder[]>;
   /** Remember the guest's language on their ACCOUNT, so it follows them
    *  to their next device. No-op when signed out. */
-  saveLocale: (locale: string) => void;
+  /** Resolves once the account has been told (or the attempt has
+   *  failed) — `i18n.deferReload` waits on it so an Arabic switch, which
+   *  restarts the app, cannot cut the request off mid-flight and let the
+   *  server hand the old language back on the next boot. */
+  saveLocale: (locale: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthApi | null>(null);
@@ -610,10 +614,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
    * profile effect above doesn't fight the change on the next render.
    */
   const saveLocale = useCallback(
-    (locale: string) => {
+    async (locale: string): Promise<void> => {
       if (!token) return;
       setCustomer((current) => (current ? { ...current, locale } : current));
-      fetch(`${BASE_URL}/api/v1/me`, {
+      await fetch(`${BASE_URL}/api/v1/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "X-Customer-Token": token },
         body: JSON.stringify({ locale }),

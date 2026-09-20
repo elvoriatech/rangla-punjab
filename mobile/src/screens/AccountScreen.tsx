@@ -46,11 +46,21 @@ import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from
  */
 export function AccountScreen({
   menu,
+  menuLoading = false,
+  menuError = false,
   onOpenOrder,
   onOpenGiftCards,
   onOpenOwnerMenu,
 }: {
   menu: ApiMenu;
+  /** The dish text is being refetched in the language just picked. This
+   *  screen keeps working — it is where the picker lives, and hiding it
+   *  behind the shell's loading panel would take away the one piece of
+   *  feedback the tap deserves — so it says so inline instead. */
+  menuLoading?: boolean;
+  /** That refetch failed. Same line, different words: the chip stays
+   *  selected, the menu simply hasn't arrived. */
+  menuError?: boolean;
   onOpenOrder: (orderId: string, receiptToken: string) => void;
   /** The cards this account has bought. Offered to signed-in guests
    *  only: there is no list to show a device with no account. */
@@ -58,7 +68,7 @@ export function AccountScreen({
   /** Restaurant mode only: opens the burger's sheet. */
   onOpenOwnerMenu?: () => void;
 }): React.ReactElement {
-  const { t, lang, setLang, available } = useI18n();
+  const { t, lang, setLang, available, deferReload } = useI18n();
   const auth = useAuth();
   const [orders, setOrders] = useState<AccountOrder[]>([]);
   const [authEmail, setAuthEmail] = useState("");
@@ -306,8 +316,14 @@ export function AccountScreen({
                   setLang(entry.code);
                   // Signed in? Then this is an account preference, not a
                   // device one — it should still be French on their
-                  // tablet. Fire-and-forget; a no-op when signed out.
-                  auth.saveLocale(entry.code);
+                  // tablet. A no-op when signed out.
+                  //
+                  // Handed to `deferReload` because switching to (or out
+                  // of) Arabic restarts the app: an unfinished PATCH died
+                  // with the old process, the server kept the previous
+                  // language, and `/api/v1/me` then pushed it straight
+                  // back over the choice the guest had just made.
+                  deferReload(auth.saveLocale(entry.code));
                 }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: lang === entry.code }}
@@ -319,6 +335,12 @@ export function AccountScreen({
               </Pressable>
             ))}
           </View>
+          {menuLoading || menuError ? (
+            <View style={styles.langStatus} accessibilityRole={menuError ? "alert" : "progressbar"}>
+              {menuError ? null : <ActivityIndicator color={colors.red} size="small" />}
+              <Text style={styles.langStatusText}>{menuError ? t.bootError : t.bootLoading}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Account — or, in restaurant mode, who the counter is signed
@@ -784,6 +806,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   cardTitle: { color: colors.ink, fontSize: 15, ...fonts.bodyHeavy, marginBottom: 8 },
+  langStatus: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  langStatusText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
   langChip: {
     borderWidth: 1.5,
     borderColor: colors.line,

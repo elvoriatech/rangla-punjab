@@ -27,7 +27,13 @@ interface CartApi {
   /** Re-anchor persisted lines to the menu currently being served. A
    *  republished menu issues new item ids, which would otherwise strand
    *  the cart in permanent `unknown_items` rejection. Same-named dishes
-   *  are remapped (id, price, photo); vanished dishes are dropped. */
+   *  are remapped (id, price, photo); vanished dishes are dropped.
+   *
+   *  It is ALSO how the basket changes language: a line stores the dish
+   *  name it was added under, so after a switch the cart was the one
+   *  place still reading German in an Arabic app. A line whose id the
+   *  new menu knows is re-labelled from it; the stored name survives
+   *  only as the fallback for a dish the menu no longer has. */
   reconcile: (items: ApiItem[]) => void;
 }
 
@@ -94,8 +100,25 @@ export function CartProvider({ children }: { children: React.ReactNode }): React
           let changed = false;
           const next: CartLine[] = [];
           for (const line of prev) {
-            if (byId.has(line.itemId)) {
-              next.push(line);
+            const known = byId.get(line.itemId);
+            if (known) {
+              // Same dish, possibly a new NAME (the menu was refetched in
+              // another language), a new price or a new photo — take all
+              // three from the payload on screen rather than from what
+              // this device wrote down when the dish was added.
+              if (
+                known.name !== line.name ||
+                known.priceCents !== line.priceCents ||
+                known.photoUrl !== line.photoUrl
+              ) {
+                changed = true;
+              }
+              next.push({
+                ...line,
+                name: known.name,
+                priceCents: known.priceCents,
+                photoUrl: known.photoUrl,
+              });
               continue;
             }
             const match = byName.get(line.name.trim().toLowerCase());

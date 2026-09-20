@@ -4256,10 +4256,32 @@ interface I18nApi {
    * no-op, which is what a guest who never picked one looks like.
    */
   applyProfileLocale: (locale: string | null | undefined) => void;
+  /**
+   * Hold the RTL restart until this work has finished.
+   *
+   * Switching between Arabic and a left-to-right language restarts the
+   * app (see the effect below), and anything still in flight when that
+   * happens is simply lost — including the PATCH that saves the language
+   * onto the signed-in guest's account, which is exactly what used to
+   * bring the app back speaking the OLD language. Whoever fires such a
+   * request alongside `setLang` hands the promise to this.
+   *
+   * Never rejects, never blocks a language change: the restart waits at
+   * most `PERSIST_TIMEOUT_MS`, and a language change with no direction
+   * change ignores it entirely.
+   */
+  deferReload: (work: Promise<unknown>) => void;
 }
 
 const I18nContext = createContext<I18nApi | null>(null);
 const KEY = "rangla-lang";
+/** The language the app last flipped the NATIVE direction flag for. Its
+ *  only job is to break the restart loop described in the effect below. */
+const DIR_KEY = "rangla-lang-dir";
+/** How long the restart waits for the choice (and any deferred work) to
+ *  be written. Long enough for a slow disk and a round trip, short
+ *  enough that a dead network cannot hang the switch. */
+const PERSIST_TIMEOUT_MS = 4000;
 
 /**
  * The language to use when the guest has not chosen one, narrowed to
@@ -4325,6 +4347,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
   // takes effect after a reload, so flip it and restart. `allowRTL` has
   // to be called before any forceRTL for the flag to stick.
   const reloading = useRef(false);
+  /** Writes and requests the restart below must not cut short. */
+  const pending = useRef<Promise<unknown>[]>([]);
+  const deferReload = useCallback((work: Promise<unknown>) => {
+    // Swallowed here so one failed round trip can never reject the
+    // barrier the restart waits on.
+    pending.current.push(Promise.resolve(work).catch(() => {}));
+  }, []);
+
   useEffect(() => {
     // Until the persisted choice is read, `lang` is only the device guess.
     // Acting on it here flipped an Arabic device back to LTR and reloaded,
@@ -4332,19 +4362,47 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
     if (!booted || reloading.current) return;
     const dir = dirOf(lang);
     I18nManager.allowRTL(true);
-    if ((dir === "rtl") === I18nManager.isRTL) return;
-    I18nManager.forceRTL(dir === "rtl");
+    if ((dir === "rtl") === I18nManager.isRTL) {
+      // Flag and language agree: whatever flip got us here worked, so
+      // the "already tried" marker has done its job.
+      AsyncStorage.removeItem(DIR_KEY).catch(() => {});
+      return;
+    }
     reloading.current = true;
     void (async () => {
       try {
+        // 1. PERSIST FIRST — this is the whole bug. `setLang` fires the
+        //    write and returns; restarting a millisecond later killed it
+        //    mid-flight, so the app came back reading the PREVIOUS
+        //    language out of storage and every screen, menu included,
+        //    was in the language the guest had just left. The write is
+        //    awaited AND read back before anything native is touched.
+        const waiting = pending.current;
+        pending.current = [];
+        await Promise.race([
+          Promise.allSettled([...waiting, AsyncStorage.setItem(KEY, lang)]),
+          new Promise((resolve) => setTimeout(resolve, PERSIST_TIMEOUT_MS)),
+        ]);
+        if ((await AsyncStorage.getItem(KEY)) !== lang) throw new Error("lang not persisted");
+        // 2. One flip per language. If the native flag refuses to stick
+        //    (it does on some builds), the next launch would see the
+        //    same mismatch and restart again, for ever. Having tried
+        //    once, live with the direction rather than loop.
+        if ((await AsyncStorage.getItem(DIR_KEY)) === lang) {
+          reloading.current = false;
+          return;
+        }
+        await AsyncStorage.setItem(DIR_KEY, lang);
+        I18nManager.forceRTL(dir === "rtl");
         // Lazily required: expo-updates is unavailable in some dev
         // setups, and a missing module must not crash the switch.
         const Updates: { reloadAsync?: () => Promise<unknown> } = await import("expo-updates");
         if (!Updates.reloadAsync) throw new Error("no reloadAsync");
         await Updates.reloadAsync();
       } catch {
-        // Expo Go / dev client with updates disabled: ask for a manual
-        // restart, in the language the guest just picked.
+        // Expo Go / dev client with updates disabled, or a storage that
+        // would not take the choice: ask for a manual restart, in the
+        // language the guest just picked.
         const copy = STRINGS[lang];
         Alert.alert(copy.restartTitle, copy.restartBody);
         reloading.current = false;
@@ -4428,8 +4486,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
       },
       applyVenueLocales,
       applyProfileLocale,
+      deferReload,
     }),
-    [lang, available, applyVenueLocales, applyProfileLocale],
+    [lang, available, applyVenueLocales, applyProfileLocale, deferReload],
   );
   return <I18nContext.Provider value={api}>{children}</I18nContext.Provider>;
 }
