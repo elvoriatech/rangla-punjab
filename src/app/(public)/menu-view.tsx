@@ -559,7 +559,7 @@ export function MenuView({
                 src={
                   menu.venue.branding.logoKey
                     ? menuImageUrl(menu.venue.branding.logoKey, menu.venue.id, 96)
-                    : "/brand/icon-192.png"
+                    : "/brand/logo-192.png"
                 }
                 alt=""
                 width={40}
@@ -2036,7 +2036,7 @@ function VenueMark({
   // screens so it never crowds the open/closed pill.
   const logoSrc = venue.branding.logoKey
     ? menuImageUrl(venue.branding.logoKey, venue.id, 96)
-    : "/brand/icon-192.png";
+    : "/brand/logo-192.png";
   return (
     <div className="flex min-w-0 shrink items-center gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}

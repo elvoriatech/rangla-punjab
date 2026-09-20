@@ -55,7 +55,7 @@ export default async function LoginPage({
   const displayName = identity?.name ?? BRAND.name;
   const logoSrc = identity?.logoKey
     ? uploadedImageUrl(identity.logoKey, 96)
-    : "/brand/icon-192.png";
+    : "/brand/logo-192.png";
   // The guest menu's palette, reused verbatim — these vars are the ones
   // menu-themes-contrast.test.ts guards, so text on them stays readable
   // whichever theme the owner picked.

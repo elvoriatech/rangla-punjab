@@ -73,7 +73,7 @@ export function AdminSidebar() {
       <div className={`flex items-start py-6 ${collapsed ? "justify-center px-2" : "px-5"}`}>
         {collapsed ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/brand/icon-192.png" alt="" className="h-8 w-8 rounded-lg" />
+          <img src="/brand/logo-192.png" alt="" className="h-8 w-8 rounded-lg" />
         ) : (
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.34em] text-admin-accent/80">

@@ -4,7 +4,7 @@
     "name": "Rangla Punjab",
     "slug": "rangla-punjab",
     "themeId": "rangla-royal",
-    "logoKey": "cmt4bi0850000kusbfsqelvlj/uploads/26d9f2e7-af09-454f-a6fe-34cf620bf475",
+    "logoKey": "cmt4bi0850000kusbfsqelvlj/uploads/0fb010d5-a329-4986-9a89-1e208b7f603f",
     "bannerKey": "cmt4bi0850000kusbfsqelvlj/uploads/4dcc09d0-24d7-41b2-886f-d789ef2ab6dd",
     "backdropId": "ivory-minaret"
   },
@@ -28,7 +28,7 @@
     "hero": "./assets/generated/hero.jpg",
     "adaptiveForeground": "./assets/generated/adaptive-foreground.png",
     "adaptiveBackground": "./assets/generated/adaptive-background.png",
-    "adaptiveMonochrome": "./assets/generated/adaptive-monochrome.png",
+    "adaptiveMonochrome": null,
     "splash": "./assets/generated/splash.png",
     "favicon": "./assets/generated/favicon.png",
     "logo": "./assets/generated/logo.png"
@@ -53,8 +53,7 @@
       "adaptiveIcon": {
         "backgroundColor": "#8f1a1a",
         "foregroundImage": "./assets/generated/adaptive-foreground.png",
-        "backgroundImage": "./assets/generated/adaptive-background.png",
-        "monochromeImage": "./assets/generated/adaptive-monochrome.png"
+        "backgroundImage": "./assets/generated/adaptive-background.png"
       }
     },
     "web": {

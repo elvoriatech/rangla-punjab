@@ -63,6 +63,15 @@ const LOGO_PX = 512;
 /** Fraction of the canvas the mark occupies, per Android/iOS icon guidance. */
 const ICON_INSET = 0.74;
 const ADAPTIVE_INSET = 0.62; // Android crops to the inner ~66% circle.
+/**
+ * A finished, full-bleed launcher icon inset into Android's adaptive
+ * foreground. Android draws a 108dp layer but only ever shows the inner
+ * 72dp (0.667) — the circular mask's diameter — so a square wider than that
+ * loses its edges, taking any wordmark along the bottom with it. 0.66 keeps
+ * the whole square inside the visible circle (its corners still round off,
+ * which is the point of a squircle icon).
+ */
+const FINISHED_ICON_INSET = 0.66;
 const SPLASH_INSET = 0.7;
 /** Hero is a full-bleed background on a phone in portrait, so it goes wide. */
 const HERO_W = 1440;
@@ -464,7 +473,10 @@ async function buildAssets(
         .png()
         .toBuffer(),
     );
-    files.set(rel(brand.assets.adaptiveForeground), await contain(finishedIcon, ICON_PX, 0.72));
+    files.set(
+      rel(brand.assets.adaptiveForeground),
+      await contain(finishedIcon, ICON_PX, FINISHED_ICON_INSET),
+    );
     files.set(rel(brand.assets.adaptiveBackground), await solid(ICON_PX, "#ffffff"));
   } else {
     files.set(

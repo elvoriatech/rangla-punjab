@@ -29,7 +29,7 @@ export default async function VerifyTokenPage({
     <main className="flex min-h-screen items-center justify-center bg-cream px-6 text-ink">
       <div className="w-full max-w-md border border-ink/10 bg-white p-10 text-center shadow-[0_24px_60px_-32px_rgba(28,19,11,0.35)]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/icon-192.png" alt="" className="mx-auto h-12 w-12 rounded-xl" />
+        <img src="/brand/logo-192.png" alt="" className="mx-auto h-12 w-12 rounded-xl" />
         {result.ok ? (
           <>
             <h1 className="mt-6 font-serif text-3xl leading-tight">Email confirmed ✓</h1>

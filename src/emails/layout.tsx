@@ -70,9 +70,9 @@ export function venueBrand(venue: {
 }
 
 /** Brand block for platform emails (account, billing): the deployment's own
- *  icon from /public/brand, which is the restaurant's in a white-label build. */
+ *  logo from /public/brand, which is the restaurant's in a white-label build. */
 export function platformBrand(name: string): Brand {
-  return { name, logoUrl: `${siteUrl()}/brand/icon-192.png`, bannerUrl: null, accent: null };
+  return { name, logoUrl: `${siteUrl()}/brand/logo-192.png`, bannerUrl: null, accent: null };
 }
 
 /**

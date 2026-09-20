@@ -55,6 +55,34 @@ and the in-app logo still come from the venue logo. An icon change is a
 **native** change: rebuild the app (`expo run:ios` / EAS), an OTA update
 cannot deliver it.
 
+The owner-supplied originals both brand marks are cut from live in
+`mobile/assets/source/` — `app-icon.jpeg` (the artwork carrying the
+"R·P RESTAURANT" lettering, the launcher icon) and `logo.jpeg` (the same
+artwork without lettering, the in-app logo). Everything else is derived, so
+swapping which one plays which role is: copy the other file over
+`public/brand/rangla-punjab-mobile-app-icon.jpeg`, re-run `set-venue-logo`
+below with the other one, then `pnpm brand:mobile --venue rangla-punjab`.
+
+### The in-app logo lives in the database
+
+The header, welcome and account marks are rasterised from
+`venues.branding.logoKey` — an uploaded blob, not a file in the repo — so
+dropping a new logo into `public/brand` changes nothing until it is ingested.
+Dashboard → Settings → Logo does that; so does
+
+```sh
+pnpm exec tsx --env-file=.env scripts/set-venue-logo.ts rangla-punjab mobile/assets/source/logo.jpeg
+```
+
+which runs the same normalise → store → `logoKey` → CDN-purge path the
+dashboard form does. Re-run `pnpm brand:mobile --venue rangla-punjab`
+afterwards to pull the new mark into `assets/generated/`.
+
+An **opaque** logo (one with a background, like this venue's) means no Android
+themed-icon layer: `scripts/brand-mobile.ts` only emits
+`adaptive-monochrome.png` for a logo with transparency, because a monochrome
+pass over an opaque rectangle renders as a grey box.
+
 ## Languages, RTL and Google sign-in
 
 ### Guest languages

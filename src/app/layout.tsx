@@ -25,7 +25,7 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: `${BRAND.name} — Order Online`,
   description: BRAND.tagline,
-  // Rangla Punjab chef favicon on EVERY page — declared via metadata (not
+  // The restaurant app icon as the favicon on EVERY page — declared via metadata (not
   // the app/favicon.ico file convention) so the guest menu can swap in an
   // uploaded restaurant logo without the file-convention icon competing.
   icons: {
