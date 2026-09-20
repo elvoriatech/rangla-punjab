@@ -581,10 +581,13 @@ export function MenuView({
         </div>
       </main>
       <footer className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] text-[var(--menu-surface-text,var(--menu-text))]">
-        {/* Three columns from `md` up, stacked on a phone:
-              1. who this restaurant is + how to reach it,
-              2. what language you read it in + where to get the app,
-              3. what you can pay with,
+        {/* Three columns from `md` up, stacked on a phone in this order:
+              1. who this restaurant is + how to reach it (numbers sit
+                 directly under the name — no "Contact" heading between
+                 them, because the logo + name already say whose numbers
+                 these are),
+              2. what you can pay with (centred in its column on md+),
+              3. what language you read it in + where to get the app,
             then one full-width line for the operator + its legal pages.
 
             It replaces a single wrapping flex row, which put the three
@@ -594,7 +597,16 @@ export function MenuView({
             which anything reading the DOM rather than the pixels (reader
             mode, a text dump, the a11y tree) renders as six empty
             bullets. */}
-        <div className="mx-auto max-w-7xl px-6 py-9 sm:px-8">
+        {/* Bottom padding only while ordering is live: that is exactly when
+            <CartDrawer> parks its floating cart button at `bottom-4`, and
+            without the clearance it sat on top of the powered-by line on a
+            phone. `env(safe-area-inset-bottom)` adds the home-indicator
+            strip so the gap is the same on a notched iPhone. */}
+        <div
+          className={`mx-auto max-w-7xl px-6 py-9 sm:px-8 ${
+            ordering ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""
+          }`}
+        >
           <div className="grid gap-9 md:grid-cols-3 md:gap-10">
             {/* ---------- 1 · Identity + the restaurant's own numbers ---------- */}
             <div className="min-w-0">
@@ -617,15 +629,18 @@ export function MenuView({
                 />
                 <span className="min-w-0 font-serif text-xl italic">{menu.venue.name}</span>
               </div>
-              {/* The restaurant's own numbers, ONE PER LINE with an icon.
-                  Plain anchors — `tel:` dials, `wa.me` opens WhatsApp — so
-                  the column works with JS off, which is the contract for
-                  every public page. Built from a list so a slot the owner
-                  left empty produces no list item at all, ever. */}
+              {/* The restaurant's own numbers, ONE PER LINE with an icon,
+                  sitting directly under the name. Plain anchors — `tel:`
+                  dials, `wa.me` opens WhatsApp — so the column works with
+                  JS off, which is the contract for every public page.
+                  Built from a list so a slot the owner left empty produces
+                  no list item at all, ever. No visible heading: the nav's
+                  aria-label carries the same name for a screen reader
+                  without putting a second title between the logo and the
+                  numbers it belongs to. */}
               {contactRows.length > 0 ? (
-                <nav aria-label={t.contact.title} className="mt-6">
-                  <h2 className={FOOTER_HEADING}>{t.contact.title}</h2>
-                  <ul className="mt-3 space-y-2.5">
+                <nav aria-label={t.contact.title} className="mt-4">
+                  <ul className="space-y-2.5">
                     {contactRows.map((row) => (
                       <li key={row.key}>
                         <a
@@ -649,7 +664,19 @@ export function MenuView({
               ) : null}
             </div>
 
-            {/* ---------- 2 · Language + the venue's own app ---------- */}
+            {/* ---------- 2 · What you can pay with ----------
+                Centred in the middle column on md+, top-aligned with the
+                contact rows opposite. Rendered ONLY when the owner accepts
+                something — an always-present empty <div> would still take
+                its grid track and push language/app off to the right. */}
+            {payMarks.length > 0 ? (
+              <div className="min-w-0 md:text-center">
+                <h2 className={FOOTER_HEADING}>{t.footer.acceptedPayments}</h2>
+                <PaymentMarks ids={payMarks} className="mt-3 md:justify-center" />
+              </div>
+            ) : null}
+
+            {/* ---------- 3 · Language + the venue's own app ---------- */}
             <div className="min-w-0">
               {menu.venue.enabledLocales.length > 1 ? (
                 <div>
@@ -739,14 +766,6 @@ export function MenuView({
                 </section>
               ) : null}
             </div>
-
-            {/* ---------- 3 · What you can pay with ---------- */}
-            {payMarks.length > 0 ? (
-              <div className="min-w-0">
-                <h2 className={FOOTER_HEADING}>{t.footer.acceptedPayments}</h2>
-                <PaymentMarks ids={payMarks} className="mt-3" />
-              </div>
-            ) : null}
           </div>
 
           {/* ---------- Full width: the operator, and its legal pages ---------- */}

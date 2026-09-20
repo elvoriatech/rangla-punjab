@@ -620,6 +620,11 @@ describe("MenuView footer", () => {
     const html = renderToStaticMarkup(<MenuView menu={CONTACTED} />);
     const rows = html.match(/<li><a href="(tel:|https:\/\/wa\.me)/g) ?? [];
     expect(rows).toHaveLength(3);
+    // The visible "Contact us" heading is gone — the numbers sit directly
+    // under the restaurant's name — but the nav keeps the same accessible
+    // name, so a screen reader still lands on a named landmark.
+    expect(html).toContain('<nav aria-label="Contact us"');
+    expect(html).not.toMatch(/<h2[^>]*>Contact us<\/h2>/);
     expect(html).toContain('aria-label="Call landline +49 7531 123456"');
     expect(html).toContain('aria-label="Call mobile +49 1701 234567"');
     expect(html).toContain('aria-label="Message +49 1701 234567 on WhatsApp (opens WhatsApp)"');
@@ -650,6 +655,45 @@ describe("MenuView footer", () => {
   it("stacks on a phone and splits into three columns from md up", () => {
     const html = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
     expect(html).toMatch(/<div class="grid gap-9 md:grid-cols-3/);
+  });
+
+  it("puts payments in the middle — before the language column in the DOM", () => {
+    const html = renderToStaticMarkup(
+      <MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />,
+    );
+    const payments = html.indexOf("Accepted payments");
+    const language = html.indexOf('aria-label="Language"');
+    expect(payments, "payment strip renders").toBeGreaterThan(-1);
+    expect(language, "language switcher renders").toBeGreaterThan(-1);
+    // Middle column on md+, second block on a phone: identity+contacts,
+    // then payments, then language/app.
+    expect(payments).toBeLessThan(language);
+    // …and the heading + marks are centred inside that middle column.
+    expect(html).toMatch(/md:text-center/);
+    expect(html).toMatch(/md:justify-center/);
+  });
+
+  it("leaves no empty middle column when the venue accepts nothing", () => {
+    const html = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
+    expect(html).not.toContain("Accepted payments");
+    // The centre column is absent entirely, not an empty <div> holding a
+    // grid track open.
+    expect(html).not.toContain("md:text-center");
+  });
+
+  it("clears the floating cart bar with bottom padding — only when ordering is on", () => {
+    const CLEARANCE = "pb-[calc(6rem+env(safe-area-inset-bottom))]";
+    const withCart = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
+    expect(withCart, "ordering on → footer clears the cart bar").toContain(CLEARANCE);
+    // No cart bar (no ordering mode enabled) → no dead space under the
+    // powered-by line.
+    const noCart = renderToStaticMarkup(<MenuView menu={CONTACTED} />);
+    expect(noCart, "ordering off → no extra padding").not.toContain(CLEARANCE);
+    // Paused ordering takes the cart bar away too.
+    const paused = renderToStaticMarkup(
+      <MenuView menu={CONTACTED} orderingModes={ALL_MODES} orderingPaused />,
+    );
+    expect(paused, "ordering paused → no extra padding").not.toContain(CLEARANCE);
   });
 });
 

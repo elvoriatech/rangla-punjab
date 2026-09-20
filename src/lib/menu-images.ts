@@ -57,41 +57,54 @@ export function menuImageSrcSet(
   return `${base}-320.webp 1x, ${base}-640.webp 2x`;
 }
 
+/** One entry of a Next `metadata.icons` list. */
+export type IconDescriptor = { url: string; sizes?: string; type?: string };
+
 /**
- * Favicon/touch-icon set for the guest menu tab: the RESTAURANT's logo
- * (resized as PNG through the /img proxy) when one is uploaded, else the
- * Guesto brand icons. Child metadata fully replaces the root layout's
- * `icons`, so the Guesto fallback must be restated here, not omitted.
+ * THE favicon/touch-icon set — the single one this product ships, used by
+ * the root layout and by every guest menu page alike.
+ *
+ * `?v=4` is a cache buster, bumped whenever the art behind these URLs
+ * changes OR whenever a page starts pointing at a different icon than it
+ * did before. Browsers cache favicons far more stubbornly than any other
+ * asset — Chrome keeps them in a database a normal reload never touches —
+ * so without a new URL a returning guest keeps the old tab icon. It went
+ * to v4 on 2026-09-21, when the guest menu stopped swapping in the
+ * uploaded venue logo (see `venueIcons`).
  */
-export function venueIcons(logoKey: string | null | undefined): {
-  icon: Array<{ url: string; sizes?: string; type?: string }>;
-  apple: Array<{ url: string; sizes?: string; type?: string }>;
+export const BRAND_ICONS: {
+  icon: IconDescriptor[];
+  apple: IconDescriptor[];
+} = {
+  icon: [
+    { url: "/favicon.ico?v=4", sizes: "16x16 32x32 48x48" },
+    { url: "/rangla-icon-180.png?v=4", sizes: "180x180", type: "image/png" },
+  ],
+  apple: [{ url: "/rangla-icon-180.png?v=4", sizes: "180x180", type: "image/png" }],
+};
+
+/**
+ * Favicon/touch-icon set for the guest menu tab.
+ *
+ * Returns `BRAND_ICONS` — the same set the root layout uses — for every
+ * venue. The per-venue swap (the restaurant's uploaded logo, resized as
+ * PNG through the /img proxy) was deliberately turned OFF on 2026-09-21:
+ * the owner wants ONE favicon on every page, so a guest never sees the
+ * tab icon change as they move between the menu and the legal pages.
+ *
+ * The function and its `logoKey` parameter are kept rather than inlining
+ * `BRAND_ICONS` at the two call sites, because the per-venue icon is the
+ * multi-tenant seam: when 20k tenants each want their own tab icon, this
+ * is the one place that has to change back.
+ *
+ * Child metadata fully replaces the root layout's `icons`, so the set has
+ * to be restated by the guest pages, not omitted.
+ */
+export function venueIcons(_logoKey: string | null | undefined): {
+  icon: IconDescriptor[];
+  apple: IconDescriptor[];
 } {
-  if (logoKey) {
-    return {
-      icon: [
-        {
-          url: `/img/${encodeURIComponent(logoKey)}?w=64&fmt=png`,
-          sizes: "64x64",
-          type: "image/png",
-        },
-      ],
-      apple: [
-        {
-          url: `/img/${encodeURIComponent(logoKey)}?w=180&fmt=png`,
-          sizes: "180x180",
-          type: "image/png",
-        },
-      ],
-    };
-  }
-  return {
-    icon: [
-      { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" },
-    ],
-    apple: [{ url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" }],
-  };
+  return BRAND_ICONS;
 }
 
 /**

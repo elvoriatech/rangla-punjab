@@ -6,6 +6,7 @@ import { dirFor, isLocaleCode } from "@/lib/locales";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { BRAND } from "@/lib/brand";
+import { BRAND_ICONS } from "@/lib/menu-images";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,22 +26,12 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: `${BRAND.name} — Order Online`,
   description: BRAND.tagline,
-  // The restaurant logo as the favicon on EVERY page — declared via metadata (not
-  // the app/favicon.ico file convention) so the guest menu can swap in an
-  // uploaded restaurant logo without the file-convention icon competing.
-  //
-  // `?v=3` is a cache buster, bumped whenever `pnpm brand:web` changes the art.
-  // Browsers cache favicons far more stubbornly than any other asset — Chrome
-  // keeps them in a separate database that a normal reload never touches — so
-  // without a new URL the September 2026 rebrand would leave the old lettered
-  // icon in every returning guest's tab.
-  icons: {
-    icon: [
-      { url: "/favicon.ico?v=3", sizes: "16x16 32x32 48x48" },
-      { url: "/rangla-icon-180.png?v=3", sizes: "180x180", type: "image/png" },
-    ],
-    apple: [{ url: "/rangla-icon-180.png?v=3", sizes: "180x180", type: "image/png" }],
-  },
+  // The brand icon on EVERY page — declared via metadata (not the
+  // app/favicon.ico file convention) so the guest menu pages, whose own
+  // metadata fully replaces this `icons` object, can restate the same set
+  // without a file-convention icon competing. One constant, one cache
+  // buster: see `BRAND_ICONS`.
+  icons: BRAND_ICONS,
   // Site web-app manifest (served dynamically from the restaurant's
   // branding at /menu.webmanifest — /manifest.webmanifest is reserved by
   // Next's metadata convention, so we use a plain route instead).
