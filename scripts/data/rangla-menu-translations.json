@@ -1,0 +1,5742 @@
+{
+  "venueSlug": "rangla-punjab",
+  "sourceLocale": "de",
+  "locales": ["en", "fr", "es", "it", "ar"],
+  "categories": [
+    {
+      "id": "cmu9qyqvx000101phosc1ply2",
+      "source": "Warme Vorspeisen",
+      "translations": {
+        "en": {
+          "name": "Hot Starters"
+        },
+        "fr": {
+          "name": "Entrées chaudes"
+        },
+        "es": {
+          "name": "Entrantes calientes"
+        },
+        "it": {
+          "name": "Antipasti caldi"
+        },
+        "ar": {
+          "name": "المقبلات الساخنة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwb000e01phkdqf7vhx",
+      "source": "Suppen",
+      "translations": {
+        "en": {
+          "name": "Soups"
+        },
+        "fr": {
+          "name": "Soupes"
+        },
+        "es": {
+          "name": "Sopas"
+        },
+        "it": {
+          "name": "Zuppe"
+        },
+        "ar": {
+          "name": "الشوربات"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwf000j01phxx2sdja4",
+      "source": "Salate",
+      "translations": {
+        "en": {
+          "name": "Salads"
+        },
+        "fr": {
+          "name": "Salades"
+        },
+        "es": {
+          "name": "Ensaladas"
+        },
+        "it": {
+          "name": "Insalate"
+        },
+        "ar": {
+          "name": "السلطات"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwj000p01phczsr0hu7",
+      "source": "Vegane Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Vegan Specialities"
+        },
+        "fr": {
+          "name": "Spécialités véganes"
+        },
+        "es": {
+          "name": "Especialidades veganas"
+        },
+        "it": {
+          "name": "Specialità vegane"
+        },
+        "ar": {
+          "name": "أطباق نباتية صِرفة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": "Vegetarische Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Vegetarian Specialities"
+        },
+        "fr": {
+          "name": "Spécialités végétariennes"
+        },
+        "es": {
+          "name": "Especialidades vegetarianas"
+        },
+        "it": {
+          "name": "Specialità vegetariane"
+        },
+        "ar": {
+          "name": "أطباق نباتية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx4001h01phmknxb7vr",
+      "source": "Fisch- und Meeresfrucht Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Fish & Seafood Specialities"
+        },
+        "fr": {
+          "name": "Spécialités poisson et fruits de mer"
+        },
+        "es": {
+          "name": "Especialidades de pescado y marisco"
+        },
+        "it": {
+          "name": "Specialità di pesce e frutti di mare"
+        },
+        "ar": {
+          "name": "أطباق السمك والمأكولات البحرية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxd001p01phddrwv2ug",
+      "source": "Reis Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Rice Specialities"
+        },
+        "fr": {
+          "name": "Spécialités de riz"
+        },
+        "es": {
+          "name": "Especialidades de arroz"
+        },
+        "it": {
+          "name": "Specialità di riso"
+        },
+        "ar": {
+          "name": "أطباق الأرز"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxi001x01phxly5ki70",
+      "source": "Lamm Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Lamb Specialities"
+        },
+        "fr": {
+          "name": "Spécialités d'agneau"
+        },
+        "es": {
+          "name": "Especialidades de cordero"
+        },
+        "it": {
+          "name": "Specialità di agnello"
+        },
+        "ar": {
+          "name": "أطباق لحم الضأن"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxs002b01ph9ba95oms",
+      "source": "Hähnchen Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Chicken Specialities"
+        },
+        "fr": {
+          "name": "Spécialités de poulet"
+        },
+        "es": {
+          "name": "Especialidades de pollo"
+        },
+        "it": {
+          "name": "Specialità di pollo"
+        },
+        "ar": {
+          "name": "أطباق الدجاج"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy6002v01phmuqrirdg",
+      "source": "Indische Fladenbrot-Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Indian Flatbread Specialities"
+        },
+        "fr": {
+          "name": "Spécialités de pains indiens"
+        },
+        "es": {
+          "name": "Especialidades de pan indio"
+        },
+        "it": {
+          "name": "Specialità di pane indiano"
+        },
+        "ar": {
+          "name": "أنواع الخبز الهندي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyf003901phdj8bc7xg",
+      "source": "Tandoori Spezialitäten",
+      "translations": {
+        "en": {
+          "name": "Tandoori Specialities"
+        },
+        "fr": {
+          "name": "Spécialités tandoori"
+        },
+        "es": {
+          "name": "Especialidades tandoori"
+        },
+        "it": {
+          "name": "Specialità tandoori"
+        },
+        "ar": {
+          "name": "أطباق التندوري"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyr003n01ph1glgvuiz",
+      "source": "Kinderteller",
+      "translations": {
+        "en": {
+          "name": "Children's Plates"
+        },
+        "fr": {
+          "name": "Assiettes enfants"
+        },
+        "es": {
+          "name": "Platos infantiles"
+        },
+        "it": {
+          "name": "Piatti per bambini"
+        },
+        "ar": {
+          "name": "أطباق الأطفال"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyt003q01phmpqh0x4j",
+      "source": "Desserts",
+      "translations": {
+        "en": {
+          "name": "Desserts"
+        },
+        "fr": {
+          "name": "Desserts"
+        },
+        "es": {
+          "name": "Postres"
+        },
+        "it": {
+          "name": "Dessert"
+        },
+        "ar": {
+          "name": "الحلويات"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyy003w01phnm64c8jd",
+      "source": "Kalte Getränke",
+      "translations": {
+        "en": {
+          "name": "Cold Drinks"
+        },
+        "fr": {
+          "name": "Boissons fraîches"
+        },
+        "es": {
+          "name": "Bebidas frías"
+        },
+        "it": {
+          "name": "Bevande fredde"
+        },
+        "ar": {
+          "name": "المشروبات الباردة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzg004o01phux199iwq",
+      "source": "Lassi",
+      "translations": {
+        "en": {
+          "name": "Lassi"
+        },
+        "fr": {
+          "name": "Lassi"
+        },
+        "es": {
+          "name": "Lassi"
+        },
+        "it": {
+          "name": "Lassi"
+        },
+        "ar": {
+          "name": "لاسي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzq005101phcdt00y3x",
+      "source": "Limonade",
+      "translations": {
+        "en": {
+          "name": "Lemonades"
+        },
+        "fr": {
+          "name": "Limonades"
+        },
+        "es": {
+          "name": "Limonadas"
+        },
+        "it": {
+          "name": "Limonate"
+        },
+        "ar": {
+          "name": "ليموناضة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzu005801phyabltm6y",
+      "source": "Kaffee und Tee",
+      "translations": {
+        "en": {
+          "name": "Coffee & Tea"
+        },
+        "fr": {
+          "name": "Cafés et thés"
+        },
+        "es": {
+          "name": "Café y té"
+        },
+        "it": {
+          "name": "Caffè e tè"
+        },
+        "ar": {
+          "name": "القهوة والشاي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr00005g01phc2ru78iz",
+      "source": "Alkoholfreie Cocktails",
+      "translations": {
+        "en": {
+          "name": "Non-Alcoholic Cocktails"
+        },
+        "fr": {
+          "name": "Cocktails sans alcool"
+        },
+        "es": {
+          "name": "Cócteles sin alcohol"
+        },
+        "it": {
+          "name": "Cocktail analcolici"
+        },
+        "ar": {
+          "name": "كوكتيلات بدون كحول"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr05005n01phr1hq38uy",
+      "source": "Bier",
+      "translations": {
+        "en": {
+          "name": "Beer"
+        },
+        "fr": {
+          "name": "Bières"
+        },
+        "es": {
+          "name": "Cervezas"
+        },
+        "it": {
+          "name": "Birre"
+        },
+        "ar": {
+          "name": "البيرة"
+        }
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "cmu9qyqvy000201phnybp7n4p",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Pakoras",
+        "description": "gemischtes Gemüse, in Kichererbsenmehl gewendet und frittiert"
+      },
+      "translations": {
+        "en": {
+          "name": "Pakoras",
+          "description": "mixed vegetables tossed in chickpea flour and deep-fried"
+        },
+        "fr": {
+          "name": "Pakoras",
+          "description": "légumes variés enrobés de farine de pois chiches et frits"
+        },
+        "es": {
+          "name": "Pakoras",
+          "description": "verduras variadas rebozadas en harina de garbanzo y fritas"
+        },
+        "it": {
+          "name": "Pakoras",
+          "description": "verdure miste passate nella farina di ceci e fritte"
+        },
+        "ar": {
+          "name": "باكورا",
+          "description": "خضار مشكّلة مغلّفة بدقيق الحمّص ومقلية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw0000301phb8ai61l2",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Mix Pakora-Groß (für 2-3 Personen)",
+        "description": "mit Hähnchenfleisch, Paneer, Gemüse und Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Mix Pakora Large (for 2–3 people)",
+          "description": "with chicken, paneer, vegetables and sauce"
+        },
+        "fr": {
+          "name": "Mix Pakora grand (pour 2–3 personnes)",
+          "description": "avec poulet, paneer, légumes et sauce"
+        },
+        "es": {
+          "name": "Mix Pakora grande (para 2–3 personas)",
+          "description": "con pollo, paneer, verduras y salsa"
+        },
+        "it": {
+          "name": "Mix Pakora grande (per 2–3 persone)",
+          "description": "con pollo, paneer, verdure e salsa"
+        },
+        "ar": {
+          "name": "باكورا مشكّلة – كبير (لشخصين إلى ثلاثة)",
+          "description": "مع الدجاج وجبن البانير والخضار وصلصة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw1000401phh2gkgdh7",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Paneer Pakora",
+        "description": "hausgemachter Rahmkäse, in Kichererbsenmehl gewendet und frittiert"
+      },
+      "translations": {
+        "en": {
+          "name": "Paneer Pakora",
+          "description": "house-made fresh cheese tossed in chickpea flour and deep-fried"
+        },
+        "fr": {
+          "name": "Paneer Pakora",
+          "description": "fromage frais maison enrobé de farine de pois chiches et frit"
+        },
+        "es": {
+          "name": "Paneer Pakora",
+          "description": "queso fresco casero rebozado en harina de garbanzo y frito"
+        },
+        "it": {
+          "name": "Paneer Pakora",
+          "description": "formaggio fresco fatto in casa passato nella farina di ceci e fritto"
+        },
+        "ar": {
+          "name": "بانير باكورا",
+          "description": "جبن طازج محضّر في المطعم، مغلّف بدقيق الحمّص ومقلي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw2000501phhkajjvyd",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Chicken Pakora",
+        "description": "Hähnchenfiletstücke, in Kichererbsenmehl gewendet und frittiert"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Pakora",
+          "description": "pieces of chicken breast tossed in chickpea flour and deep-fried"
+        },
+        "fr": {
+          "name": "Chicken Pakora",
+          "description": "morceaux de filet de poulet enrobés de farine de pois chiches et frits"
+        },
+        "es": {
+          "name": "Chicken Pakora",
+          "description": "trozos de filete de pollo rebozados en harina de garbanzo y fritos"
+        },
+        "it": {
+          "name": "Chicken Pakora",
+          "description": "bocconcini di filetto di pollo passati nella farina di ceci e fritti"
+        },
+        "ar": {
+          "name": "دجاج باكورا",
+          "description": "قطع من صدور الدجاج مغلّفة بدقيق الحمّص ومقلية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw3000601phb1ufl0c8",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Jhinga Pakora",
+        "description": "Garnelen, in Kichererbsenmehl gewendet und frittiert"
+      },
+      "translations": {
+        "en": {
+          "name": "Jhinga Pakora",
+          "description": "prawns tossed in chickpea flour and deep-fried"
+        },
+        "fr": {
+          "name": "Jhinga Pakora",
+          "description": "crevettes enrobées de farine de pois chiches et frites"
+        },
+        "es": {
+          "name": "Jhinga Pakora",
+          "description": "gambas rebozadas en harina de garbanzo y fritas"
+        },
+        "it": {
+          "name": "Jhinga Pakora",
+          "description": "gamberi passati nella farina di ceci e fritti"
+        },
+        "ar": {
+          "name": "جينغا باكورا",
+          "description": "روبيان مغلّف بدقيق الحمّص ومقلي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw4000701phtqx3vqj0",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Samosa",
+        "description": "2 gefüllte, frittierte Kartoffel-Erbsen-Teigtaschen"
+      },
+      "translations": {
+        "en": {
+          "name": "Samosa",
+          "description": "2 deep-fried pastry parcels filled with potato and peas"
+        },
+        "fr": {
+          "name": "Samosa",
+          "description": "2 chaussons frits farcis de pommes de terre et petits pois"
+        },
+        "es": {
+          "name": "Samosa",
+          "description": "2 empanadillas fritas rellenas de patata y guisantes"
+        },
+        "it": {
+          "name": "Samosa",
+          "description": "2 fagottini fritti ripieni di patate e piselli"
+        },
+        "ar": {
+          "name": "سمبوسة",
+          "description": "قطعتان من عجينة محشوة بالبطاطس والبازلاء ومقلية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw6000801phvg08c31c",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Gemischte Tikkas",
+        "description": "Hariyali Tikka, Chicken Tikka, Garlic Chicken Tikka, dazu verschiedene Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Mixed Tikkas",
+          "description": "Hariyali Tikka, Chicken Tikka and Garlic Chicken Tikka, served with a selection of chutneys"
+        },
+        "fr": {
+          "name": "Tikkas mixtes",
+          "description": "Hariyali Tikka, Chicken Tikka et Garlic Chicken Tikka, servis avec différents chutneys"
+        },
+        "es": {
+          "name": "Tikkas mixtos",
+          "description": "Hariyali Tikka, Chicken Tikka y Garlic Chicken Tikka, con varios chutneys"
+        },
+        "it": {
+          "name": "Tikka misti",
+          "description": "Hariyali Tikka, Chicken Tikka e Garlic Chicken Tikka, serviti con diversi chutney"
+        },
+        "ar": {
+          "name": "تيكا مشكّلة",
+          "description": "هاريالي تيكا، ودجاج تيكا، ودجاج تيكا بالثوم، تُقدَّم مع تشكيلة من صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw8000901ph80z7piqv",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Pommes Frites"
+      },
+      "translations": {
+        "en": {
+          "name": "French Fries"
+        },
+        "fr": {
+          "name": "Frites"
+        },
+        "es": {
+          "name": "Patatas fritas"
+        },
+        "it": {
+          "name": "Patatine fritte"
+        },
+        "ar": {
+          "name": "بطاطس مقلية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw8000a01phzg66zo6f",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Extra Reis"
+      },
+      "translations": {
+        "en": {
+          "name": "Extra Rice"
+        },
+        "fr": {
+          "name": "Riz supplémentaire"
+        },
+        "es": {
+          "name": "Arroz extra"
+        },
+        "it": {
+          "name": "Riso extra"
+        },
+        "ar": {
+          "name": "أرز إضافي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqw9000b01phllsxura9",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Chutneys",
+        "description": "Verschiedene Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Chutneys",
+          "description": "a selection of sauces"
+        },
+        "fr": {
+          "name": "Chutneys",
+          "description": "assortiment de sauces"
+        },
+        "es": {
+          "name": "Chutneys",
+          "description": "surtido de salsas"
+        },
+        "it": {
+          "name": "Chutney",
+          "description": "assortimento di salse"
+        },
+        "ar": {
+          "name": "تشاتني",
+          "description": "تشكيلة من الصلصات"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwa000c01php7if0p0l",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Pani Puri"
+      },
+      "translations": {
+        "en": {
+          "name": "Pani Puri"
+        },
+        "fr": {
+          "name": "Pani Puri"
+        },
+        "es": {
+          "name": "Pani Puri"
+        },
+        "it": {
+          "name": "Pani Puri"
+        },
+        "ar": {
+          "name": "باني بوري"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwa000d01ph9a9vb6f8",
+      "categoryId": "cmu9qyqvx000101phosc1ply2",
+      "source": {
+        "name": "Chaat Papri",
+        "description": "mit Kichererbsen, Paprika, frische Tomaten, Granatapfel, verschiedene Saucen"
+      },
+      "translations": {
+        "en": {
+          "name": "Chaat Papri",
+          "description": "with chickpeas, bell pepper, fresh tomato, pomegranate and assorted sauces"
+        },
+        "fr": {
+          "name": "Chaat Papri",
+          "description": "avec pois chiches, poivron, tomates fraîches, grenade et sauces variées"
+        },
+        "es": {
+          "name": "Chaat Papri",
+          "description": "con garbanzos, pimiento, tomate fresco, granada y varias salsas"
+        },
+        "it": {
+          "name": "Chaat Papri",
+          "description": "con ceci, peperone, pomodoro fresco, melograno e salse assortite"
+        },
+        "ar": {
+          "name": "تشات بابري",
+          "description": "مع الحمّص والفلفل الحلو والطماطم الطازجة والرمان وتشكيلة من الصلصات"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwc000f01phv4ytl6qs",
+      "categoryId": "cmu9qyqwb000e01phkdqf7vhx",
+      "source": {
+        "name": "Dal Suppe",
+        "description": "Linsensuppe"
+      },
+      "translations": {
+        "en": {
+          "name": "Dal Soup",
+          "description": "lentil soup"
+        },
+        "fr": {
+          "name": "Soupe Dal",
+          "description": "soupe de lentilles"
+        },
+        "es": {
+          "name": "Sopa Dal",
+          "description": "sopa de lentejas"
+        },
+        "it": {
+          "name": "Zuppa Dal",
+          "description": "zuppa di lenticchie"
+        },
+        "ar": {
+          "name": "شوربة دال",
+          "description": "شوربة عدس"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwd000g01phkgrqycho",
+      "categoryId": "cmu9qyqwb000e01phkdqf7vhx",
+      "source": {
+        "name": "Sabzi Suppe",
+        "description": "Gemüsesuppe"
+      },
+      "translations": {
+        "en": {
+          "name": "Sabzi Soup",
+          "description": "vegetable soup"
+        },
+        "fr": {
+          "name": "Soupe Sabzi",
+          "description": "soupe de légumes"
+        },
+        "es": {
+          "name": "Sopa Sabzi",
+          "description": "sopa de verduras"
+        },
+        "it": {
+          "name": "Zuppa Sabzi",
+          "description": "zuppa di verdure"
+        },
+        "ar": {
+          "name": "شوربة سبزي",
+          "description": "شوربة خضار"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwd000h01ph9tje4sse",
+      "categoryId": "cmu9qyqwb000e01phkdqf7vhx",
+      "source": {
+        "name": "Hühnersuppe",
+        "description": "Huhn"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Soup",
+          "description": "chicken"
+        },
+        "fr": {
+          "name": "Soupe de poulet",
+          "description": "poulet"
+        },
+        "es": {
+          "name": "Sopa de pollo",
+          "description": "pollo"
+        },
+        "it": {
+          "name": "Zuppa di pollo",
+          "description": "pollo"
+        },
+        "ar": {
+          "name": "شوربة دجاج",
+          "description": "دجاج"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwe000i01phjus13c9f",
+      "categoryId": "cmu9qyqwb000e01phkdqf7vhx",
+      "source": {
+        "name": "Tomatensuppe",
+        "description": "Tomaten"
+      },
+      "translations": {
+        "en": {
+          "name": "Tomato Soup",
+          "description": "tomato"
+        },
+        "fr": {
+          "name": "Soupe de tomates",
+          "description": "tomates"
+        },
+        "es": {
+          "name": "Sopa de tomate",
+          "description": "tomate"
+        },
+        "it": {
+          "name": "Zuppa di pomodoro",
+          "description": "pomodoro"
+        },
+        "ar": {
+          "name": "شوربة طماطم",
+          "description": "طماطم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwf000k01pht4dr5kxf",
+      "categoryId": "cmu9qyqwf000j01phxx2sdja4",
+      "source": {
+        "name": "Gemischter Salat",
+        "description": "Blattsalat mit Gurken, Tomaten, Mais und Granatapfelkernen"
+      },
+      "translations": {
+        "en": {
+          "name": "Mixed Salad",
+          "description": "leaf salad with cucumber, tomato, sweetcorn and pomegranate seeds"
+        },
+        "fr": {
+          "name": "Salade mixte",
+          "description": "salade verte avec concombre, tomates, maïs et graines de grenade"
+        },
+        "es": {
+          "name": "Ensalada mixta",
+          "description": "lechuga con pepino, tomate, maíz y granos de granada"
+        },
+        "it": {
+          "name": "Insalata mista",
+          "description": "insalata verde con cetrioli, pomodori, mais e chicchi di melograno"
+        },
+        "ar": {
+          "name": "سلطة مشكّلة",
+          "description": "سلطة خضراء مع الخيار والطماطم والذرة وحبّات الرمان"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwg000l01phwmnn6w9l",
+      "categoryId": "cmu9qyqwf000j01phxx2sdja4",
+      "source": {
+        "name": "Chicken Salat",
+        "description": "gemischter Salat mit gebratenem Hähnchenfilet, Tandoori und Paprika"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Salad",
+          "description": "mixed salad with pan-fried chicken breast, tandoori spices and bell pepper"
+        },
+        "fr": {
+          "name": "Salade au poulet",
+          "description": "salade mixte avec filet de poulet poêlé, épices tandoori et poivron"
+        },
+        "es": {
+          "name": "Ensalada de pollo",
+          "description": "ensalada mixta con filete de pollo a la plancha, especias tandoori y pimiento"
+        },
+        "it": {
+          "name": "Insalata di pollo",
+          "description": "insalata mista con filetto di pollo scottato, spezie tandoori e peperone"
+        },
+        "ar": {
+          "name": "سلطة الدجاج",
+          "description": "سلطة مشكّلة مع صدر دجاج مقلي وبهارات التندوري والفلفل الحلو"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwh000m01ph2pwuugz8",
+      "categoryId": "cmu9qyqwf000j01phxx2sdja4",
+      "source": {
+        "name": "Paneer Salat",
+        "description": "gemischter Salat mit gebratenem Rahmkäse"
+      },
+      "translations": {
+        "en": {
+          "name": "Paneer Salad",
+          "description": "mixed salad with pan-fried fresh cheese"
+        },
+        "fr": {
+          "name": "Salade au paneer",
+          "description": "salade mixte avec fromage frais poêlé"
+        },
+        "es": {
+          "name": "Ensalada de paneer",
+          "description": "ensalada mixta con queso fresco a la plancha"
+        },
+        "it": {
+          "name": "Insalata di paneer",
+          "description": "insalata mista con formaggio fresco scottato"
+        },
+        "ar": {
+          "name": "سلطة البانير",
+          "description": "سلطة مشكّلة مع جبن طازج مقلي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwi000n01ph6p3kf4yj",
+      "categoryId": "cmu9qyqwf000j01phxx2sdja4",
+      "source": {
+        "name": "Jhinga Salat",
+        "description": "gemischter Salat mit gebratenen Garnelen"
+      },
+      "translations": {
+        "en": {
+          "name": "Jhinga Salad",
+          "description": "mixed salad with pan-fried prawns"
+        },
+        "fr": {
+          "name": "Salade Jhinga",
+          "description": "salade mixte avec crevettes poêlées"
+        },
+        "es": {
+          "name": "Ensalada Jhinga",
+          "description": "ensalada mixta con gambas salteadas"
+        },
+        "it": {
+          "name": "Insalata Jhinga",
+          "description": "insalata mista con gamberi saltati"
+        },
+        "ar": {
+          "name": "سلطة جينغا بالروبيان",
+          "description": "سلطة مشكّلة مع روبيان مقلي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwi000o01phvgbp19p7",
+      "categoryId": "cmu9qyqwf000j01phxx2sdja4",
+      "source": {
+        "name": "Raita",
+        "description": "Joghurt mit Gurke, Zwiebeln und Karotten"
+      },
+      "translations": {
+        "en": {
+          "name": "Raita",
+          "description": "yoghurt with cucumber, onion and carrot"
+        },
+        "fr": {
+          "name": "Raita",
+          "description": "yaourt au concombre, oignon et carotte"
+        },
+        "es": {
+          "name": "Raita",
+          "description": "yogur con pepino, cebolla y zanahoria"
+        },
+        "it": {
+          "name": "Raita",
+          "description": "yogurt con cetriolo, cipolla e carota"
+        },
+        "ar": {
+          "name": "رايتا",
+          "description": "لبن زبادي مع الخيار والبصل والجزر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwj000q01phs6idzrp4",
+      "categoryId": "cmu9qyqwj000p01phczsr0hu7",
+      "source": {
+        "name": "Palak Tofu",
+        "description": "mit Spinat und Kokosmilch"
+      },
+      "translations": {
+        "en": {
+          "name": "Palak Tofu",
+          "description": "with spinach and coconut milk"
+        },
+        "fr": {
+          "name": "Palak Tofu",
+          "description": "aux épinards et lait de coco"
+        },
+        "es": {
+          "name": "Palak Tofu",
+          "description": "con espinacas y leche de coco"
+        },
+        "it": {
+          "name": "Palak Tofu",
+          "description": "con spinaci e latte di cocco"
+        },
+        "ar": {
+          "name": "بالاك توفو",
+          "description": "مع السبانخ وحليب جوز الهند"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwk000r01phvj2m8loq",
+      "categoryId": "cmu9qyqwj000p01phczsr0hu7",
+      "source": {
+        "name": "Shahi Tofu (leicht süß)",
+        "description": "mit Cashewnüssen und Kokosmilch"
+      },
+      "translations": {
+        "en": {
+          "name": "Shahi Tofu (mildly sweet)",
+          "description": "with cashew nuts and coconut milk"
+        },
+        "fr": {
+          "name": "Shahi Tofu (légèrement sucré)",
+          "description": "aux noix de cajou et lait de coco"
+        },
+        "es": {
+          "name": "Shahi Tofu (ligeramente dulce)",
+          "description": "con anacardos y leche de coco"
+        },
+        "it": {
+          "name": "Shahi Tofu (leggermente dolce)",
+          "description": "con anacardi e latte di cocco"
+        },
+        "ar": {
+          "name": "شاهي توفو (حلو قليلاً)",
+          "description": "مع الكاجو وحليب جوز الهند"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwl000s01php9au7e0z",
+      "categoryId": "cmu9qyqwj000p01phczsr0hu7",
+      "source": {
+        "name": "Mango Tofu",
+        "description": "mit Mango, Cashewnüssen, Kokosmilch und indischen Gewürzen"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango Tofu",
+          "description": "with mango, cashew nuts, coconut milk and Indian spices"
+        },
+        "fr": {
+          "name": "Mango Tofu",
+          "description": "à la mangue, noix de cajou, lait de coco et épices indiennes"
+        },
+        "es": {
+          "name": "Mango Tofu",
+          "description": "con mango, anacardos, leche de coco y especias indias"
+        },
+        "it": {
+          "name": "Mango Tofu",
+          "description": "con mango, anacardi, latte di cocco e spezie indiane"
+        },
+        "ar": {
+          "name": "مانغو توفو",
+          "description": "مع المانجو والكاجو وحليب جوز الهند والبهارات الهندية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwm000t01phfh1nznmf",
+      "categoryId": "cmu9qyqwj000p01phczsr0hu7",
+      "source": {
+        "name": "Karahi Tofu",
+        "description": "mit Currysauce, Paprika, Tomaten und Zwiebeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Karahi Tofu",
+          "description": "with curry sauce, bell pepper, tomato and onion"
+        },
+        "fr": {
+          "name": "Karahi Tofu",
+          "description": "sauce curry, poivron, tomates et oignons"
+        },
+        "es": {
+          "name": "Karahi Tofu",
+          "description": "con salsa de curry, pimiento, tomate y cebolla"
+        },
+        "it": {
+          "name": "Karahi Tofu",
+          "description": "con salsa al curry, peperone, pomodoro e cipolla"
+        },
+        "ar": {
+          "name": "كراهي توفو",
+          "description": "مع صلصة الكاري والفلفل الحلو والطماطم والبصل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwn000u01ph7rycml5w",
+      "categoryId": "cmu9qyqwj000p01phczsr0hu7",
+      "source": {
+        "name": "Tikka Masala Tofu",
+        "description": "mit Zwiebeln, Tomaten, roter Currysauce, Koriander und frischem Ingwer"
+      },
+      "translations": {
+        "en": {
+          "name": "Tikka Masala Tofu",
+          "description": "with onion, tomato, red curry sauce, coriander and fresh ginger"
+        },
+        "fr": {
+          "name": "Tikka Masala Tofu",
+          "description": "aux oignons, tomates, sauce curry rouge, coriandre et gingembre frais"
+        },
+        "es": {
+          "name": "Tikka Masala Tofu",
+          "description": "con cebolla, tomate, salsa de curry rojo, cilantro y jengibre fresco"
+        },
+        "it": {
+          "name": "Tikka Masala Tofu",
+          "description": "con cipolla, pomodoro, salsa al curry rosso, coriandolo e zenzero fresco"
+        },
+        "ar": {
+          "name": "تيكا مسالا توفو",
+          "description": "مع البصل والطماطم وصلصة الكاري الأحمر والكزبرة والزنجبيل الطازج"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwn000v01phb43m5e1d",
+      "categoryId": "cmu9qyqwj000p01phczsr0hu7",
+      "source": {
+        "name": "Chili Tofu",
+        "description": "in Kichererbsenmehl panierter Bio-Tofu mit Paprika, süß-saurer Tomatensauce und Sojasauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Chilli Tofu",
+          "description": "organic tofu in a chickpea-flour coating with bell pepper, sweet-and-sour tomato sauce and soy sauce"
+        },
+        "fr": {
+          "name": "Chili Tofu",
+          "description": "tofu bio pané à la farine de pois chiches, poivron, sauce tomate aigre-douce et sauce soja"
+        },
+        "es": {
+          "name": "Chili Tofu",
+          "description": "tofu ecológico rebozado en harina de garbanzo con pimiento, salsa de tomate agridulce y salsa de soja"
+        },
+        "it": {
+          "name": "Chili Tofu",
+          "description": "tofu biologico impanato nella farina di ceci con peperone, salsa di pomodoro agrodolce e salsa di soia"
+        },
+        "ar": {
+          "name": "تشيلي توفو",
+          "description": "توفو عضوي مغلّف بدقيق الحمّص مع الفلفل الحلو وصلصة الطماطم الحلوة الحامضة وصلصة الصويا"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwo000w01ph06i10bmo",
+      "categoryId": "cmu9qyqwj000p01phczsr0hu7",
+      "source": {
+        "name": "Tofu Madrasi",
+        "description": "mit Kokosmilch, nach südindischer Art"
+      },
+      "translations": {
+        "en": {
+          "name": "Tofu Madrasi",
+          "description": "with coconut milk, South Indian style"
+        },
+        "fr": {
+          "name": "Tofu Madrasi",
+          "description": "au lait de coco, à la façon du sud de l'Inde"
+        },
+        "es": {
+          "name": "Tofu Madrasi",
+          "description": "con leche de coco, al estilo del sur de la India"
+        },
+        "it": {
+          "name": "Tofu Madrasi",
+          "description": "con latte di cocco, in stile sud-indiano"
+        },
+        "ar": {
+          "name": "توفو مدراسي",
+          "description": "مع حليب جوز الهند على الطريقة الهندية الجنوبية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwr000y01phifgr70fs",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Sabzi Makhani",
+        "description": "Gemüse mit Butter, Cashewnüssen und Tomatensauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Sabzi Makhani",
+          "description": "vegetables with butter, cashew nuts and tomato sauce"
+        },
+        "fr": {
+          "name": "Sabzi Makhani",
+          "description": "légumes au beurre, noix de cajou et sauce tomate"
+        },
+        "es": {
+          "name": "Sabzi Makhani",
+          "description": "verduras con mantequilla, anacardos y salsa de tomate"
+        },
+        "it": {
+          "name": "Sabzi Makhani",
+          "description": "verdure con burro, anacardi e salsa di pomodoro"
+        },
+        "ar": {
+          "name": "سبزي مخني",
+          "description": "خضار مع الزبدة والكاجو وصلصة الطماطم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwr000z01phqqwwpe9u",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Sabzi Curry",
+        "description": "Curry aus frischem Gemüse der Saison, Cashewnüssen und Zwiebeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Sabzi Curry",
+          "description": "curry of fresh seasonal vegetables, cashew nuts and onion"
+        },
+        "fr": {
+          "name": "Sabzi Curry",
+          "description": "curry de légumes frais de saison, noix de cajou et oignons"
+        },
+        "es": {
+          "name": "Sabzi Curry",
+          "description": "curry de verduras frescas de temporada, anacardos y cebolla"
+        },
+        "it": {
+          "name": "Sabzi Curry",
+          "description": "curry di verdure fresche di stagione, anacardi e cipolla"
+        },
+        "ar": {
+          "name": "سبزي كاري",
+          "description": "كاري من خضار الموسم الطازجة والكاجو والبصل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqws001001phk3p9ko65",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Matter Paneer",
+        "description": "hausgemachter, frischer Rahmkäse mit grünen Erbsen"
+      },
+      "translations": {
+        "en": {
+          "name": "Matter Paneer",
+          "description": "house-made fresh cheese with green peas"
+        },
+        "fr": {
+          "name": "Matter Paneer",
+          "description": "fromage frais maison et petits pois"
+        },
+        "es": {
+          "name": "Matter Paneer",
+          "description": "queso fresco casero con guisantes"
+        },
+        "it": {
+          "name": "Matter Paneer",
+          "description": "formaggio fresco fatto in casa con piselli"
+        },
+        "ar": {
+          "name": "متر بانير",
+          "description": "جبن طازج محضّر في المطعم مع البازلاء الخضراء"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwt001101phkf4n9zk8",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Palak Paneer",
+        "description": "hausgemachter, frischer Rahmkäse mit Spinat"
+      },
+      "translations": {
+        "en": {
+          "name": "Palak Paneer",
+          "description": "house-made fresh cheese with spinach"
+        },
+        "fr": {
+          "name": "Palak Paneer",
+          "description": "fromage frais maison aux épinards"
+        },
+        "es": {
+          "name": "Palak Paneer",
+          "description": "queso fresco casero con espinacas"
+        },
+        "it": {
+          "name": "Palak Paneer",
+          "description": "formaggio fresco fatto in casa con spinaci"
+        },
+        "ar": {
+          "name": "بالاك بانير",
+          "description": "جبن طازج محضّر في المطعم مع السبانخ"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwu001201phh7xc0a3g",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Alu Saag",
+        "description": "gebratene Kartoffeln mit Spinat, Zwiebeln und Ingwer"
+      },
+      "translations": {
+        "en": {
+          "name": "Alu Saag",
+          "description": "pan-fried potatoes with spinach, onion and ginger"
+        },
+        "fr": {
+          "name": "Alu Saag",
+          "description": "pommes de terre poêlées aux épinards, oignons et gingembre"
+        },
+        "es": {
+          "name": "Alu Saag",
+          "description": "patatas salteadas con espinacas, cebolla y jengibre"
+        },
+        "it": {
+          "name": "Alu Saag",
+          "description": "patate saltate con spinaci, cipolla e zenzero"
+        },
+        "ar": {
+          "name": "ألو ساغ",
+          "description": "بطاطس مقلية مع السبانخ والبصل والزنجبيل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwu001301phcewi9x4x",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Alu Chana Masala",
+        "description": "Kartoffeln und Kichererbsen mit typisch indischen Gewürzen"
+      },
+      "translations": {
+        "en": {
+          "name": "Alu Chana Masala",
+          "description": "potatoes and chickpeas with classic Indian spices"
+        },
+        "fr": {
+          "name": "Alu Chana Masala",
+          "description": "pommes de terre et pois chiches aux épices indiennes traditionnelles"
+        },
+        "es": {
+          "name": "Alu Chana Masala",
+          "description": "patatas y garbanzos con especias indias tradicionales"
+        },
+        "it": {
+          "name": "Alu Chana Masala",
+          "description": "patate e ceci con le classiche spezie indiane"
+        },
+        "ar": {
+          "name": "ألو تشانا مسالا",
+          "description": "بطاطس وحمّص مع البهارات الهندية التقليدية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwv001401phor67vzvi",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Karahi Paneer",
+        "description": "hausgemachter Rahmkäse mit Currysauce, Paprika, Tomaten und Zwiebeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Karahi Paneer",
+          "description": "house-made fresh cheese with curry sauce, bell pepper, tomato and onion"
+        },
+        "fr": {
+          "name": "Karahi Paneer",
+          "description": "fromage frais maison, sauce curry, poivron, tomates et oignons"
+        },
+        "es": {
+          "name": "Karahi Paneer",
+          "description": "queso fresco casero con salsa de curry, pimiento, tomate y cebolla"
+        },
+        "it": {
+          "name": "Karahi Paneer",
+          "description": "formaggio fresco fatto in casa con salsa al curry, peperone, pomodoro e cipolla"
+        },
+        "ar": {
+          "name": "كراهي بانير",
+          "description": "جبن طازج محضّر في المطعم مع صلصة الكاري والفلفل الحلو والطماطم والبصل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqww001501phkyuhlnci",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Shahi Paneer (leicht, süß)",
+        "description": "hausgemachter Rahmkäse mit Cashewnüssen und Sahnesauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Shahi Paneer (mild, sweet)",
+          "description": "house-made fresh cheese with cashew nuts in a cream sauce"
+        },
+        "fr": {
+          "name": "Shahi Paneer (doux, sucré)",
+          "description": "fromage frais maison aux noix de cajou, sauce à la crème"
+        },
+        "es": {
+          "name": "Shahi Paneer (suave, dulce)",
+          "description": "queso fresco casero con anacardos en salsa de nata"
+        },
+        "it": {
+          "name": "Shahi Paneer (delicato, dolce)",
+          "description": "formaggio fresco fatto in casa con anacardi in salsa di panna"
+        },
+        "ar": {
+          "name": "شاهي بانير (خفيف وحلو)",
+          "description": "جبن طازج محضّر في المطعم مع الكاجو في صلصة الكريمة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwx001601phrko0f4zh",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Malai Kofta",
+        "description": "Röllchen aus Kartoffeln, Rahmkäse und Cashewnüssen, in Sahnesauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Malai Kofta",
+          "description": "dumplings of potato, fresh cheese and cashew nuts in a cream sauce"
+        },
+        "fr": {
+          "name": "Malai Kofta",
+          "description": "boulettes de pommes de terre, fromage frais et noix de cajou, sauce à la crème"
+        },
+        "es": {
+          "name": "Malai Kofta",
+          "description": "albóndigas de patata, queso fresco y anacardos en salsa de nata"
+        },
+        "it": {
+          "name": "Malai Kofta",
+          "description": "polpette di patate, formaggio fresco e anacardi in salsa di panna"
+        },
+        "ar": {
+          "name": "مالاي كوفتة",
+          "description": "كرات من البطاطس والجبن الطازج والكاجو في صلصة الكريمة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwx001701phimmld6cj",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Paneer Kashmiri (leicht-süß)",
+        "description": "hausgemachter Rahmkäse mit Cashewnüssen und Tomaten, in leicht süßer Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Paneer Kashmiri (mildly sweet)",
+          "description": "house-made fresh cheese with cashew nuts and tomato in a lightly sweet sauce"
+        },
+        "fr": {
+          "name": "Paneer Kashmiri (légèrement sucré)",
+          "description": "fromage frais maison aux noix de cajou et tomates, sauce légèrement sucrée"
+        },
+        "es": {
+          "name": "Paneer Kashmiri (ligeramente dulce)",
+          "description": "queso fresco casero con anacardos y tomate en salsa ligeramente dulce"
+        },
+        "it": {
+          "name": "Paneer Kashmiri (leggermente dolce)",
+          "description": "formaggio fresco fatto in casa con anacardi e pomodoro in salsa leggermente dolce"
+        },
+        "ar": {
+          "name": "بانير كشميري (حلو قليلاً)",
+          "description": "جبن طازج محضّر في المطعم مع الكاجو والطماطم في صلصة حلوة خفيفة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwy001801phqtz80dm8",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Dal Tarka",
+        "description": "Linsengericht mit Currysauce, nach indischer Art"
+      },
+      "translations": {
+        "en": {
+          "name": "Dal Tarka",
+          "description": "lentils in curry sauce, Indian style"
+        },
+        "fr": {
+          "name": "Dal Tarka",
+          "description": "lentilles en sauce curry, à l'indienne"
+        },
+        "es": {
+          "name": "Dal Tarka",
+          "description": "lentejas en salsa de curry, al estilo indio"
+        },
+        "it": {
+          "name": "Dal Tarka",
+          "description": "lenticchie in salsa al curry, in stile indiano"
+        },
+        "ar": {
+          "name": "دال تاركا",
+          "description": "عدس في صلصة الكاري على الطريقة الهندية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwz001901phtfod8ym8",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Sabzi Jhalfrezi (süß-scharf)",
+        "description": "saisonales, frisches Gemüse mit scharf gewürzter Sauce, Ingwer, Knoblauch und Paprika"
+      },
+      "translations": {
+        "en": {
+          "name": "Sabzi Jhalfrezi (sweet & spicy)",
+          "description": "fresh seasonal vegetables in a spicy sauce with ginger, garlic and bell pepper"
+        },
+        "fr": {
+          "name": "Sabzi Jhalfrezi (sucré-épicé)",
+          "description": "légumes frais de saison dans une sauce relevée au gingembre, ail et poivron"
+        },
+        "es": {
+          "name": "Sabzi Jhalfrezi (dulce y picante)",
+          "description": "verduras frescas de temporada en salsa picante con jengibre, ajo y pimiento"
+        },
+        "it": {
+          "name": "Sabzi Jhalfrezi (dolce e piccante)",
+          "description": "verdure fresche di stagione in salsa piccante con zenzero, aglio e peperone"
+        },
+        "ar": {
+          "name": "سبزي جالفريزي (حلو وحار)",
+          "description": "خضار الموسم الطازجة في صلصة حارة مع الزنجبيل والثوم والفلفل الحلو"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqwz001a01phw7j2c9pc",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Paneer Butter Masala (süß)",
+        "description": "hausgemachter Käse mit Butter, Tomaten und indischen Gewürzen"
+      },
+      "translations": {
+        "en": {
+          "name": "Paneer Butter Masala (sweet)",
+          "description": "house-made cheese with butter, tomato and Indian spices"
+        },
+        "fr": {
+          "name": "Paneer Butter Masala (sucré)",
+          "description": "fromage maison au beurre, tomates et épices indiennes"
+        },
+        "es": {
+          "name": "Paneer Butter Masala (dulce)",
+          "description": "queso casero con mantequilla, tomate y especias indias"
+        },
+        "it": {
+          "name": "Paneer Butter Masala (dolce)",
+          "description": "formaggio fatto in casa con burro, pomodoro e spezie indiane"
+        },
+        "ar": {
+          "name": "بانير باتر مسالا (حلو)",
+          "description": "جبن محضّر في المطعم مع الزبدة والطماطم والبهارات الهندية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx0001b01ph53udh5u9",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Bengen Ka Bharta",
+        "description": "gegrillte Auberginen mit Currysauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Bengen Ka Bharta",
+          "description": "grilled aubergine in curry sauce"
+        },
+        "fr": {
+          "name": "Bengen Ka Bharta",
+          "description": "aubergines grillées en sauce curry"
+        },
+        "es": {
+          "name": "Bengen Ka Bharta",
+          "description": "berenjena asada en salsa de curry"
+        },
+        "it": {
+          "name": "Bengen Ka Bharta",
+          "description": "melanzane grigliate in salsa al curry"
+        },
+        "ar": {
+          "name": "بنجن كا بهارتا",
+          "description": "باذنجان مشوي في صلصة الكاري"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx1001c01ph7pr0vrbd",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Bhindi Masala",
+        "description": "gebratene Okraschoten mit Ingwer, Tomaten, Zwiebeln und indischen Gewürzen"
+      },
+      "translations": {
+        "en": {
+          "name": "Bhindi Masala",
+          "description": "pan-fried okra with ginger, tomato, onion and Indian spices"
+        },
+        "fr": {
+          "name": "Bhindi Masala",
+          "description": "gombos poêlés au gingembre, tomates, oignons et épices indiennes"
+        },
+        "es": {
+          "name": "Bhindi Masala",
+          "description": "okra salteada con jengibre, tomate, cebolla y especias indias"
+        },
+        "it": {
+          "name": "Bhindi Masala",
+          "description": "okra saltata con zenzero, pomodoro, cipolla e spezie indiane"
+        },
+        "ar": {
+          "name": "بهندي مسالا",
+          "description": "بامية مقلية مع الزنجبيل والطماطم والبصل والبهارات الهندية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx1001d01ph0k265toe",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Dal Palak",
+        "description": "Linsen mit Spinat, Zwiebeln und indischen Gewürzen"
+      },
+      "translations": {
+        "en": {
+          "name": "Dal Palak",
+          "description": "lentils with spinach, onion and Indian spices"
+        },
+        "fr": {
+          "name": "Dal Palak",
+          "description": "lentilles aux épinards, oignons et épices indiennes"
+        },
+        "es": {
+          "name": "Dal Palak",
+          "description": "lentejas con espinacas, cebolla y especias indias"
+        },
+        "it": {
+          "name": "Dal Palak",
+          "description": "lenticchie con spinaci, cipolla e spezie indiane"
+        },
+        "ar": {
+          "name": "دال بالاك",
+          "description": "عدس مع السبانخ والبصل والبهارات الهندية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx2001e01phkyd9kz7z",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Alu Bengen",
+        "description": "gegrillte Auberginen und Kartoffeln, in Currysauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Alu Bengen",
+          "description": "grilled aubergine and potato in curry sauce"
+        },
+        "fr": {
+          "name": "Alu Bengen",
+          "description": "aubergines grillées et pommes de terre en sauce curry"
+        },
+        "es": {
+          "name": "Alu Bengen",
+          "description": "berenjena asada y patata en salsa de curry"
+        },
+        "it": {
+          "name": "Alu Bengen",
+          "description": "melanzane grigliate e patate in salsa al curry"
+        },
+        "ar": {
+          "name": "ألو بنجن",
+          "description": "باذنجان مشوي وبطاطس في صلصة الكاري"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx3001f01phtcjmx6hm",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Dal Makhni",
+        "description": "schwarze Linsen mit Sahne, Butter, Tomaten und Knoblauch"
+      },
+      "translations": {
+        "en": {
+          "name": "Dal Makhni",
+          "description": "black lentils with cream, butter, tomato and garlic"
+        },
+        "fr": {
+          "name": "Dal Makhni",
+          "description": "lentilles noires à la crème, beurre, tomates et ail"
+        },
+        "es": {
+          "name": "Dal Makhni",
+          "description": "lentejas negras con nata, mantequilla, tomate y ajo"
+        },
+        "it": {
+          "name": "Dal Makhni",
+          "description": "lenticchie nere con panna, burro, pomodoro e aglio"
+        },
+        "ar": {
+          "name": "دال مخني",
+          "description": "عدس أسود مع الكريمة والزبدة والطماطم والثوم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx3001g01ph2owh21v4",
+      "categoryId": "cmu9qyqwq000x01ph1p9mi9j6",
+      "source": {
+        "name": "Kola Puri",
+        "description": "Paneer (ausgemachter frischer Rahmkäse) mit Gemüse"
+      },
+      "translations": {
+        "en": {
+          "name": "Kola Puri",
+          "description": "paneer (house-made fresh cheese) with vegetables"
+        },
+        "fr": {
+          "name": "Kola Puri",
+          "description": "paneer (fromage frais maison) et légumes"
+        },
+        "es": {
+          "name": "Kola Puri",
+          "description": "paneer (queso fresco casero) con verduras"
+        },
+        "it": {
+          "name": "Kola Puri",
+          "description": "paneer (formaggio fresco fatto in casa) con verdure"
+        },
+        "ar": {
+          "name": "كولا بوري",
+          "description": "بانير (جبن طازج محضّر في المطعم) مع الخضار"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx7001i01phzv2scxsr",
+      "categoryId": "cmu9qyqx4001h01phmknxb7vr",
+      "source": {
+        "name": "Fisch Curry",
+        "description": "Seelachslion mit Cashewnüssen, Zwiebeln und Currysauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Fish Curry",
+          "description": "pollock loin with cashew nuts, onion and curry sauce"
+        },
+        "fr": {
+          "name": "Curry de poisson",
+          "description": "longe de lieu noir aux noix de cajou, oignons et sauce curry"
+        },
+        "es": {
+          "name": "Curry de pescado",
+          "description": "lomo de abadejo con anacardos, cebolla y salsa de curry"
+        },
+        "it": {
+          "name": "Curry di pesce",
+          "description": "filetto di merluzzo carbonaro con anacardi, cipolla e salsa al curry"
+        },
+        "ar": {
+          "name": "كاري السمك",
+          "description": "شرائح سمك البولاك مع الكاجو والبصل وصلصة الكاري"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx8001j01ph472hyag1",
+      "categoryId": "cmu9qyqx4001h01phmknxb7vr",
+      "source": {
+        "name": "Fisch Masala",
+        "description": "Seelachslion in einer Zubereitung aus Zwiebeln, frischem Ingwer, Knoblauch, Tomaten und Cashewnüssen"
+      },
+      "translations": {
+        "en": {
+          "name": "Fish Masala",
+          "description": "pollock loin cooked with onion, fresh ginger, garlic, tomato and cashew nuts"
+        },
+        "fr": {
+          "name": "Poisson Masala",
+          "description": "longe de lieu noir préparée avec oignons, gingembre frais, ail, tomates et noix de cajou"
+        },
+        "es": {
+          "name": "Pescado Masala",
+          "description": "lomo de abadejo preparado con cebolla, jengibre fresco, ajo, tomate y anacardos"
+        },
+        "it": {
+          "name": "Pesce Masala",
+          "description": "filetto di merluzzo carbonaro preparato con cipolla, zenzero fresco, aglio, pomodoro e anacardi"
+        },
+        "ar": {
+          "name": "سمك مسالا",
+          "description": "شرائح سمك البولاك مع البصل والزنجبيل الطازج والثوم والطماطم والكاجو"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqx9001k01phpw5zyx5r",
+      "categoryId": "cmu9qyqx4001h01phmknxb7vr",
+      "source": {
+        "name": "Fisch Madrasi",
+        "description": "Seelachslion nach südindischer Art mit Kokosmilch und Tomatensauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Fish Madrasi",
+          "description": "pollock loin South Indian style with coconut milk and tomato sauce"
+        },
+        "fr": {
+          "name": "Poisson Madrasi",
+          "description": "longe de lieu noir à la façon du sud de l'Inde, lait de coco et sauce tomate"
+        },
+        "es": {
+          "name": "Pescado Madrasi",
+          "description": "lomo de abadejo al estilo del sur de la India con leche de coco y salsa de tomate"
+        },
+        "it": {
+          "name": "Pesce Madrasi",
+          "description": "filetto di merluzzo carbonaro in stile sud-indiano con latte di cocco e salsa di pomodoro"
+        },
+        "ar": {
+          "name": "سمك مدراسي",
+          "description": "شرائح سمك البولاك على الطريقة الهندية الجنوبية مع حليب جوز الهند وصلصة الطماطم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxa001l01phof6h4qvb",
+      "categoryId": "cmu9qyqx4001h01phmknxb7vr",
+      "source": {
+        "name": "Jhinga Masala",
+        "description": "gebratene Garnelen mit feinen, indischen Gewürzen, Ingwer, Knoblauch und Kräutern"
+      },
+      "translations": {
+        "en": {
+          "name": "Jhinga Masala",
+          "description": "pan-fried prawns with delicate Indian spices, ginger, garlic and herbs"
+        },
+        "fr": {
+          "name": "Jhinga Masala",
+          "description": "crevettes poêlées aux fines épices indiennes, gingembre, ail et herbes"
+        },
+        "es": {
+          "name": "Jhinga Masala",
+          "description": "gambas salteadas con finas especias indias, jengibre, ajo y hierbas"
+        },
+        "it": {
+          "name": "Jhinga Masala",
+          "description": "gamberi saltati con fini spezie indiane, zenzero, aglio ed erbe aromatiche"
+        },
+        "ar": {
+          "name": "جينغا مسالا",
+          "description": "روبيان مقلي مع بهارات هندية فاخرة والزنجبيل والثوم والأعشاب"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxb001m01phtf4sy6wj",
+      "categoryId": "cmu9qyqx4001h01phmknxb7vr",
+      "source": {
+        "name": "Jhinga Curry",
+        "description": "Garnelen in Currysauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Jhinga Curry",
+          "description": "prawns in curry sauce"
+        },
+        "fr": {
+          "name": "Jhinga Curry",
+          "description": "crevettes en sauce curry"
+        },
+        "es": {
+          "name": "Jhinga Curry",
+          "description": "gambas en salsa de curry"
+        },
+        "it": {
+          "name": "Jhinga Curry",
+          "description": "gamberi in salsa al curry"
+        },
+        "ar": {
+          "name": "جينغا كاري",
+          "description": "روبيان في صلصة الكاري"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxb001n01phx36lssme",
+      "categoryId": "cmu9qyqx4001h01phmknxb7vr",
+      "source": {
+        "name": "Jhinga Kashmiri (leicht süß)",
+        "description": "Garnelen mit Cashewnüssen, frischem Apfel, Granatapfelkernen und Tomatensauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Jhinga Kashmiri (mildly sweet)",
+          "description": "prawns with cashew nuts, fresh apple, pomegranate seeds and tomato sauce"
+        },
+        "fr": {
+          "name": "Jhinga Kashmiri (légèrement sucré)",
+          "description": "crevettes aux noix de cajou, pomme fraîche, graines de grenade et sauce tomate"
+        },
+        "es": {
+          "name": "Jhinga Kashmiri (ligeramente dulce)",
+          "description": "gambas con anacardos, manzana fresca, granos de granada y salsa de tomate"
+        },
+        "it": {
+          "name": "Jhinga Kashmiri (leggermente dolce)",
+          "description": "gamberi con anacardi, mela fresca, chicchi di melograno e salsa di pomodoro"
+        },
+        "ar": {
+          "name": "جينغا كشميري (حلو قليلاً)",
+          "description": "روبيان مع الكاجو والتفاح الطازج وحبّات الرمان وصلصة الطماطم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxc001o01php2lwtxns",
+      "categoryId": "cmu9qyqx4001h01phmknxb7vr",
+      "source": {
+        "name": "Jhinga Dal",
+        "description": "Garnelen mit Linsen und indischen Gewürzen"
+      },
+      "translations": {
+        "en": {
+          "name": "Jhinga Dal",
+          "description": "prawns with lentils and Indian spices"
+        },
+        "fr": {
+          "name": "Jhinga Dal",
+          "description": "crevettes aux lentilles et épices indiennes"
+        },
+        "es": {
+          "name": "Jhinga Dal",
+          "description": "gambas con lentejas y especias indias"
+        },
+        "it": {
+          "name": "Jhinga Dal",
+          "description": "gamberi con lenticchie e spezie indiane"
+        },
+        "ar": {
+          "name": "جينغا دال",
+          "description": "روبيان مع العدس والبهارات الهندية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxd001q01ph41blk8d4",
+      "categoryId": "cmu9qyqxd001p01phddrwv2ug",
+      "source": {
+        "name": "Sabzi Biryani (würzig)",
+        "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, Basmatireis, Nüssen und feinen, indischen Gewürzen"
+      },
+      "translations": {
+        "en": {
+          "name": "Sabzi Biryani (spiced)",
+          "description": "basmati rice with fine Indian spices and nuts, finished with cashew nuts, raisins and fried onions"
+        },
+        "fr": {
+          "name": "Sabzi Biryani (épicé)",
+          "description": "riz basmati aux fines épices indiennes et aux fruits secs, garni de noix de cajou, raisins secs et oignons frits"
+        },
+        "es": {
+          "name": "Sabzi Biryani (especiado)",
+          "description": "arroz basmati con finas especias indias y frutos secos, coronado con anacardos, pasas y cebolla frita"
+        },
+        "it": {
+          "name": "Sabzi Biryani (speziato)",
+          "description": "riso basmati con fini spezie indiane e frutta secca, guarnito con anacardi, uvetta e cipolla fritta"
+        },
+        "ar": {
+          "name": "سبزي برياني (متبّل)",
+          "description": "أرز بسمتي مع بهارات هندية فاخرة والمكسرات، مزيّن بالكاجو والزبيب والبصل المحمّر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxe001r01ph853qn02x",
+      "categoryId": "cmu9qyqxd001p01phddrwv2ug",
+      "source": {
+        "name": "Chicken Biryani (würzig)",
+        "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, Hähnchenfilet und Basmatireis"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Biryani (spiced)",
+          "description": "chicken breast with basmati rice, finished with cashew nuts, raisins and fried onions"
+        },
+        "fr": {
+          "name": "Chicken Biryani (épicé)",
+          "description": "filet de poulet et riz basmati, garni de noix de cajou, raisins secs et oignons frits"
+        },
+        "es": {
+          "name": "Chicken Biryani (especiado)",
+          "description": "filete de pollo con arroz basmati, coronado con anacardos, pasas y cebolla frita"
+        },
+        "it": {
+          "name": "Chicken Biryani (speziato)",
+          "description": "filetto di pollo con riso basmati, guarnito con anacardi, uvetta e cipolla fritta"
+        },
+        "ar": {
+          "name": "دجاج برياني (متبّل)",
+          "description": "صدر دجاج مع أرز بسمتي، مزيّن بالكاجو والزبيب والبصل المحمّر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxf001s01phew0mevlr",
+      "categoryId": "cmu9qyqxd001p01phddrwv2ug",
+      "source": {
+        "name": "Lamm Biryani (würzig)",
+        "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, Lammfleisch und Basmatireis, garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Biryani (spiced)",
+          "description": "lamb with basmati rice, finished with cashew nuts, raisins and fried onions"
+        },
+        "fr": {
+          "name": "Biryani d'agneau (épicé)",
+          "description": "agneau et riz basmati, garni de noix de cajou, raisins secs et oignons frits"
+        },
+        "es": {
+          "name": "Biryani de cordero (especiado)",
+          "description": "cordero con arroz basmati, coronado con anacardos, pasas y cebolla frita"
+        },
+        "it": {
+          "name": "Biryani di agnello (speziato)",
+          "description": "agnello con riso basmati, guarnito con anacardi, uvetta e cipolla fritta"
+        },
+        "ar": {
+          "name": "برياني لحم الضأن (متبّل)",
+          "description": "لحم ضأن مع أرز بسمتي، مزيّن بالكاجو والزبيب والبصل المحمّر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxf001t01phnb1jd5vd",
+      "categoryId": "cmu9qyqxd001p01phddrwv2ug",
+      "source": {
+        "name": "Jhinga Biryani (würzig)",
+        "description": "garniert mit Cashewnüssen, Rosinen, gerösteten Zwiebeln, gebratenen Krabben und Basmatireis"
+      },
+      "translations": {
+        "en": {
+          "name": "Jhinga Biryani (spiced)",
+          "description": "pan-fried prawns with basmati rice, finished with cashew nuts, raisins and fried onions"
+        },
+        "fr": {
+          "name": "Jhinga Biryani (épicé)",
+          "description": "crevettes poêlées et riz basmati, garni de noix de cajou, raisins secs et oignons frits"
+        },
+        "es": {
+          "name": "Jhinga Biryani (especiado)",
+          "description": "gambas salteadas con arroz basmati, coronado con anacardos, pasas y cebolla frita"
+        },
+        "it": {
+          "name": "Jhinga Biryani (speziato)",
+          "description": "gamberi saltati con riso basmati, guarnito con anacardi, uvetta e cipolla fritta"
+        },
+        "ar": {
+          "name": "جينغا برياني (متبّل)",
+          "description": "روبيان مقلي مع أرز بسمتي، مزيّن بالكاجو والزبيب والبصل المحمّر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxg001u01phwc0h2gry",
+      "categoryId": "cmu9qyqxd001p01phddrwv2ug",
+      "source": {
+        "name": "Matter Paneer Pulao (leicht süß)",
+        "description": "mit gebratenem Käse, Erbsen, frischem Apfel, Granatapfel und Datteln"
+      },
+      "translations": {
+        "en": {
+          "name": "Matter Paneer Pulao (mildly sweet)",
+          "description": "with pan-fried cheese, peas, fresh apple, pomegranate and dates"
+        },
+        "fr": {
+          "name": "Matter Paneer Pulao (légèrement sucré)",
+          "description": "avec fromage poêlé, petits pois, pomme fraîche, grenade et dattes"
+        },
+        "es": {
+          "name": "Matter Paneer Pulao (ligeramente dulce)",
+          "description": "con queso a la plancha, guisantes, manzana fresca, granada y dátiles"
+        },
+        "it": {
+          "name": "Matter Paneer Pulao (leggermente dolce)",
+          "description": "con formaggio scottato, piselli, mela fresca, melograno e datteri"
+        },
+        "ar": {
+          "name": "متر بانير بولاو (حلو قليلاً)",
+          "description": "مع الجبن المقلي والبازلاء والتفاح الطازج والرمان والتمر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxg001v01phqdv42ypg",
+      "categoryId": "cmu9qyqxd001p01phddrwv2ug",
+      "source": {
+        "name": "Rangla Chicken Pulao (leicht süß)",
+        "description": "mit Hähnchenfilet, Basmatireis, Datteln, Rosinen, Mandeln, Cashewnüssen, frischem Apfel und Granatapfelkernen"
+      },
+      "translations": {
+        "en": {
+          "name": "Rangla Chicken Pulao (mildly sweet)",
+          "description": "with chicken breast, basmati rice, dates, raisins, almonds, cashew nuts, fresh apple and pomegranate seeds"
+        },
+        "fr": {
+          "name": "Rangla Chicken Pulao (légèrement sucré)",
+          "description": "avec filet de poulet, riz basmati, dattes, raisins secs, amandes, noix de cajou, pomme fraîche et graines de grenade"
+        },
+        "es": {
+          "name": "Rangla Chicken Pulao (ligeramente dulce)",
+          "description": "con filete de pollo, arroz basmati, dátiles, pasas, almendras, anacardos, manzana fresca y granos de granada"
+        },
+        "it": {
+          "name": "Rangla Chicken Pulao (leggermente dolce)",
+          "description": "con filetto di pollo, riso basmati, datteri, uvetta, mandorle, anacardi, mela fresca e chicchi di melograno"
+        },
+        "ar": {
+          "name": "رانغلا تشيكن بولاو (حلو قليلاً)",
+          "description": "مع صدر الدجاج وأرز بسمتي والتمر والزبيب واللوز والكاجو والتفاح الطازج وحبّات الرمان"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxh001w01phrt7ry39w",
+      "categoryId": "cmu9qyqxd001p01phddrwv2ug",
+      "source": {
+        "name": "Rangla Lamm Pulao (leicht süß)",
+        "description": "mit Lammfleisch, Basmatireis, Datteln, Rosinen, Mandeln, Cashewnüssen, frischem Apfel und Granatapfelkernen"
+      },
+      "translations": {
+        "en": {
+          "name": "Rangla Lamb Pulao (mildly sweet)",
+          "description": "with lamb, basmati rice, dates, raisins, almonds, cashew nuts, fresh apple and pomegranate seeds"
+        },
+        "fr": {
+          "name": "Rangla Pulao d'agneau (légèrement sucré)",
+          "description": "avec agneau, riz basmati, dattes, raisins secs, amandes, noix de cajou, pomme fraîche et graines de grenade"
+        },
+        "es": {
+          "name": "Rangla Pulao de cordero (ligeramente dulce)",
+          "description": "con cordero, arroz basmati, dátiles, pasas, almendras, anacardos, manzana fresca y granos de granada"
+        },
+        "it": {
+          "name": "Rangla Pulao di agnello (leggermente dolce)",
+          "description": "con agnello, riso basmati, datteri, uvetta, mandorle, anacardi, mela fresca e chicchi di melograno"
+        },
+        "ar": {
+          "name": "رانغلا بولاو بلحم الضأن (حلو قليلاً)",
+          "description": "مع لحم الضأن وأرز بسمتي والتمر والزبيب واللوز والكاجو والتفاح الطازج وحبّات الرمان"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxi001y01ph5e51ykjh",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Curry",
+        "description": "Lamm in Currysauce mit frischem Ingwer, Knoblauch und Zwiebeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Curry",
+          "description": "lamb in curry sauce with fresh ginger, garlic and onion"
+        },
+        "fr": {
+          "name": "Curry d'agneau",
+          "description": "agneau en sauce curry avec gingembre frais, ail et oignons"
+        },
+        "es": {
+          "name": "Curry de cordero",
+          "description": "cordero en salsa de curry con jengibre fresco, ajo y cebolla"
+        },
+        "it": {
+          "name": "Curry di agnello",
+          "description": "agnello in salsa al curry con zenzero fresco, aglio e cipolla"
+        },
+        "ar": {
+          "name": "كاري لحم الضأن",
+          "description": "لحم ضأن في صلصة الكاري مع الزنجبيل الطازج والثوم والبصل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxj001z01ph2nn8xez7",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Saag",
+        "description": "Lamm in Spinat mit frischem Ingwer und Knoblauch"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Saag",
+          "description": "lamb in spinach with fresh ginger and garlic"
+        },
+        "fr": {
+          "name": "Agneau Saag",
+          "description": "agneau aux épinards, gingembre frais et ail"
+        },
+        "es": {
+          "name": "Cordero Saag",
+          "description": "cordero con espinacas, jengibre fresco y ajo"
+        },
+        "it": {
+          "name": "Agnello Saag",
+          "description": "agnello con spinaci, zenzero fresco e aglio"
+        },
+        "ar": {
+          "name": "ضأن ساغ",
+          "description": "لحم ضأن مع السبانخ والزنجبيل الطازج والثوم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxk002001ph9krn5fpy",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Makhani Wala",
+        "description": "Lamm in würziger Mischung aus Zwiebeln, Knoblauch, Tomatencurry und Salt-Sweet-Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Makhani Wala",
+          "description": "lamb in a spiced blend of onion, garlic, tomato curry and a sweet-salty sauce"
+        },
+        "fr": {
+          "name": "Agneau Makhani Wala",
+          "description": "agneau dans un mélange relevé d'oignons, ail, curry de tomates et sauce sucrée-salée"
+        },
+        "es": {
+          "name": "Cordero Makhani Wala",
+          "description": "cordero en una mezcla especiada de cebolla, ajo, curry de tomate y salsa dulce-salada"
+        },
+        "it": {
+          "name": "Agnello Makhani Wala",
+          "description": "agnello in un mix speziato di cipolla, aglio, curry di pomodoro e salsa dolce-salata"
+        },
+        "ar": {
+          "name": "ضأن مخني والا",
+          "description": "لحم ضأن في خليط متبّل من البصل والثوم وكاري الطماطم وصلصة حلوة ومالحة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxl002101phhup2ngqc",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Sabzi Curry",
+        "description": "Lamm mit saisonalen Gemüse"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Sabzi Curry",
+          "description": "lamb with seasonal vegetables"
+        },
+        "fr": {
+          "name": "Agneau Sabzi Curry",
+          "description": "agneau aux légumes de saison"
+        },
+        "es": {
+          "name": "Cordero Sabzi Curry",
+          "description": "cordero con verduras de temporada"
+        },
+        "it": {
+          "name": "Agnello Sabzi Curry",
+          "description": "agnello con verdure di stagione"
+        },
+        "ar": {
+          "name": "ضأن سبزي كاري",
+          "description": "لحم ضأن مع خضار الموسم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxl002201phprjj9clf",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Vindaloo",
+        "description": "Lamm-Spezialität nach südindischer Art mit Kartoffeln in exotischer Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Vindaloo",
+          "description": "a South Indian lamb speciality with potatoes in an exotic sauce"
+        },
+        "fr": {
+          "name": "Agneau Vindaloo",
+          "description": "spécialité d'agneau du sud de l'Inde, pommes de terre et sauce exotique"
+        },
+        "es": {
+          "name": "Cordero Vindaloo",
+          "description": "especialidad de cordero del sur de la India con patatas en salsa exótica"
+        },
+        "it": {
+          "name": "Agnello Vindaloo",
+          "description": "specialità di agnello sud-indiana con patate in una salsa esotica"
+        },
+        "ar": {
+          "name": "ضأن فيندالو",
+          "description": "طبق ضأن على الطريقة الهندية الجنوبية مع البطاطس في صلصة استوائية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxm002301phvvf1qbfy",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Madrasi",
+        "description": "Lamm nach südindischer Art mit Kokos"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Madrasi",
+          "description": "lamb South Indian style with coconut"
+        },
+        "fr": {
+          "name": "Agneau Madrasi",
+          "description": "agneau à la façon du sud de l'Inde, à la noix de coco"
+        },
+        "es": {
+          "name": "Cordero Madrasi",
+          "description": "cordero al estilo del sur de la India con coco"
+        },
+        "it": {
+          "name": "Agnello Madrasi",
+          "description": "agnello in stile sud-indiano con cocco"
+        },
+        "ar": {
+          "name": "ضأن مدراسي",
+          "description": "لحم ضأن على الطريقة الهندية الجنوبية مع جوز الهند"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxn002401phfw2vic49",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Korma",
+        "description": "Lamm in einer milden Sauce aus Gewürzen, Sahne, Mandeln, Cashewnüssen, frischem Apfel und Granatapfel"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Korma",
+          "description": "lamb in a mild sauce of spices, cream, almonds, cashew nuts, fresh apple and pomegranate"
+        },
+        "fr": {
+          "name": "Agneau Korma",
+          "description": "agneau dans une sauce douce aux épices, crème, amandes, noix de cajou, pomme fraîche et grenade"
+        },
+        "es": {
+          "name": "Cordero Korma",
+          "description": "cordero en salsa suave de especias, nata, almendras, anacardos, manzana fresca y granada"
+        },
+        "it": {
+          "name": "Agnello Korma",
+          "description": "agnello in salsa delicata di spezie, panna, mandorle, anacardi, mela fresca e melograno"
+        },
+        "ar": {
+          "name": "ضأن كورما",
+          "description": "لحم ضأن في صلصة خفيفة من البهارات والكريمة واللوز والكاجو والتفاح الطازج والرمان"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxo002501phcl6udj9s",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Dal",
+        "description": "Lamm mit Linsen in indischer Gewürz-Kombination"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Dal",
+          "description": "lamb with lentils in a blend of Indian spices"
+        },
+        "fr": {
+          "name": "Agneau Dal",
+          "description": "agneau aux lentilles et mélange d'épices indiennes"
+        },
+        "es": {
+          "name": "Cordero Dal",
+          "description": "cordero con lentejas y una mezcla de especias indias"
+        },
+        "it": {
+          "name": "Agnello Dal",
+          "description": "agnello con lenticchie e un mix di spezie indiane"
+        },
+        "ar": {
+          "name": "ضأن دال",
+          "description": "لحم ضأن مع العدس وخليط من البهارات الهندية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxo002601phy7p2qxp8",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Kashmiri Kofta",
+        "description": "Lamm-Hackfleischbällchen mit Kashmiri Chili, Garam Masala, Anis, frischem Apfel und Granatapfel"
+      },
+      "translations": {
+        "en": {
+          "name": "Kashmiri Kofta",
+          "description": "lamb meatballs with Kashmiri chilli, garam masala, aniseed, fresh apple and pomegranate"
+        },
+        "fr": {
+          "name": "Kashmiri Kofta",
+          "description": "boulettes d'agneau au piment du Cachemire, garam masala, anis, pomme fraîche et grenade"
+        },
+        "es": {
+          "name": "Kashmiri Kofta",
+          "description": "albóndigas de cordero con chile de Cachemira, garam masala, anís, manzana fresca y granada"
+        },
+        "it": {
+          "name": "Kashmiri Kofta",
+          "description": "polpette di agnello con peperoncino del Kashmir, garam masala, anice, mela fresca e melograno"
+        },
+        "ar": {
+          "name": "كشميري كوفتة",
+          "description": "كرات لحم الضأن المفروم مع فلفل كشمير الحار والغارام مسالا واليانسون والتفاح الطازج والرمان"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxp002701ph1x1v60yh",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Karahi",
+        "description": "Lamm mit Paprika, Tomaten, Zwiebeln und würziger Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Karahi",
+          "description": "lamb with bell pepper, tomato, onion and a spiced sauce"
+        },
+        "fr": {
+          "name": "Agneau Karahi",
+          "description": "agneau au poivron, tomates, oignons et sauce relevée"
+        },
+        "es": {
+          "name": "Cordero Karahi",
+          "description": "cordero con pimiento, tomate, cebolla y salsa especiada"
+        },
+        "it": {
+          "name": "Agnello Karahi",
+          "description": "agnello con peperone, pomodoro, cipolla e salsa speziata"
+        },
+        "ar": {
+          "name": "ضأن كراهي",
+          "description": "لحم ضأن مع الفلفل الحلو والطماطم والبصل وصلصة متبّلة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxq002801ph37yok4cn",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Kashmiri",
+        "description": "Lamm in einer leicht süßen Sauce mit Trockenfrüchten und frischen Früchten"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Kashmiri",
+          "description": "lamb in a lightly sweet sauce with dried and fresh fruit"
+        },
+        "fr": {
+          "name": "Agneau Kashmiri",
+          "description": "agneau dans une sauce légèrement sucrée aux fruits secs et frais"
+        },
+        "es": {
+          "name": "Cordero Kashmiri",
+          "description": "cordero en salsa ligeramente dulce con fruta seca y fresca"
+        },
+        "it": {
+          "name": "Agnello Kashmiri",
+          "description": "agnello in salsa leggermente dolce con frutta secca e fresca"
+        },
+        "ar": {
+          "name": "ضأن كشميري",
+          "description": "لحم ضأن في صلصة حلوة خفيفة مع الفواكه المجففة والطازجة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxq002901phzbzi2kvw",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Peshawari Seek Masala",
+        "description": "amm-Hackfleisch nach pakistanischer Art mit Tomaten und feiner Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Peshawari Seek Masala",
+          "description": "minced lamb Pakistani style with tomato and a delicate sauce"
+        },
+        "fr": {
+          "name": "Peshawari Seek Masala",
+          "description": "agneau haché à la pakistanaise, tomates et sauce délicate"
+        },
+        "es": {
+          "name": "Peshawari Seek Masala",
+          "description": "carne picada de cordero al estilo pakistaní con tomate y salsa delicada"
+        },
+        "it": {
+          "name": "Peshawari Seek Masala",
+          "description": "agnello macinato in stile pakistano con pomodoro e salsa delicata"
+        },
+        "ar": {
+          "name": "بيشاوري سيخ مسالا",
+          "description": "لحم ضأن مفروم على الطريقة الباكستانية مع الطماطم وصلصة ناعمة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxr002a01phean4z8k3",
+      "categoryId": "cmu9qyqxi001x01phxly5ki70",
+      "source": {
+        "name": "Lamm Bindi Masala",
+        "description": "Lamm mit indischen Okraschoten, Tomaten, Zwiebelsauce, Gewürzen, frischem Ingwer und Koriander"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Bindi Masala",
+          "description": "lamb with Indian okra, tomato, onion sauce, spices, fresh ginger and coriander"
+        },
+        "fr": {
+          "name": "Agneau Bindi Masala",
+          "description": "agneau aux gombos indiens, tomates, sauce à l'oignon, épices, gingembre frais et coriandre"
+        },
+        "es": {
+          "name": "Cordero Bindi Masala",
+          "description": "cordero con okra india, tomate, salsa de cebolla, especias, jengibre fresco y cilantro"
+        },
+        "it": {
+          "name": "Agnello Bindi Masala",
+          "description": "agnello con okra indiana, pomodoro, salsa di cipolla, spezie, zenzero fresco e coriandolo"
+        },
+        "ar": {
+          "name": "ضأن بندي مسالا",
+          "description": "لحم ضأن مع البامية الهندية والطماطم وصلصة البصل والبهارات والزنجبيل الطازج والكزبرة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxs002c01phssuj341b",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Curry",
+        "description": "mit Hähnchenfilet und Currysauce, nach nordindischer Art"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Curry",
+          "description": "with chicken breast in curry sauce, North Indian style"
+        },
+        "fr": {
+          "name": "Curry de poulet",
+          "description": "filet de poulet en sauce curry, à la façon du nord de l'Inde"
+        },
+        "es": {
+          "name": "Curry de pollo",
+          "description": "con filete de pollo en salsa de curry, al estilo del norte de la India"
+        },
+        "it": {
+          "name": "Curry di pollo",
+          "description": "con filetto di pollo in salsa al curry, in stile nord-indiano"
+        },
+        "ar": {
+          "name": "كاري الدجاج",
+          "description": "صدر دجاج في صلصة الكاري على الطريقة الهندية الشمالية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxt002d01phkjodqd8o",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Sabzi",
+        "description": "mit Hähnchenfilet, saisonalem, frischem Gemüse und Currysauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Sabzi",
+          "description": "with chicken breast, fresh seasonal vegetables and curry sauce"
+        },
+        "fr": {
+          "name": "Poulet Sabzi",
+          "description": "filet de poulet, légumes frais de saison et sauce curry"
+        },
+        "es": {
+          "name": "Pollo Sabzi",
+          "description": "con filete de pollo, verduras frescas de temporada y salsa de curry"
+        },
+        "it": {
+          "name": "Pollo Sabzi",
+          "description": "con filetto di pollo, verdure fresche di stagione e salsa al curry"
+        },
+        "ar": {
+          "name": "دجاج سبزي",
+          "description": "مع صدر الدجاج وخضار الموسم الطازجة وصلصة الكاري"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxu002e01phbzi5chxm",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Saag",
+        "description": "mit Hähnchenfilet, Spinat, frischem Ingwer und Knoblauch"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Saag",
+          "description": "with chicken breast, spinach, fresh ginger and garlic"
+        },
+        "fr": {
+          "name": "Poulet Saag",
+          "description": "filet de poulet, épinards, gingembre frais et ail"
+        },
+        "es": {
+          "name": "Pollo Saag",
+          "description": "con filete de pollo, espinacas, jengibre fresco y ajo"
+        },
+        "it": {
+          "name": "Pollo Saag",
+          "description": "con filetto di pollo, spinaci, zenzero fresco e aglio"
+        },
+        "ar": {
+          "name": "دجاج ساغ",
+          "description": "مع صدر الدجاج والسبانخ والزنجبيل الطازج والثوم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxu002f01ph3mvch9i6",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Vindaloo",
+        "description": "süd-indische Hähnchen-Spezialität mit Kartoffeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Vindaloo",
+          "description": "a South Indian chicken speciality with potatoes"
+        },
+        "fr": {
+          "name": "Poulet Vindaloo",
+          "description": "spécialité de poulet du sud de l'Inde, aux pommes de terre"
+        },
+        "es": {
+          "name": "Pollo Vindaloo",
+          "description": "especialidad de pollo del sur de la India con patatas"
+        },
+        "it": {
+          "name": "Pollo Vindaloo",
+          "description": "specialità di pollo sud-indiana con patate"
+        },
+        "ar": {
+          "name": "دجاج فيندالو",
+          "description": "طبق دجاج على الطريقة الهندية الجنوبية مع البطاطس"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxv002g01ph027qjlpa",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Korma",
+        "description": "mit Hähnchenfleisch und einer milden Sauce aus Gewürzen, Cashewnüssen und Sahne"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Korma",
+          "description": "with chicken in a mild sauce of spices, cashew nuts and cream"
+        },
+        "fr": {
+          "name": "Poulet Korma",
+          "description": "poulet dans une sauce douce aux épices, noix de cajou et crème"
+        },
+        "es": {
+          "name": "Pollo Korma",
+          "description": "con pollo en salsa suave de especias, anacardos y nata"
+        },
+        "it": {
+          "name": "Pollo Korma",
+          "description": "con pollo in salsa delicata di spezie, anacardi e panna"
+        },
+        "ar": {
+          "name": "دجاج كورما",
+          "description": "دجاج في صلصة خفيفة من البهارات والكاجو والكريمة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxw002h01phibmkbdvv",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Mango (süß)",
+        "description": "mit Hähnchenfilet und Cashewnuss-Sauce mit Mango"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Mango (sweet)",
+          "description": "with chicken breast in a cashew-nut sauce with mango"
+        },
+        "fr": {
+          "name": "Poulet Mangue (sucré)",
+          "description": "filet de poulet dans une sauce aux noix de cajou et à la mangue"
+        },
+        "es": {
+          "name": "Pollo Mango (dulce)",
+          "description": "con filete de pollo en salsa de anacardos con mango"
+        },
+        "it": {
+          "name": "Pollo Mango (dolce)",
+          "description": "con filetto di pollo in salsa di anacardi al mango"
+        },
+        "ar": {
+          "name": "دجاج بالمانجو (حلو)",
+          "description": "صدر دجاج في صلصة الكاجو مع المانجو"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxw002i01phc5nvu3do",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Kashmiri (süß)",
+        "description": "mit gebratenem Hähnchenfleisch und einer Sauce aus Zwiebeln, Tomaten, Sahne, frischem Apfel und Granatapfel"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Kashmiri (sweet)",
+          "description": "with pan-fried chicken in a sauce of onion, tomato, cream, fresh apple and pomegranate"
+        },
+        "fr": {
+          "name": "Poulet Kashmiri (sucré)",
+          "description": "poulet poêlé dans une sauce aux oignons, tomates, crème, pomme fraîche et grenade"
+        },
+        "es": {
+          "name": "Pollo Kashmiri (dulce)",
+          "description": "con pollo salteado en salsa de cebolla, tomate, nata, manzana fresca y granada"
+        },
+        "it": {
+          "name": "Pollo Kashmiri (dolce)",
+          "description": "con pollo scottato in salsa di cipolla, pomodoro, panna, mela fresca e melograno"
+        },
+        "ar": {
+          "name": "دجاج كشميري (حلو)",
+          "description": "دجاج مقلي في صلصة من البصل والطماطم والكريمة والتفاح الطازج والرمان"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxx002j01phiwdlyzcx",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Karahi",
+        "description": "mit Hähnchenfleischstücken, Currysauce, Paprika, Tomaten und Zwiebeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Karahi",
+          "description": "with pieces of chicken, curry sauce, bell pepper, tomato and onion"
+        },
+        "fr": {
+          "name": "Poulet Karahi",
+          "description": "morceaux de poulet, sauce curry, poivron, tomates et oignons"
+        },
+        "es": {
+          "name": "Pollo Karahi",
+          "description": "con trozos de pollo, salsa de curry, pimiento, tomate y cebolla"
+        },
+        "it": {
+          "name": "Pollo Karahi",
+          "description": "con bocconcini di pollo, salsa al curry, peperone, pomodoro e cipolla"
+        },
+        "ar": {
+          "name": "دجاج كراهي",
+          "description": "قطع دجاج مع صلصة الكاري والفلفل الحلو والطماطم والبصل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxy002k01ph8yayy366",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Madrasi",
+        "description": "mit Hähnchenfilet und Kokosmilch, nach süd-indischer Art"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Madrasi",
+          "description": "with chicken breast and coconut milk, South Indian style"
+        },
+        "fr": {
+          "name": "Poulet Madrasi",
+          "description": "filet de poulet et lait de coco, à la façon du sud de l'Inde"
+        },
+        "es": {
+          "name": "Pollo Madrasi",
+          "description": "con filete de pollo y leche de coco, al estilo del sur de la India"
+        },
+        "it": {
+          "name": "Pollo Madrasi",
+          "description": "con filetto di pollo e latte di cocco, in stile sud-indiano"
+        },
+        "ar": {
+          "name": "دجاج مدراسي",
+          "description": "مع صدر الدجاج وحليب جوز الهند على الطريقة الهندية الجنوبية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxy002l01phripatvpe",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Jhalfrezi",
+        "description": "mit scharf gewürztem Hähnchenfilet, frischem Ingwer, Knoblauch, Paprika und Tomaten"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Jhalfrezi",
+          "description": "with spicy chicken breast, fresh ginger, garlic, bell pepper and tomato"
+        },
+        "fr": {
+          "name": "Poulet Jhalfrezi",
+          "description": "filet de poulet relevé, gingembre frais, ail, poivron et tomates"
+        },
+        "es": {
+          "name": "Pollo Jhalfrezi",
+          "description": "con filete de pollo picante, jengibre fresco, ajo, pimiento y tomate"
+        },
+        "it": {
+          "name": "Pollo Jhalfrezi",
+          "description": "con filetto di pollo piccante, zenzero fresco, aglio, peperone e pomodoro"
+        },
+        "ar": {
+          "name": "دجاج جالفريزي",
+          "description": "صدر دجاج حار مع الزنجبيل الطازج والثوم والفلفل الحلو والطماطم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqxz002m01phn9t9jr6s",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Dopiaza",
+        "description": "mit Hähnchenfilet, Currysauce und gebratenen Zwiebeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Dopiaza",
+          "description": "with chicken breast, curry sauce and fried onions"
+        },
+        "fr": {
+          "name": "Poulet Dopiaza",
+          "description": "filet de poulet, sauce curry et oignons frits"
+        },
+        "es": {
+          "name": "Pollo Dopiaza",
+          "description": "con filete de pollo, salsa de curry y cebolla frita"
+        },
+        "it": {
+          "name": "Pollo Dopiaza",
+          "description": "con filetto di pollo, salsa al curry e cipolla fritta"
+        },
+        "ar": {
+          "name": "دجاج دوبيازا",
+          "description": "مع صدر الدجاج وصلصة الكاري والبصل المحمّر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy0002n01phe5uv4n3a",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Butter Chicken",
+        "description": "mit gegrilltem Hähnchenfleisch, Tomatensauce, Butter, Sahne, Mandeln und Cashewnüssen"
+      },
+      "translations": {
+        "en": {
+          "name": "Butter Chicken",
+          "description": "with grilled chicken, tomato sauce, butter, cream, almonds and cashew nuts"
+        },
+        "fr": {
+          "name": "Butter Chicken",
+          "description": "poulet grillé, sauce tomate, beurre, crème, amandes et noix de cajou"
+        },
+        "es": {
+          "name": "Butter Chicken",
+          "description": "con pollo a la parrilla, salsa de tomate, mantequilla, nata, almendras y anacardos"
+        },
+        "it": {
+          "name": "Butter Chicken",
+          "description": "con pollo grigliato, salsa di pomodoro, burro, panna, mandorle e anacardi"
+        },
+        "ar": {
+          "name": "باتر تشيكن",
+          "description": "دجاج مشوي مع صلصة الطماطم والزبدة والكريمة واللوز والكاجو"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy1002o01phi4m4pl1o",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Tikka Masala",
+        "description": "mit gegrilltem Hähnchenfleisch, Zwiebeln, Tomaten, roter Currysauce, Koriander, frischem Ingwer und indischem Masala"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Tikka Masala",
+          "description": "with grilled chicken, onion, tomato, red curry sauce, coriander, fresh ginger and Indian masala"
+        },
+        "fr": {
+          "name": "Chicken Tikka Masala",
+          "description": "poulet grillé, oignons, tomates, sauce curry rouge, coriandre, gingembre frais et masala indien"
+        },
+        "es": {
+          "name": "Chicken Tikka Masala",
+          "description": "con pollo a la parrilla, cebolla, tomate, salsa de curry rojo, cilantro, jengibre fresco y masala indio"
+        },
+        "it": {
+          "name": "Chicken Tikka Masala",
+          "description": "con pollo grigliato, cipolla, pomodoro, salsa al curry rosso, coriandolo, zenzero fresco e masala indiano"
+        },
+        "ar": {
+          "name": "دجاج تيكا مسالا",
+          "description": "دجاج مشوي مع البصل والطماطم وصلصة الكاري الأحمر والكزبرة والزنجبيل الطازج والمسالا الهندي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy1002p01ph2dk1jg4f",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chili Chicken",
+        "description": "gebratenes Hähnchenfilet paniert in Kichererbsenmehl, mit Paprika, Sojasauce und süß-saurer Tomatensauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Chilli Chicken",
+          "description": "pan-fried chicken breast in a chickpea-flour coating with bell pepper, soy sauce and sweet-and-sour tomato sauce"
+        },
+        "fr": {
+          "name": "Poulet Chili",
+          "description": "filet de poulet poêlé pané à la farine de pois chiches, poivron, sauce soja et sauce tomate aigre-douce"
+        },
+        "es": {
+          "name": "Pollo Chili",
+          "description": "filete de pollo rebozado en harina de garbanzo con pimiento, salsa de soja y salsa de tomate agridulce"
+        },
+        "it": {
+          "name": "Pollo Chili",
+          "description": "filetto di pollo impanato nella farina di ceci con peperone, salsa di soia e salsa di pomodoro agrodolce"
+        },
+        "ar": {
+          "name": "تشيلي تشيكن",
+          "description": "صدر دجاج مقلي مغلّف بدقيق الحمّص مع الفلفل الحلو وصلصة الصويا وصلصة الطماطم الحلوة الحامضة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy2002q01ph2gtara7j",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Nawabi Chicken",
+        "description": "mit Hähnchenfleisch, Kokos-Mandelsauce und Paneer"
+      },
+      "translations": {
+        "en": {
+          "name": "Nawabi Chicken",
+          "description": "with chicken, a coconut-almond sauce and paneer"
+        },
+        "fr": {
+          "name": "Poulet Nawabi",
+          "description": "poulet, sauce coco-amande et paneer"
+        },
+        "es": {
+          "name": "Pollo Nawabi",
+          "description": "con pollo, salsa de coco y almendra y paneer"
+        },
+        "it": {
+          "name": "Pollo Nawabi",
+          "description": "con pollo, salsa al cocco e mandorle e paneer"
+        },
+        "ar": {
+          "name": "دجاج نوابي",
+          "description": "مع الدجاج وصلصة جوز الهند واللوز وجبن البانير"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy3002r01ph7mu0vini",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Chana Masala",
+        "description": "mit gebratenem Hähnchenfleisch und einer Sauce aus Zwiebeln, Tomaten, Sahne"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Chana Masala",
+          "description": "with pan-fried chicken in a sauce of onion, tomato and cream"
+        },
+        "fr": {
+          "name": "Poulet Chana Masala",
+          "description": "poulet poêlé dans une sauce aux oignons, tomates et crème"
+        },
+        "es": {
+          "name": "Pollo Chana Masala",
+          "description": "con pollo salteado en salsa de cebolla, tomate y nata"
+        },
+        "it": {
+          "name": "Pollo Chana Masala",
+          "description": "con pollo scottato in salsa di cipolla, pomodoro e panna"
+        },
+        "ar": {
+          "name": "دجاج تشانا مسالا",
+          "description": "دجاج مقلي في صلصة من البصل والطماطم والكريمة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy4002s01phtn0jc8v7",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Chicken Hyderabadi",
+        "description": "mit Hähnchenfleisch, Cashewnuss-Sauce und Minzsauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Hyderabadi",
+          "description": "with chicken, cashew-nut sauce and mint sauce"
+        },
+        "fr": {
+          "name": "Poulet Hyderabadi",
+          "description": "poulet, sauce aux noix de cajou et sauce à la menthe"
+        },
+        "es": {
+          "name": "Pollo Hyderabadi",
+          "description": "con pollo, salsa de anacardos y salsa de menta"
+        },
+        "it": {
+          "name": "Pollo Hyderabadi",
+          "description": "con pollo, salsa di anacardi e salsa alla menta"
+        },
+        "ar": {
+          "name": "دجاج حيدر أبادي",
+          "description": "مع الدجاج وصلصة الكاجو وصلصة النعناع"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy4002t01phah2169t0",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Gulabi Chicken (leicht süß)",
+        "description": "mit Hähnchenbrust, Kardamom, Rosenblüten, Cashewnüssen, Pistazien und Mandeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Gulabi Chicken (mildly sweet)",
+          "description": "with chicken breast, cardamom, rose petals, cashew nuts, pistachios and almonds"
+        },
+        "fr": {
+          "name": "Gulabi Chicken (légèrement sucré)",
+          "description": "blanc de poulet, cardamome, pétales de rose, noix de cajou, pistaches et amandes"
+        },
+        "es": {
+          "name": "Gulabi Chicken (ligeramente dulce)",
+          "description": "con pechuga de pollo, cardamomo, pétalos de rosa, anacardos, pistachos y almendras"
+        },
+        "it": {
+          "name": "Gulabi Chicken (leggermente dolce)",
+          "description": "con petto di pollo, cardamomo, petali di rosa, anacardi, pistacchi e mandorle"
+        },
+        "ar": {
+          "name": "غولابي تشيكن (حلو قليلاً)",
+          "description": "مع صدر الدجاج والهيل وبتلات الورد والكاجو والفستق واللوز"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy5002u01ph1w5ys2ak",
+      "categoryId": "cmu9qyqxs002b01ph9ba95oms",
+      "source": {
+        "name": "Sookha Chicken",
+        "description": "mit Hähnchenbrust, Kokosnuss, Minze, würziger Sauce, Koriander und Kashmir-Masala"
+      },
+      "translations": {
+        "en": {
+          "name": "Sookha Chicken",
+          "description": "with chicken breast, coconut, mint, a spiced sauce, coriander and Kashmiri masala"
+        },
+        "fr": {
+          "name": "Sookha Chicken",
+          "description": "blanc de poulet, noix de coco, menthe, sauce relevée, coriandre et masala du Cachemire"
+        },
+        "es": {
+          "name": "Sookha Chicken",
+          "description": "con pechuga de pollo, coco, menta, salsa especiada, cilantro y masala de Cachemira"
+        },
+        "it": {
+          "name": "Sookha Chicken",
+          "description": "con petto di pollo, cocco, menta, salsa speziata, coriandolo e masala del Kashmir"
+        },
+        "ar": {
+          "name": "سوكها تشيكن",
+          "description": "مع صدر الدجاج وجوز الهند والنعناع وصلصة متبّلة والكزبرة ومسالا كشمير"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy7002w01phsp484iaq",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Tandoori Roti",
+        "description": "Indisches Fladenbrot aus Vollkornmehl"
+      },
+      "translations": {
+        "en": {
+          "name": "Tandoori Roti",
+          "description": "Indian flatbread made with wholemeal flour"
+        },
+        "fr": {
+          "name": "Tandoori Roti",
+          "description": "pain plat indien à la farine complète"
+        },
+        "es": {
+          "name": "Tandoori Roti",
+          "description": "pan plano indio de harina integral"
+        },
+        "it": {
+          "name": "Tandoori Roti",
+          "description": "pane indiano con farina integrale"
+        },
+        "ar": {
+          "name": "تندوري روتي",
+          "description": "خبز هندي مسطّح من الدقيق الكامل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy7002x01ph6ul4ci3m",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Naan",
+        "description": "Indisches Fladenbrot aus Weißmehl"
+      },
+      "translations": {
+        "en": {
+          "name": "Naan",
+          "description": "Indian flatbread made with white flour"
+        },
+        "fr": {
+          "name": "Naan",
+          "description": "pain plat indien à la farine blanche"
+        },
+        "es": {
+          "name": "Naan",
+          "description": "pan plano indio de harina blanca"
+        },
+        "it": {
+          "name": "Naan",
+          "description": "pane indiano con farina bianca"
+        },
+        "ar": {
+          "name": "نان",
+          "description": "خبز هندي مسطّح من الدقيق الأبيض"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy8002y01ph555k8o4s",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Garlic Naan",
+        "description": "Indisches Fladenbrot mit Knoblauch"
+      },
+      "translations": {
+        "en": {
+          "name": "Garlic Naan",
+          "description": "Indian flatbread with garlic"
+        },
+        "fr": {
+          "name": "Naan à l'ail",
+          "description": "pain plat indien à l'ail"
+        },
+        "es": {
+          "name": "Naan de ajo",
+          "description": "pan plano indio con ajo"
+        },
+        "it": {
+          "name": "Naan all'aglio",
+          "description": "pane indiano all'aglio"
+        },
+        "ar": {
+          "name": "نان بالثوم",
+          "description": "خبز هندي مسطّح بالثوم"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy9002z01phpucsneyy",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Butter Naan",
+        "description": "Indisches Fladenbrot mit Butter"
+      },
+      "translations": {
+        "en": {
+          "name": "Butter Naan",
+          "description": "Indian flatbread with butter"
+        },
+        "fr": {
+          "name": "Naan au beurre",
+          "description": "pain plat indien au beurre"
+        },
+        "es": {
+          "name": "Naan de mantequilla",
+          "description": "pan plano indio con mantequilla"
+        },
+        "it": {
+          "name": "Naan al burro",
+          "description": "pane indiano al burro"
+        },
+        "ar": {
+          "name": "نان بالزبدة",
+          "description": "خبز هندي مسطّح بالزبدة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqy9003001ph75fj0hm0",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Hariyali Naan",
+        "description": "indisches Fladenbrot mit Koriander, Spinat und Gewürzen, dazu Raita"
+      },
+      "translations": {
+        "en": {
+          "name": "Hariyali Naan",
+          "description": "Indian flatbread with coriander, spinach and spices, served with raita"
+        },
+        "fr": {
+          "name": "Hariyali Naan",
+          "description": "pain plat indien à la coriandre, épinards et épices, servi avec raita"
+        },
+        "es": {
+          "name": "Hariyali Naan",
+          "description": "pan plano indio con cilantro, espinacas y especias, servido con raita"
+        },
+        "it": {
+          "name": "Hariyali Naan",
+          "description": "pane indiano con coriandolo, spinaci e spezie, servito con raita"
+        },
+        "ar": {
+          "name": "هاريالي نان",
+          "description": "خبز هندي مسطّح مع الكزبرة والسبانخ والبهارات، يُقدَّم مع الرايتا"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqya003101php87b9h6f",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Aloo Paratha",
+        "description": "Indisches Fladenbrot gefüllt mit würzigen Kartoffeln, dazu Raita"
+      },
+      "translations": {
+        "en": {
+          "name": "Aloo Paratha",
+          "description": "Indian flatbread filled with spiced potato, served with raita"
+        },
+        "fr": {
+          "name": "Aloo Paratha",
+          "description": "pain plat indien farci de pommes de terre épicées, servi avec raita"
+        },
+        "es": {
+          "name": "Aloo Paratha",
+          "description": "pan plano indio relleno de patata especiada, servido con raita"
+        },
+        "it": {
+          "name": "Aloo Paratha",
+          "description": "pane indiano ripieno di patate speziate, servito con raita"
+        },
+        "ar": {
+          "name": "ألو باراتا",
+          "description": "خبز هندي مسطّح محشو بالبطاطس المتبّلة، يُقدَّم مع الرايتا"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyb003201phpwfr0t0v",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Paneer Naan",
+        "description": "indisches Fladenbrot gefüllt mit hausgemachtem Käse, dazu Raita"
+      },
+      "translations": {
+        "en": {
+          "name": "Paneer Naan",
+          "description": "Indian flatbread filled with house-made cheese, served with raita"
+        },
+        "fr": {
+          "name": "Paneer Naan",
+          "description": "pain plat indien farci de fromage maison, servi avec raita"
+        },
+        "es": {
+          "name": "Paneer Naan",
+          "description": "pan plano indio relleno de queso casero, servido con raita"
+        },
+        "it": {
+          "name": "Paneer Naan",
+          "description": "pane indiano ripieno di formaggio fatto in casa, servito con raita"
+        },
+        "ar": {
+          "name": "بانير نان",
+          "description": "خبز هندي مسطّح محشو بالجبن المحضّر في المطعم، يُقدَّم مع الرايتا"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyb003301ph73w8c2dj",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Papadam",
+        "description": "Kichererbsen-Brot"
+      },
+      "translations": {
+        "en": {
+          "name": "Papadam",
+          "description": "crisp chickpea-flour bread"
+        },
+        "fr": {
+          "name": "Papadam",
+          "description": "galette croustillante à la farine de pois chiches"
+        },
+        "es": {
+          "name": "Papadam",
+          "description": "pan crujiente de harina de garbanzo"
+        },
+        "it": {
+          "name": "Papadam",
+          "description": "sfoglia croccante di farina di ceci"
+        },
+        "ar": {
+          "name": "باباضم",
+          "description": "خبز رقيق مقرمش من دقيق الحمّص"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyc003401phqb4qd7sp",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Mix Naan",
+        "description": "mit Tandoori Roti, Garlic Naan, Saada Naan und Butter Naan, dazu Raita"
+      },
+      "translations": {
+        "en": {
+          "name": "Mixed Naan",
+          "description": "with Tandoori Roti, Garlic Naan, Saada Naan and Butter Naan, served with raita"
+        },
+        "fr": {
+          "name": "Naan mixte",
+          "description": "avec Tandoori Roti, Naan à l'ail, Saada Naan et Naan au beurre, servi avec raita"
+        },
+        "es": {
+          "name": "Naan mixto",
+          "description": "con Tandoori Roti, Naan de ajo, Saada Naan y Naan de mantequilla, servido con raita"
+        },
+        "it": {
+          "name": "Naan misto",
+          "description": "con Tandoori Roti, Naan all'aglio, Saada Naan e Naan al burro, servito con raita"
+        },
+        "ar": {
+          "name": "نان مشكّل",
+          "description": "مع تندوري روتي ونان بالثوم وسادا نان ونان بالزبدة، يُقدَّم مع الرايتا"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyd003501phltzwaaxc",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Cheese Naan",
+        "description": "Fladenbrot aus Weizenmehl mit Gouda"
+      },
+      "translations": {
+        "en": {
+          "name": "Cheese Naan",
+          "description": "wheat-flour flatbread with Gouda"
+        },
+        "fr": {
+          "name": "Naan au fromage",
+          "description": "pain plat à la farine de blé garni de gouda"
+        },
+        "es": {
+          "name": "Naan de queso",
+          "description": "pan plano de harina de trigo con gouda"
+        },
+        "it": {
+          "name": "Naan al formaggio",
+          "description": "pane di farina di frumento con gouda"
+        },
+        "ar": {
+          "name": "نان بالجبن",
+          "description": "خبز مسطّح من دقيق القمح مع جبن الغودا"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyd003601ph2qazi8q5",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Peshwari Naan",
+        "description": "aus Weizenmehl, gefüllt mit Mandeln, Rosinen, Kokosnuss und Honig"
+      },
+      "translations": {
+        "en": {
+          "name": "Peshwari Naan",
+          "description": "wheat-flour flatbread filled with almonds, raisins, coconut and honey"
+        },
+        "fr": {
+          "name": "Peshwari Naan",
+          "description": "pain plat à la farine de blé farci d'amandes, raisins secs, noix de coco et miel"
+        },
+        "es": {
+          "name": "Peshwari Naan",
+          "description": "pan plano de harina de trigo relleno de almendras, pasas, coco y miel"
+        },
+        "it": {
+          "name": "Peshwari Naan",
+          "description": "pane di farina di frumento ripieno di mandorle, uvetta, cocco e miele"
+        },
+        "ar": {
+          "name": "بيشاوري نان",
+          "description": "خبز مسطّح من دقيق القمح محشو باللوز والزبيب وجوز الهند والعسل"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqye003701ph9d4rtbs2",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Keema Naan mit Lammfleisch",
+        "description": "aus Weizenmehl"
+      },
+      "translations": {
+        "en": {
+          "name": "Keema Naan with Lamb",
+          "description": "made with wheat flour"
+        },
+        "fr": {
+          "name": "Keema Naan à l'agneau",
+          "description": "à la farine de blé"
+        },
+        "es": {
+          "name": "Keema Naan de cordero",
+          "description": "de harina de trigo"
+        },
+        "it": {
+          "name": "Keema Naan con agnello",
+          "description": "con farina di frumento"
+        },
+        "ar": {
+          "name": "كيما نان بلحم الضأن",
+          "description": "من دقيق القمح"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyf003801phf54o0i9s",
+      "categoryId": "cmu9qyqy6002v01phmuqrirdg",
+      "source": {
+        "name": "Keema Naan mit Hähnchenfleisch",
+        "description": "aus Weizenmehl"
+      },
+      "translations": {
+        "en": {
+          "name": "Keema Naan with Chicken",
+          "description": "made with wheat flour"
+        },
+        "fr": {
+          "name": "Keema Naan au poulet",
+          "description": "à la farine de blé"
+        },
+        "es": {
+          "name": "Keema Naan de pollo",
+          "description": "de harina de trigo"
+        },
+        "it": {
+          "name": "Keema Naan con pollo",
+          "description": "con farina di frumento"
+        },
+        "ar": {
+          "name": "كيما نان بالدجاج",
+          "description": "من دقيق القمح"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyg003a01phyrbyngsl",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Peshwari Seekh Kabab",
+        "description": "mit Lammhackfleisch, am Spieß gegrillt und nord-pakistanisch gewürzt, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Peshwari Seekh Kabab",
+          "description": "minced lamb grilled on the skewer with northern Pakistani spices, served with chutneys"
+        },
+        "fr": {
+          "name": "Peshwari Seekh Kabab",
+          "description": "agneau haché grillé en brochette, épices du nord du Pakistan, servi avec des chutneys"
+        },
+        "es": {
+          "name": "Peshwari Seekh Kabab",
+          "description": "cordero picado a la brocheta con especias del norte de Pakistán, servido con chutneys"
+        },
+        "it": {
+          "name": "Peshwari Seekh Kabab",
+          "description": "agnello macinato grigliato allo spiedo con spezie del nord del Pakistan, servito con chutney"
+        },
+        "ar": {
+          "name": "بيشاوري سيخ كباب",
+          "description": "لحم ضأن مفروم مشوي على السيخ ببهارات شمال باكستان، يُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyh003b01phwp79n5ne",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Hariyali Tikka",
+        "description": "in Minz-Joghurt mariniertes Hähnchen, am Spieß gegrillt, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Hariyali Tikka",
+          "description": "chicken marinated in mint yoghurt, grilled on the skewer, served with chutneys"
+        },
+        "fr": {
+          "name": "Hariyali Tikka",
+          "description": "poulet mariné au yaourt à la menthe, grillé en brochette, servi avec des chutneys"
+        },
+        "es": {
+          "name": "Hariyali Tikka",
+          "description": "pollo marinado en yogur a la menta, a la brocheta, servido con chutneys"
+        },
+        "it": {
+          "name": "Hariyali Tikka",
+          "description": "pollo marinato in yogurt alla menta, grigliato allo spiedo, servito con chutney"
+        },
+        "ar": {
+          "name": "هاريالي تيكا",
+          "description": "دجاج متبّل بلبن الزبادي بالنعناع ومشوي على السيخ، يُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyi003c01ph59l6ofqg",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Chicken Tikka",
+        "description": "mit Hähnchenfilet und Tandoori Masala, am Spieß gegrillt, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Tikka",
+          "description": "chicken breast with tandoori masala, grilled on the skewer, served with chutneys"
+        },
+        "fr": {
+          "name": "Chicken Tikka",
+          "description": "filet de poulet au tandoori masala, grillé en brochette, servi avec des chutneys"
+        },
+        "es": {
+          "name": "Chicken Tikka",
+          "description": "filete de pollo con tandoori masala, a la brocheta, servido con chutneys"
+        },
+        "it": {
+          "name": "Chicken Tikka",
+          "description": "filetto di pollo con tandoori masala, grigliato allo spiedo, servito con chutney"
+        },
+        "ar": {
+          "name": "دجاج تيكا",
+          "description": "صدر دجاج مع تندوري مسالا، مشوي على السيخ، يُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyi003d01phne17a2f0",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Lahori King Prawn",
+        "description": "gegrillte Garnelen nach Punjabi-Art, mit feinen Gewürzen und Joghurt mariniert, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Lahori King Prawn",
+          "description": "grilled king prawns Punjabi style, marinated in fine spices and yoghurt, served with chutneys"
+        },
+        "fr": {
+          "name": "Lahori King Prawn",
+          "description": "gambas grillées à la façon du Pendjab, marinées aux fines épices et au yaourt, servies avec des chutneys"
+        },
+        "es": {
+          "name": "Lahori King Prawn",
+          "description": "langostinos a la parrilla al estilo punyabí, marinados en finas especias y yogur, servidos con chutneys"
+        },
+        "it": {
+          "name": "Lahori King Prawn",
+          "description": "gamberoni grigliati in stile punjabi, marinati con fini spezie e yogurt, serviti con chutney"
+        },
+        "ar": {
+          "name": "لاهوري كينغ براون",
+          "description": "روبيان ملكي مشوي على الطريقة البنجابية، متبّل ببهارات فاخرة ولبن الزبادي، يُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyj003e01ph60xfnmnz",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Garlic Chicken Tikka",
+        "description": "im Tandoor gegrillte Hähnchenbrust mit Knoblauch-Cashew-Marinade, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Garlic Chicken Tikka",
+          "description": "chicken breast grilled in the tandoor with a garlic and cashew marinade, served with chutneys"
+        },
+        "fr": {
+          "name": "Garlic Chicken Tikka",
+          "description": "blanc de poulet grillé au tandoor, marinade à l'ail et aux noix de cajou, servi avec des chutneys"
+        },
+        "es": {
+          "name": "Garlic Chicken Tikka",
+          "description": "pechuga de pollo al tandoor con marinada de ajo y anacardos, servida con chutneys"
+        },
+        "it": {
+          "name": "Garlic Chicken Tikka",
+          "description": "petto di pollo grigliato nel tandoor con marinata all'aglio e anacardi, servito con chutney"
+        },
+        "ar": {
+          "name": "دجاج تيكا بالثوم",
+          "description": "صدر دجاج مشوي في التندور بتتبيلة الثوم والكاجو، يُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyk003f01phzyd0c2bu",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Lamm Boti Tikka (süß)",
+        "description": "mit Lammfleisch aus der Keule und indischen Gewürzen, am Spieß gegrillt"
+      },
+      "translations": {
+        "en": {
+          "name": "Lamb Boti Tikka (sweet)",
+          "description": "leg of lamb with Indian spices, grilled on the skewer"
+        },
+        "fr": {
+          "name": "Lamb Boti Tikka (sucré)",
+          "description": "gigot d'agneau aux épices indiennes, grillé en brochette"
+        },
+        "es": {
+          "name": "Lamb Boti Tikka (dulce)",
+          "description": "pierna de cordero con especias indias, a la brocheta"
+        },
+        "it": {
+          "name": "Lamb Boti Tikka (dolce)",
+          "description": "coscia di agnello con spezie indiane, grigliata allo spiedo"
+        },
+        "ar": {
+          "name": "ضأن بوتي تيكا (حلو)",
+          "description": "لحم من فخذ الضأن مع البهارات الهندية، مشوي على السيخ"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyl003g01ph2y4fgg0n",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Tandoori Chicken",
+        "description": "mit gegrillten Hähnchenschenkeln, Tandoor Masala und Joghurt-Cashewnuss-Marinade"
+      },
+      "translations": {
+        "en": {
+          "name": "Tandoori Chicken",
+          "description": "grilled chicken legs with tandoori masala and a yoghurt-cashew marinade"
+        },
+        "fr": {
+          "name": "Tandoori Chicken",
+          "description": "cuisses de poulet grillées au tandoori masala, marinade yaourt et noix de cajou"
+        },
+        "es": {
+          "name": "Tandoori Chicken",
+          "description": "muslos de pollo a la parrilla con tandoori masala y marinada de yogur y anacardos"
+        },
+        "it": {
+          "name": "Tandoori Chicken",
+          "description": "cosce di pollo grigliate con tandoori masala e marinata di yogurt e anacardi"
+        },
+        "ar": {
+          "name": "دجاج تندوري",
+          "description": "أفخاذ دجاج مشوية مع تندور مسالا وتتبيلة اللبن والكاجو"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqym003h01phtaw44fuv",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Paneer Tikka (süß)",
+        "description": "gegrillter, hausgemachter Käse mit Gemüse-Spießen und Sauce"
+      },
+      "translations": {
+        "en": {
+          "name": "Paneer Tikka (sweet)",
+          "description": "grilled house-made cheese with vegetable skewers and sauce"
+        },
+        "fr": {
+          "name": "Paneer Tikka (sucré)",
+          "description": "fromage maison grillé, brochettes de légumes et sauce"
+        },
+        "es": {
+          "name": "Paneer Tikka (dulce)",
+          "description": "queso casero a la parrilla con brochetas de verduras y salsa"
+        },
+        "it": {
+          "name": "Paneer Tikka (dolce)",
+          "description": "formaggio fatto in casa grigliato con spiedini di verdure e salsa"
+        },
+        "ar": {
+          "name": "بانير تيكا (حلو)",
+          "description": "جبن محضّر في المطعم ومشوي مع أسياخ الخضار وصلصة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyn003i01phcwgxhawg",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Afghani Tandoori Chicken (würzig scharf)",
+        "description": "mit gegrillten Hähnchenschenkeln, weißem Pfeffer und Joghurt-Quark-Cashewnuss-Marinade, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Afghani Tandoori Chicken (hot & spicy)",
+          "description": "grilled chicken legs with white pepper and a yoghurt, quark and cashew marinade, served with chutneys"
+        },
+        "fr": {
+          "name": "Afghani Tandoori Chicken (relevé et épicé)",
+          "description": "cuisses de poulet grillées au poivre blanc, marinade yaourt, fromage blanc et noix de cajou, servies avec des chutneys"
+        },
+        "es": {
+          "name": "Afghani Tandoori Chicken (picante)",
+          "description": "muslos de pollo a la parrilla con pimienta blanca y marinada de yogur, quark y anacardos, servidos con chutneys"
+        },
+        "it": {
+          "name": "Afghani Tandoori Chicken (piccante)",
+          "description": "cosce di pollo grigliate con pepe bianco e marinata di yogurt, quark e anacardi, servite con chutney"
+        },
+        "ar": {
+          "name": "دجاج تندوري أفغاني (حار ومتبّل)",
+          "description": "أفخاذ دجاج مشوية مع الفلفل الأبيض وتتبيلة من اللبن والجبن الطري والكاجو، تُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyp003j01ph0p9la7e9",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Mix Grill-Teller",
+        "description": "mit Hariyali Tikka, Garlic Chicken Tikka, Peshawari Seekh und Chicken Tikka, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Mixed Grill Platter",
+          "description": "with Hariyali Tikka, Garlic Chicken Tikka, Peshawari Seekh and Chicken Tikka, served with chutneys"
+        },
+        "fr": {
+          "name": "Assiette grillades mixtes",
+          "description": "avec Hariyali Tikka, Garlic Chicken Tikka, Peshawari Seekh et Chicken Tikka, servie avec des chutneys"
+        },
+        "es": {
+          "name": "Parrillada mixta",
+          "description": "con Hariyali Tikka, Garlic Chicken Tikka, Peshawari Seekh y Chicken Tikka, servida con chutneys"
+        },
+        "it": {
+          "name": "Grigliata mista",
+          "description": "con Hariyali Tikka, Garlic Chicken Tikka, Peshawari Seekh e Chicken Tikka, servita con chutney"
+        },
+        "ar": {
+          "name": "طبق مشاوي مشكّل",
+          "description": "مع هاريالي تيكا ودجاج تيكا بالثوم وبيشاوري سيخ ودجاج تيكا، يُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyp003k01phs3iubckw",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Jambo Grill-Teller",
+        "description": "mit Hariyali Tikka, Garlic Chicken Tikka, Tandoori Chicken, Peshawari Seekh und Chicken Tikka, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Jumbo Grill Platter",
+          "description": "with Hariyali Tikka, Garlic Chicken Tikka, Tandoori Chicken, Peshawari Seekh and Chicken Tikka, served with chutneys"
+        },
+        "fr": {
+          "name": "Assiette grillades Jumbo",
+          "description": "avec Hariyali Tikka, Garlic Chicken Tikka, Tandoori Chicken, Peshawari Seekh et Chicken Tikka, servie avec des chutneys"
+        },
+        "es": {
+          "name": "Parrillada jumbo",
+          "description": "con Hariyali Tikka, Garlic Chicken Tikka, Tandoori Chicken, Peshawari Seekh y Chicken Tikka, servida con chutneys"
+        },
+        "it": {
+          "name": "Grigliata jumbo",
+          "description": "con Hariyali Tikka, Garlic Chicken Tikka, Tandoori Chicken, Peshawari Seekh e Chicken Tikka, servita con chutney"
+        },
+        "ar": {
+          "name": "طبق مشاوي جامبو",
+          "description": "مع هاريالي تيكا ودجاج تيكا بالثوم ودجاج تندوري وبيشاوري سيخ ودجاج تيكا، يُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyq003l01ph4v592byk",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Fisch Tikka",
+        "description": "Seelachslion am Spieß gegrillt, dazu Chutney"
+      },
+      "translations": {
+        "en": {
+          "name": "Fish Tikka",
+          "description": "pollock loin grilled on the skewer, served with chutney"
+        },
+        "fr": {
+          "name": "Tikka de poisson",
+          "description": "longe de lieu noir grillée en brochette, servie avec un chutney"
+        },
+        "es": {
+          "name": "Tikka de pescado",
+          "description": "lomo de abadejo a la brocheta, servido con chutney"
+        },
+        "it": {
+          "name": "Tikka di pesce",
+          "description": "filetto di merluzzo carbonaro grigliato allo spiedo, servito con chutney"
+        },
+        "ar": {
+          "name": "سمك تيكا",
+          "description": "شرائح سمك البولاك مشوية على السيخ، تُقدَّم مع التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyq003m01ph4a1uza5v",
+      "categoryId": "cmu9qyqyf003901phdj8bc7xg",
+      "source": {
+        "name": "Fisch Garlic",
+        "description": "Seelachsloin gegrillt mit Knoblauch-Cashew-Marinade, dazu Chutneys"
+      },
+      "translations": {
+        "en": {
+          "name": "Garlic Fish",
+          "description": "grilled pollock loin with a garlic and cashew marinade, served with chutneys"
+        },
+        "fr": {
+          "name": "Poisson à l'ail",
+          "description": "longe de lieu noir grillée, marinade à l'ail et aux noix de cajou, servie avec des chutneys"
+        },
+        "es": {
+          "name": "Pescado al ajo",
+          "description": "lomo de abadejo a la parrilla con marinada de ajo y anacardos, servido con chutneys"
+        },
+        "it": {
+          "name": "Pesce all'aglio",
+          "description": "filetto di merluzzo carbonaro grigliato con marinata all'aglio e anacardi, servito con chutney"
+        },
+        "ar": {
+          "name": "سمك بالثوم",
+          "description": "شرائح سمك البولاك مشوية بتتبيلة الثوم والكاجو، تُقدَّم مع صلصات التشاتني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqys003o01phbl74n8n4",
+      "categoryId": "cmu9qyqyr003n01ph1glgvuiz",
+      "source": {
+        "name": "Chicken Korma",
+        "description": "Hähnchen und Basmatireis"
+      },
+      "translations": {
+        "en": {
+          "name": "Chicken Korma",
+          "description": "chicken and basmati rice"
+        },
+        "fr": {
+          "name": "Poulet Korma",
+          "description": "poulet et riz basmati"
+        },
+        "es": {
+          "name": "Pollo Korma",
+          "description": "pollo y arroz basmati"
+        },
+        "it": {
+          "name": "Pollo Korma",
+          "description": "pollo e riso basmati"
+        },
+        "ar": {
+          "name": "دجاج كورما",
+          "description": "دجاج وأرز بسمتي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqys003p01ph7f6164yl",
+      "categoryId": "cmu9qyqyr003n01ph1glgvuiz",
+      "source": {
+        "name": "Sabzi Curry",
+        "description": "Gemüse, Käse und Basmatireis"
+      },
+      "translations": {
+        "en": {
+          "name": "Sabzi Curry",
+          "description": "vegetables, cheese and basmati rice"
+        },
+        "fr": {
+          "name": "Sabzi Curry",
+          "description": "légumes, fromage et riz basmati"
+        },
+        "es": {
+          "name": "Sabzi Curry",
+          "description": "verduras, queso y arroz basmati"
+        },
+        "it": {
+          "name": "Sabzi Curry",
+          "description": "verdure, formaggio e riso basmati"
+        },
+        "ar": {
+          "name": "سبزي كاري",
+          "description": "خضار وجبن وأرز بسمتي"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyu003r01ph1gcbyuw8",
+      "categoryId": "cmu9qyqyt003q01phmpqh0x4j",
+      "source": {
+        "name": "Indisches Halwa",
+        "description": "Grieß mit gemischten Trockenfrüchten"
+      },
+      "translations": {
+        "en": {
+          "name": "Indian Halwa",
+          "description": "semolina with mixed dried fruit"
+        },
+        "fr": {
+          "name": "Halwa indien",
+          "description": "semoule aux fruits secs variés"
+        },
+        "es": {
+          "name": "Halwa indio",
+          "description": "sémola con frutos secos variados"
+        },
+        "it": {
+          "name": "Halwa indiano",
+          "description": "semolino con frutta secca mista"
+        },
+        "ar": {
+          "name": "حلوى هندية",
+          "description": "سميد مع تشكيلة من الفواكه المجففة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyv003s01phocybsnou",
+      "categoryId": "cmu9qyqyt003q01phmpqh0x4j",
+      "source": {
+        "name": "Indisches Vermicelles",
+        "description": "mit Milch, Kardamom und Rosinen"
+      },
+      "translations": {
+        "en": {
+          "name": "Indian Vermicelli",
+          "description": "with milk, cardamom and raisins"
+        },
+        "fr": {
+          "name": "Vermicelles indiens",
+          "description": "au lait, cardamome et raisins secs"
+        },
+        "es": {
+          "name": "Fideos indios",
+          "description": "con leche, cardamomo y pasas"
+        },
+        "it": {
+          "name": "Vermicelli indiani",
+          "description": "con latte, cardamomo e uvetta"
+        },
+        "ar": {
+          "name": "شعيرية هندية",
+          "description": "مع الحليب والهيل والزبيب"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyv003t01ph8dm90la8",
+      "categoryId": "cmu9qyqyt003q01phmpqh0x4j",
+      "source": {
+        "name": "Indisches Kulfi",
+        "description": "Eis mit Pistazien, Kardamom dazu Sahne"
+      },
+      "translations": {
+        "en": {
+          "name": "Indian Kulfi",
+          "description": "ice cream with pistachios and cardamom, served with cream"
+        },
+        "fr": {
+          "name": "Kulfi indien",
+          "description": "glace aux pistaches et à la cardamome, servie avec de la crème"
+        },
+        "es": {
+          "name": "Kulfi indio",
+          "description": "helado con pistachos y cardamomo, servido con nata"
+        },
+        "it": {
+          "name": "Kulfi indiano",
+          "description": "gelato con pistacchi e cardamomo, servito con panna"
+        },
+        "ar": {
+          "name": "كلفي هندي",
+          "description": "مثلجات مع الفستق والهيل، تُقدَّم مع الكريمة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyw003u01phpgef3org",
+      "categoryId": "cmu9qyqyt003q01phmpqh0x4j",
+      "source": {
+        "name": "Gulab Jamun"
+      },
+      "translations": {
+        "en": {
+          "name": "Gulab Jamun"
+        },
+        "fr": {
+          "name": "Gulab Jamun"
+        },
+        "es": {
+          "name": "Gulab Jamun"
+        },
+        "it": {
+          "name": "Gulab Jamun"
+        },
+        "ar": {
+          "name": "غلاب جامون"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyx003v01ph78logi39",
+      "categoryId": "cmu9qyqyt003q01phmpqh0x4j",
+      "source": {
+        "name": "Kheer",
+        "description": "mit Reis, Milch, Zucker, Früchten und Rosenblüten"
+      },
+      "translations": {
+        "en": {
+          "name": "Kheer",
+          "description": "with rice, milk, sugar, fruit and rose petals"
+        },
+        "fr": {
+          "name": "Kheer",
+          "description": "au riz, lait, sucre, fruits et pétales de rose"
+        },
+        "es": {
+          "name": "Kheer",
+          "description": "con arroz, leche, azúcar, fruta y pétalos de rosa"
+        },
+        "it": {
+          "name": "Kheer",
+          "description": "con riso, latte, zucchero, frutta e petali di rosa"
+        },
+        "ar": {
+          "name": "كهير",
+          "description": "مع الأرز والحليب والسكر والفواكه وبتلات الورد"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyy003x01phu746aml6",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Sprite 0,33l"
+      },
+      "translations": {
+        "en": {
+          "name": "Sprite 0.33l"
+        },
+        "fr": {
+          "name": "Sprite 0,33 l"
+        },
+        "es": {
+          "name": "Sprite 0,33 l"
+        },
+        "it": {
+          "name": "Sprite 0,33 l"
+        },
+        "ar": {
+          "name": "سبرايت 0.33 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqyz003y01ph3styunyl",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Sprite 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Sprite 0.5l"
+        },
+        "fr": {
+          "name": "Sprite 0,5 l"
+        },
+        "es": {
+          "name": "Sprite 0,5 l"
+        },
+        "it": {
+          "name": "Sprite 0,5 l"
+        },
+        "ar": {
+          "name": "سبرايت 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz0003z01phy41sbpks",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Mezzo-Mix 0,33l"
+      },
+      "translations": {
+        "en": {
+          "name": "Mezzo-Mix 0.33l"
+        },
+        "fr": {
+          "name": "Mezzo-Mix 0,33 l"
+        },
+        "es": {
+          "name": "Mezzo-Mix 0,33 l"
+        },
+        "it": {
+          "name": "Mezzo-Mix 0,33 l"
+        },
+        "ar": {
+          "name": "ميتسو-ميكس 0.33 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz0004001ph6x65d6j9",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Mezzo-Mix 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Mezzo-Mix 0.5l"
+        },
+        "fr": {
+          "name": "Mezzo-Mix 0,5 l"
+        },
+        "es": {
+          "name": "Mezzo-Mix 0,5 l"
+        },
+        "it": {
+          "name": "Mezzo-Mix 0,5 l"
+        },
+        "ar": {
+          "name": "ميتسو-ميكس 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz1004101phebht9453",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Coca-Cola 0,33l"
+      },
+      "translations": {
+        "en": {
+          "name": "Coca-Cola 0.33l"
+        },
+        "fr": {
+          "name": "Coca-Cola 0,33 l"
+        },
+        "es": {
+          "name": "Coca-Cola 0,33 l"
+        },
+        "it": {
+          "name": "Coca-Cola 0,33 l"
+        },
+        "ar": {
+          "name": "كوكا كولا 0.33 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz2004201ph877m84la",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Coca-Cola 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Coca-Cola 0.5l"
+        },
+        "fr": {
+          "name": "Coca-Cola 0,5 l"
+        },
+        "es": {
+          "name": "Coca-Cola 0,5 l"
+        },
+        "it": {
+          "name": "Coca-Cola 0,5 l"
+        },
+        "ar": {
+          "name": "كوكا كولا 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz2004301phik0t5mvk",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Coca-Cola Zero 0,33l"
+      },
+      "translations": {
+        "en": {
+          "name": "Coca-Cola Zero 0.33l"
+        },
+        "fr": {
+          "name": "Coca-Cola Zero 0,33 l"
+        },
+        "es": {
+          "name": "Coca-Cola Zero 0,33 l"
+        },
+        "it": {
+          "name": "Coca-Cola Zero 0,33 l"
+        },
+        "ar": {
+          "name": "كوكا كولا زيرو 0.33 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz3004401phnw6xwrlb",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Coca-Cola Zero 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Coca-Cola Zero 0.5l"
+        },
+        "fr": {
+          "name": "Coca-Cola Zero 0,5 l"
+        },
+        "es": {
+          "name": "Coca-Cola Zero 0,5 l"
+        },
+        "it": {
+          "name": "Coca-Cola Zero 0,5 l"
+        },
+        "ar": {
+          "name": "كوكا كولا زيرو 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz4004501phg4dsn6fh",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Fanta 0,33l"
+      },
+      "translations": {
+        "en": {
+          "name": "Fanta 0.33l"
+        },
+        "fr": {
+          "name": "Fanta 0,33 l"
+        },
+        "es": {
+          "name": "Fanta 0,33 l"
+        },
+        "it": {
+          "name": "Fanta 0,33 l"
+        },
+        "ar": {
+          "name": "فانتا 0.33 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz4004601phzh3gh2aj",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Fanta 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Fanta 0.5l"
+        },
+        "fr": {
+          "name": "Fanta 0,5 l"
+        },
+        "es": {
+          "name": "Fanta 0,5 l"
+        },
+        "it": {
+          "name": "Fanta 0,5 l"
+        },
+        "ar": {
+          "name": "فانتا 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz5004701phn6ar3eqh",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Mineralwasser still 0,75l"
+      },
+      "translations": {
+        "en": {
+          "name": "Still Mineral Water 0.75l"
+        },
+        "fr": {
+          "name": "Eau minérale plate 0,75 l"
+        },
+        "es": {
+          "name": "Agua mineral sin gas 0,75 l"
+        },
+        "it": {
+          "name": "Acqua minerale naturale 0,75 l"
+        },
+        "ar": {
+          "name": "مياه معدنية بدون غاز 0.75 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz6004801phuhc0qtlg",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Mineralwasser Classic 0,75l"
+      },
+      "translations": {
+        "en": {
+          "name": "Sparkling Mineral Water 0.75l"
+        },
+        "fr": {
+          "name": "Eau minérale gazeuse 0,75 l"
+        },
+        "es": {
+          "name": "Agua mineral con gas 0,75 l"
+        },
+        "it": {
+          "name": "Acqua minerale frizzante 0,75 l"
+        },
+        "ar": {
+          "name": "مياه معدنية غازية 0.75 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz6004901phsfjvblzr",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Mangosaft 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango Juice 0.3l"
+        },
+        "fr": {
+          "name": "Jus de mangue 0,3 l"
+        },
+        "es": {
+          "name": "Zumo de mango 0,3 l"
+        },
+        "it": {
+          "name": "Succo di mango 0,3 l"
+        },
+        "ar": {
+          "name": "عصير المانجو 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz7004a01ph8i04ldln",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Orangensaft 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Orange Juice 0.3l"
+        },
+        "fr": {
+          "name": "Jus d'orange 0,3 l"
+        },
+        "es": {
+          "name": "Zumo de naranja 0,3 l"
+        },
+        "it": {
+          "name": "Succo d'arancia 0,3 l"
+        },
+        "ar": {
+          "name": "عصير البرتقال 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz7004b01phwjxhrxs9",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Apfel-Saft  0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Apple Juice 0.3l"
+        },
+        "fr": {
+          "name": "Jus de pomme 0,3 l"
+        },
+        "es": {
+          "name": "Zumo de manzana 0,3 l"
+        },
+        "it": {
+          "name": "Succo di mela 0,3 l"
+        },
+        "ar": {
+          "name": "عصير التفاح 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz8004c01ph2ukpt6yv",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Johannisbeersaft 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Blackcurrant Juice 0.3l"
+        },
+        "fr": {
+          "name": "Jus de cassis 0,3 l"
+        },
+        "es": {
+          "name": "Zumo de grosella negra 0,3 l"
+        },
+        "it": {
+          "name": "Succo di ribes nero 0,3 l"
+        },
+        "ar": {
+          "name": "عصير الكشمش الأسود 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz8004d01php8vmbnb6",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Ananassaft 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Pineapple Juice 0.3l"
+        },
+        "fr": {
+          "name": "Jus d'ananas 0,3 l"
+        },
+        "es": {
+          "name": "Zumo de piña 0,3 l"
+        },
+        "it": {
+          "name": "Succo d'ananas 0,3 l"
+        },
+        "ar": {
+          "name": "عصير الأناناس 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz9004e01ph7p2atpc0",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Maracujasaft 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Passion Fruit Juice 0.3l"
+        },
+        "fr": {
+          "name": "Jus de fruit de la passion 0,3 l"
+        },
+        "es": {
+          "name": "Zumo de maracuyá 0,3 l"
+        },
+        "it": {
+          "name": "Succo di frutto della passione 0,3 l"
+        },
+        "ar": {
+          "name": "عصير الباشن فروت 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqz9004f01phgamgq2f6",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Traubensaft 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Grape Juice 0.3l"
+        },
+        "fr": {
+          "name": "Jus de raisin 0,3 l"
+        },
+        "es": {
+          "name": "Zumo de uva 0,3 l"
+        },
+        "it": {
+          "name": "Succo d'uva 0,3 l"
+        },
+        "ar": {
+          "name": "عصير العنب 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqza004g01phvtrzv3rp",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Mangoschorle 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango Juice Spritzer 0.5l"
+        },
+        "fr": {
+          "name": "Jus de mangue à l'eau gazeuse 0,5 l"
+        },
+        "es": {
+          "name": "Zumo de mango con agua con gas 0,5 l"
+        },
+        "it": {
+          "name": "Succo di mango con acqua frizzante 0,5 l"
+        },
+        "ar": {
+          "name": "عصير المانجو مع المياه الغازية 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzb004h01phgrsif2pb",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Orangenschorle 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Orange Juice Spritzer 0.5l"
+        },
+        "fr": {
+          "name": "Jus d'orange à l'eau gazeuse 0,5 l"
+        },
+        "es": {
+          "name": "Zumo de naranja con agua con gas 0,5 l"
+        },
+        "it": {
+          "name": "Succo d'arancia con acqua frizzante 0,5 l"
+        },
+        "ar": {
+          "name": "عصير البرتقال مع المياه الغازية 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzb004i01phbvleirc1",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Apfel-Schorle 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Apple Juice Spritzer 0.5l"
+        },
+        "fr": {
+          "name": "Jus de pomme à l'eau gazeuse 0,5 l"
+        },
+        "es": {
+          "name": "Zumo de manzana con agua con gas 0,5 l"
+        },
+        "it": {
+          "name": "Succo di mela con acqua frizzante 0,5 l"
+        },
+        "ar": {
+          "name": "عصير التفاح مع المياه الغازية 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzc004j01phrzl9d4qk",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Johannisbeerschorle 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Blackcurrant Juice Spritzer 0.5l"
+        },
+        "fr": {
+          "name": "Jus de cassis à l'eau gazeuse 0,5 l"
+        },
+        "es": {
+          "name": "Zumo de grosella negra con agua con gas 0,5 l"
+        },
+        "it": {
+          "name": "Succo di ribes nero con acqua frizzante 0,5 l"
+        },
+        "ar": {
+          "name": "عصير الكشمش الأسود مع المياه الغازية 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzd004k01phe5eyd1e9",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Ananasschorle 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Pineapple Juice Spritzer 0.5l"
+        },
+        "fr": {
+          "name": "Jus d'ananas à l'eau gazeuse 0,5 l"
+        },
+        "es": {
+          "name": "Zumo de piña con agua con gas 0,5 l"
+        },
+        "it": {
+          "name": "Succo d'ananas con acqua frizzante 0,5 l"
+        },
+        "ar": {
+          "name": "عصير الأناناس مع المياه الغازية 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzd004l01phtncdkseo",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Maracujaschorle 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Passion Fruit Juice Spritzer 0.5l"
+        },
+        "fr": {
+          "name": "Jus de fruit de la passion à l'eau gazeuse 0,5 l"
+        },
+        "es": {
+          "name": "Zumo de maracuyá con agua con gas 0,5 l"
+        },
+        "it": {
+          "name": "Succo di frutto della passione con acqua frizzante 0,5 l"
+        },
+        "ar": {
+          "name": "عصير الباشن فروت مع المياه الغازية 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqze004m01phaicdip8b",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Traubenschorle 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Grape Juice Spritzer 0.5l"
+        },
+        "fr": {
+          "name": "Jus de raisin à l'eau gazeuse 0,5 l"
+        },
+        "es": {
+          "name": "Zumo de uva con agua con gas 0,5 l"
+        },
+        "it": {
+          "name": "Succo d'uva con acqua frizzante 0,5 l"
+        },
+        "ar": {
+          "name": "عصير العنب مع المياه الغازية 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzf004n01phft3xiouw",
+      "categoryId": "cmu9qyqyy003w01phnm64c8jd",
+      "source": {
+        "name": "Eistee Pfirsich 0,4l"
+      },
+      "translations": {
+        "en": {
+          "name": "Peach Iced Tea 0.4l"
+        },
+        "fr": {
+          "name": "Thé glacé pêche 0,4 l"
+        },
+        "es": {
+          "name": "Té helado de melocotón 0,4 l"
+        },
+        "it": {
+          "name": "Tè freddo alla pesca 0,4 l"
+        },
+        "ar": {
+          "name": "شاي مثلج بالخوخ 0.4 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzg004p01phxiuupsv5",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Rosen Lassi 0,3l",
+        "description": "mit Kokosraspeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Rose Lassi 0.3l",
+          "description": "with grated coconut"
+        },
+        "fr": {
+          "name": "Lassi à la rose 0,3 l",
+          "description": "à la noix de coco râpée"
+        },
+        "es": {
+          "name": "Lassi de rosa 0,3 l",
+          "description": "con coco rallado"
+        },
+        "it": {
+          "name": "Lassi alla rosa 0,3 l",
+          "description": "con cocco grattugiato"
+        },
+        "ar": {
+          "name": "لاسي بالورد 0.3 لتر",
+          "description": "مع جوز الهند المبشور"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzi004q01phgqfmei62",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Rosen Lassi 0,5l",
+        "description": "mit Kokosraspeln"
+      },
+      "translations": {
+        "en": {
+          "name": "Rose Lassi 0.5l",
+          "description": "with grated coconut"
+        },
+        "fr": {
+          "name": "Lassi à la rose 0,5 l",
+          "description": "à la noix de coco râpée"
+        },
+        "es": {
+          "name": "Lassi de rosa 0,5 l",
+          "description": "con coco rallado"
+        },
+        "it": {
+          "name": "Lassi alla rosa 0,5 l",
+          "description": "con cocco grattugiato"
+        },
+        "ar": {
+          "name": "لاسي بالورد 0.5 لتر",
+          "description": "مع جوز الهند المبشور"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzj004r01phn0eawncp",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Mango Lassi 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango Lassi 0.3l"
+        },
+        "fr": {
+          "name": "Lassi à la mangue 0,3 l"
+        },
+        "es": {
+          "name": "Lassi de mango 0,3 l"
+        },
+        "it": {
+          "name": "Lassi al mango 0,3 l"
+        },
+        "ar": {
+          "name": "لاسي بالمانجو 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzj004s01phdzzbhzmi",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Mango Lassi 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango Lassi 0.5l"
+        },
+        "fr": {
+          "name": "Lassi à la mangue 0,5 l"
+        },
+        "es": {
+          "name": "Lassi de mango 0,5 l"
+        },
+        "it": {
+          "name": "Lassi al mango 0,5 l"
+        },
+        "ar": {
+          "name": "لاسي بالمانجو 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzk004t01phv3r6zjin",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Kokos Lassi 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Coconut Lassi 0.3l"
+        },
+        "fr": {
+          "name": "Lassi à la noix de coco 0,3 l"
+        },
+        "es": {
+          "name": "Lassi de coco 0,3 l"
+        },
+        "it": {
+          "name": "Lassi al cocco 0,3 l"
+        },
+        "ar": {
+          "name": "لاسي بجوز الهند 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzl004u01phzth3c2co",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Kokos Lassi 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Coconut Lassi 0.5l"
+        },
+        "fr": {
+          "name": "Lassi à la noix de coco 0,5 l"
+        },
+        "es": {
+          "name": "Lassi de coco 0,5 l"
+        },
+        "it": {
+          "name": "Lassi al cocco 0,5 l"
+        },
+        "ar": {
+          "name": "لاسي بجوز الهند 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzm004v01ph86jggbxc",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Granatapfel Lassi 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Pomegranate Lassi 0.3l"
+        },
+        "fr": {
+          "name": "Lassi à la grenade 0,3 l"
+        },
+        "es": {
+          "name": "Lassi de granada 0,3 l"
+        },
+        "it": {
+          "name": "Lassi al melograno 0,3 l"
+        },
+        "ar": {
+          "name": "لاسي بالرمان 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzm004w01ph9o71dima",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Granatapfel Lassi 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Pomegranate Lassi 0.5l"
+        },
+        "fr": {
+          "name": "Lassi à la grenade 0,5 l"
+        },
+        "es": {
+          "name": "Lassi de granada 0,5 l"
+        },
+        "it": {
+          "name": "Lassi al melograno 0,5 l"
+        },
+        "ar": {
+          "name": "لاسي بالرمان 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzn004x01ph2seqwhl8",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Erdbeer Lassi 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Strawberry Lassi 0.3l"
+        },
+        "fr": {
+          "name": "Lassi à la fraise 0,3 l"
+        },
+        "es": {
+          "name": "Lassi de fresa 0,3 l"
+        },
+        "it": {
+          "name": "Lassi alla fragola 0,3 l"
+        },
+        "ar": {
+          "name": "لاسي بالفراولة 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzo004y01phq5r7z1oj",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Erdbeer Lassi 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Strawberry Lassi 0.5l"
+        },
+        "fr": {
+          "name": "Lassi à la fraise 0,5 l"
+        },
+        "es": {
+          "name": "Lassi de fresa 0,5 l"
+        },
+        "it": {
+          "name": "Lassi alla fragola 0,5 l"
+        },
+        "ar": {
+          "name": "لاسي بالفراولة 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzo004z01phtfkm8xho",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Salziges Lassi 0,3l"
+      },
+      "translations": {
+        "en": {
+          "name": "Salted Lassi 0.3l"
+        },
+        "fr": {
+          "name": "Lassi salé 0,3 l"
+        },
+        "es": {
+          "name": "Lassi salado 0,3 l"
+        },
+        "it": {
+          "name": "Lassi salato 0,3 l"
+        },
+        "ar": {
+          "name": "لاسي مالح 0.3 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzp005001ph8u6iffue",
+      "categoryId": "cmu9qyqzg004o01phux199iwq",
+      "source": {
+        "name": "Salziges Lassi 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Salted Lassi 0.5l"
+        },
+        "fr": {
+          "name": "Lassi salé 0,5 l"
+        },
+        "es": {
+          "name": "Lassi salado 0,5 l"
+        },
+        "it": {
+          "name": "Lassi salato 0,5 l"
+        },
+        "ar": {
+          "name": "لاسي مالح 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzq005201phj6ignlcf",
+      "categoryId": "cmu9qyqzq005101phcdt00y3x",
+      "source": {
+        "name": "Anari Scharbat",
+        "description": "Limonade aus Granatapfel, Limette, mit Zitone und Minzblätter"
+      },
+      "translations": {
+        "en": {
+          "name": "Anari Sharbat",
+          "description": "pomegranate and lime lemonade with lemon and mint leaves"
+        },
+        "fr": {
+          "name": "Anari Sharbat",
+          "description": "limonade à la grenade et au citron vert, avec citron et feuilles de menthe"
+        },
+        "es": {
+          "name": "Anari Sharbat",
+          "description": "limonada de granada y lima, con limón y hojas de menta"
+        },
+        "it": {
+          "name": "Anari Sharbat",
+          "description": "limonata al melograno e lime, con limone e foglie di menta"
+        },
+        "ar": {
+          "name": "شربات أناري",
+          "description": "ليموناضة بالرمان والليمون الأخضر مع الليمون وأوراق النعناع"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzr005301phen6jatpb",
+      "categoryId": "cmu9qyqzq005101phcdt00y3x",
+      "source": {
+        "name": "Mango-Orangen-Limo",
+        "description": "Limonade aus Mango, Zitronen und Orangen"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango & Orange Lemonade",
+          "description": "lemonade made with mango, lemon and orange"
+        },
+        "fr": {
+          "name": "Limonade mangue-orange",
+          "description": "limonade à la mangue, au citron et à l'orange"
+        },
+        "es": {
+          "name": "Limonada de mango y naranja",
+          "description": "limonada de mango, limón y naranja"
+        },
+        "it": {
+          "name": "Limonata mango e arancia",
+          "description": "limonata con mango, limone e arancia"
+        },
+        "ar": {
+          "name": "ليموناضة المانجو والبرتقال",
+          "description": "ليموناضة بالمانجو والليمون والبرتقال"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzr005401php6wn61mo",
+      "categoryId": "cmu9qyqzq005101phcdt00y3x",
+      "source": {
+        "name": "Punjab' Limo",
+        "description": "Limonade aus frischem Ingwer, Minze, Zitrone"
+      },
+      "translations": {
+        "en": {
+          "name": "Punjab Lemonade",
+          "description": "lemonade with fresh ginger, mint and lemon"
+        },
+        "fr": {
+          "name": "Limonade Punjab",
+          "description": "limonade au gingembre frais, menthe et citron"
+        },
+        "es": {
+          "name": "Limonada Punjab",
+          "description": "limonada de jengibre fresco, menta y limón"
+        },
+        "it": {
+          "name": "Limonata Punjab",
+          "description": "limonata con zenzero fresco, menta e limone"
+        },
+        "ar": {
+          "name": "ليموناضة البنجاب",
+          "description": "ليموناضة بالزنجبيل الطازج والنعناع والليمون"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzs005501ph1uc4dqu2",
+      "categoryId": "cmu9qyqzq005101phcdt00y3x",
+      "source": {
+        "name": "Limetten-Limo",
+        "description": "Limonade aus frischen Limetten Chrushed Eis, brauner Zucker"
+      },
+      "translations": {
+        "en": {
+          "name": "Lime Lemonade",
+          "description": "lemonade with fresh lime, crushed ice and brown sugar"
+        },
+        "fr": {
+          "name": "Limonade au citron vert",
+          "description": "limonade au citron vert frais, glace pilée et sucre roux"
+        },
+        "es": {
+          "name": "Limonada de lima",
+          "description": "limonada de lima fresca, hielo picado y azúcar moreno"
+        },
+        "it": {
+          "name": "Limonata al lime",
+          "description": "limonata con lime fresco, ghiaccio tritato e zucchero di canna"
+        },
+        "ar": {
+          "name": "ليموناضة الليمون الأخضر",
+          "description": "ليموناضة بالليمون الأخضر الطازج والثلج المجروش والسكر البني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzt005601phit2zzdxj",
+      "categoryId": "cmu9qyqzq005101phcdt00y3x",
+      "source": {
+        "name": "Grapefruit-Limo",
+        "description": "Limonade aus Grapefruit, Zitronen mit Minzblätte"
+      },
+      "translations": {
+        "en": {
+          "name": "Grapefruit Lemonade",
+          "description": "lemonade with grapefruit, lemon and mint leaves"
+        },
+        "fr": {
+          "name": "Limonade au pamplemousse",
+          "description": "limonade au pamplemousse, citron et feuilles de menthe"
+        },
+        "es": {
+          "name": "Limonada de pomelo",
+          "description": "limonada de pomelo, limón y hojas de menta"
+        },
+        "it": {
+          "name": "Limonata al pompelmo",
+          "description": "limonata con pompelmo, limone e foglie di menta"
+        },
+        "ar": {
+          "name": "ليموناضة الجريب فروت",
+          "description": "ليموناضة بالجريب فروت والليمون وأوراق النعناع"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzu005701phl9qhppvq",
+      "categoryId": "cmu9qyqzq005101phcdt00y3x",
+      "source": {
+        "name": "Mint Margarita-Limo",
+        "description": "Limonade mit Minze, Zitrone, Ingwer, Minzsirup, Chrushed Eis, Salz"
+      },
+      "translations": {
+        "en": {
+          "name": "Mint Margarita Lemonade",
+          "description": "lemonade with mint, lemon, ginger, mint syrup, crushed ice and salt"
+        },
+        "fr": {
+          "name": "Limonade Mint Margarita",
+          "description": "limonade à la menthe, citron, gingembre, sirop de menthe, glace pilée et sel"
+        },
+        "es": {
+          "name": "Limonada Mint Margarita",
+          "description": "limonada con menta, limón, jengibre, sirope de menta, hielo picado y sal"
+        },
+        "it": {
+          "name": "Limonata Mint Margarita",
+          "description": "limonata con menta, limone, zenzero, sciroppo di menta, ghiaccio tritato e sale"
+        },
+        "ar": {
+          "name": "ليموناضة مينت مارغريتا",
+          "description": "ليموناضة بالنعناع والليمون والزنجبيل وشراب النعناع والثلج المجروش والملح"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzv005901ph1wbl51wt",
+      "categoryId": "cmu9qyqzu005801phyabltm6y",
+      "source": {
+        "name": "Kaffee"
+      },
+      "translations": {
+        "en": {
+          "name": "Coffee"
+        },
+        "fr": {
+          "name": "Café"
+        },
+        "es": {
+          "name": "Café"
+        },
+        "it": {
+          "name": "Caffè"
+        },
+        "ar": {
+          "name": "قهوة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzw005a01phohqef4i9",
+      "categoryId": "cmu9qyqzu005801phyabltm6y",
+      "source": {
+        "name": "Espresso"
+      },
+      "translations": {
+        "en": {
+          "name": "Espresso"
+        },
+        "fr": {
+          "name": "Espresso"
+        },
+        "es": {
+          "name": "Espresso"
+        },
+        "it": {
+          "name": "Espresso"
+        },
+        "ar": {
+          "name": "إسبريسو"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzw005b01phsqrpfrvp",
+      "categoryId": "cmu9qyqzu005801phyabltm6y",
+      "source": {
+        "name": "Indischer Chai",
+        "description": "im Kännchen, mit Zimt"
+      },
+      "translations": {
+        "en": {
+          "name": "Indian Chai",
+          "description": "served in a pot, with cinnamon"
+        },
+        "fr": {
+          "name": "Chai indien",
+          "description": "servi en théière, à la cannelle"
+        },
+        "es": {
+          "name": "Chai indio",
+          "description": "servido en tetera, con canela"
+        },
+        "it": {
+          "name": "Chai indiano",
+          "description": "servito in teiera, con cannella"
+        },
+        "ar": {
+          "name": "شاي هندي",
+          "description": "يُقدَّم في إبريق مع القرفة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzx005c01phlt6y7fbv",
+      "categoryId": "cmu9qyqzu005801phyabltm6y",
+      "source": {
+        "name": "Kashmiri Chai",
+        "description": "im Kännchen, mit Grünem Tee, Milch, Rosenblättern, Kardamom und Pistazien"
+      },
+      "translations": {
+        "en": {
+          "name": "Kashmiri Chai",
+          "description": "served in a pot, with green tea, milk, rose petals, cardamom and pistachios"
+        },
+        "fr": {
+          "name": "Chai Kashmiri",
+          "description": "servi en théière, avec thé vert, lait, pétales de rose, cardamome et pistaches"
+        },
+        "es": {
+          "name": "Chai Kashmiri",
+          "description": "servido en tetera, con té verde, leche, pétalos de rosa, cardamomo y pistachos"
+        },
+        "it": {
+          "name": "Chai Kashmiri",
+          "description": "servito in teiera, con tè verde, latte, petali di rosa, cardamomo e pistacchi"
+        },
+        "ar": {
+          "name": "شاي كشميري",
+          "description": "يُقدَّم في إبريق مع الشاي الأخضر والحليب وبتلات الورد والهيل والفستق"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzy005d01phqyrirtei",
+      "categoryId": "cmu9qyqzu005801phyabltm6y",
+      "source": {
+        "name": "Grüner Kashmir Tee"
+      },
+      "translations": {
+        "en": {
+          "name": "Green Kashmir Tea"
+        },
+        "fr": {
+          "name": "Thé vert du Cachemire"
+        },
+        "es": {
+          "name": "Té verde de Cachemira"
+        },
+        "it": {
+          "name": "Tè verde del Kashmir"
+        },
+        "ar": {
+          "name": "شاي كشمير الأخضر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzz005e01phc0ffpakj",
+      "categoryId": "cmu9qyqzu005801phyabltm6y",
+      "source": {
+        "name": "Joshanda - Ayurvedischer Tee",
+        "description": "„Empfehlung bei Erkältung“"
+      },
+      "translations": {
+        "en": {
+          "name": "Joshanda – Ayurvedic Tea",
+          "description": "“recommended when you have a cold”"
+        },
+        "fr": {
+          "name": "Joshanda – thé ayurvédique",
+          "description": "« recommandé en cas de rhume »"
+        },
+        "es": {
+          "name": "Joshanda – té ayurvédico",
+          "description": "«recomendado en caso de resfriado»"
+        },
+        "it": {
+          "name": "Joshanda – tè ayurvedico",
+          "description": "«consigliato in caso di raffreddore»"
+        },
+        "ar": {
+          "name": "جوشاندا – شاي أيورفيدي",
+          "description": "«يُنصح به عند الإصابة بالزكام»"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyqzz005f01phevjvckps",
+      "categoryId": "cmu9qyqzu005801phyabltm6y",
+      "source": {
+        "name": "Ingwer-Minze Tee",
+        "description": "Frischer Ingwer und Minze"
+      },
+      "translations": {
+        "en": {
+          "name": "Ginger & Mint Tea",
+          "description": "fresh ginger and mint"
+        },
+        "fr": {
+          "name": "Thé gingembre-menthe",
+          "description": "gingembre frais et menthe"
+        },
+        "es": {
+          "name": "Té de jengibre y menta",
+          "description": "jengibre fresco y menta"
+        },
+        "it": {
+          "name": "Tè zenzero e menta",
+          "description": "zenzero fresco e menta"
+        },
+        "ar": {
+          "name": "شاي الزنجبيل والنعناع",
+          "description": "زنجبيل طازج ونعناع"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr01005h01ph85z633if",
+      "categoryId": "cmu9qyr00005g01phc2ru78iz",
+      "source": {
+        "name": "Punjab Sunrise",
+        "description": "Limo, Orangensaft"
+      },
+      "translations": {
+        "en": {
+          "name": "Punjab Sunrise",
+          "description": "lemonade and orange juice"
+        },
+        "fr": {
+          "name": "Punjab Sunrise",
+          "description": "limonade et jus d'orange"
+        },
+        "es": {
+          "name": "Punjab Sunrise",
+          "description": "limonada y zumo de naranja"
+        },
+        "it": {
+          "name": "Punjab Sunrise",
+          "description": "limonata e succo d'arancia"
+        },
+        "ar": {
+          "name": "بنجاب سنرايز",
+          "description": "ليموناضة وعصير برتقال"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr02005i01phgq475h3w",
+      "categoryId": "cmu9qyr00005g01phc2ru78iz",
+      "source": {
+        "name": "Red Bull Lagoon",
+        "description": "Red Bull, Limo, Blue Curacao, Minze"
+      },
+      "translations": {
+        "en": {
+          "name": "Red Bull Lagoon",
+          "description": "Red Bull, lemonade, blue curaçao and mint"
+        },
+        "fr": {
+          "name": "Red Bull Lagoon",
+          "description": "Red Bull, limonade, blue curaçao et menthe"
+        },
+        "es": {
+          "name": "Red Bull Lagoon",
+          "description": "Red Bull, limonada, blue curaçao y menta"
+        },
+        "it": {
+          "name": "Red Bull Lagoon",
+          "description": "Red Bull, limonata, blue curaçao e menta"
+        },
+        "ar": {
+          "name": "ريد بُل لاغون",
+          "description": "ريد بُل وليموناضة وبلو كوراساو ونعناع"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr02005j01phjfizk0ck",
+      "categoryId": "cmu9qyr00005g01phc2ru78iz",
+      "source": {
+        "name": "Mango Island",
+        "description": "Blue Curacao, Mangosaft, Tonic Water, Sprudelwasser"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango Island",
+          "description": "blue curaçao, mango juice, tonic water and sparkling water"
+        },
+        "fr": {
+          "name": "Mango Island",
+          "description": "blue curaçao, jus de mangue, tonic et eau gazeuse"
+        },
+        "es": {
+          "name": "Mango Island",
+          "description": "blue curaçao, zumo de mango, tónica y agua con gas"
+        },
+        "it": {
+          "name": "Mango Island",
+          "description": "blue curaçao, succo di mango, acqua tonica e acqua frizzante"
+        },
+        "ar": {
+          "name": "مانغو آيلاند",
+          "description": "بلو كوراساو وعصير المانجو وماء التونيك والمياه الغازية"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr03005k01phitlpa2x5",
+      "categoryId": "cmu9qyr00005g01phc2ru78iz",
+      "source": {
+        "name": "Virgin Bellini",
+        "description": "Grenadine, Johannisbeeren, Tonic Water"
+      },
+      "translations": {
+        "en": {
+          "name": "Virgin Bellini",
+          "description": "grenadine, blackcurrant and tonic water"
+        },
+        "fr": {
+          "name": "Virgin Bellini",
+          "description": "grenadine, cassis et tonic"
+        },
+        "es": {
+          "name": "Virgin Bellini",
+          "description": "granadina, grosellas y tónica"
+        },
+        "it": {
+          "name": "Virgin Bellini",
+          "description": "granatina, ribes e acqua tonica"
+        },
+        "ar": {
+          "name": "فيرجن بيليني",
+          "description": "غرينادين وكشمش وماء التونيك"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr04005l01phk8jcpeq2",
+      "categoryId": "cmu9qyr00005g01phc2ru78iz",
+      "source": {
+        "name": "Mango Mojito",
+        "description": "Limonade aus Grapefruit, Zitronen mit Minzblätter"
+      },
+      "translations": {
+        "en": {
+          "name": "Mango Mojito",
+          "description": "lemonade with grapefruit, lemon and mint leaves"
+        },
+        "fr": {
+          "name": "Mango Mojito",
+          "description": "limonade au pamplemousse, citron et feuilles de menthe"
+        },
+        "es": {
+          "name": "Mango Mojito",
+          "description": "limonada de pomelo, limón y hojas de menta"
+        },
+        "it": {
+          "name": "Mango Mojito",
+          "description": "limonata con pompelmo, limone e foglie di menta"
+        },
+        "ar": {
+          "name": "مانغو موهيتو",
+          "description": "ليموناضة بالجريب فروت والليمون وأوراق النعناع"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr04005m01phi338lh6s",
+      "categoryId": "cmu9qyr00005g01phc2ru78iz",
+      "source": {
+        "name": "Mint Margarita",
+        "description": "Limetten, Mango, Tonic Water, brauner Zucker"
+      },
+      "translations": {
+        "en": {
+          "name": "Mint Margarita",
+          "description": "lime, mango, tonic water and brown sugar"
+        },
+        "fr": {
+          "name": "Mint Margarita",
+          "description": "citron vert, mangue, tonic et sucre roux"
+        },
+        "es": {
+          "name": "Mint Margarita",
+          "description": "lima, mango, tónica y azúcar moreno"
+        },
+        "it": {
+          "name": "Mint Margarita",
+          "description": "lime, mango, acqua tonica e zucchero di canna"
+        },
+        "ar": {
+          "name": "مينت مارغريتا",
+          "description": "ليمون أخضر ومانجو وماء التونيك وسكر بني"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr06005o01ph17d2r6en",
+      "categoryId": "cmu9qyr05005n01phr1hq38uy",
+      "source": {
+        "name": "Fürstenberg Pils alkoholfrei 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Fürstenberg Pils alcohol-free 0.5l"
+        },
+        "fr": {
+          "name": "Fürstenberg Pils sans alcool 0,5 l"
+        },
+        "es": {
+          "name": "Fürstenberg Pils sin alcohol 0,5 l"
+        },
+        "it": {
+          "name": "Fürstenberg Pils analcolica 0,5 l"
+        },
+        "ar": {
+          "name": "فورستنبرغ بيلز خالية من الكحول 0.5 لتر"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr06005p01ph2j19dily",
+      "categoryId": "cmu9qyr05005n01phr1hq38uy",
+      "source": {
+        "name": "Radler alkoholfrei 0,5l",
+        "description": "süßgespritzt"
+      },
+      "translations": {
+        "en": {
+          "name": "Radler alcohol-free 0.5l",
+          "description": "shandy made with sweet lemonade"
+        },
+        "fr": {
+          "name": "Panaché sans alcool 0,5 l",
+          "description": "panaché à la limonade sucrée"
+        },
+        "es": {
+          "name": "Radler sin alcohol 0,5 l",
+          "description": "cerveza con limonada dulce"
+        },
+        "it": {
+          "name": "Radler analcolica 0,5 l",
+          "description": "birra con limonata dolce"
+        },
+        "ar": {
+          "name": "رادلر خالية من الكحول 0.5 لتر",
+          "description": "بيرة ممزوجة بالليموناضة الحلوة"
+        }
+      }
+    },
+    {
+      "id": "cmu9qyr07005q01phoq7royuc",
+      "categoryId": "cmu9qyr05005n01phr1hq38uy",
+      "source": {
+        "name": "Rothaus Hefeweizen alkoholfrei 0,5l"
+      },
+      "translations": {
+        "en": {
+          "name": "Rothaus Hefeweizen alcohol-free 0.5l"
+        },
+        "fr": {
+          "name": "Rothaus Hefeweizen (blanche) sans alcool 0,5 l"
+        },
+        "es": {
+          "name": "Rothaus Hefeweizen sin alcohol 0,5 l"
+        },
+        "it": {
+          "name": "Rothaus Hefeweizen analcolica 0,5 l"
+        },
+        "ar": {
+          "name": "روتهاوس هيفيفايتسن خالية من الكحول 0.5 لتر"
+        }
+      }
+    }
+  ]
+}
