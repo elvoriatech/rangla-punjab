@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { MessagePopup } from "@/components/message-popup";
 import { acceptedPaymentIds, PaymentMarks } from "../payment-marks";
-import type { PaymentMethodId } from "@/lib/ordering-config";
+import type { PaymentMethodId } from "@/lib/payment-methods";
 import type { CheckoutCopy } from "@/lib/i18n/checkout/en";
 import { loadCheckoutCopy } from "@/lib/i18n/checkout/load";
 import { dirFor, uiLocale } from "@/lib/locales";

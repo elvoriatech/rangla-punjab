@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Entitlements } from "./plan-state";
+import { PAYMENT_METHODS, DEFAULT_PAYMENTS, type PaymentMethodId } from "./payment-methods";
 
 /**
  * Per-venue ordering switches — the owner's layer beneath the plan
@@ -34,29 +35,20 @@ export const deliveryAreaSchema = z.object({
 export type DeliveryArea = z.infer<typeof deliveryAreaSchema>;
 
 /**
- * Payment-method registry: stable ids in the DB, label + optional emoji
- * for display. Informational (how you can pay on site / at the door) —
- * online payment is its own Stripe-Connect-gated feature. Brand marks
- * (Visa, Mastercard, Apple Pay, …) are deliberately TEXT chips: we don't
- * recreate trademarked logos; emoji only where generic.
+ * Payment-method registry — the constants themselves live in the leaf
+ * module `payment-methods.ts` (no zod, no imports) so a client component
+ * can read the registry without pulling this schema file, and zod with it,
+ * into the guest bundle. Re-exported here because every server-side caller
+ * has always found them on `ordering-config`.
+ *
+ * Brand marks (Visa, Mastercard, Apple Pay, …) are deliberately TEXT chips
+ * in the registry: we don't recreate trademarked logos; emoji only where
+ * generic.
  */
-export const PAYMENT_METHODS = [
-  { id: "cash", label: "Cash", emoji: "💶" },
-  { id: "girocard", label: "Girocard / EC", emoji: "💳" },
-  { id: "visa", label: "Visa", emoji: "" },
-  { id: "mastercard", label: "Mastercard", emoji: "" },
-  { id: "amex", label: "American Express", emoji: "" },
-  { id: "apple_pay", label: "Apple Pay", emoji: "📱" },
-  { id: "google_pay", label: "Google Pay", emoji: "📱" },
-  { id: "paypal", label: "PayPal", emoji: "" },
-] as const;
-
-export type PaymentMethodId = (typeof PAYMENT_METHODS)[number]["id"];
+export { PAYMENT_METHODS, DEFAULT_PAYMENTS };
+export type { PaymentMethodId };
 
 const PAYMENT_IDS = PAYMENT_METHODS.map((m) => m.id) as readonly string[];
-
-/** What a typical German restaurant takes — the onboarding default. */
-export const DEFAULT_PAYMENTS: PaymentMethodId[] = ["cash", "girocard", "visa", "mastercard"];
 
 /** Owner inboxes that get a "new order" email. Up to five, so a shift
  *  lead and the office can both be on it; junk is dropped per address

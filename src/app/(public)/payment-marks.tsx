@@ -1,5 +1,8 @@
 import { siApplepay, siGooglepay } from "simple-icons";
-import { PAYMENT_METHODS, type PaymentMethodId } from "@/lib/ordering-config";
+// The registry, NOT `@/lib/ordering-config` — this file is pulled into the
+// guest's client bundle by the cart drawer, and ordering-config carries the
+// zod schema with it. See `src/lib/payment-methods.ts`.
+import { PAYMENT_METHODS, type PaymentMethodId } from "@/lib/payment-methods";
 
 /**
  * "Accepted payments" strip — the row of brand marks a guest scans before
