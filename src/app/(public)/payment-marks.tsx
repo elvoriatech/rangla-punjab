@@ -71,12 +71,24 @@ export function acceptedPaymentIds({
   return REGISTRY_ORDER.filter((id) => ids.has(id));
 }
 
+/** Chip geometry. "md" is the strip as it has always looked; "sm" is the
+ *  footer's one-line variant — 28px instead of 32px, which is what keeps
+ *  the footer's single row a single row. Only the chip shrinks: the
+ *  artwork keeps its per-brand cap height, because those are tuned so a
+ *  square Amex box and a wide Visa wordmark read as the same weight. */
+const CHIP_SIZE = {
+  md: "h-8 min-w-[46px] px-2",
+  sm: "h-7 min-w-[40px] px-1.5",
+} as const;
+
 export function PaymentMarks({
   ids,
   className = "",
+  size = "md",
 }: {
   ids: readonly PaymentMethodId[];
   className?: string;
+  size?: "sm" | "md";
 }): React.ReactElement | null {
   if (ids.length === 0) return null;
   return (
@@ -98,7 +110,7 @@ export function PaymentMarks({
             /* White chip + hairline: card-network artwork must sit on a
                light ground, and white is the only one that reads on both
                a cream and a near-black menu theme. */
-            className="flex h-8 min-w-[46px] items-center justify-center rounded-md bg-white px-2 ring-1 ring-black/10"
+            className={`flex items-center justify-center rounded-md bg-white ring-1 ring-black/10 ${CHIP_SIZE[size]}`}
           >
             {art ? (
               /* eslint-disable-next-line @next/next/no-img-element */

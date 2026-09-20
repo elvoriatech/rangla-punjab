@@ -354,7 +354,9 @@ describe("MenuView", () => {
     const html = renderToStaticMarkup(
       <MenuView menu={fixture} orderingModes={ALL_MODES} onlinePayment paypalPayment />,
     );
-    expect(html).toContain("Accepted payments");
+    // No visible heading any more — the strip is named on the group.
+    expect(html).toContain('role="group" aria-label="Accepted payments"');
+    expect(html).not.toMatch(/<h2[^>]*>Accepted payments<\/h2>/);
     expect(html).toContain("/brand/pay/visa.svg");
     expect(html).toContain("/brand/pay/mastercard.svg");
     expect(html).toContain("/brand/pay/amex.svg");
@@ -498,7 +500,11 @@ describe("MenuView", () => {
     // fragment link, so the whole thing works with JS off.
     expect(html).toContain('id="get-the-app"');
     expect(html).toContain('href="#get-the-app"');
-    expect(html).toContain("Get the app");
+    // The section is named by its aria-label now; the visible <h2> and
+    // the blurb under it are gone, so the footer stays one line tall.
+    expect(html).toContain('aria-label="Get the app"');
+    expect(html).not.toMatch(/<h2[^>]*>Get the app<\/h2>/);
+    expect(html).not.toContain("Order in a tap, keep your favourites and follow your order.");
 
     // Badges: our own artwork, carrying the familiar wording.
     expect(html).toContain("App Store");
@@ -514,10 +520,12 @@ describe("MenuView", () => {
     expect(html).toMatch(/play\.google\.com[^>]*rel="noopener"/);
 
     // The APK is a download, not a store listing: plain button, `download`
-    // attribute, and the Android warning said before the tap.
+    // attribute, and the Android warning said before the tap — as the
+    // anchor's own tooltip now that the paragraph under the row is gone.
     expect(html).toContain("Download Android app (.apk)");
     expect(html).toMatch(/app\.apk"[^>]*download/);
-    expect(html).toContain("Android will ask you to allow the install.");
+    expect(html).toMatch(/app\.apk"[^>]*title="Android will ask you to allow the install\."/);
+    expect(html).not.toMatch(/<p[^>]*>Android will ask you to allow the install\.<\/p>/);
   });
 
   it("renders only the slots the owner filled in", () => {
@@ -562,6 +570,15 @@ describe("MenuView", () => {
  *  content of its own again. */
 function emptyListItems(html: string): string[] {
   return html.match(/<li\b[^>]*>\s*<\/li>/g) ?? [];
+}
+
+/** Just the <footer>. The header carries the venue name in the same serif
+ *  type and other sections use the same tracking, so a layout assertion
+ *  made against the whole page would pass on the wrong element. */
+function footerOf(html: string): string {
+  const at = html.indexOf("<footer");
+  expect(at, "page renders a footer").toBeGreaterThan(-1);
+  return html.slice(at);
 }
 
 const CONTACTED: PublicMenu = {
@@ -616,18 +633,35 @@ describe("MenuView footer", () => {
     expect(withApp).not.toContain("Download Android app");
   });
 
-  it("gives each published number its own row, keeping its accessible name", () => {
+  it("shows icon + number only, on one wrapping line, keeping each accessible name", () => {
     const html = renderToStaticMarkup(<MenuView menu={CONTACTED} />);
     const rows = html.match(/<li><a href="(tel:|https:\/\/wa\.me)/g) ?? [];
     expect(rows).toHaveLength(3);
+    // One horizontal row that wraps only when the column runs out of
+    // width, not one <li> per line. Read off the contact nav's own <ul>,
+    // so another flex list elsewhere on the page cannot satisfy it.
+    const contactUl = (
+      html.match(/<nav aria-label="Contact us"[^>]*><ul class="([^"]*)"/)?.[1] ?? ""
+    ).split(" ");
+    expect(contactUl, "contact list classes").toContain("flex");
+    expect(contactUl, "contact list classes").toContain("flex-wrap");
     // The visible "Contact us" heading is gone — the numbers sit directly
     // under the restaurant's name — but the nav keeps the same accessible
     // name, so a screen reader still lands on a named landmark.
     expect(html).toContain('<nav aria-label="Contact us"');
     expect(html).not.toMatch(/<h2[^>]*>Contact us<\/h2>/);
+    // The visible wording next to the icon is gone: the icon says which
+    // line it is, and "Call landline" survives exactly once — inside the
+    // anchor's accessible name, never as text a sighted guest reads.
+    expect(html.match(/Call landline/g) ?? [], "only the aria-label says it").toHaveLength(1);
+    expect(html.match(/Call mobile/g) ?? [], "only the aria-label says it").toHaveLength(1);
+    expect(html).not.toMatch(/>[^<]*Call landline/);
+    expect(html).not.toMatch(/>[^<]*Call mobile/);
     expect(html).toContain('aria-label="Call landline +49 7531 123456"');
     expect(html).toContain('aria-label="Call mobile +49 1701 234567"');
     expect(html).toContain('aria-label="Message +49 1701 234567 on WhatsApp (opens WhatsApp)"');
+    // …and the number itself is still on screen, in the same type.
+    expect(html).toContain('<span class="font-medium tabular-nums">+49 7531 123456</span>');
     // WhatsApp leaves the site; the two tel: links do not.
     expect(html).toMatch(/wa\.me[^>]*rel="noopener noreferrer"/);
   });
@@ -652,33 +686,79 @@ describe("MenuView footer", () => {
     }
   });
 
-  it("stacks on a phone and splits into three columns from md up", () => {
-    const html = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
-    expect(html).toMatch(/<div class="grid gap-9 md:grid-cols-3/);
-  });
-
-  it("puts payments in the middle — before the language column in the DOM", () => {
-    const html = renderToStaticMarkup(
-      <MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />,
+  it("is two rows, not columns — the owner wants 2–3 lines, not a block", () => {
+    const html = footerOf(
+      renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />),
     );
-    const payments = html.indexOf("Accepted payments");
-    const language = html.indexOf('aria-label="Language"');
-    expect(payments, "payment strip renders").toBeGreaterThan(-1);
-    expect(language, "language switcher renders").toBeGreaterThan(-1);
-    // Middle column on md+, second block on a phone: identity+contacts,
-    // then payments, then language/app.
-    expect(payments).toBeLessThan(language);
-    // …and the heading + marks are centred inside that middle column.
-    expect(html).toMatch(/md:text-center/);
-    expect(html).toMatch(/md:justify-center/);
+    // Row 1: one wrapping flex row that spreads its groups across the
+    // width. Nothing is a grid column any more.
+    expect(html).toContain(
+      '<div class="flex flex-wrap items-center gap-x-8 gap-y-3 md:justify-between">',
+    );
+    expect(html).not.toMatch(/<div class="grid gap-9 md:grid-cols-3/);
+    // Row 2: legal links and the powered-by line side by side, both 12px.
+    expect(html).toMatch(/border-t[^"]*pt-3 text-xs"/);
+    expect(html).not.toContain("tracking-[0.32em]");
+    // Tighter vertical padding is the other half of the height budget.
+    expect(html).toContain("py-5");
+    // No small-caps column headings left in the footer.
+    expect(html).not.toContain("tracking-[0.18em]");
   });
 
-  it("leaves no empty middle column when the venue accepts nothing", () => {
+  it("orders row 1: identity, contacts, language, payments", () => {
+    const html = footerOf(
+      renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />),
+    );
+    const groups = {
+      identity: html.indexOf("font-serif text-lg italic"),
+      contacts: html.indexOf('<nav aria-label="Contact us"'),
+      language: html.indexOf('aria-label="Language"'),
+      payments: html.indexOf('role="group" aria-label="Accepted payments"'),
+    };
+    for (const [name, at] of Object.entries(groups)) {
+      expect(at, `${name} renders in the footer`).toBeGreaterThan(-1);
+    }
+    expect(groups.identity).toBeLessThan(groups.contacts);
+    expect(groups.contacts).toBeLessThan(groups.language);
+    expect(groups.language).toBeLessThan(groups.payments);
+    // Left over from the column layout: nothing is centred in its own
+    // track any more, and no group carries a heading.
+    expect(html).not.toContain("md:text-center");
+    expect(html).not.toContain("md:justify-center");
+  });
+
+  it("drops each group's visible heading but keeps its accessible name", () => {
+    const html = renderToStaticMarkup(
+      <MenuView
+        menu={{
+          ...CONTACTED,
+          venue: {
+            ...CONTACTED.venue,
+            appLinks: { apk: "https://elvoria.example/app.apk" },
+          },
+        }}
+        orderingModes={ALL_MODES}
+        onlinePayment
+      />,
+    );
+    // Payments, language and "Get the app" are named on the group — a
+    // screen reader still hears them, the eye sees an unlabelled strip.
+    expect(html).toContain('role="group" aria-label="Accepted payments"');
+    expect(html).toContain('aria-label="Language"');
+    expect(html).toContain('aria-label="Get the app"');
+    expect(html).not.toMatch(/<h2[^>]*>(Accepted payments|Language|Get the app)<\/h2>/);
+    // The two paragraphs that used to sit under the app badges are gone;
+    // the APK warning survives as the anchor's tooltip.
+    expect(html).not.toContain("Order in a tap, keep your favourites and follow your order.");
+    expect(html).toMatch(/app\.apk"[^>]*title="Android will ask you to allow the install\."/);
+  });
+
+  it("leaves no empty group when the venue accepts nothing", () => {
     const html = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
     expect(html).not.toContain("Accepted payments");
-    // The centre column is absent entirely, not an empty <div> holding a
-    // grid track open.
-    expect(html).not.toContain("md:text-center");
+    // The payments group is absent entirely, not an empty <div> eating
+    // one of row 1's gaps.
+    expect(html).not.toMatch(/<div[^>]*class="min-w-0"><\/div>/);
   });
 
   it("clears the floating cart bar with bottom padding — only when ordering is on", () => {
