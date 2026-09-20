@@ -10,7 +10,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import type { ApiMenu, ApiItem } from "../api";
 import { offerItems } from "../api";
 import { useAuth } from "../auth";
@@ -24,7 +23,7 @@ import { fill, useI18n } from "../i18n";
 import { headlineVoucher, useLoyalty } from "../loyalty";
 import type { GiftCardShop } from "../gift-cards";
 import { fetchGiftCardShop } from "../gift-cards";
-import { ReserveSheet } from "../reserve-sheet";
+import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
 import { DishSheet } from "../dish-sheet";
 
 /**
@@ -282,19 +281,20 @@ export function HomeScreen({
             entry points that are simply there or not. */}
         {restaurant ? <ServiceSwitches onChanged={onMenuChanged} /> : null}
 
-        {/* THE ACTION SET — four cards, one design.
+        {/* THE ACTION SET — four cards on one plate, two to a row.
             Delivery and Pickup are what a guest usually came for;
             Reserve and Gift cards are the two errands that are not an
-            order. They used to be three different card styles (emoji,
-            a bespoke SVG, an Ionicon), which read as three unrelated
-            features stacked on top of each other. One plate, one icon
-            family, one tinted circle — so the block reads as a set and
-            the eye can pick a row rather than parse four things. */}
+            order.
+            The icons are the app's OWN: the scooter and the bag the
+            guest has always tapped, and the house's table SVG on the
+            reserve card. A pass at replacing them with one outline icon
+            family in tinted circles was taken back out at the owner's
+            word — the layout below is what survived it. */}
         {restaurant ? null : (
           <View style={styles.modeRow}>
             {menu.ordering.delivery ? (
               <ActionCard
-                icon="bicycle-outline"
+                icon={<Text style={styles.modeEmoji}>🛵</Text>}
                 title={t.delivery}
                 subtitle={t.deliverySub}
                 onPress={() => onStartOrder("delivery")}
@@ -302,7 +302,7 @@ export function HomeScreen({
             ) : null}
             {menu.ordering.takeaway ? (
               <ActionCard
-                icon="bag-handle-outline"
+                icon={<Text style={styles.modeEmoji}>🛍️</Text>}
                 title={t.pickup}
                 subtitle={t.pickupSub}
                 onPress={() => onStartOrder("takeaway")}
@@ -323,7 +323,7 @@ export function HomeScreen({
           <View style={styles.modeRow}>
             {menu.ordering.reservations ? (
               <ActionCard
-                icon="restaurant-outline"
+                icon={<TableForGuestsIcon size={26} />}
                 title={t.reserveShort}
                 subtitle={t.reserveSub}
                 onPress={() => setReserveOpen(true)}
@@ -331,7 +331,7 @@ export function HomeScreen({
             ) : null}
             {giftCardsOn ? (
               <ActionCard
-                icon="gift-outline"
+                icon={<Text style={styles.modeEmoji}>🎁</Text>}
                 title={t.giftCardsTitle}
                 subtitle={t.giftCardsSub}
                 onPress={onOpenGiftCards}
@@ -363,7 +363,7 @@ export function HomeScreen({
             Offers is the one part of the menu with a reason to be looked
             at today, and the only card on this screen allowed to move, so
             the movement still means something. Complaint is its quiet
-            neighbour: the same plate and the same tinted circle as the
+            neighbour: the same plate and the same bare emoji as the
             action set, but nothing to catch the eye — a thing a guest
             needs to FIND, not a thing to be invited into.
             Pairing them costs a full row of vertical space and loses
@@ -379,7 +379,7 @@ export function HomeScreen({
               <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
             ) : null}
             <ActionCard
-              icon="chatbox-ellipses-outline"
+              icon={<Text style={styles.modeEmoji}>💬</Text>}
               title={t.complainShort}
               subtitle={t.complainSub}
               onPress={onComplain}
@@ -431,13 +431,19 @@ export function HomeScreen({
 }
 
 /**
- * One of the four entry points at the top of Home.
+ * One of the entry points at the top of Home.
  *
- * The whole point is that they are INTERCHANGEABLE: the icon in its
- * tinted circle, the display-serif title, one line of soft ink under
- * it, on the same plate at the same radius. Anything that made one card
- * special — an emoji here, a bespoke SVG there — made the block read as
- * four unrelated features rather than a set of four choices.
+ * The presentation is the app's original one, restored at the owner's
+ * word: the icon BARE — the emoji the card has always had, or the
+ * house's own table SVG on the reserve card — over a bold body title and
+ * one line of soft ink, on the plain cream plate with its hairline
+ * border. No tinted circle, no display serif: those were a redesign the
+ * owner asked to be taken back out. The caller passes the icon as a
+ * node, so an emoji and an SVG can sit in the same set without the card
+ * knowing which it holds.
+ *
+ * What the redesign is allowed to keep is the LAYOUT — two half-width
+ * cards per row, the two-line title slot, and equal heights.
  *
  * Equal heights inside a row come from the row's `stretch` plus a card
  * that only ever GROWS into it, never from a stated height: "Tisch
@@ -456,7 +462,7 @@ function ActionCard({
   subtitle,
   onPress,
 }: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
+  icon: React.ReactNode;
   title: string;
   subtitle: string;
   onPress: () => void;
@@ -475,9 +481,7 @@ function ActionCard({
         accessibilityLabel={`${title} — ${subtitle}`}
         style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.9 }]}
       >
-        <View style={styles.actionIcon}>
-          <Ionicons name={icon} size={22} color={colors.red} />
-        </View>
+        <View style={styles.actionIcon}>{icon}</View>
         {/* A slot two lines tall on every card, with the title centred
             inside it: "Abholung" is one line and "Tisch reservieren" two,
             and without the slot the one-line card would sit its icon 19 pt
@@ -508,12 +512,11 @@ function ActionCard({
  * burn.
  *
  * It is deliberately the SAME card as its neighbour: the wrapper, the
- * plate, the tinted circle, the two-line title slot and the one-line
+ * plate, the icon slot, the two-line title slot and the one-line
  * subtitle are `ActionCard`'s own styles, so the two halves line up
  * whichever of them wraps. Only three things are added, and each is the
  * reason this card exists rather than decoration — the ember ring, the
- * flickering flame in place of an Ionicon, and the live count in the
- * title.
+ * flicker on the flame, and the live count in the title.
  *
  * The overrides it needs on top of `actionCard`: a 2 pt TRANSPARENT
  * border, because `PulsingBorder` is an absolutely-positioned sibling
@@ -551,10 +554,10 @@ function OffersCard({
         style={({ pressed }) => [styles.actionCard, styles.offersCard, pressed && { opacity: 0.9 }]}
       >
         <PulsingBorder inset={2} style={styles.offersRing} />
-        {/* The flame sits in the action set's own circle, so the row reads
-            as two cards of one family — the fire is what it holds, not a
-            different shape. */}
-        <View style={[styles.actionIcon, styles.offersIcon]}>
+        {/* The flame sits in the same bare icon slot as its neighbours'
+            emoji, so the row reads as two cards of one family — what marks
+            this one out is that the flame MOVES. */}
+        <View style={styles.actionIcon}>
           <Animated.Text style={[styles.offersEmoji, fire]}>🔥</Animated.Text>
         </View>
         <View style={styles.actionTitleSlot}>
@@ -806,53 +809,59 @@ const styles = StyleSheet.create({
    */
   actionCard: {
     flexGrow: 1,
-    /** Icon 44 + 4 + two title lines 38 + 4 + one subtitle line + 2×12
-     *  padding ≈ 130. A floor, not a fixed height, so a guest running
-     *  larger system text gets a taller card rather than a clipped one. */
-    minHeight: 130,
+    /** The pre-redesign `actionCard` floor, kept: a comfortable target
+     *  even on the card whose subtitle is short. A floor, not a fixed
+     *  height, so a guest running larger system text gets a taller card
+     *  rather than a clipped one. */
+    minHeight: 88,
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    /** The original plate: a hairline border and NO shadow — the
+     *  redesign's drop shadow went with the tinted circles. 14 down the
+     *  page from `modeCard`, 10 across from the old `actionCard`: the
+     *  narrower gutter is what lets "Geschenkgutscheine" hold one line
+     *  on a 360 pt screen instead of breaking after the "n". */
+    paddingHorizontal: 10,
+    paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    gap: 2,
   },
-  /** Brand red on a rose-tinted cream: the same warm family as the
-   *  card, so the circle reads as part of the plate rather than a badge
-   *  stuck on it. 44 pt, which is also the minimum touch target — handy,
-   *  since the icon is the thing a thumb aims at. */
-  actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#f7e3dd",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  /** The icon, bare — no circle behind it. The slot exists only so a
+   *  26 pt SVG (reserve) and an emoji (everything else) occupy the same
+   *  band: an emoji's line box is taller than its point size and differs
+   *  per platform, so without the slot the reserve card's title would sit
+   *  a couple of points above its row-mate's. 34 is the emoji's own line
+   *  box (see `modeEmoji`), and it is a FLOOR, so larger system text
+   *  grows the band instead of clipping the glyph. */
+  actionIcon: { minHeight: 34, alignItems: "center", justifyContent: "center" },
   /** Two lines' worth of box whether or not the title uses both, with the
-   *  title centred in it — so the icon circles and the subtitles line up
+   *  title centred in it — so the icons and the subtitles line up
    *  across a row regardless of which title wraps. `alignSelf: "stretch"`
    *  keeps it the card's full inner width (the card centres its children),
    *  which is the width the title gets to wrap in. A floor rather than a
    *  fixed height, so larger system text grows the slot instead of
    *  clipping it. */
   actionTitleSlot: { alignSelf: "stretch", minHeight: 38, justifyContent: "center" },
+  /** The original `modeTitle`/`modeSub`: bold BODY face at 14, soft ink
+   *  at 11 under it. Centred explicitly, because a title that wraps to
+   *  two lines would otherwise be left-aligned inside a centred card.
+   *  `lineHeight` is the one addition — 2 × 19 is the title slot. */
   actionTitle: {
     color: colors.ink,
-    ...fonts.display,
-    fontSize: 14.5,
+    ...fonts.bodyBold,
+    fontSize: 14,
     lineHeight: 19,
     textAlign: "center",
   },
-  actionSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11.5, textAlign: "center" },
+  actionSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11, textAlign: "center" },
+  /** Delivery 🛵, Pickup 🛍️, Gift cards 🎁, Complaint 💬 — the app's own
+   *  glyphs at the size they have always been. `lineHeight` is stated so
+   *  the box an emoji occupies is the same on web as on the devices,
+   *  which is what `actionIcon`'s 34 is measured from. */
+  modeEmoji: { ...fonts.body, fontSize: 26, lineHeight: 32 },
   reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
   rewardBanner: {
     flexDirection: "row",
@@ -884,12 +893,10 @@ const styles = StyleSheet.create({
   offersCard: { borderWidth: 2, borderColor: "transparent", elevation: 3 },
   /** The ring traces the card's OUTER edge, so it takes the outer radius. */
   offersRing: { borderRadius: radius.lg },
-  /** A warmer circle than the action set's rose: this one holds a flame.
-   *  Same 44 pt box, so the two halves' icons sit on the same line. */
-  offersIcon: { backgroundColor: "#fbe6cf" },
-  /** 22, matching the Ionicons next door — the flicker scales it to 1.15
-   *  at the top of its cycle and the circle has room for that. */
-  offersEmoji: { ...fonts.body, fontSize: 22 },
+  /** 24 — a shade under its neighbours' 26, because the flicker scales it
+   *  to 1.15 at the top of its cycle and the icon slot has to hold that
+   *  without nudging the title. */
+  offersEmoji: { ...fonts.body, fontSize: 24, lineHeight: 32 },
   rewardTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   rewardCta: { color: colors.gold, ...fonts.bodyBold, fontSize: 12 },
   catChip: { alignItems: "center", width: 72 },
