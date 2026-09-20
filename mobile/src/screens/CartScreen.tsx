@@ -26,6 +26,7 @@ import {
   payWithPaypal,
   payWithPlatformPay,
   platformPayButton,
+  walletsFromAccepted,
 } from "../payments";
 import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
@@ -152,8 +153,8 @@ export function CartScreen({
   };
 
   // What this venue can actually take. "card" covers the native Stripe
-  // sheet AND Google Pay — same intent, the sheet decides which of them
-  // the phone can show. Cash is offered when the venue accepts it, and
+  // sheet and — only for the wallets the venue ticked in its settings —
+  // the wallet rows inside it. Cash is offered when the venue accepts it, and
   // always when there is no online route at all, so the list is never empty.
   const payOptions = useMemo(() => {
     const list: { key: PayMethod; label: string }[] = [];
@@ -186,24 +187,30 @@ export function CartScreen({
    *  - a device with no wallet set up, or an Android that has not yet
    *    initialised Stripe (it needs a publishable key, which only arrives
    *    with a PaymentIntent);
-   *  - a venue that doesn't take card online.
+   *  - a venue that doesn't take card online;
+   *  - a venue that did not tick THIS platform's wallet in its settings.
    *
    * The probe runs once per mount and the button appears only on a
    * definite yes.
    */
+  const wallets = useMemo(
+    () => walletsFromAccepted(menu.ordering.acceptedPayments),
+    [menu.ordering.acceptedPayments],
+  );
   const [PlatformPay, setPlatformPay] =
     useState<React.ComponentType<PlatformPayButtonProps> | null>(null);
   useEffect(() => {
     if (!menu.ordering.onlinePayment) return;
+    if (!wallets.applePay && !wallets.googlePay) return;
     let alive = true;
-    void isPlatformPayAvailable().then((supported) => {
+    void isPlatformPayAvailable(wallets).then((supported) => {
       if (!alive || !supported) return;
       setPlatformPay(() => platformPayButton());
     });
     return () => {
       alive = false;
     };
-  }, [menu.ordering.onlinePayment]);
+  }, [menu.ordering.onlinePayment, wallets]);
 
   // Restaurant-configured delivery areas: the guest PICKS a postcode and
   // the locality autofills; fee/minimum/free-over come from that row.
@@ -509,6 +516,7 @@ export function CartScreen({
     const pay = wallet ? payWithPlatformPay : payWithCard;
     const outcome = await pay(order.orderId, order.receiptToken, {
       merchantDisplayName: menu.venue.name,
+      wallets,
     });
     if (typeof outcome === "object") {
       // Fake provider (dev/CI): no sheet exists — and no wallet either,

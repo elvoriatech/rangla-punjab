@@ -14,9 +14,14 @@ export interface WalletPayButtonProps {
   /** Stripe publishable key for the SAME account that will issue the
    *  intent (from `/api/v1/pay/wallet-config`). */
   publishableKey: string;
-  /** ⛔ Apple Pay on the web needs a verified merchant domain, so the
-   *  server decides; Google Pay needs nothing and is always allowed. */
+  /** ⛔ Apple Pay on the web needs a verified merchant domain (the server
+   *  decides that) AND the owner's tick in Settings → "Payment methods
+   *  you accept" — the caller passes the AND of the two. */
   allowApplePay: boolean;
+  /** The owner ticked Google Pay in Settings → "Payment methods you
+   *  accept". Google Pay needs no domain verification, so this tick is
+   *  the whole gate on our side. */
+  allowGooglePay: boolean;
   /** Merchant country for the payment request (ISO-3166-1 alpha-2). */
   country: string;
   /** ISO currency of the order — Stripe wants it lower-case. */
@@ -49,9 +54,12 @@ export interface WalletPayButtonProps {
  * guest bundle inside its budget.
  *
  * It renders NOTHING until `canMakePayment()` has resolved truthy AND the
- * wallet the browser offers is one we are allowed to show. Safari with an
- * unverified merchant domain therefore gets no button at all, rather than
- * a button that opens a sheet and fails at confirmation.
+ * wallet the browser offers is one we are allowed to show — which means
+ * both that the restaurant ticked it in its settings and, for Apple Pay,
+ * that the merchant domain is verified. Safari with an unverified domain,
+ * or Chrome at a venue that only takes Apple Pay, therefore gets no
+ * button at all, rather than one that opens a sheet and fails at
+ * confirmation.
  *
  * The flow when it IS tapped mirrors the card tile: place the order first
  * (the server re-prices everything), then fetch that order's
@@ -63,6 +71,7 @@ export interface WalletPayButtonProps {
 export function WalletPayButton({
   publishableKey,
   allowApplePay,
+  allowGooglePay,
   country,
   currency,
   totalCents,
@@ -114,8 +123,10 @@ export function WalletPayButton({
       if (!available || cancelled) return;
       // `link` is Stripe Link, not a platform wallet — it is not what the
       // owner asked for and it is not gated by anything, so it alone is
-      // never a reason to draw this button.
-      if (!available.googlePay && !(available.applePay && allowApplePay)) return;
+      // never a reason to draw this button. Each real wallet needs BOTH
+      // the device to offer it and the restaurant to have ticked it.
+      if (!(available.googlePay && allowGooglePay) && !(available.applePay && allowApplePay))
+        return;
 
       request.on("paymentmethod", (ev) => {
         void (async () => {
@@ -188,7 +199,7 @@ export function WalletPayButton({
       requestRef.current = null;
       setReady(false);
     };
-  }, [publishableKey, allowApplePay, country, currency]);
+  }, [publishableKey, allowApplePay, allowGooglePay, country, currency]);
 
   // The basket is live behind the open sheet: keep the amount the wallet
   // will show in step with it, or the guest approves yesterday's total.

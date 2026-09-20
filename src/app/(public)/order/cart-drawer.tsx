@@ -392,6 +392,7 @@ export function CartDrawer({
   acceptsAsapNow = true,
   onlinePayment,
   paypalPayment = false,
+  acceptedPayments = [],
   loyalty,
 }: {
   slug: string;
@@ -416,10 +417,24 @@ export function CartDrawer({
   acceptsAsapNow?: boolean;
   onlinePayment: boolean;
   paypalPayment?: boolean;
+  /**
+   * The payment methods the owner ticked in Settings → "Payment methods
+   * you accept". The only thing it decides in here is whether a WALLET
+   * button may appear: Apple Pay / Google Pay are offered only when the
+   * restaurant said it takes them, on top of the existing Stripe-account
+   * and device gates. Defaults to `[]` so a caller that has not been
+   * taught about it gets NO wallet button rather than an unasked-for one.
+   */
+  acceptedPayments?: readonly PaymentMethodId[];
   /** Loyalty, round one: absent or disabled = the drawer says nothing
    *  about points, which is the default for every venue. */
   loyalty?: DrawerLoyalty;
 }): React.ReactElement | null {
+  // Owner intent, read once per render: a wallet the restaurant did not
+  // tick is not fetched for, not mounted, and not offered inside the
+  // native sheet.
+  const wantApplePay = acceptedPayments.includes("apple_pay");
+  const wantGooglePay = acceptedPayments.includes("google_pay");
   const lines = useSyncExternalStore(
     subscribeToCart,
     () => getCartSnapshot(slug),
@@ -506,10 +521,12 @@ export function CartDrawer({
    * Is there a wallet to offer at all? The key is public, but it only
    * exists when a REAL Stripe account is behind the venue, so this single
    * fetch is also the "can this deployment take a card right now" answer.
-   * Behind `open` because the menu page is static and edge-cached.
+   * Behind `open` because the menu page is static and edge-cached, and
+   * behind the owner's tick-boxes because a venue that offers neither
+   * wallet has nothing to do with the answer.
    */
   useEffect(() => {
-    if (!open || !onlinePayment || wallet !== null) return;
+    if (!open || !onlinePayment || (!wantApplePay && !wantGooglePay) || wallet !== null) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -530,7 +547,7 @@ export function CartDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, onlinePayment, wallet]);
+  }, [open, onlinePayment, wantApplePay, wantGooglePay, wallet]);
 
   /**
    * Prefill from the signed-in customer, once, the first time the sheet
@@ -1508,15 +1525,17 @@ export function CartDrawer({
                 return (
                   <div className="mt-4">
                     {/* Apple Pay / Google Pay: one tap places AND pays.
-                        Drawn ONLY when the browser, the venue's Stripe
+                        Drawn ONLY when the OWNER ticked that wallet in
+                        settings AND the browser, the venue's Stripe
                         account and (for Apple) the verified merchant
                         domain all agree — otherwise nothing at all is
                         rendered here, not a disabled button. */}
-                    {onlinePayment && wallet?.publishableKey ? (
+                    {onlinePayment && wallet?.publishableKey && (wantApplePay || wantGooglePay) ? (
                       <>
                         <WalletPayButton
                           publishableKey={wallet.publishableKey}
-                          allowApplePay={wallet.applePay}
+                          allowApplePay={wallet.applePay && wantApplePay}
+                          allowGooglePay={wantGooglePay}
                           country={wallet.country}
                           currency={currency}
                           totalCents={total}

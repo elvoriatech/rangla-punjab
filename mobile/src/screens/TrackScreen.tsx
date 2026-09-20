@@ -9,6 +9,7 @@ import {
   startHostedPayment,
   verifyPayment,
 } from "../api";
+import type { WalletChoice } from "../payments";
 import {
   confirmFakePayment,
   openInAppBrowser,
@@ -46,6 +47,7 @@ export function TrackScreen({
   merchantName,
   canPayCard,
   canPayPaypal,
+  wallets,
   payment,
   paidHint,
   note,
@@ -59,6 +61,10 @@ export function TrackScreen({
   merchantName: string;
   canPayCard: boolean;
   canPayPaypal: boolean;
+  /** Which wallets the restaurant ticked in its settings. Decides
+   *  whether the Stripe sheet may show an Apple Pay / Google Pay row at
+   *  all — the card row is unaffected. */
+  wallets: WalletChoice;
   /** Set when the guest just came from the cart with an unfinished
    *  payment; shown once, above the pay buttons. */
   note?: "cancelled" | "failed";
@@ -165,7 +171,10 @@ export function TrackScreen({
     if (busy) return;
     setBusy(true);
     setBanner(null);
-    const outcome = await payWithCard(orderId, token, { merchantDisplayName: merchantName });
+    const outcome = await payWithCard(orderId, token, {
+      merchantDisplayName: merchantName,
+      wallets,
+    });
     if (typeof outcome === "object") {
       setFakeRef(outcome.fake.ref);
       setBusy(false);

@@ -14,7 +14,8 @@ import { loadStripe } from "./stripe-module";
  * Two routes, in preference order:
  *
  *  1. **Native PaymentSheet** (`payWithCard`) — Stripe's own bottom sheet,
- *     with Google Pay and saved cards. `@stripe/stripe-react-native` is a
+ *     with saved cards and, when the restaurant ticked them, the wallet
+ *     rows (`opts.wallets`). `@stripe/stripe-react-native` is a
  *     NATIVE module: it does not exist in Expo Go or on web, so it is
  *     reached through `stripe-module.ts` / `stripe-module.web.ts`, which
  *     hand back null instead of throwing (same posture as the Google SDK
@@ -64,9 +65,35 @@ export function appleMerchantId(): string | null {
 }
 
 /**
+ * Which wallets the RESTAURANT ticked in Settings → "Payment methods you
+ * accept". Everything wallet-shaped in here takes this as an AND on top
+ * of the device/entitlement gates: a venue that does not take Apple Pay
+ * must not be shown an Apple Pay button, however capable the phone is.
+ */
+export interface WalletChoice {
+  applePay: boolean;
+  googlePay: boolean;
+}
+
+/**
+ * Map the venue's `acceptedPayments` ids onto the two wallets.
+ *
+ * Absent (an older server, a menu that has not loaded yet) reads as
+ * "neither": the safe answer is no wallet button rather than one the
+ * restaurant never asked for.
+ */
+export function walletsFromAccepted(accepted: readonly string[] | undefined): WalletChoice {
+  return {
+    applePay: accepted?.includes("apple_pay") ?? false,
+    googlePay: accepted?.includes("google_pay") ?? false,
+  };
+}
+
+/**
  * Is there a native wallet button to draw at all?
  *
  * Every "no" here is a legitimate, silent state, not an error:
+ *  - the restaurant did not tick this platform's wallet in its settings;
  *  - web / Expo Go — no native module;
  *  - iOS without `APPLE_MERCHANT_ID` — the entitlement isn't in the
  *    binary, so an Apple Pay button would open a sheet that fails;
@@ -75,10 +102,11 @@ export function appleMerchantId(): string | null {
  *    PaymentIntent — so before the first card payment of a session this
  *    answers false, and the button simply doesn't appear).
  */
-export async function isPlatformPayAvailable(): Promise<boolean> {
+export async function isPlatformPayAvailable(wallets: WalletChoice): Promise<boolean> {
   const stripe = loadStripe();
   if (!stripe) return false;
-  if (Platform.OS === "ios" && !appleMerchantId()) return false;
+  if (Platform.OS === "ios" && (!appleMerchantId() || !wallets.applePay)) return false;
+  if (Platform.OS === "android" && !wallets.googlePay) return false;
   if (Platform.OS !== "ios" && Platform.OS !== "android") return false;
   try {
     return await stripe.isPlatformPaySupported();
@@ -120,7 +148,7 @@ const FALL_BACK_TO_HOSTED = new Set([
 export async function payWithCard(
   orderId: string,
   token: string,
-  opts: { merchantDisplayName: string },
+  opts: { merchantDisplayName: string; wallets: WalletChoice },
 ): Promise<CardOutcome> {
   const created = await createPaymentIntent(orderId, token);
   if (!created.ok) {
@@ -152,15 +180,24 @@ export async function payWithCard(
       paymentIntentClientSecret: intent.clientSecret,
       merchantDisplayName: opts.merchantDisplayName || intent.merchantName,
       returnURL: STRIPE_RETURN_URL,
-      ...(merchantId ? { applePay: { merchantCountryCode: MERCHANT_COUNTRY } } : {}),
-      googlePay: {
-        merchantCountryCode: MERCHANT_COUNTRY,
-        currencyCode: intent.currency.toUpperCase(),
-        // Google Pay stays in its test environment until the Google Pay &
-        // Wallet Console approves the production app — which is exactly
-        // when the venue's key stops being a test key.
-        testEnv: intent.publishableKey.startsWith("pk_test_"),
-      },
+      // A wallet row appears inside the sheet only when the restaurant
+      // ticked that wallet (and, for Apple, the entitlement is in the
+      // binary). Omitting the block is what removes the row.
+      ...(merchantId && opts.wallets.applePay
+        ? { applePay: { merchantCountryCode: MERCHANT_COUNTRY } }
+        : {}),
+      ...(opts.wallets.googlePay
+        ? {
+            googlePay: {
+              merchantCountryCode: MERCHANT_COUNTRY,
+              currencyCode: intent.currency.toUpperCase(),
+              // Google Pay stays in its test environment until the Google
+              // Pay & Wallet Console approves the production app — which
+              // is exactly when the venue's key stops being a test key.
+              testEnv: intent.publishableKey.startsWith("pk_test_"),
+            },
+          }
+        : {}),
       // Every accepted method must settle at the counter, not days later:
       // the kitchen ships food against this payment.
       allowsDelayedPaymentMethods: false,
@@ -192,7 +229,7 @@ export async function payWithCard(
 export async function payWithPlatformPay(
   orderId: string,
   token: string,
-  opts: { merchantDisplayName: string },
+  opts: { merchantDisplayName: string; wallets: WalletChoice },
 ): Promise<CardOutcome> {
   const created = await createPaymentIntent(orderId, token);
   if (!created.ok) {
@@ -206,7 +243,10 @@ export async function payWithPlatformPay(
   const stripe = loadStripe();
   if (!stripe || !intent.publishableKey) return "unavailable";
   const merchantId = appleMerchantId();
-  if (Platform.OS === "ios" && !merchantId) return "unavailable";
+  // The restaurant's tick is a hard gate, exactly like the entitlement:
+  // "unavailable" sends the caller to the hosted page instead.
+  if (Platform.OS === "ios" && (!merchantId || !opts.wallets.applePay)) return "unavailable";
+  if (Platform.OS === "android" && !opts.wallets.googlePay) return "unavailable";
 
   const name = opts.merchantDisplayName || intent.merchantName;
   const currency = intent.currency.toUpperCase();
@@ -216,29 +256,39 @@ export async function payWithPlatformPay(
       urlScheme: APP_SCHEME,
       ...(merchantId ? { merchantIdentifier: merchantId } : {}),
     });
-    // Both blocks are always sent: each platform ignores the other's.
+    // Only the blocks the owner allows are sent; each platform ignores
+    // the other's anyway, so the gate above already decided the outcome.
     const result = await stripe.confirmPlatformPayPayment(intent.clientSecret, {
-      applePay: {
-        merchantCountryCode: MERCHANT_COUNTRY,
-        currencyCode: currency,
-        // Apple's sheet shows the last line as "Pay <name> <amount>", so
-        // the single line IS the total.
-        cartItems: [
-          {
-            paymentType: "Immediate",
-            label: name,
-            amount: (intent.amountCents / 100).toFixed(2),
-          },
-        ],
-      },
-      googlePay: {
-        merchantCountryCode: MERCHANT_COUNTRY,
-        currencyCode: currency,
-        merchantName: name,
-        // Same rule as the sheet: a test key means Google's test
-        // environment, which is also all a not-yet-approved app may use.
-        testEnv: intent.publishableKey.startsWith("pk_test_"),
-      },
+      ...(opts.wallets.applePay
+        ? {
+            applePay: {
+              merchantCountryCode: MERCHANT_COUNTRY,
+              currencyCode: currency,
+              // Apple's sheet shows the last line as "Pay <name>
+              // <amount>", so the single line IS the total.
+              cartItems: [
+                {
+                  paymentType: "Immediate" as const,
+                  label: name,
+                  amount: (intent.amountCents / 100).toFixed(2),
+                },
+              ],
+            },
+          }
+        : {}),
+      ...(opts.wallets.googlePay
+        ? {
+            googlePay: {
+              merchantCountryCode: MERCHANT_COUNTRY,
+              currencyCode: currency,
+              merchantName: name,
+              // Same rule as the sheet: a test key means Google's test
+              // environment, which is also all a not-yet-approved app
+              // may use.
+              testEnv: intent.publishableKey.startsWith("pk_test_"),
+            },
+          }
+        : {}),
     });
     if (!result.error) return "paid";
     const code = result.error.code;

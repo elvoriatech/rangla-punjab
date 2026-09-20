@@ -5,11 +5,23 @@ import { siteUrl } from "@/lib/site-url";
 import { uploadedImageUrl } from "@/lib/menu-images";
 
 /**
- * One branded frame for every email the app sends: the venue's banner (or a
- * band in its colour) with the round logo and name on top, a card for the
- * content, and a quiet footer. Table layout + inline styles only — that is
- * what survives Gmail, Outlook and Apple Mail alike. Images are absolute
- * URLs on our own origin (the same `/img` route the site uses).
+ * One branded frame for every email the app sends: a header carrying the
+ * venue's identity, a card for the content, and a quiet footer. Table
+ * layout + inline styles only — that is what survives Gmail, Outlook and
+ * Apple Mail alike. Images are absolute URLs on our own origin (the same
+ * `/img` route the site uses).
+ *
+ * The header has two shapes:
+ *
+ *  - **With a banner photo** — the photo is the header cell's BACKGROUND
+ *    (both the `background` attribute and `background-image`, because
+ *    different clients honour different ones) and the logo medallion, the
+ *    name and the stars sit centred ON it. No second coloured band below:
+ *    one header, one image. A client that drops background images (Outlook
+ *    desktop, image-blocking) still gets the accent colour behind the same
+ *    white text, which is why the name carries a dark text shadow.
+ *  - **Without one** — the original coloured band: medallion, name, stars
+ *    on the accent colour.
  *
  * Colours default to the deep-red / cream / gold identity the apps carry;
  * a venue with its own `primaryColor` gets its band in that colour.
@@ -63,6 +75,61 @@ export function platformBrand(name: string): Brand {
   return { name, logoUrl: `${siteUrl()}/brand/icon-192.png`, bannerUrl: null, accent: null };
 }
 
+/**
+ * Logo medallion + venue name + the gold stars, the one identity block
+ * both header shapes use. `onPhoto` switches the name to white-on-shadow
+ * so it stays readable over an arbitrary banner photo.
+ */
+function BrandIdentity({ brand, onPhoto }: { brand: Brand; onPhoto: boolean }): React.ReactElement {
+  return (
+    <>
+      {brand.logoUrl ? (
+        <img
+          src={brand.logoUrl}
+          width={84}
+          height={84}
+          alt={brand.name}
+          style={{
+            display: "block",
+            margin: "0 auto 12px",
+            width: 84,
+            height: 84,
+            borderRadius: 42,
+            backgroundColor: EMAIL.card,
+            border: `3px solid ${EMAIL.gold}`,
+            objectFit: "cover",
+          }}
+        />
+      ) : null}
+      <div
+        style={{
+          color: onPhoto ? "#ffffff" : "#fdf3dd",
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          fontFamily: FONT,
+          ...(onPhoto ? { textShadow: "0 1px 6px rgba(0,0,0,0.8)" } : {}),
+        }}
+      >
+        {brand.name}
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          color: EMAIL.gold,
+          fontSize: 11,
+          letterSpacing: "0.28em",
+          textTransform: "uppercase",
+          fontFamily: SANS,
+          ...(onPhoto ? { textShadow: "0 1px 6px rgba(0,0,0,0.8)" } : {}),
+        }}
+      >
+        ✦ ✦ ✦
+      </div>
+    </>
+  );
+}
+
 export function EmailShell({
   lang,
   dir,
@@ -108,85 +175,64 @@ export function EmailShell({
                   style={{ width: "100%", maxWidth: 600 }}
                 >
                   <tbody>
-                    {/* Header: banner photo or a coloured band, logo medallion, name. */}
+                    {/* Header: the banner photo AS the background with the
+                        identity centred on it, or — with no banner — the
+                        coloured band. Never both. */}
                     <tr>
-                      <td
-                        style={{
-                          borderRadius: "16px 16px 0 0",
-                          overflow: "hidden",
-                          backgroundColor: accent,
-                        }}
-                      >
-                        {brand.bannerUrl ? (
-                          <img
-                            src={brand.bannerUrl}
-                            width={600}
-                            alt=""
-                            style={{
-                              display: "block",
-                              width: "100%",
-                              height: "auto",
-                              maxHeight: 220,
-                              objectFit: "cover",
-                              borderRadius: "16px 16px 0 0",
-                            }}
-                          />
-                        ) : null}
-                        <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
-                          <tbody>
-                            <tr>
-                              <td
-                                align="center"
-                                style={{
-                                  padding: brand.bannerUrl ? "18px 24px 22px" : "30px 24px 26px",
-                                }}
-                              >
-                                {brand.logoUrl ? (
-                                  <img
-                                    src={brand.logoUrl}
-                                    width={84}
-                                    height={84}
-                                    alt={brand.name}
-                                    style={{
-                                      display: "block",
-                                      margin: "0 auto 12px",
-                                      width: 84,
-                                      height: 84,
-                                      borderRadius: 42,
-                                      backgroundColor: EMAIL.card,
-                                      border: `3px solid ${EMAIL.gold}`,
-                                      objectFit: "cover",
-                                    }}
-                                  />
-                                ) : null}
-                                <div
-                                  style={{
-                                    color: "#fdf3dd",
-                                    fontSize: 22,
-                                    fontWeight: 700,
-                                    letterSpacing: "0.02em",
-                                    fontFamily: FONT,
-                                  }}
+                      {brand.bannerUrl ? (
+                        <td
+                          // `background` for the clients that only read the
+                          // attribute, `background-image` for the ones that
+                          // only read CSS; `backgroundColor` is the fallback
+                          // when neither survives (Outlook desktop).
+                          {...{ background: brand.bannerUrl }}
+                          height={220}
+                          style={{
+                            borderRadius: "16px 16px 0 0",
+                            backgroundColor: accent,
+                            backgroundImage: `url(${brand.bannerUrl})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                            backgroundRepeat: "no-repeat",
+                            // Fixed, not min-height: `min-height` is dropped
+                            // by too many clients to be the thing holding
+                            // the photo open.
+                            height: 220,
+                          }}
+                        >
+                          <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
+                            <tbody>
+                              <tr>
+                                <td
+                                  align="center"
+                                  valign="middle"
+                                  style={{ padding: "26px 24px", height: 220 }}
                                 >
-                                  {brand.name}
-                                </div>
-                                <div
-                                  style={{
-                                    marginTop: 6,
-                                    color: EMAIL.gold,
-                                    fontSize: 11,
-                                    letterSpacing: "0.28em",
-                                    textTransform: "uppercase",
-                                    fontFamily: SANS,
-                                  }}
-                                >
-                                  ✦ ✦ ✦
-                                </div>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </td>
+                                  <BrandIdentity brand={brand} onPhoto />
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      ) : (
+                        <td
+                          style={{
+                            borderRadius: "16px 16px 0 0",
+                            overflow: "hidden",
+                            backgroundColor: accent,
+                          }}
+                        >
+                          <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
+                            <tbody>
+                              <tr>
+                                <td align="center" style={{ padding: "30px 24px 26px" }}>
+                                  <BrandIdentity brand={brand} onPhoto={false} />
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      )}
                     </tr>
                     {/* Card */}
                     <tr>

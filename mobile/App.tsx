@@ -25,6 +25,7 @@ import type { StoredOrder } from "./src/orders-store";
 import type { PushTarget } from "./src/push";
 import { registerForStaffPush, usePushRouting } from "./src/push";
 import { fetchStaffSummary } from "./src/staff";
+import { walletsFromAccepted } from "./src/payments";
 import { colors, fonts } from "./src/theme";
 import { TAB_BAR_MAX } from "./src/layout";
 import { HomeScreen } from "./src/screens/HomeScreen";
@@ -355,6 +356,7 @@ function Shell(): React.ReactElement {
         merchantName={menu.venue.name}
         canPayCard={Boolean(menu.ordering.onlinePayment)}
         canPayPaypal={Boolean(menu.ordering.paypal)}
+        wallets={walletsFromAccepted(menu.ordering.acceptedPayments)}
         payment={track.payment}
         paidHint={track.paid}
         note={track.note}

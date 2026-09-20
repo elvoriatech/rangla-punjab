@@ -30,6 +30,22 @@ describe("acceptedPaymentIds", () => {
     expect(acceptedPaymentIds({})).toEqual([]);
   });
 
+  it("never implies a wallet: Apple Pay / Google Pay come from the owner's ticks only", () => {
+    // A live Stripe account can charge a wallet, but whether the venue
+    // OFFERS one is the owner's decision — same rule the cart drawer's
+    // wallet button follows.
+    expect(acceptedPaymentIds({ accepted: ["cash"], onlinePayment: true })).not.toContain(
+      "apple_pay",
+    );
+    expect(acceptedPaymentIds({ accepted: ["cash"], onlinePayment: true })).not.toContain(
+      "google_pay",
+    );
+    expect(acceptedPaymentIds({ accepted: ["apple_pay", "google_pay"] })).toEqual([
+      "apple_pay",
+      "google_pay",
+    ]);
+  });
+
   it("orders marks by the registry, not by the caller's array", () => {
     expect(acceptedPaymentIds({ accepted: ["paypal", "cash", "visa"] })).toEqual([
       "cash",
