@@ -156,6 +156,12 @@ export function OrdersScreen({
             // server spends the reward first, the card covers the rest),
             // so this is a sibling line, never an alternative to it.
             const giftCardCents = s?.giftCardDiscountCents ?? 0;
+            // Unchanged rule: the entry exists once there is a thread to
+            // read, or while the server still says the report window is
+            // open (`canReport`). A card with no status yet offers none.
+            const canComplain = Boolean(s?.issue || s?.canReport);
+            // Still waiting on somebody → the icon carries a dot.
+            const openIssue = Boolean(s?.issue && s.issue.status !== "resolved");
             return (
               <Pressable
                 key={order.orderId}
@@ -170,75 +176,99 @@ export function OrdersScreen({
                         order is, and whether it is paid — each an icon and
                         one word so the row survives a small phone. */}
                     <View style={styles.numberRow}>
-                      <Text style={styles.number}>
-                        #{String(order.orderNumber).padStart(4, "0")}
-                      </Text>
-                      {s ? (
-                        <View
-                          style={[
-                            styles.pill,
-                            cancelled
-                              ? styles.pillCancelled
-                              : done
-                                ? styles.pillDone
-                                : styles.pillActive,
-                          ]}
-                        >
-                          <Text style={styles.pillIcon}>{statusBadge(s).icon}</Text>
-                          <Text
+                      <View style={styles.numberPills}>
+                        <Text style={styles.number}>
+                          #{String(order.orderNumber).padStart(4, "0")}
+                        </Text>
+                        {s ? (
+                          <View
                             style={[
-                              styles.pillText,
+                              styles.pill,
                               cancelled
-                                ? styles.pillTextCancelled
+                                ? styles.pillCancelled
                                 : done
-                                  ? styles.pillTextDone
-                                  : styles.pillTextActive,
+                                  ? styles.pillDone
+                                  : styles.pillActive,
                             ]}
-                            numberOfLines={1}
                           >
-                            {statusBadge(s).text}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {pay ? (
-                        <View
-                          style={[styles.pill, pay.settled ? styles.pillDone : styles.pillNeutral]}
-                        >
-                          <Text style={styles.pillIcon}>{pay.icon}</Text>
-                          <Text
+                            <Text style={styles.pillIcon}>{statusBadge(s).icon}</Text>
+                            <Text
+                              style={[
+                                styles.pillText,
+                                cancelled
+                                  ? styles.pillTextCancelled
+                                  : done
+                                    ? styles.pillTextDone
+                                    : styles.pillTextActive,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {statusBadge(s).text}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {pay ? (
+                          <View
                             style={[
-                              styles.pillText,
-                              pay.settled ? styles.pillTextDone : styles.pillTextNeutral,
+                              styles.pill,
+                              pay.settled ? styles.pillDone : styles.pillNeutral,
                             ]}
-                            numberOfLines={1}
                           >
-                            {pay.text}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {/* A reported problem outlives the order: this pill
+                            <Text style={styles.pillIcon}>{pay.icon}</Text>
+                            <Text
+                              style={[
+                                styles.pillText,
+                                pay.settled ? styles.pillTextDone : styles.pillTextNeutral,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {pay.text}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {/* A reported problem outlives the order: this pill
                           stays on the card after "done", because that is
                           exactly when the guest goes looking for it. */}
-                      {s?.issue ? (
-                        <View
-                          style={[
-                            styles.pill,
-                            s.issue.status === "resolved" ? styles.pillNeutral : styles.pillProblem,
-                          ]}
-                        >
-                          <Text style={styles.pillIcon}>⚠️</Text>
-                          <Text
+                        {s?.issue ? (
+                          <View
                             style={[
-                              styles.pillText,
+                              styles.pill,
                               s.issue.status === "resolved"
-                                ? styles.pillTextNeutral
-                                : styles.pillTextProblem,
+                                ? styles.pillNeutral
+                                : styles.pillProblem,
                             ]}
-                            numberOfLines={1}
                           >
-                            {t.issuePill} · {issueStatusLabels[s.issue.status] ?? s.issue.status}
-                          </Text>
-                        </View>
+                            <Text style={styles.pillIcon}>⚠️</Text>
+                            <Text
+                              style={[
+                                styles.pillText,
+                                s.issue.status === "resolved"
+                                  ? styles.pillTextNeutral
+                                  : styles.pillTextProblem,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {t.issuePill} · {issueStatusLabels[s.issue.status] ?? s.issue.status}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      {/* The complaint entry, pinned to the END of the
+                          first line (right in LTR, left in RTL) opposite
+                          the payment pill — same tap as before, it just
+                          no longer hides in a text link further down. */}
+                      {canComplain ? (
+                        <Pressable
+                          onPress={() => onOpen(order, { issue: true })}
+                          style={({ pressed }) => [styles.complainBtn, pressed && { opacity: 0.6 }]}
+                          accessibilityRole="button"
+                          accessibilityLabel={s?.issue ? t.issueView : t.issueReport}
+                        >
+                          <View style={styles.complainDisc}>
+                            <Text style={styles.complainIcon}>💬</Text>
+                            {openIssue ? <View style={styles.complainDot} /> : null}
+                          </View>
+                        </Pressable>
                       ) : null}
                     </View>
                     {/* Date · type on the left, the amount on the right. */}
@@ -266,11 +296,6 @@ export function OrdersScreen({
                         })}
                       </Text>
                     ) : null}
-                    {/* Reporting a problem used to live one tap deeper,
-                        on the tracking screen, where a guest had to know
-                        to go looking. It is offered here instead —
-                        nested inside the card's own Pressable, which
-                        resolves to this inner press. */}
                     {/* Same ask as the tracking screen, on the card the
                         guest is already looking at. Done orders only,
                         only when the server offered a link, and only
@@ -294,17 +319,6 @@ export function OrdersScreen({
                         style={styles.reviewAction}
                       >
                         {t.reviewCta}
-                      </Text>
-                    ) : null}
-                    {s?.issue || s?.canReport ? (
-                      <Text
-                        onPress={() => onOpen(order, { issue: true })}
-                        suppressHighlighting
-                        accessibilityRole="button"
-                        accessibilityLabel={s?.issue ? t.issueView : t.issueReport}
-                        style={styles.reportAction}
-                      >
-                        {s?.issue ? t.issueView : t.issueReport}
                       </Text>
                     ) : null}
                   </View>
@@ -343,7 +357,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
-  numberRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  /** One line: the pills take the space they need, the complaint icon
+   *  keeps the end of the line. Only the pills wrap, so the icon can
+   *  never be pushed onto a second row. */
+  numberRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  numberPills: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
   number: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy },
   meta: { color: colors.inkSoft, ...fonts.body, fontSize: 12, flexShrink: 1 },
   cancelledNote: { color: colors.danger, ...fonts.bodySemi, fontSize: 11.5 },
@@ -358,16 +382,41 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingEnd: 12,
   },
-  /** Quiet, but a real target: an underline and a full thumb's height,
-   *  never a 12 px trap. */
-  reportAction: {
-    color: colors.red,
-    ...fonts.bodySemi,
-    fontSize: 12.5,
-    textDecorationLine: "underline",
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    paddingEnd: 12,
+  /** A full 44 pt target that keeps the disc centred on the FIRST line,
+   *  even when the pills beside it wrap to a second one. The box hangs
+   *  12 pt upward into the card's own padding — never downward, where it
+   *  would steal taps from the total underneath. */
+  complainBtn: {
+    width: 44,
+    height: 44,
+    marginTop: -12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  complainDisc: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.cream,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  complainIcon: { fontSize: 15, lineHeight: 19 },
+  /** Something is still waiting on somebody — the same signal the
+   *  ⚠️ pill carries, on the outer corner of the icon. `end`, not
+   *  `right`, so it follows the button to the other side under RTL. */
+  complainDot: {
+    position: "absolute",
+    top: -1,
+    end: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: colors.danger,
+    borderWidth: 1.5,
+    borderColor: colors.creamCard,
   },
   rewardOff: { color: colors.gold, ...fonts.bodySemi, fontSize: 11.5 },
   total: { color: colors.red, fontSize: 16, ...fonts.bodyHeavy },
