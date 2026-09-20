@@ -229,6 +229,31 @@ describe("MenuView", () => {
         expect(html, `banner width ${w}`).toContain(`?w=${w} ${w}w`);
       }
     });
+
+    it("sizes the hero by the photo, so a banner with its own headline is never cropped", () => {
+      const banner = structuredClone(fixture);
+      banner.venue.branding.bannerKey = "tenant-1/uploads/banner";
+      // 1920x768 — Rangla's actual banner, whose baked-in title the old
+      // fixed-height `object-cover` box cut off at every width.
+      banner.venue.branding.bannerAspect = 2.5;
+      const html = renderToStaticMarkup(<MenuView menu={banner} />);
+
+      // The box is reserved from the ratio before a byte arrives: no
+      // width/height guess, and CLS stays 0 (the Lighthouse CI budget).
+      expect(html).toContain("--hero-ratio:2.5");
+      expect(html).toMatch(/aspect-ratio:\s*var\(--hero-ratio\)/);
+      // Whole image, never a crop.
+      expect(html).toContain("object-contain");
+      // And none of the fixed heights that did the cropping.
+      expect(html).not.toContain("relative h-40 w-full sm:h-48 lg:h-60");
+    });
+
+    it("falls back to 16:7 for a banner whose proportions we do not know", () => {
+      const banner = structuredClone(fixture);
+      banner.venue.branding.bannerKey = "tenant-1/uploads/banner";
+      const html = renderToStaticMarkup(<MenuView menu={banner} />);
+      expect(html).toContain(`--hero-ratio:${16 / 7}`);
+    });
   });
 
   it("fresh-bistro theme switches to the centered grid layout", () => {
@@ -414,7 +439,11 @@ describe("MenuView", () => {
     const html = renderToStaticMarkup(<MenuView menu={fixture} />);
     expect(html).not.toContain(menuCopy("en").privacy.title);
     expect(html).not.toContain(menuCopy("en").privacy.ok);
-    expect(html).not.toContain("/legal/privacy");
+    // Its body, not its href: the footer's legal row links to
+    // /legal/privacy on every render, so the URL is no longer a
+    // notice-only marker.
+    expect(html).not.toContain(menuCopy("en").privacy.body);
+    expect(html).not.toContain(menuCopy("en").privacy.link);
   });
 
   it("keeps the rating out of JSON-LD — Google disallows self-serving ratings (P7-14)", () => {
@@ -519,6 +548,108 @@ describe("MenuView", () => {
     // "App Store" is a brand name, not copy: identical in every locale.
     expect(html).toContain("App Store");
     expect(html).not.toContain("Get the app");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Footer — three columns, and nothing empty in any of them            */
+/* ------------------------------------------------------------------ */
+
+/** Every `<li>` whose content is whitespace only. The old footer's
+ *  language dropdown was the page's only list, and its six items carried
+ *  their label inside a nested <a> — which is what reached the owner as
+ *  "* * * * * *". Nothing in the footer may render a list item with no
+ *  content of its own again. */
+function emptyListItems(html: string): string[] {
+  return html.match(/<li\b[^>]*>\s*<\/li>/g) ?? [];
+}
+
+const CONTACTED: PublicMenu = {
+  ...fixture,
+  venue: {
+    ...fixture.venue,
+    contact: {
+      landline: {
+        number: "+497531123456",
+        display: "+49 7531 123456",
+        href: "tel:+497531123456",
+      },
+      mobile: {
+        number: "+491701234567",
+        display: "+49 1701 234567",
+        href: "tel:+491701234567",
+      },
+      whatsapp: {
+        number: "+491701234567",
+        display: "+49 1701 234567",
+        href: "https://wa.me/491701234567",
+      },
+    },
+  },
+};
+
+describe("MenuView footer", () => {
+  it("renders no empty list item — with app links and without", () => {
+    const bare = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
+    expect(emptyListItems(bare), "footer without app links").toEqual([]);
+    // The language dropdown is a nav of links now, not a list of six
+    // items whose labels live one level down.
+    expect(bare).toContain('aria-label="Language"');
+
+    const withApp = renderToStaticMarkup(
+      <MenuView
+        menu={{
+          ...CONTACTED,
+          venue: {
+            ...CONTACTED.venue,
+            appLinks: { android: "https://play.google.com/store/apps/details?id=x" },
+          },
+        }}
+        orderingModes={ALL_MODES}
+      />,
+    );
+    expect(emptyListItems(withApp), "footer with one of three app links").toEqual([]);
+    // One badge published, one badge rendered — no placeholder for the
+    // two stores this venue is not on.
+    expect(withApp).toContain("Google Play");
+    expect(withApp).not.toContain("App Store");
+    expect(withApp).not.toContain("Download Android app");
+  });
+
+  it("gives each published number its own row, keeping its accessible name", () => {
+    const html = renderToStaticMarkup(<MenuView menu={CONTACTED} />);
+    const rows = html.match(/<li><a href="(tel:|https:\/\/wa\.me)/g) ?? [];
+    expect(rows).toHaveLength(3);
+    expect(html).toContain('aria-label="Call landline +49 7531 123456"');
+    expect(html).toContain('aria-label="Call mobile +49 1701 234567"');
+    expect(html).toContain('aria-label="Message +49 1701 234567 on WhatsApp (opens WhatsApp)"');
+    // WhatsApp leaves the site; the two tel: links do not.
+    expect(html).toMatch(/wa\.me[^>]*rel="noopener noreferrer"/);
+  });
+
+  it("drops the contact block entirely when the owner published no number", () => {
+    const html = renderToStaticMarkup(<MenuView menu={fixture} />);
+    expect(html).not.toContain('aria-label="Contact us"');
+    expect(html).not.toContain("Call landline");
+  });
+
+  it("links the operator's legal pages, in the guest's language", () => {
+    for (const [locale, imprint, privacy] of [
+      ["en-GB", "Imprint", "Privacy"],
+      ["de", "Impressum", "Datenschutz"],
+      ["ar", "بيانات الناشر", "الخصوصية"],
+    ] as const) {
+      const html = renderToStaticMarkup(<MenuView menu={{ ...fixture, locale }} />);
+      expect(html, locale).toContain('href="/legal/impressum"');
+      expect(html, locale).toContain('href="/legal/privacy"');
+      expect(html, locale).toContain(imprint);
+      expect(html, locale).toContain(privacy);
+    }
+  });
+
+  it("stacks on a phone and splits into three columns from md up", () => {
+    const html = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
+    expect(html).toMatch(/<div class="grid gap-9 md:grid-cols-3/);
   });
 });
 

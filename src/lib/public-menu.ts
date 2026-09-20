@@ -103,6 +103,16 @@ export interface PublicMenu {
       primaryColor?: string;
       logoKey?: string | null;
       bannerKey?: string | null;
+      /**
+       * Intrinsic width ÷ height of the banner upload, so the hero can
+       * reserve exactly the box the photo needs before a byte of it
+       * arrives (CLS 0) and show the whole frame — banners often carry
+       * their own baked-in headline, and a fixed-height `object-cover`
+       * hero cut it off. Read from the `media` row at load time; null
+       * when the upload predates the row or has no banner at all, in
+       * which case the renderer falls back to 16:7.
+       */
+      bannerAspect?: number | null;
       theme?: string;
       texture?: string;
       backdrop?: string;
@@ -299,6 +309,20 @@ export async function loadPublicMenu(
 
     const branding = normaliseBranding(venue.branding);
 
+    // The banner's real proportions, so the hero can reserve its box
+    // before the image loads AND show the photo whole. One indexed read
+    // on a page that is edge-cached per publish; skipped entirely for the
+    // venues (most of them) with no banner.
+    if (branding.bannerKey && branding.bannerAspect == null) {
+      const media = await tx.media.findFirst({
+        where: { storageKey: branding.bannerKey, deletedAt: null },
+        select: { width: true, height: true },
+      });
+      if (media && media.width > 0 && media.height > 0) {
+        branding.bannerAspect = Math.round((media.width / media.height) * 1000) / 1000;
+      }
+    }
+
     // One parse feeds both the rendered hours table and the open/closed
     // dot, so the two can never disagree on the same payload.
     const hours = parseOpeningHours(venue.hours);
@@ -394,6 +418,10 @@ function normaliseBranding(raw: unknown): PublicMenu["venue"]["branding"] {
       primaryColor: typeof b.primaryColor === "string" ? b.primaryColor : undefined,
       logoKey: typeof b.logoKey === "string" ? b.logoKey : null,
       bannerKey: typeof b.bannerKey === "string" ? b.bannerKey : null,
+      bannerAspect:
+        typeof b.bannerAspect === "number" && Number.isFinite(b.bannerAspect) && b.bannerAspect > 0
+          ? b.bannerAspect
+          : null,
       theme: typeof b.theme === "string" ? b.theme : undefined,
       texture: typeof b.texture === "string" ? b.texture : undefined,
       backdrop: typeof b.backdrop === "string" ? b.backdrop : undefined,

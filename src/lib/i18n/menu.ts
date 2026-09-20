@@ -156,6 +156,12 @@ const en = {
   footer: {
     poweredBy: (brand: string): string => `Powered by ${brand} · Digital Menus`,
     acceptedPayments: "Accepted payments",
+    /** Accessible name of the bottom legal-link row, and the two links in
+     *  it. Both pages are the operator's, not the restaurant's, which is
+     *  why they sit under "Powered by" rather than in the venue column. */
+    legal: "Legal",
+    imprint: "Imprint",
+    privacy: "Privacy",
   },
   /** The restaurant's own numbers, in the footer. Rendered only for the
    *  slots the owner has actually filled in, so none of these labels ever
@@ -333,6 +339,9 @@ const de: MenuCopy = {
   footer: {
     poweredBy: (brand) => `Bereitgestellt von ${brand} · Digitale Speisekarten`,
     acceptedPayments: "Akzeptierte Zahlungsmittel",
+    legal: "Rechtliches",
+    imprint: "Impressum",
+    privacy: "Datenschutz",
   },
   contact: {
     title: "Kontakt",
@@ -490,6 +499,9 @@ const fr: MenuCopy = {
   footer: {
     poweredBy: (brand) => `Propulsé par ${brand} · Cartes numériques`,
     acceptedPayments: "Moyens de paiement acceptés",
+    legal: "Informations légales",
+    imprint: "Mentions légales",
+    privacy: "Confidentialité",
   },
   contact: {
     title: "Nous contacter",
@@ -645,6 +657,9 @@ const es: MenuCopy = {
   footer: {
     poweredBy: (brand) => `Con tecnología de ${brand} · Cartas digitales`,
     acceptedPayments: "Pagos aceptados",
+    legal: "Información legal",
+    imprint: "Aviso legal",
+    privacy: "Privacidad",
   },
   contact: {
     title: "Contacto",
@@ -800,6 +815,9 @@ const it: MenuCopy = {
   footer: {
     poweredBy: (brand) => `Servizio offerto da ${brand} · Menu digitali`,
     acceptedPayments: "Pagamenti accettati",
+    legal: "Informazioni legali",
+    imprint: "Note legali",
+    privacy: "Riservatezza",
   },
   contact: {
     title: "Contatti",
@@ -967,6 +985,9 @@ const ar: MenuCopy = {
   footer: {
     poweredBy: (brand) => `مُقدَّم من ${brand} · قوائم طعام رقمية`,
     acceptedPayments: "طرق الدفع المقبولة",
+    legal: "معلومات قانونية",
+    imprint: "بيانات الناشر",
+    privacy: "الخصوصية",
   },
   contact: {
     title: "تواصلوا معنا",

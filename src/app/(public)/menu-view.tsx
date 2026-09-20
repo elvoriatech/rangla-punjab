@@ -351,6 +351,36 @@ export function MenuView({
   // the loader — number, display string and `tel:` / `wa.me` href — so the
   // page renders links rather than deriving them a second time.
   const contact = menu.venue.contact ?? null;
+  // One row per number the owner actually published, in call order.
+  // Deriving the list here (rather than three conditional <li>s) is what
+  // guarantees the footer can never render an empty list item.
+  const contactRows: ContactRow[] = contact
+    ? (
+        [
+          ["landline", contact.landline, t.contact.landline],
+          ["mobile", contact.mobile, t.contact.mobile],
+          ["whatsapp", contact.whatsapp, t.contact.whatsapp],
+        ] as const
+      ).flatMap(([key, entry, label]) =>
+        entry
+          ? [
+              {
+                key,
+                label,
+                display: entry.display,
+                href: entry.href,
+                // WhatsApp leaves the site, so its name says so out loud;
+                // the two `tel:` links keep the "Call <slot> <number>" name
+                // they have always had.
+                aria:
+                  key === "whatsapp"
+                    ? t.contact.whatsappAria(entry.display)
+                    : t.contact.callAria(label, entry.display),
+              },
+            ]
+          : [],
+      )
+    : [];
   // "Get the app": the store listings + a direct APK, already validated by
   // the loader. Null for every venue whose owner has published none, which
   // hides the footer section AND the header link in one check.
@@ -550,156 +580,199 @@ export function MenuView({
           </div>
         </div>
       </main>
-      <footer className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)]">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-8">
-          <div className="flex w-full items-center justify-between gap-4 sm:contents">
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={
-                  menu.venue.branding.logoKey
-                    ? menuImageUrl(menu.venue.branding.logoKey, menu.venue.id, 96)
-                    : "/brand/logo-192.png"
-                }
-                alt=""
-                width={40}
-                height={40}
-                className={
-                  menu.venue.branding.logoKey ? "h-10 w-10 rounded-full object-cover" : "h-10 w-10"
-                }
-              />
-              <span className="font-serif text-xl italic text-[var(--menu-surface-text,var(--menu-text))]">
-                {menu.venue.name}
-              </span>
-            </div>
-            <LocaleSwitcher
-              current={locale}
-              enabled={menu.venue.enabledLocales}
-              activeDiet={activeDiet}
-              t={t}
-            />
-          </div>
-          {/* The restaurant's own numbers. Plain anchors — `tel:` dials,
-              `wa.me` opens WhatsApp — so the whole row works with JS off,
-              which is the contract for every public page. Absent entirely
-              until an owner publishes a number, and each slot renders only
-              when it holds one. */}
-          {contact ? (
-            <nav
-              aria-label={t.contact.title}
-              className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-[var(--menu-surface-text,var(--menu-text))]/85 sm:w-auto sm:justify-start"
-            >
-              {contact.landline ? (
-                <a
-                  href={contact.landline.href}
-                  aria-label={t.contact.callAria(t.contact.landline, contact.landline.display)}
-                  className="underline underline-offset-4 hover:no-underline"
-                >
-                  {t.contact.landline}: {contact.landline.display}
-                </a>
-              ) : null}
-              {contact.mobile ? (
-                <a
-                  href={contact.mobile.href}
-                  aria-label={t.contact.callAria(t.contact.mobile, contact.mobile.display)}
-                  className="underline underline-offset-4 hover:no-underline"
-                >
-                  {t.contact.mobile}: {contact.mobile.display}
-                </a>
-              ) : null}
-              {contact.whatsapp ? (
-                <a
-                  href={contact.whatsapp.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t.contact.whatsappAria(contact.whatsapp.display)}
-                  className="underline underline-offset-4 hover:no-underline"
-                >
-                  {t.contact.whatsapp}: {contact.whatsapp.display}
-                </a>
-              ) : null}
-            </nav>
-          ) : null}
-          {/* "Get the app" — the landing spot for the header's jump link,
-              and the only place in the product a guest is offered the
-              venue's own app. Every piece is an ordinary anchor, so the
-              whole section works with JS off. Absent entirely until an
-              owner publishes a link, and each of the three renders only
-              when it holds one. The badges are our own brand-neutral
-              artwork (see `app-badges.tsx`) rather than Apple's or
-              Google's own files. */}
-          {appLinks ? (
-            <section
-              id="get-the-app"
-              aria-label={t.app.title}
-              className="w-full scroll-mt-32 border-t border-[var(--menu-surface-text,var(--menu-text))]/15 pt-6 text-[var(--menu-surface-text,var(--menu-text))]"
-            >
-              <h2 className="text-sm font-semibold">{t.app.title}</h2>
-              <p className="mt-1 text-xs opacity-80">{t.app.blurb}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                {appLinks.ios ? (
-                  <a
-                    href={appLinks.ios}
-                    target="_blank"
-                    rel="noopener"
-                    aria-label={t.app.storeAria(`${t.app.iosTop} ${t.app.iosName}`)}
-                    className="inline-flex"
-                  >
-                    <AppStoreBadge
-                      topLine={t.app.iosTop}
-                      storeName={t.app.iosName}
-                      className="h-[46px] w-[153px]"
-                    />
-                  </a>
-                ) : null}
-                {appLinks.android ? (
-                  <a
-                    href={appLinks.android}
-                    target="_blank"
-                    rel="noopener"
-                    aria-label={t.app.storeAria(`${t.app.androidTop} ${t.app.androidName}`)}
-                    className="inline-flex"
-                  >
-                    <GooglePlayBadge
-                      topLine={t.app.androidTop}
-                      storeName={t.app.androidName}
-                      className="h-[46px] w-[153px]"
-                    />
-                  </a>
-                ) : null}
-                {appLinks.apk ? (
-                  /* Deliberately a plain button, not a third badge: a file
-                     the venue hosts itself is not a store listing, and
-                     dressing it as one would be the wrong promise. */
-                  <a
-                    href={appLinks.apk}
-                    download
-                    className="inline-flex h-[46px] items-center rounded-[9px] border border-current/45 px-4 text-xs font-semibold no-underline"
-                  >
-                    {t.app.apk}
-                  </a>
-                ) : null}
+      <footer className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] text-[var(--menu-surface-text,var(--menu-text))]">
+        {/* Three columns from `md` up, stacked on a phone:
+              1. who this restaurant is + how to reach it,
+              2. what language you read it in + where to get the app,
+              3. what you can pay with,
+            then one full-width line for the operator + its legal pages.
+
+            It replaces a single wrapping flex row, which put the three
+            call links side by side in one underlined smear on a phone and
+            left the language dropdown's options as the only <ul> in the
+            document — six list items whose text sits inside their links,
+            which anything reading the DOM rather than the pixels (reader
+            mode, a text dump, the a11y tree) renders as six empty
+            bullets. */}
+        <div className="mx-auto max-w-7xl px-6 py-9 sm:px-8">
+          <div className="grid gap-9 md:grid-cols-3 md:gap-10">
+            {/* ---------- 1 · Identity + the restaurant's own numbers ---------- */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    menu.venue.branding.logoKey
+                      ? menuImageUrl(menu.venue.branding.logoKey, menu.venue.id, 160)
+                      : "/brand/logo-192.png"
+                  }
+                  alt=""
+                  width={56}
+                  height={56}
+                  className={
+                    menu.venue.branding.logoKey
+                      ? "h-14 w-14 shrink-0 rounded-full object-cover"
+                      : "h-14 w-14 shrink-0"
+                  }
+                />
+                <span className="min-w-0 font-serif text-xl italic">{menu.venue.name}</span>
               </div>
-              {/* Said before the tap, not after: an unexplained Android
-                  "install unknown apps" prompt is what makes a guest back
-                  out of a download they asked for. */}
-              {appLinks.apk ? <p className="mt-2 text-xs opacity-75">{t.app.apkHint}</p> : null}
-            </section>
-          ) : null}
-          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-baseline sm:justify-between">
-            {/* Footer = ON the surface: page-ink (--menu-text-soft) was
-                1.8:1 against dark-red surfaces — surface ink instead. */}
-            <span className="text-center text-[10px] uppercase tracking-[0.32em] text-[var(--menu-surface-text,var(--menu-text))]/75 sm:text-start">
-              {t.footer.poweredBy(BRAND.name)}
-            </span>
+              {/* The restaurant's own numbers, ONE PER LINE with an icon.
+                  Plain anchors — `tel:` dials, `wa.me` opens WhatsApp — so
+                  the column works with JS off, which is the contract for
+                  every public page. Built from a list so a slot the owner
+                  left empty produces no list item at all, ever. */}
+              {contactRows.length > 0 ? (
+                <nav aria-label={t.contact.title} className="mt-6">
+                  <h2 className={FOOTER_HEADING}>{t.contact.title}</h2>
+                  <ul className="mt-3 space-y-2.5">
+                    {contactRows.map((row) => (
+                      <li key={row.key}>
+                        <a
+                          href={row.href}
+                          aria-label={row.aria}
+                          {...(row.key === "whatsapp"
+                            ? { target: "_blank", rel: "noopener noreferrer" }
+                            : {})}
+                          className="inline-flex items-center gap-2.5 text-sm underline-offset-4 hover:underline"
+                        >
+                          <ContactIcon kind={row.key} />
+                          <span className="min-w-0">
+                            <span className="opacity-85">{row.label}</span>{" "}
+                            <span className="font-medium tabular-nums">{row.display}</span>
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              ) : null}
+            </div>
+
+            {/* ---------- 2 · Language + the venue's own app ---------- */}
+            <div className="min-w-0">
+              {menu.venue.enabledLocales.length > 1 ? (
+                <div>
+                  <h2 className={FOOTER_HEADING}>{t.nav.language}</h2>
+                  <div className="mt-3">
+                    <LocaleSwitcher
+                      current={locale}
+                      enabled={menu.venue.enabledLocales}
+                      activeDiet={activeDiet}
+                      t={t}
+                    />
+                  </div>
+                </div>
+              ) : null}
+              {/* "Get the app" — the landing spot for the header's jump
+                  link, and the only place in the product a guest is
+                  offered the venue's own app. Every piece is an ordinary
+                  anchor, so it works with JS off. Absent entirely until an
+                  owner publishes a link, and the badges come from a list
+                  so an unpublished store is never an empty list item. The
+                  artwork is our own brand-neutral drawing (see
+                  `app-badges.tsx`), not Apple's or Google's files. */}
+              {appLinks ? (
+                <section
+                  id="get-the-app"
+                  aria-label={t.app.title}
+                  className={`scroll-mt-32 ${menu.venue.enabledLocales.length > 1 ? "mt-8" : ""}`}
+                >
+                  <h2 className={FOOTER_HEADING}>{t.app.title}</h2>
+                  <p className="mt-2 text-xs opacity-85">{t.app.blurb}</p>
+                  <ul className="mt-3 flex flex-wrap items-center gap-3">
+                    {appLinks.ios ? (
+                      <li>
+                        <a
+                          href={appLinks.ios}
+                          target="_blank"
+                          rel="noopener"
+                          aria-label={t.app.storeAria(`${t.app.iosTop} ${t.app.iosName}`)}
+                          className="inline-flex"
+                        >
+                          <AppStoreBadge
+                            topLine={t.app.iosTop}
+                            storeName={t.app.iosName}
+                            className="h-[46px] w-[153px]"
+                          />
+                        </a>
+                      </li>
+                    ) : null}
+                    {appLinks.android ? (
+                      <li>
+                        <a
+                          href={appLinks.android}
+                          target="_blank"
+                          rel="noopener"
+                          aria-label={t.app.storeAria(`${t.app.androidTop} ${t.app.androidName}`)}
+                          className="inline-flex"
+                        >
+                          <GooglePlayBadge
+                            topLine={t.app.androidTop}
+                            storeName={t.app.androidName}
+                            className="h-[46px] w-[153px]"
+                          />
+                        </a>
+                      </li>
+                    ) : null}
+                    {appLinks.apk ? (
+                      /* Deliberately a plain button, not a third badge: a
+                         file the venue hosts itself is not a store listing,
+                         and dressing it as one would be the wrong promise. */
+                      <li>
+                        <a
+                          href={appLinks.apk}
+                          download
+                          className="inline-flex h-[46px] items-center rounded-[9px] border border-current/45 px-4 text-xs font-semibold no-underline"
+                        >
+                          {t.app.apk}
+                        </a>
+                      </li>
+                    ) : null}
+                  </ul>
+                  {/* Said before the tap, not after: an unexplained Android
+                      "install unknown apps" prompt is what makes a guest
+                      back out of a download they asked for. */}
+                  {appLinks.apk ? (
+                    <p className="mt-2.5 text-xs opacity-85">{t.app.apkHint}</p>
+                  ) : null}
+                </section>
+              ) : null}
+            </div>
+
+            {/* ---------- 3 · What you can pay with ---------- */}
             {payMarks.length > 0 ? (
-              <div className="flex max-w-md flex-col items-center gap-1.5 sm:items-end">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--menu-surface-text,var(--menu-text))]/75">
-                  {t.footer.acceptedPayments}
-                </span>
-                <PaymentMarks ids={payMarks} className="justify-center sm:justify-end" />
+              <div className="min-w-0">
+                <h2 className={FOOTER_HEADING}>{t.footer.acceptedPayments}</h2>
+                <PaymentMarks ids={payMarks} className="mt-3" />
               </div>
             ) : null}
+          </div>
+
+          {/* ---------- Full width: the operator, and its legal pages ---------- */}
+          <div className="mt-9 flex flex-col items-center gap-3 border-t border-[var(--menu-surface-text,var(--menu-text))]/10 pt-6">
+            <nav
+              aria-label={t.footer.legal}
+              className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-xs"
+            >
+              <Link
+                href="/legal/impressum"
+                className="underline underline-offset-4 hover:no-underline"
+              >
+                {t.footer.imprint}
+              </Link>
+              <Link
+                href="/legal/privacy"
+                className="underline underline-offset-4 hover:no-underline"
+              >
+                {t.footer.privacy}
+              </Link>
+            </nav>
+            {/* Footer = ON the surface: page-ink (--menu-text-soft) was
+                1.8:1 against dark-red surfaces — surface ink instead. */}
+            <span className="text-center text-[10px] uppercase tracking-[0.32em] text-[var(--menu-surface-text,var(--menu-text))]/75">
+              {t.footer.poweredBy(BRAND.name)}
+            </span>
           </div>
         </div>
       </footer>
@@ -1731,6 +1804,17 @@ function ShowcaseDishCard({
 /* Sticky top bar — venue mark + category tabs + diet tabs             */
 /* ------------------------------------------------------------------ */
 
+/** Fallback shape for a banner whose upload predates the `media` row we
+ *  read the real proportions from: 16:7, the ratio the old fixed-height
+ *  box came closest to at desktop width. */
+const FALLBACK_BANNER_RATIO = 16 / 7;
+
+/** `aspect-ratio` value for the hero, as a string so React writes the
+ *  custom property verbatim instead of guessing a unit. */
+function heroRatio(aspect: number | null | undefined): string {
+  return String(aspect && Number.isFinite(aspect) && aspect > 0 ? aspect : FALLBACK_BANNER_RATIO);
+}
+
 /** Banner hero: the owner's wide image as the page top, identity
  *  overlaid — logo + name bottom-left on a scrim; and top-right the badge
  *  stack, open/closed → reserve → rating → get-the-app. The sticky bar
@@ -1759,48 +1843,70 @@ function HeroBanner({
   locale: string;
 }): React.ReactElement {
   return (
-    <div className="relative h-40 w-full sm:h-48 lg:h-60">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={uploadedImageUrl(venue.branding.bannerKey!, 1920)}
-        // Full-bleed at every breakpoint, so width descriptors — a phone
-        // takes the 640px render instead of the 1920px desktop one.
-        srcSet={bannerSrcSet(venue.branding.bannerKey!)}
-        sizes="100vw"
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      {/* Scrim keeps the identity + pill legible over any photo. */}
+    /* The banner is sized by the PHOTO, not by a fixed height. Owners
+       upload artwork with their own headline baked in (Rangla's says
+       "Indian & Pakistani Restaurant" across the top); the old
+       `h-40 sm:h-48 lg:h-60` + `object-cover` box cropped that off at
+       every width. `aspect-ratio` from the upload's real dimensions
+       reserves the exact box before a byte arrives, so CLS stays 0 with
+       no width/height guess, and `object-contain` means nothing is ever
+       cut — a banner whose ratio we do not know falls back to 16:7.
+
+       The max-height guard is expressed as a max-WIDTH (height × ratio),
+       so a tall upload is bounded without letterboxing a wide one: the
+       hero stops growing and centres on a full-bleed surface band
+       instead of stretching two black bars across the top of the page. */
+    <div className="w-full bg-[var(--menu-surface)]">
       <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
-      />
-      {/* Badge stack, top corner: open/closed, then reserve, then the
-          rating, then the app jump. P7-14 — the rating pill hangs off the
-          reserve button rather than the identity, which keeps the
-          bottom-left to one job (who this restaurant is) and puts the
-          social proof where a guest is already deciding whether to book. */}
-      <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
-        <OpenBadge state={openNow} t={t} locale={locale} />
-        {reserve ? (
-          <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
-        ) : null}
-        {/* Directly after Reserve, before the rating: the two are the
-            same kind of thing — something the guest DOES about this
-            restaurant — and the app's home screen already pairs them. */}
-        <ComplaintLink slug={venue.slug} labels={t.complaint} onDark />
-        {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
-        {hasApp ? <AppJumpLink t={t} onDark /> : null}
-      </div>
-      <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
-        {/* `showName={false}`: the big white serif below IS the name here,
-            so the mark contributes the logo only and the venue is not
-            written twice on the same scrim. */}
-        <VenueMark venue={venue} showName={false} />
-        <div className="min-w-0">
-          <span className="block font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
-            {venue.name}
-          </span>
+        className="relative mx-auto w-full max-w-[calc(var(--hero-ratio)*230px)] bg-[var(--menu-bg)] sm:max-w-[calc(var(--hero-ratio)*300px)] lg:max-w-[calc(var(--hero-ratio)*380px)]"
+        style={
+          {
+            "--hero-ratio": heroRatio(venue.branding.bannerAspect),
+            aspectRatio: "var(--hero-ratio)",
+          } as React.CSSProperties
+        }
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={uploadedImageUrl(venue.branding.bannerKey!, 1920)}
+          // Full-bleed at every breakpoint, so width descriptors — a phone
+          // takes the 640px render instead of the 1920px desktop one.
+          srcSet={bannerSrcSet(venue.branding.bannerKey!)}
+          sizes="100vw"
+          alt=""
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
+        />
+        {/* Badge stack, top corner: open/closed, then reserve, then the
+            rating, then the app jump. P7-14 — the rating pill hangs off the
+            reserve button rather than the identity, which keeps the
+            bottom-left to one job (who this restaurant is) and puts the
+            social proof where a guest is already deciding whether to book. */}
+        <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
+          <OpenBadge state={openNow} t={t} locale={locale} />
+          {reserve ? (
+            <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
+          ) : null}
+          {/* Directly after Reserve, before the rating: the two are the
+              same kind of thing — something the guest DOES about this
+              restaurant — and the app's home screen already pairs them. */}
+          <ComplaintLink slug={venue.slug} labels={t.complaint} onDark />
+          {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
+          {hasApp ? <AppJumpLink t={t} onDark /> : null}
+        </div>
+        <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
+          {/* `showName={false}`: the big white serif below IS the name here,
+              so the mark contributes the logo only and the venue is not
+              written twice on the same scrim. */}
+          <VenueMark venue={venue} showName={false} />
+          <div className="min-w-0">
+            <span className="block font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
+              {venue.name}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -2526,6 +2632,58 @@ function localeMeta(code: string): { flag: string; label: string } {
   );
 }
 
+/** Small-caps column heading shared by every footer column. Full surface
+ *  ink (no opacity): these are 11px, and AA at that size has no room for a
+ *  wash on top of a dark-red or cream surface. */
+const FOOTER_HEADING =
+  "text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--menu-surface-text,var(--menu-text))]";
+
+interface ContactRow {
+  key: "landline" | "mobile" | "whatsapp";
+  label: string;
+  display: string;
+  href: string;
+  aria: string;
+}
+
+/** Leading glyph for a footer contact row. Our own geometry rather than
+ *  any messenger's logo — the row already says "WhatsApp" in words, and a
+ *  re-drawn brand mark is the one thing worse than none. `aria-hidden`:
+ *  the anchor carries the accessible name. */
+function ContactIcon({ kind }: { kind: ContactRow["key"] }): React.ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/10"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-[15px] w-[15px]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        {kind === "landline" ? (
+          <path d="M5 4h3l1.5 4-2 1.3a12 12 0 0 0 6 6l1.3-2 4 1.5V19a1 1 0 0 1-1.1 1A15 15 0 0 1 4 5.1 1 1 0 0 1 5 4Z" />
+        ) : kind === "mobile" ? (
+          <>
+            <rect x="7" y="2.6" width="10" height="18.8" rx="2.4" />
+            <path d="M10.6 18.4h2.8" />
+          </>
+        ) : (
+          <>
+            <path d="M20 11.6a7.6 7.6 0 0 1-11.1 6.8L4.4 19.6l1.3-4.4A7.6 7.6 0 1 1 20 11.6Z" />
+            <path d="M9.4 9.1c.3 1 .8 1.9 1.6 2.7.8.8 1.7 1.3 2.7 1.6" />
+          </>
+        )}
+      </svg>
+    </span>
+  );
+}
+
 /** Flag dropdown built on <details> — opens upward from the footer and
  *  needs no JavaScript. The current language is the summary; the others
  *  are plain links. */
@@ -2547,7 +2705,7 @@ function LocaleSwitcher({
   const active = localeMeta(current);
   const dietQs = activeDiet ? `?diet=${activeDiet}` : "";
   return (
-    <nav aria-label={t.nav.language} className="relative">
+    <nav aria-label={t.nav.language} className="relative w-fit">
       <details className="group relative">
         <summary
           aria-current="true"
@@ -2567,11 +2725,17 @@ function LocaleSwitcher({
             ▲
           </span>
         </summary>
-        <ul className="absolute bottom-full end-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] sm:start-1/2 sm:end-auto sm:-translate-x-1/2 sm:rtl:translate-x-1/2">
+        {/* A DIV of links, not a <ul>: the panel lives in the DOM even
+            while the <details> is shut, and a list whose every label sits
+            inside a nested <a> reads as a run of empty bullets to anything
+            that walks the DOM instead of the pixels — which is exactly what
+            the old footer showed as "* * * * * *". A labelled <nav> full of
+            links says the same thing with nothing left over. */}
+        <div className="absolute bottom-full start-0 z-30 mb-2 w-44 overflow-hidden rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] py-1 shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)]">
           {enabled.map((l) => {
             const meta = localeMeta(l);
             return l === current ? (
-              <li
+              <span
                 key={l}
                 aria-current="true"
                 className="flex items-center gap-2.5 bg-[var(--menu-surface-accent,var(--menu-accent))]/14 px-3.5 py-2 text-xs font-semibold text-[var(--menu-surface-text,var(--menu-text))]"
@@ -2583,23 +2747,22 @@ function LocaleSwitcher({
                 <span aria-hidden="true" className="ms-auto">
                   ✓
                 </span>
-              </li>
+              </span>
             ) : (
-              <li key={l}>
-                <a
-                  href={`/${l}${dietQs}`}
-                  hrefLang={l}
-                  className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[var(--menu-surface-text,var(--menu-text))] transition-colors hover:bg-[var(--menu-surface-text,var(--menu-text))]/10"
-                >
-                  <span aria-hidden="true" className="text-base leading-none">
-                    {meta.flag}
-                  </span>
-                  {meta.label}
-                </a>
-              </li>
+              <a
+                key={l}
+                href={`/${l}${dietQs}`}
+                hrefLang={l}
+                className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[var(--menu-surface-text,var(--menu-text))] transition-colors hover:bg-[var(--menu-surface-text,var(--menu-text))]/10"
+              >
+                <span aria-hidden="true" className="text-base leading-none">
+                  {meta.flag}
+                </span>
+                {meta.label}
+              </a>
             );
           })}
-        </ul>
+        </div>
       </details>
     </nav>
   );
