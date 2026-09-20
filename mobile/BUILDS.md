@@ -615,3 +615,34 @@ building.
 - `npx expo start --web --port 8082` — web preview at :8082, iOS simulator via
   `xcrun simctl openurl booted exp://127.0.0.1:8082`, Android emulator via
   `adb shell am start -a android.intent.action.VIEW -d exp://10.0.2.2:8082`.
+
+## Known crash: the Google Pay probe before `initStripe`
+
+**Symptom.** On Android, the app dies the moment the guest opens the Cart —
+a hard process crash, no JS error, nothing in the Metro log. Builds v9–v11
+were affected wherever the venue had online payment on. v12 only escaped it
+because Google Pay was not ticked in Settings → Payment methods yet.
+
+**Cause.** `isPlatformPayAvailable()` in `src/payments.ts` is called when the
+cart mounts, and it called `stripe.isPlatformPaySupported()`. On Android that
+constructs a `GooglePayPaymentMethodLauncher`, whose constructor calls
+`PaymentConfiguration.getInstance()`. If `initStripe` has never run in this
+process, that throws `IllegalStateException("PaymentConfiguration was not
+initialized. Call PaymentConfiguration.init().")` **on the main thread** —
+so it is a process crash, not a rejected promise, and the `try/catch` around
+the call is powerless. The RN module's `isPlatformPaySupported` has no
+`::stripe.isInitialized` guard, unlike `confirmPlatformPay`. A guest who has
+not paid by card yet in that app session has never initialised the SDK, which
+is every guest opening the cart for the first time.
+
+**Fix (shipped).** `isPlatformPayAvailable` now fetches
+`GET /api/v1/pay/wallet-config` on Android first. A null `publishableKey`
+(no real Stripe account, fake provider, Connect fee model) returns false
+without probing at all; otherwise the key goes through `ensureStripeInit()`
+— which also backs `payWithCard` and `payWithPlatformPay`, and caches the
+last key so the remount-per-tab-switch does not re-init — and only then is
+the probe made, with `googlePay.testEnv` derived from `pk_test_`.
+
+**Do not remove the init.** Any new caller of `isPlatformPaySupported`, or of
+anything else that builds a native Stripe launcher, must initialise first.
+The seam in `src/stripe-module.ts` carries the same warning.

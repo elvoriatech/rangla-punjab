@@ -3,7 +3,13 @@ import { Linking, Platform } from "react-native";
 import Constants from "expo-constants";
 import * as ExpoLinking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { confirmFakePayment, createPaymentIntent, payPageUrl, startPaypal } from "./api";
+import {
+  confirmFakePayment,
+  createPaymentIntent,
+  fetchWalletConfig,
+  payPageUrl,
+  startPaypal,
+} from "./api";
 import { openReturningPage } from "./browser";
 import type { PlatformPayButtonProps } from "./stripe-module";
 import { loadStripe } from "./stripe-module";
@@ -90,6 +96,38 @@ export function walletsFromAccepted(accepted: readonly string[] | undefined): Wa
 }
 
 /**
+ * The publishable key the Stripe SDK was last initialised with, or null
+ * when it never has been in this process.
+ *
+ * Module-level because `PaymentConfiguration` on Android is a process-wide
+ * singleton: initialising twice with the same key is wasted work, and the
+ * cart remounts on every tab switch. Re-initialising when the key CHANGES
+ * is still required — a venue can be flipped from test to live keys
+ * without a new binary.
+ */
+let initialisedKey: string | null = null;
+
+/**
+ * `initStripe`, at most once per key.
+ *
+ * Every path that can construct a native Stripe launcher must go through
+ * here first — see the crash note on `isPlatformPayAvailable`.
+ */
+async function ensureStripeInit(publishableKey: string, merchantId: string | null): Promise<void> {
+  const stripe = loadStripe();
+  if (!stripe) return;
+  if (initialisedKey === publishableKey) return;
+  await stripe.initStripe({
+    publishableKey,
+    urlScheme: APP_SCHEME,
+    // Only when the merchant id exists (⛔): without the entitlement an
+    // Apple Pay row in the sheet would dead-end.
+    ...(merchantId ? { merchantIdentifier: merchantId } : {}),
+  });
+  initialisedKey = publishableKey;
+}
+
+/**
  * Is there a native wallet button to draw at all?
  *
  * Every "no" here is a legitimate, silent state, not an error:
@@ -97,10 +135,27 @@ export function walletsFromAccepted(accepted: readonly string[] | undefined): Wa
  *  - web / Expo Go — no native module;
  *  - iOS without `APPLE_MERCHANT_ID` — the entitlement isn't in the
  *    binary, so an Apple Pay button would open a sheet that fails;
- *  - a device with no wallet, or an Android that hasn't initialised the
- *    Stripe SDK yet (it needs a publishable key, which arrives with the
- *    PaymentIntent — so before the first card payment of a session this
- *    answers false, and the button simply doesn't appear).
+ *  - the venue has no real Stripe account (fake provider, no keys), so
+ *    there would be nothing for a wallet to confirm;
+ *  - a device with no wallet configured.
+ *
+ * ⚠ CRASH CLASS — do not remove the `ensureStripeInit` below.
+ *
+ * On Android, `isPlatformPaySupported()` constructs a
+ * `GooglePayPaymentMethodLauncher`, whose constructor calls
+ * `PaymentConfiguration.getInstance()`. If `initStripe` has never run in
+ * this process that throws `IllegalStateException("PaymentConfiguration
+ * was not initialized…")` on the main thread — a hard process crash, not
+ * a rejected promise, so the `try/catch` around the call cannot save it.
+ * (`StripeSdkModule.isPlatformPaySupported` has no `::stripe.isInitialized`
+ * guard, unlike `confirmPlatformPay`.) The cart probes this on mount, and
+ * a guest who has not paid by card yet has never initialised the SDK — so
+ * every Android guest who opened the cart on a build with Google Pay
+ * ticked crashed. The key therefore comes from `/api/v1/pay/wallet-config`
+ * BEFORE the probe, and no key at all means no probe at all.
+ *
+ * iOS needs none of this: its probe only asks the device whether Apple Pay
+ * is set up, and does not touch `PaymentConfiguration`.
  */
 export async function isPlatformPayAvailable(wallets: WalletChoice): Promise<boolean> {
   const stripe = loadStripe();
@@ -109,6 +164,19 @@ export async function isPlatformPayAvailable(wallets: WalletChoice): Promise<boo
   if (Platform.OS === "android" && !wallets.googlePay) return false;
   if (Platform.OS !== "ios" && Platform.OS !== "android") return false;
   try {
+    if (Platform.OS === "android") {
+      const config = await fetchWalletConfig();
+      // No real Stripe account: no button, and — crucially — no probe.
+      if (!config.publishableKey) return false;
+      await ensureStripeInit(config.publishableKey, appleMerchantId());
+      return await stripe.isPlatformPaySupported({
+        googlePay: {
+          // A test key means Google's test environment, which is also all
+          // a not-yet-approved app may use. Same rule as the sheet.
+          testEnv: config.publishableKey.startsWith("pk_test_"),
+        },
+      });
+    }
     return await stripe.isPlatformPaySupported();
   } catch {
     return false;
@@ -169,13 +237,7 @@ export async function payWithCard(
 
   const merchantId = appleMerchantId();
   try {
-    await stripe.initStripe({
-      publishableKey: intent.publishableKey,
-      urlScheme: APP_SCHEME,
-      // Only when the merchant id exists (⛔): without the entitlement an
-      // Apple Pay row in the sheet would dead-end.
-      ...(merchantId ? { merchantIdentifier: merchantId } : {}),
-    });
+    await ensureStripeInit(intent.publishableKey, merchantId);
     const init = await stripe.initPaymentSheet({
       paymentIntentClientSecret: intent.clientSecret,
       merchantDisplayName: opts.merchantDisplayName || intent.merchantName,
@@ -251,11 +313,7 @@ export async function payWithPlatformPay(
   const name = opts.merchantDisplayName || intent.merchantName;
   const currency = intent.currency.toUpperCase();
   try {
-    await stripe.initStripe({
-      publishableKey: intent.publishableKey,
-      urlScheme: APP_SCHEME,
-      ...(merchantId ? { merchantIdentifier: merchantId } : {}),
-    });
+    await ensureStripeInit(intent.publishableKey, merchantId);
     // Only the blocks the owner allows are sent; each platform ignores
     // the other's anyway, so the gate above already decided the outcome.
     const result = await stripe.confirmPlatformPayPayment(intent.clientSecret, {
@@ -325,11 +383,17 @@ export async function openPayPage(url: string, returnUrl: string): Promise<void>
  * fall back to the web pay page, which handles all of those with its own
  * copy — and still returns on the same deep link.
  */
-export async function payWithPaypal(orderId: string, token: string): Promise<void> {
+export async function payWithPaypal(
+  orderId: string,
+  token: string,
+  /** The guest's app language, so the fallback pay page is rendered in
+   *  it rather than in the venue's default. */
+  locale?: string,
+): Promise<void> {
   const deepLink = ExpoLinking.createURL("payment-return");
   const started = await startPaypal(orderId, token, deepLink);
   await openReturningPage(
-    started.ok ? started.url : payPageUrl(orderId, token, deepLink),
+    started.ok ? started.url : payPageUrl(orderId, token, deepLink, locale),
     deepLink,
   );
 }

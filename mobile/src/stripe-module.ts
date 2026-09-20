@@ -67,10 +67,14 @@ export type StripeModule = {
     allowsDelayedPaymentMethods?: boolean;
   }) => Promise<{ error?: { code: string; message: string } }>;
   presentPaymentSheet: () => Promise<{ error?: { code: string; message: string } }>;
-  /** Apple Pay on iOS, Google Pay on Android. On Android this needs the
-   *  SDK to have been initialised, so it can legitimately answer false
-   *  (or throw) before the first `initStripe` — the caller treats both as
-   *  "no wallet button". */
+  /** Apple Pay on iOS, Google Pay on Android.
+   *
+   *  ⚠ On Android this MUST NOT be called before `initStripe`: the native
+   *  module has no `isInitialized` guard, and the Google Pay launcher it
+   *  constructs throws `IllegalStateException` out of
+   *  `PaymentConfiguration.getInstance()` on the main thread — a process
+   *  crash a `catch` cannot intercept. `isPlatformPayAvailable` in
+   *  `payments.ts` is the only sanctioned caller and initialises first. */
   isPlatformPaySupported: (params?: { googlePay?: { testEnv?: boolean } }) => Promise<boolean>;
   confirmPlatformPayPayment: (
     clientSecret: string,
