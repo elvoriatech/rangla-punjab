@@ -75,7 +75,7 @@ const NAMESPACES = {
 
 describe("guest copy catalogues", () => {
   for (const [name, catalogue] of Object.entries(NAMESPACES)) {
-    it(`${name}: every key is real copy in all five UI locales`, () => {
+    it(`${name}: every key is real copy in every UI locale`, () => {
       for (const locale of UI_LOCALES) {
         const copy = catalogue[locale] as Record<string, unknown>;
         expect(copy, `${name}.${locale} missing`).toBeTruthy();
@@ -103,8 +103,11 @@ describe("guest copy catalogues", () => {
   it("accessors collapse region tags and fall back to English", () => {
     expect(checkoutCopy("es-ES").yourOrder).toBe(CHECKOUT_COPY.es.yourOrder);
     expect(postOrderCopy("ar").trackTitle).toBe(POST_ORDER_COPY.ar.trackTitle);
-    // `fr` is a venue locale with no catalogue; `xx` is not a locale at all.
-    expect(receiptCopy("fr").total).toBe(RECEIPT_COPY.en.total);
+    // `nl` is a venue locale with no catalogue; `xx` is not a locale at
+    // all. (This was `fr` until French became a full UI locale, at which
+    // point it only still passed because "Total" is the same word in
+    // both languages.)
+    expect(receiptCopy("nl").total).toBe(RECEIPT_COPY.en.total);
     expect(newOrderCopy("xx").total).toBe(NEW_ORDER_COPY.en.total);
     expect(checkoutCopy(null).total).toBe(CHECKOUT_COPY.en.total);
   });

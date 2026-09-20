@@ -125,8 +125,8 @@ describe("venue-service (owner dashboard)", () => {
     if (!after.ok) throw new Error("venue vanished");
     expect(after.value.currency).toBe("CHF");
     expect(after.value.defaultLocale).toBe("de");
-    // Supported-list order, not submission order.
-    expect(after.value.enabledLocales).toEqual(["en", "de", "fr"]);
+    // Supported-list order (`LOCALES` in locales.ts), not submission order.
+    expect(after.value.enabledLocales).toEqual(["de", "en", "fr"]);
   });
 
   it("updateVenueLocalization rejects a default outside the enabled set and unknown values", async () => {

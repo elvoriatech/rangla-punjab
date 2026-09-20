@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
+import { isLocaleCode } from "./locales";
 import { env } from "./env";
 import { asTenant } from "./tenant";
 import { hashPassword, verifyPassword } from "./password";
@@ -219,6 +220,11 @@ export interface CustomerProfile {
   name: string | null;
   phone: string | null;
   lastDeliveryAddress: CustomerAddress | null;
+  /** The guest's chosen UI language (a `LOCALE_CODES` value), or null
+   *  when they never picked one. Lives on the ACCOUNT so it follows them
+   *  to a second device and survives a reinstall — the app's local
+   *  AsyncStorage key is a cache of this, not the source of truth. */
+  locale: string | null;
 }
 
 /** The columns a profile is made of — one definition, every query. */
@@ -228,6 +234,7 @@ export const customerProfileSelect = {
   name: true,
   phone: true,
   lastDeliveryAddress: true,
+  locale: true,
 } as const;
 
 interface CustomerProfileRow {
@@ -236,6 +243,7 @@ interface CustomerProfileRow {
   name: string | null;
   phone: string | null;
   lastDeliveryAddress: unknown;
+  locale?: string | null;
 }
 
 /** Prisma hands `Json?` back as `unknown`; narrow it to the four string
@@ -247,6 +255,10 @@ export function toCustomerProfile(row: CustomerProfileRow): CustomerProfile {
     name: row.name,
     phone: row.phone,
     lastDeliveryAddress: parseCustomerAddress(row.lastDeliveryAddress),
+    // Guard the column against a hand-edited row holding a code this
+    // build no longer knows: an unusable locale must read as "unset",
+    // not push the app to a catalogue it cannot resolve.
+    locale: isLocaleCode(row.locale) ? row.locale : null,
   };
 }
 
@@ -447,6 +459,7 @@ export interface CustomerProfilePatch {
   name?: string | null;
   phone?: string | null;
   lastDeliveryAddress?: CustomerAddress | null;
+  locale?: string | null;
 }
 
 /**
@@ -480,6 +493,7 @@ export async function updateCustomerProfile(
 export interface CustomerProfileUpdateData {
   name?: string | null;
   phone?: string | null;
+  locale?: string | null;
   lastDeliveryAddress?: Prisma.CustomerUpdateManyMutationInput["lastDeliveryAddress"];
 }
 
@@ -489,6 +503,12 @@ export function customerProfileUpdateData(patch: CustomerProfilePatch): Customer
   const data: CustomerProfileUpdateData = {};
   if (patch.name !== undefined) data.name = patch.name?.trim() || null;
   if (patch.phone !== undefined) data.phone = patch.phone?.trim() || null;
+  // Only a code this build actually ships; anything else clears the
+  // field rather than storing something no client can resolve.
+  if (patch.locale !== undefined) {
+    const next = patch.locale?.trim().toLowerCase() ?? null;
+    data.locale = isLocaleCode(next) ? next : null;
+  }
   if (patch.lastDeliveryAddress !== undefined) {
     // Prisma needs the DbNull sentinel to write SQL NULL into a Json
     // column — a plain `null` would store the JSON value `null`. The

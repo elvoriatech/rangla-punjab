@@ -15,16 +15,16 @@
  * order for a stable settings UI, and tests pin it.
  */
 export const LOCALES = [
-  { code: "en", label: "English", flag: "🇬🇧", dir: "ltr", ui: true },
   { code: "de", label: "Deutsch", flag: "🇩🇪", dir: "ltr", ui: true },
-  { code: "fr", label: "Français", flag: "🇫🇷", dir: "ltr", ui: false },
-  { code: "it", label: "Italiano", flag: "🇮🇹", dir: "ltr", ui: true },
+  { code: "en", label: "English", flag: "🇬🇧", dir: "ltr", ui: true },
+  { code: "fr", label: "Français", flag: "🇫🇷", dir: "ltr", ui: true },
   { code: "es", label: "Español", flag: "🇪🇸", dir: "ltr", ui: true },
+  { code: "it", label: "Italiano", flag: "🇮🇹", dir: "ltr", ui: true },
+  { code: "ar", label: "العربية", flag: "🇸🇦", dir: "rtl", ui: true },
   { code: "nl", label: "Nederlands", flag: "🇳🇱", dir: "ltr", ui: false },
   { code: "pl", label: "Polski", flag: "🇵🇱", dir: "ltr", ui: false },
   { code: "pt", label: "Português", flag: "🇵🇹", dir: "ltr", ui: false },
   { code: "tr", label: "Türkçe", flag: "🇹🇷", dir: "ltr", ui: false },
-  { code: "ar", label: "العربية", flag: "🇸🇦", dir: "rtl", ui: true },
 ] as const;
 
 export type LocaleEntry = (typeof LOCALES)[number];
@@ -64,7 +64,7 @@ export function isRtl(code: string | null | undefined): boolean {
 /**
  * Which guest-copy catalogue to use for a venue/route locale. Region tags
  * collapse to their language ("de-DE" → "de", "en-GB" → "en"); venue
- * locales without a catalogue (fr, nl, …) and anything unknown fall back to
+ * locales without a catalogue (nl, pl, …) and anything unknown fall back to
  * English, which is the only catalogue guaranteed complete.
  */
 export function uiLocale(code: string | null | undefined): UiLocale {

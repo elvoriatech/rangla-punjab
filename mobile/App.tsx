@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,7 +21,7 @@ import { fetchMenu, OFFERS_CATEGORY_ID } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
 import { AuthProvider, useAuth } from "./src/auth";
 import { I18nProvider, useI18n } from "./src/i18n";
-import type { StoredOrder } from "./src/orders-store";
+import { listStoredOrders, type StoredOrder } from "./src/orders-store";
 import type { PushTarget } from "./src/push";
 import { registerForStaffPush, usePushRouting } from "./src/push";
 import { fetchStaffSummary } from "./src/staff";
@@ -315,6 +315,34 @@ function Shell(): React.ReactElement {
     });
   }, []);
 
+  /**
+   * "Complaint" on the home screen.
+   *
+   * A complaint is always ABOUT something — the server files it against
+   * an order id — so this picks the guest's most recent stored order and
+   * opens the Track screen already in the complaint flow, exactly as the
+   * same button on the Orders list does. With nothing stored there is
+   * nothing to complain about yet, and saying so is better than opening
+   * an empty form.
+   */
+  const onComplain = useCallback(() => {
+    void listStoredOrders()
+      .then((orders) => {
+        // The store writes newest-first, but the timestamp is what
+        // "most recent" actually means — don't rely on the order.
+        const latest = orders.reduce<StoredOrder | null>(
+          (newest, order) => (!newest || order.placedAt > newest.placedAt ? order : newest),
+          null,
+        );
+        if (!latest) {
+          Alert.alert(t.complainNoOrdersTitle, t.complainNoOrdersBody);
+          return;
+        }
+        onOpenStored(latest, { issue: true });
+      })
+      .catch(() => Alert.alert(t.complainNoOrdersTitle, t.complainNoOrdersBody));
+  }, [onOpenStored, t]);
+
   if (!menu || !welcomed) {
     // Either we don't yet know whether this device has a session, or we
     // know it has one: both are "not the welcome INVITATION". The launch
@@ -395,6 +423,7 @@ function Shell(): React.ReactElement {
               setTab("menu");
             }}
             onOpenAccount={() => setTab("info")}
+            onComplain={onComplain}
           />
         ) : null}
         {tab === "menu" ? (

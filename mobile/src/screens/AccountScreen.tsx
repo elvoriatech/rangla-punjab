@@ -291,12 +291,20 @@ export function AccountScreen({
           <Text style={styles.cardTitle}>{t.language}</Text>
           {/* Driven by the venue's own enabledLocales (∩ the app's
               catalogue), so a restaurant that publishes three languages
-              doesn't offer five. */}
+              doesn't offer six. Order follows `LANGS`, which mirrors the
+              web registry: Deutsch, English, Français, Español,
+              Italiano, العربية. */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {LANGS.filter((l) => available.includes(l.code)).map((entry) => (
               <Pressable
                 key={entry.code}
-                onPress={() => setLang(entry.code)}
+                onPress={() => {
+                  setLang(entry.code);
+                  // Signed in? Then this is an account preference, not a
+                  // device one — it should still be French on their
+                  // tablet. Fire-and-forget; a no-op when signed out.
+                  auth.saveLocale(entry.code);
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: lang === entry.code }}
                 style={[styles.langChip, lang === entry.code && styles.langChipActive]}

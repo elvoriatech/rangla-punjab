@@ -71,6 +71,30 @@ const de: PdfCopy = {
   thanks: "Vielen Dank & bis bald!",
 };
 
+const fr: PdfCopy = {
+  type: "Type",
+  delivery: "Livraison",
+  pickup: "Retrait",
+  planned: "Prévu",
+  name: "Nom",
+  phone: "Téléphone",
+  address: "Adresse",
+  note: "Note",
+  table: "Table",
+  order: "Commande n°",
+  paidOnline: "PAYÉ EN LIGNE",
+  paidReward: "PAYÉ AVEC LE BON",
+  reward: "Bon fidélité",
+  net: "Total HT",
+  vat: `TVA ${VAT_RATE_LABEL} % (incluse)`,
+  total: "TOTAL",
+  vatNote: `Total TVA de ${VAT_RATE_LABEL} % incluse.`,
+  unpaid: ["Le paiement s'effectue au", "restaurant - ceci n'est pas", "une facture."],
+  paid: ["Payé en ligne - merci."],
+  paidWithReward: ["Payé avec votre bon -", "bon appétit."],
+  thanks: "Merci et à bientôt !",
+};
+
 const es: PdfCopy = {
   type: "Tipo",
   delivery: "Entrega",
@@ -122,6 +146,7 @@ const it: PdfCopy = {
 export const PDF_COPY: Record<UiLocale, PdfCopy> = {
   en,
   de,
+  fr,
   es,
   it,
   // Decision 4 — see the header comment: the PDF font cannot draw Arabic.

@@ -87,6 +87,10 @@ export interface CustomerProfile {
   /** Wired by the profile endpoints; older servers omit both. */
   phone?: string | null;
   lastDeliveryAddress?: DeliveryAddress | null;
+  /** The guest's UI language, on the ACCOUNT rather than the handset, so
+   *  it follows them to a second device and survives a reinstall. Absent
+   *  on a server that predates the column; null when never chosen. */
+  locale?: string | null;
 }
 export interface AccountOrder {
   orderId: string;
@@ -159,6 +163,9 @@ interface AuthApi {
   cancelLogin: () => void;
   logout: () => Promise<void>;
   fetchMyOrders: () => Promise<AccountOrder[]>;
+  /** Remember the guest's language on their ACCOUNT, so it follows them
+   *  to their next device. No-op when signed out. */
+  saveLocale: (locale: string) => void;
 }
 
 const AuthContext = createContext<AuthApi | null>(null);
@@ -231,7 +238,7 @@ function decodeStaffSession(raw: string | null): StaffSession | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactElement {
-  const { t } = useI18n();
+  const { t, applyProfileLocale } = useI18n();
   const [token, setToken] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
   const [staffToken, setStaffToken] = useState<string | null>(null);
@@ -324,6 +331,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       alive = false;
     };
   }, [token]);
+
+  /**
+   * One language for the whole app, taken from the account.
+   *
+   * Fires on every route into a customer session — the sign-in calls
+   * below (which `adopt` a profile) and the token-validating restore
+   * above — because both land here as a `customer` with a `locale`. The
+   * i18n layer ignores a null/unknown/not-offered code, so a guest who
+   * never picked one keeps whatever the venue default gave them.
+   */
+  useEffect(() => {
+    applyProfileLocale(customer?.locale);
+  }, [customer?.locale, applyProfileLocale]);
 
   // A device is a guest's phone OR the restaurant's — adopting either
   // session tears the other one down, so the two can never overlap.
@@ -562,6 +582,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     return body.orders ?? [];
   }, [token]);
 
+  /**
+   * Persist the language the guest just picked onto their profile.
+   *
+   * Fire-and-forget by design: the app has ALREADY switched language, so
+   * a failed round trip must not undo it, block the picker, or show an
+   * error — the account simply keeps the previous value until the next
+   * change succeeds. The local copy is updated optimistically so the
+   * profile effect above doesn't fight the change on the next render.
+   */
+  const saveLocale = useCallback(
+    (locale: string) => {
+      if (!token) return;
+      setCustomer((current) => (current ? { ...current, locale } : current));
+      fetch(`${BASE_URL}/api/v1/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-Customer-Token": token },
+        body: JSON.stringify({ locale }),
+      }).catch(() => {});
+    },
+    [token],
+  );
+
   const api = useMemo<AuthApi>(
     () => ({
       token,
@@ -581,6 +623,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       cancelLogin,
       logout,
       fetchMyOrders,
+      saveLocale,
     }),
     [
       token,
@@ -600,6 +643,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       cancelLogin,
       logout,
       fetchMyOrders,
+      saveLocale,
     ],
   );
   return <AuthContext.Provider value={api}>{children}</AuthContext.Provider>;

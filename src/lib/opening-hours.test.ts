@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  RESERVATION_DAYS_AHEAD,
   localDateTimeToInstant,
   reservableDates,
   slotTimesForDate,
@@ -200,6 +201,21 @@ describe("reservableDates", () => {
     const dates = reservableDates(monSat, TZ, berlin("2026-07-13T07:00:00Z"), 7);
     expect(dates.map((d) => d.date)).not.toContain("2026-07-19");
     expect(dates[0]?.date).toBe("2026-07-13");
+    expect(dates.every((d) => d.weekday !== "sun")).toBe(true);
+  });
+
+  it("offers the whole booking horizon by default, not a fortnight", () => {
+    // The two-month calendar (P-B) needs the server to enumerate the same
+    // window `reservation-service.ts` is willing to accept — the default
+    // used to be 14 days against a 60-day limit.
+    expect(RESERVATION_DAYS_AHEAD).toBe(60);
+    const now = berlin("2026-07-13T07:00:00Z");
+    const dates = reservableDates(monSat, TZ, now);
+    // 60 calendar days, Mon 13 July to Thu 10 Sept inclusive, minus the
+    // eight Sundays in that span.
+    expect(dates).toHaveLength(60 - 8);
+    expect(dates[0]?.date).toBe("2026-07-13");
+    expect(dates.at(-1)?.date).toBe("2026-09-10");
     expect(dates.every((d) => d.weekday !== "sun")).toBe(true);
   });
 });

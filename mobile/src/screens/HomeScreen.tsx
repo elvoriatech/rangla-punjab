@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { ApiMenu, ApiItem } from "../api";
 import { offerItems } from "../api";
 import { useAuth } from "../auth";
@@ -134,6 +135,7 @@ export function HomeScreen({
   onBrowseAll,
   onStartOrder,
   onOpenAccount,
+  onComplain,
   onOpenOwnerMenu,
   onMenuChanged,
 }: {
@@ -146,6 +148,9 @@ export function HomeScreen({
   onStartOrder: (type: "takeaway" | "delivery") => void;
   /** Switches to the Account tab, where the Rewards card lives. */
   onOpenAccount: () => void;
+  /** Opens the complaint flow on the guest's most recent stored order,
+   *  or explains that there isn't one yet. */
+  onComplain: () => void;
   /** Restaurant mode only: opens the burger's sheet. */
   onOpenOwnerMenu?: () => void;
   /** Turning a service off changes the published menu — the shell
@@ -257,17 +262,41 @@ export function HomeScreen({
           </View>
         )}
 
-        {/* Table booking sits with the other ways to eat here — hidden
-            entirely when the restaurant switched reservations off. */}
-        {menu.ordering.reservations && !restaurant ? (
-          <Pressable style={styles.reserveCard} onPress={() => setReserveOpen(true)}>
-            <TableForGuestsIcon size={30} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.modeTitle}>{t.reserveBtn}</Text>
-              <Text style={styles.modeSub}>{t.reserveSub}</Text>
-            </View>
-            <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
-          </Pressable>
+        {/* Booking a table and raising a complaint, side by side: the two
+            things a guest comes to the app for that are not an order.
+            Reservations disappear when the restaurant switches them off,
+            and the complaint card then takes the whole row — it is
+            always available, because a guest with a problem should never
+            have to hunt for the way to say so. */}
+        {!restaurant ? (
+          <View style={styles.modeRow}>
+            {menu.ordering.reservations ? (
+              <Pressable
+                style={styles.actionCard}
+                onPress={() => setReserveOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.reserveShort} — ${t.reserveSub}`}
+              >
+                <TableForGuestsIcon size={26} />
+                <Text style={styles.modeTitle}>{t.reserveShort}</Text>
+                <Text style={styles.modeSub} numberOfLines={1}>
+                  {t.reserveSub}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={styles.actionCard}
+              onPress={onComplain}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.complainShort} — ${t.complainSub}`}
+            >
+              <Ionicons name="chatbox-ellipses-outline" size={26} color={colors.red} />
+              <Text style={styles.modeTitle}>{t.complainShort}</Text>
+              <Text style={styles.modeSub} numberOfLines={1}>
+                {t.complainSub}
+              </Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {/* A reward already won is the one thing on this screen worth
@@ -552,17 +581,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 2,
   },
-  reserveCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  /** Reserve / Complaint. Same plate as `modeCard` but centred on an
+   *  icon rather than an emoji, and `minHeight` keeps it a comfortable
+   *  target even when the subtitle wraps to nothing. */
+  actionCard: {
+    flex: 1,
+    minHeight: 88,
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 12,
-    marginTop: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
   },
   reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
   rewardBanner: {

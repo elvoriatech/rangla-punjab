@@ -340,13 +340,26 @@ export function slotTimesForDate(
     });
 }
 
+/**
+ * How far ahead a guest may book, in venue-local days counted from today
+ * (so index 0 is today and the last offered date is `now + 59 days`).
+ *
+ * This is the ONE number: `reservableDates` offers exactly this window
+ * and `reservation-service.ts` refuses anything past it, so the calendar
+ * can never show a day the endpoint would then reject. It used to be 14
+ * here against a 60-day server limit, which meant the date picker was a
+ * two-week list; the picker is now a two-month calendar (P-B) and offers
+ * the whole window.
+ */
+export const RESERVATION_DAYS_AHEAD = 60;
+
 /** The next `daysAhead` venue-local dates that still have a reservable
  *  slot — closed days and a fully passed today drop out. */
 export function reservableDates(
   hours: OpeningHours,
   timezone: string,
   now: Date,
-  daysAhead = 14,
+  daysAhead = RESERVATION_DAYS_AHEAD,
 ): { date: string; weekday: Weekday }[] {
   const out: { date: string; weekday: Weekday }[] = [];
   const seen = new Set<string>();

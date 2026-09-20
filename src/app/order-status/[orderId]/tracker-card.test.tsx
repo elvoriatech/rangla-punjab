@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { OrderTrackerCard, type TrackerOrder } from "./tracker-card";
 import { POST_ORDER_COPY } from "@/lib/i18n/post-order";
+import { UI_LOCALES, type UiLocale } from "@/lib/locales";
 
 /**
  * The tracker used to render German with a smaller English line stacked
@@ -24,7 +25,7 @@ const order: TrackerOrder = {
 
 const render = (
   o: TrackerOrder,
-  locale: "en" | "de" | "es" | "it" | "ar",
+  locale: UiLocale,
   pauseRefresh = false,
   reviewUrl: string | null = null,
   reviewPrompted = false,
@@ -94,25 +95,25 @@ describe("order tracker", () => {
   });
 
   it("replaces the step rail with a cancelled banner, in the guest's language", () => {
-    for (const locale of ["en", "de", "es", "it", "ar"] as const) {
+    for (const locale of UI_LOCALES) {
       const html = render({ ...order, status: "cancelled" }, locale);
-      expect(html).toContain(POST_ORDER_COPY[locale].cancelledTitle);
-      expect(html).toContain(POST_ORDER_COPY[locale].cancelledBody);
+      expect(html).toContain(esc(POST_ORDER_COPY[locale].cancelledTitle));
+      expect(html).toContain(esc(POST_ORDER_COPY[locale].cancelledBody));
       // No rail: a half-lit chain would read as "still on its way".
-      expect(html).not.toContain(POST_ORDER_COPY[locale].steps.preparing);
+      expect(html).not.toContain(esc(POST_ORDER_COPY[locale].steps.preparing));
       expect(html).not.toContain("start-[15px]");
       // And nothing left to poll for.
       expect(html).not.toContain('content="15"');
-      expect(html).not.toContain(POST_ORDER_COPY[locale].autoRefresh);
+      expect(html).not.toContain(esc(POST_ORDER_COPY[locale].autoRefresh));
       // Still the same receipt underneath — the guest keeps the lines,
       // the total and the way back to the menu.
       expect(html).toContain("Butter Chicken");
-      expect(html).toContain(POST_ORDER_COPY[locale].backToMenu);
+      expect(html).toContain(esc(POST_ORDER_COPY[locale].backToMenu));
     }
   });
 
   it("asks for a Google review once the order is done, in the guest's language", () => {
-    for (const locale of ["en", "de", "es", "it", "ar"] as const) {
+    for (const locale of UI_LOCALES) {
       const html = render({ ...order, status: "done" }, locale, false, REVIEW);
       const t = POST_ORDER_COPY[locale].review;
       expect(html).toContain(esc(t.title));

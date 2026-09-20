@@ -103,7 +103,7 @@ export function CartScreen({
 }): React.ReactElement {
   const cart = useCart();
   const auth = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const allowed = useMemo(() => {
     const types: { key: OrderType; label: string; emoji: string }[] = [];
     if (menu.ordering.dineIn) types.push({ key: "dine_in", label: t.dineIn, emoji: "🍽️" });
@@ -507,7 +507,7 @@ export function CartScreen({
       // in-app browser opens on the approve page, then closes itself the
       // moment the return leg bounces back to the deep link.
       setPlacing({ order, step: "opening", method, rewardFailed });
-      await payWithPaypal(order.orderId, order.receiptToken);
+      await payWithPaypal(order.orderId, order.receiptToken, lang);
       done();
       return;
     }
@@ -540,7 +540,9 @@ export function CartScreen({
       // checkout page can still take the money.
       setPlacing({ order, step: "opening", method, rewardFailed });
       const hosted = await startHostedPayment(order.orderId, order.receiptToken);
-      const url = hosted.ok ? hosted.url : payPageUrl(order.orderId, order.receiptToken, deepLink);
+      const url = hosted.ok
+        ? hosted.url
+        : payPageUrl(order.orderId, order.receiptToken, deepLink, lang);
       await openPayPage(url, deepLink);
       done();
       return;

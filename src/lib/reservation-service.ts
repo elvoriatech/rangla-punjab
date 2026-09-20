@@ -1,7 +1,12 @@
 import type { ReservationStatus } from "@prisma/client";
 import { z } from "zod";
 import { asTenant, asUser } from "./tenant";
-import { localDateTimeToInstant, slotTimesForDate } from "./opening-hours";
+import {
+  RESERVATION_DAYS_AHEAD,
+  localDateTimeToInstant,
+  slotTimesForDate,
+  venueDateISO,
+} from "./opening-hours";
 import { parseOpeningHours } from "./opening-hours-schema";
 import { effectiveOrdering, parseOrderingConfig } from "./ordering-config";
 import { resolveTenantAccess } from "./plan-state";
@@ -45,7 +50,9 @@ export type CreateReservationResult =
     }
   | { ok: false; error: "invalid" | "reservations_off" | "invalid_time" };
 
-const MAX_DAYS_AHEAD = 60;
+/** The booking horizon, in venue-local days from today. Same number the
+ *  date picker offers — see `RESERVATION_DAYS_AHEAD`. */
+const MAX_DAYS_AHEAD = RESERVATION_DAYS_AHEAD;
 
 export async function createReservation(
   context: { tenantId: string; venueId: string },
@@ -84,7 +91,18 @@ export async function createReservation(
     if (!slots.includes(input.time)) return { ok: false, error: "invalid_time" as const };
 
     const at = localDateTimeToInstant(venue.timezone, input.date, input.time);
-    if (!at || at.getTime() > now.getTime() + MAX_DAYS_AHEAD * 86_400_000) {
+    // The horizon is compared as CALENDAR DATES, not as elapsed
+    // milliseconds: the picker offers indices 0…MAX_DAYS_AHEAD-1 of the
+    // venue's local dates, and a late slot on that last day sits nearly a
+    // full day past `now` — which an `at - now > 60 days` test would
+    // reject (and a DST fall-back hour would make it reject sometimes but
+    // not always). Comparing the dates themselves accepts exactly, and
+    // only, what the calendar drew.
+    const lastDate = venueDateISO(
+      venue.timezone,
+      new Date(now.getTime() + (MAX_DAYS_AHEAD - 1) * 86_400_000),
+    );
+    if (!at || input.date > lastDate) {
       return { ok: false, error: "invalid_time" as const };
     }
 

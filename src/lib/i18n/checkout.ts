@@ -2,6 +2,7 @@ import type { UiLocale } from "@/lib/locales";
 import { uiLocale } from "@/lib/locales";
 import en, { type CheckoutCopy } from "./checkout/en";
 import de from "./checkout/de";
+import fr from "./checkout/fr";
 import es from "./checkout/es";
 import it from "./checkout/it";
 import ar from "./checkout/ar";
@@ -11,12 +12,12 @@ import ar from "./checkout/ar";
  * cart drawer and the Add button on every dish card.
  *
  * The WORDS live one file per locale under `./checkout/` (P7-16) — this
- * module is the SERVER-side view of them: it imports all five statically
+ * module is the SERVER-side view of them: it imports all six statically
  * so a server component can resolve copy synchronously and pass the
  * strings it needs down as props.
  *
  * ⚠ Client components must NOT import this module: doing so ships all
- * five languages to every guest. Either take the handful of strings you
+ * six languages to every guest. Either take the handful of strings you
  * need as a serialisable prop from your server parent, or — if you truly
  * need the whole catalogue — use `./checkout/load.ts`, which pulls one
  * locale on its own chunk. `scripts/check-guest-bundle.ts` fails the
@@ -28,7 +29,7 @@ import ar from "./checkout/ar";
 
 export type { CheckoutCopy };
 
-export const CHECKOUT_COPY: Record<UiLocale, CheckoutCopy> = { en, de, es, it, ar };
+export const CHECKOUT_COPY: Record<UiLocale, CheckoutCopy> = { de, en, fr, es, it, ar };
 
 /** Checkout copy for a venue/route locale. Region tags collapse ("de-DE"
  *  → "de"); anything without a catalogue falls back to English. */

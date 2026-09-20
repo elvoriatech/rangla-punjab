@@ -10,7 +10,7 @@ import type { CheckoutCopy } from "./en";
  * language at a time: the `switch` below is written out literally,
  * because the bundler only emits a chunk per locale when it can see each
  * `import()` specifier statically — `import(`./${locale}`)` would either
- * fail or fold all five back into one chunk.
+ * fail or fold all six back into one chunk.
  *
  * Nothing here imports a catalogue eagerly: `CheckoutCopy` is a
  * type-only import, so no English strings ride along into the caller's
@@ -20,6 +20,8 @@ export async function loadCheckoutCopy(locale: UiLocale): Promise<CheckoutCopy> 
   switch (locale) {
     case "de":
       return (await import("./de")).default;
+    case "fr":
+      return (await import("./fr")).default;
     case "es":
       return (await import("./es")).default;
     case "it":

@@ -62,42 +62,74 @@ export type Locale = UiLocale;
  * composes cleanly with either the "contains" template or the "traces"
  * template below. The German entries follow the Bundesministerium für
  * Ernährung und Landwirtschaft's food-labelling guidance for Annex II;
- * the Spanish and Italian ones follow the wording their national
- * food-safety authorities use for the same Annex II items.
+ * the French, Spanish and Italian ones follow the wording their national
+ * food-safety authorities use for the same Annex II items — the French
+ * set is the official annexe II vocabulary of règlement (UE) 1169/2011.
  */
 export const ALLERGEN_LABELS: Record<AllergenKey, Record<Locale, string>> = {
-  gluten: { en: "gluten", de: "Gluten", es: "gluten", it: "glutine", ar: "الغلوتين" },
+  gluten: { en: "gluten", de: "Gluten", fr: "gluten", es: "gluten", it: "glutine", ar: "الغلوتين" },
   crustaceans: {
     en: "crustaceans",
     de: "Krebstiere",
+    fr: "crustacés",
     es: "crustáceos",
     it: "crostacei",
     ar: "القشريات",
   },
-  eggs: { en: "eggs", de: "Eier", es: "huevos", it: "uova", ar: "البيض" },
-  fish: { en: "fish", de: "Fisch", es: "pescado", it: "pesce", ar: "الأسماك" },
+  eggs: { en: "eggs", de: "Eier", fr: "œufs", es: "huevos", it: "uova", ar: "البيض" },
+  fish: { en: "fish", de: "Fisch", fr: "poissons", es: "pescado", it: "pesce", ar: "الأسماك" },
   peanuts: {
     en: "peanuts",
     de: "Erdnüsse",
+    fr: "arachides",
     es: "cacahuetes",
     it: "arachidi",
     ar: "الفول السوداني",
   },
-  soybeans: { en: "soybeans", de: "Sojabohnen", es: "soja", it: "soia", ar: "فول الصويا" },
-  milk: { en: "milk", de: "Milch", es: "leche", it: "latte", ar: "الحليب" },
+  soybeans: {
+    en: "soybeans",
+    de: "Sojabohnen",
+    fr: "soja",
+    es: "soja",
+    it: "soia",
+    ar: "فول الصويا",
+  },
+  milk: { en: "milk", de: "Milch", fr: "lait", es: "leche", it: "latte", ar: "الحليب" },
   nuts: {
     en: "nuts",
     de: "Schalenfrüchte",
+    fr: "fruits à coque",
     es: "frutos de cáscara",
     it: "frutta a guscio",
     ar: "المكسرات",
   },
-  celery: { en: "celery", de: "Sellerie", es: "apio", it: "sedano", ar: "الكرفس" },
-  mustard: { en: "mustard", de: "Senf", es: "mostaza", it: "senape", ar: "الخردل" },
-  sesame: { en: "sesame", de: "Sesamsamen", es: "sésamo", it: "sesamo", ar: "السمسم" },
-  sulphites: { en: "sulphites", de: "Sulfite", es: "sulfitos", it: "solfiti", ar: "الكبريتيت" },
-  lupin: { en: "lupin", de: "Lupinen", es: "altramuces", it: "lupini", ar: "الترمس" },
-  molluscs: { en: "molluscs", de: "Weichtiere", es: "moluscos", it: "molluschi", ar: "الرخويات" },
+  celery: { en: "celery", de: "Sellerie", fr: "céleri", es: "apio", it: "sedano", ar: "الكرفس" },
+  mustard: { en: "mustard", de: "Senf", fr: "moutarde", es: "mostaza", it: "senape", ar: "الخردل" },
+  sesame: {
+    en: "sesame",
+    de: "Sesamsamen",
+    fr: "graines de sésame",
+    es: "sésamo",
+    it: "sesamo",
+    ar: "السمسم",
+  },
+  sulphites: {
+    en: "sulphites",
+    de: "Sulfite",
+    fr: "anhydride sulfureux et sulfites",
+    es: "sulfitos",
+    it: "solfiti",
+    ar: "الكبريتيت",
+  },
+  lupin: { en: "lupin", de: "Lupinen", fr: "lupin", es: "altramuces", it: "lupini", ar: "الترمس" },
+  molluscs: {
+    en: "molluscs",
+    de: "Weichtiere",
+    fr: "mollusques",
+    es: "moluscos",
+    it: "molluschi",
+    ar: "الرخويات",
+  },
 };
 
 /**
@@ -114,6 +146,10 @@ export const ALLERGEN_UI: Record<Locale, { contains: string; traces: string }> =
   de: {
     contains: "Enthält: {name}",
     traces: "Mögliche Spuren: {name}",
+  },
+  fr: {
+    contains: "Contient : {name}",
+    traces: "Peut contenir des traces de {name}",
   },
   es: {
     contains: "Contiene {name}",

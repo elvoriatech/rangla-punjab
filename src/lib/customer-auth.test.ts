@@ -174,6 +174,9 @@ describe("customer auth (Google/Microsoft sign-in plumbing)", () => {
       name: "Pia",
       phone: null,
       lastDeliveryAddress: null,
+      // A brand-new account has no language of its own — the app then
+      // falls back to the venue's default.
+      locale: null,
     });
 
     const saved = await updateCustomerProfile(tenantId, me.customerId, {

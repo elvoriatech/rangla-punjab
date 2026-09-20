@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { OpeningHours } from "@/lib/opening-hours";
-import { reservableDates, slotTimesForDate } from "@/lib/opening-hours";
+import { reservableDates, slotTimesForDate, venueDateISO } from "@/lib/opening-hours";
 import { RequiredLegend, RequiredMark } from "@/components/required-mark";
+import { ReserveCalendar } from "./reserve-calendar";
 
 /**
  * Every string this dialog says, resolved for the guest's language by the
@@ -48,10 +49,11 @@ export interface ReserveLabels {
 }
 
 /**
- * Table-reservation dialog on the public menu. The date list holds only
- * days the venue is open (next 14) and the time list only slots inside
- * that day's opening windows — a guest can never pick an impossible
- * table. Submits a `requested` reservation; the restaurant confirms.
+ * Table-reservation dialog on the public menu. The date CALENDAR enables
+ * only days the venue is open (over the whole `RESERVATION_DAYS_AHEAD`
+ * window the endpoint accepts) and the time list only slots inside that
+ * day's opening windows — a guest can never pick an impossible table.
+ * Submits a `requested` reservation; the restaurant confirms.
  *
  * Pure client enhancement of the menu page: without JS the button simply
  * does nothing, and no ordering path depends on it.
@@ -95,6 +97,17 @@ const STEP_BOX =
   "border-[var(--menu-surface-text,var(--menu-text))]/25 " +
   "bg-[var(--menu-surface-text,var(--menu-text))]/[0.08] px-2 py-1.5 " +
   "text-[var(--menu-surface-text,var(--menu-text))]";
+
+/**
+ * The panel. Wider from `sm:` up than the other guest sheets: two month
+ * grids side by side need ~300px each for the day cells to stay a
+ * comfortable target. On phones it is still a full-width bottom sheet
+ * and the two months stack.
+ */
+const PANEL =
+  "max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-[var(--menu-surface)] " +
+  "p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-2xl " +
+  "sm:max-w-2xl sm:rounded-2xl";
 
 const CTA =
   "w-full rounded-md bg-[var(--menu-surface-accent,var(--menu-accent))] py-3.5 text-base " +
@@ -145,8 +158,15 @@ export function ReserveDialog({
   // Dates/slots are computed at open time so a dialog left open overnight
   // can't offer yesterday.
   const dates = useMemo(
-    () => (open ? reservableDates(hours, timezone, new Date()) : []),
+    () => (open ? reservableDates(hours, timezone, new Date()).map((d) => d.date) : []),
     [open, hours, timezone],
+  );
+  /* Which month the calendar leads with: the VENUE's today, not the
+     browser's — a guest booking from another timezone must see the same
+     grid the venue's opening hours were computed against. */
+  const todayISO = useMemo(
+    () => (open ? venueDateISO(timezone, new Date()) : null),
+    [open, timezone],
   );
   const slots = useMemo(
     () => (date ? slotTimesForDate(hours, timezone, date, new Date()) : []),
@@ -159,7 +179,11 @@ export function ReserveDialog({
       if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
-    dialogRef.current?.querySelector("select")?.focus();
+    // First bookable day, else the time select — the date used to be the
+    // dialog's first `<select>`, and it is now a grid of buttons.
+    dialogRef.current
+      ?.querySelector<HTMLElement>("button[aria-pressed]:not(:disabled), select")
+      ?.focus();
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
@@ -250,7 +274,7 @@ export function ReserveDialog({
             role="dialog"
             aria-modal="true"
             aria-label={labels.title}
-            className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-[var(--menu-surface)] p-6 text-[var(--menu-surface-text,var(--menu-text))] shadow-2xl sm:rounded-2xl"
+            className={PANEL}
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -287,54 +311,47 @@ export function ReserveDialog({
               </div>
             ) : (
               <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="block">
-                    <span className={FIELD_LABEL}>
-                      {labels.date}
-                      <RequiredMark label={labels.requiredMark} />
-                    </span>
-                    <select
-                      required
-                      value={date}
-                      onChange={(e) => {
-                        setDate(e.target.value);
-                        setTime("");
-                      }}
-                      className={FIELD_SELECT}
-                    >
-                      <option value="" disabled>
-                        {labels.select}
-                      </option>
-                      {dates.map((d) => (
-                        <option key={d.date} value={d.date}>
-                          {dateLabel.format(new Date(`${d.date}T12:00:00`))}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className={FIELD_LABEL}>
-                      {labels.time}
-                      <RequiredMark label={labels.requiredMark} />
-                    </span>
-                    <select
-                      required
-                      value={time}
-                      disabled={!date}
-                      onChange={(e) => setTime(e.target.value)}
-                      className={`${FIELD_SELECT} disabled:opacity-60`}
-                    >
-                      <option value="" disabled>
-                        {date ? labels.select : labels.pickDateFirst}
-                      </option>
-                      {slots.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                {/* Date as a calendar, not a 60-entry dropdown. Choosing a
+                    day clears the time: the slots differ per weekday. */}
+                <div className="block">
+                  <span className={FIELD_LABEL} id="reserve-date-label">
+                    {labels.date}
+                    <RequiredMark label={labels.requiredMark} />
+                  </span>
+                  <ReserveCalendar
+                    dates={dates}
+                    todayISO={todayISO}
+                    locale={locale}
+                    value={date}
+                    labelledBy="reserve-date-label"
+                    onSelect={(d) => {
+                      setDate(d);
+                      setTime("");
+                    }}
+                  />
                 </div>
+                <label className="block">
+                  <span className={FIELD_LABEL}>
+                    {labels.time}
+                    <RequiredMark label={labels.requiredMark} />
+                  </span>
+                  <select
+                    required
+                    value={time}
+                    disabled={!date}
+                    onChange={(e) => setTime(e.target.value)}
+                    className={`${FIELD_SELECT} disabled:opacity-60`}
+                  >
+                    <option value="" disabled>
+                      {date ? labels.select : labels.pickDateFirst}
+                    </option>
+                    {slots.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
                 {/* Party size as a stepper, not a dropdown: one tap per guest,
                     no list to scroll. Bounds match the server (1–20). */}

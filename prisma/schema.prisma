@@ -703,6 +703,12 @@ model Customer {
   /// regular who already tapped the review link once is not asked again
   /// from a later order. Set once by the tracked redirect, never cleared.
   reviewClickedAt DateTime? @map("review_clicked_at")
+  /// The guest's own language, as a `LOCALE_CODES` value ("de", "fr", …).
+  /// Follows the account rather than the handset: a regular who set the
+  /// app to French once gets French on their tablet too, and on a
+  /// reinstall. Null means "never chosen" — the app then falls back to
+  /// the VENUE's default locale, and only then to the device language.
+  locale      String?   @map("locale") @db.VarChar(8)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime? @map("deleted_at")

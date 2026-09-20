@@ -97,7 +97,10 @@ describe("type guards", () => {
 
   it("isSupportedLocale accepts every supported locale and rejects anything else", () => {
     for (const l of SUPPORTED_LOCALES) expect(isSupportedLocale(l)).toBe(true);
-    expect(isSupportedLocale("fr")).toBe(false);
+    // A VENUE locale with no guest-copy catalogue. This was `fr` until
+    // French was promoted to a full UI locale — pick a code that is still
+    // genuinely catalogue-less, or the case asserts nothing.
+    expect(isSupportedLocale("nl")).toBe(false);
     expect(isSupportedLocale("")).toBe(false);
     expect(isSupportedLocale(42)).toBe(false);
   });

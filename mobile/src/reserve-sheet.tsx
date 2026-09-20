@@ -16,6 +16,7 @@ import type { ApiMenu } from "./api";
 import { createReservation } from "./api";
 import { rememberReservation } from "./reservations-store";
 import { localeTag, useI18n } from "./i18n";
+import { monthTitle, reservationMonths, weekdayNames } from "./reservation-calendar";
 import { colors, fonts, radius } from "./theme";
 
 /**
@@ -26,6 +27,11 @@ import { colors, fonts, radius } from "./theme";
  * offer bookable moments and never drifts from what /api/reservations
  * accepts. The request lands as `requested`; the restaurant confirms by
  * phone, so there is nothing to pay and no sign-in needed.
+ *
+ * The server now enumerates the whole 60-day window it accepts, so the
+ * DATE picker is a two-month calendar rather than the scrolling list of
+ * days it used to be — sixty rows is not a date picker. The TIME picker
+ * stays a list: a day has a dozen slots, and they are not a grid.
  */
 export function ReserveSheet({
   menu,
@@ -116,11 +122,7 @@ export function ReserveSheet({
   };
 
   const options: { label: string; value: string }[] =
-    picker === "date"
-      ? slots.map((s) => ({ label: dateLabel(s.date), value: s.date }))
-      : picker === "time"
-        ? times.map((x) => ({ label: x, value: x }))
-        : [];
+    picker === "time" ? times.map((x) => ({ label: x, value: x })) : [];
 
   const choose = (value: string): void => {
     if (picker === "date") {
@@ -238,33 +240,143 @@ export function ReserveSheet({
         </KeyboardAvoidingView>
       </Pressable>
 
-      {/* Option list — same pattern as the cart's time/PLZ pickers. */}
+      {/* Date = calendar, time = option list (the cart's picker pattern). */}
       <Modal visible={picker !== null} transparent animationType="fade">
         <Pressable style={styles.pickerBackdrop} onPress={() => setPicker(null)}>
-          <View style={styles.pickerSheet}>
-            <ScrollView style={{ maxHeight: 400 }}>
-              {options.map((o) => {
-                const selected =
-                  (picker === "date" && o.value === date) ||
-                  (picker === "time" && o.value === time);
-                return (
-                  <Pressable
-                    key={o.value}
-                    onPress={() => choose(o.value)}
-                    style={[styles.option, selected && styles.optionActive]}
-                  >
-                    <Text style={[styles.optionText, selected && styles.optionTextActive]}>
-                      {o.label}
-                    </Text>
-                    {selected ? <Text style={{ color: colors.red }}>✓</Text> : null}
-                  </Pressable>
-                );
-              })}
+          {/* The sheet swallows its own touches, or tapping a day would
+              also hit the backdrop and close the picker. */}
+          <Pressable style={styles.pickerSheet} onPress={() => {}}>
+            <ScrollView style={{ maxHeight: 460 }}>
+              {picker === "date" ? (
+                <ReserveCalendar
+                  dates={slots.map((s) => s.date)}
+                  value={date}
+                  tag={localeTag(lang)}
+                  onSelect={choose}
+                />
+              ) : (
+                options.map((o) => {
+                  const selected = o.value === time;
+                  return (
+                    <Pressable
+                      key={o.value}
+                      onPress={() => choose(o.value)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      style={[styles.option, selected && styles.optionActive]}
+                    >
+                      <Text style={[styles.optionText, selected && styles.optionTextActive]}>
+                        {o.label}
+                      </Text>
+                      {selected ? <Text style={{ color: colors.red }}>✓</Text> : null}
+                    </Pressable>
+                  );
+                })
+              )}
             </ScrollView>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
     </Modal>
+  );
+}
+
+/**
+ * The date grid: the leading month and the next one, stacked and
+ * scrollable, Monday first. Days the venue cannot seat — closed, past,
+ * or past the booking horizon — are present but disabled, so the guest
+ * reads the venue's week off the calendar instead of a list that simply
+ * omits Mondays.
+ *
+ * `dates` is already the server's own answer (`reservationSlots`), so
+ * "available" here needs no opening-hours maths in the app.
+ */
+function ReserveCalendar({
+  dates,
+  value,
+  tag,
+  onSelect,
+}: {
+  dates: readonly string[];
+  value: string;
+  /** BCP-47 tag for the month and weekday names. */
+  tag: string;
+  onSelect: (date: string) => void;
+}): React.ReactElement {
+  const months = useMemo(() => reservationMonths(dates), [dates]);
+  const weekdays = useMemo(() => weekdayNames(tag, "narrow"), [tag]);
+  const dayName = (iso: string): string => {
+    const at = new Date(`${iso}T12:00:00Z`);
+    try {
+      return at.toLocaleDateString(tag, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  return (
+    <View style={{ gap: 14, paddingHorizontal: 4, paddingBottom: 6 }}>
+      {months.map((month) => (
+        <View key={month.key} style={{ gap: 4 }}>
+          <Text style={styles.calMonth}>{monthTitle(month.at, tag)}</Text>
+          <View style={styles.calRow}>
+            {weekdays.map((name, i) => (
+              <Text key={i} style={styles.calWeekday}>
+                {name}
+              </Text>
+            ))}
+          </View>
+          {month.weeks.map((week, w) => (
+            <View key={w} style={styles.calRow}>
+              {week.map((cell, d) =>
+                cell.date === null ? (
+                  <View key={`${w}-${d}`} style={styles.calCell} />
+                ) : (
+                  <Pressable
+                    key={cell.date}
+                    disabled={!cell.available}
+                    onPress={() => onSelect(cell.date as string)}
+                    accessibilityRole="button"
+                    accessibilityLabel={dayName(cell.date)}
+                    accessibilityState={{
+                      selected: cell.date === value,
+                      disabled: !cell.available,
+                    }}
+                    style={styles.calCell}
+                  >
+                    {/* The plate sits inside the 44pt target with a 2pt
+                        inset, so adjacent bookable days read as separate
+                        keys rather than one solid block. */}
+                    <View
+                      style={[
+                        styles.calPlate,
+                        cell.available && styles.calPlateFree,
+                        cell.date === value && styles.calPlateOn,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.calDay,
+                          !cell.available && styles.calDayOff,
+                          cell.date === value && styles.calDayOn,
+                        ]}
+                      >
+                        {cell.day}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ),
+              )}
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -438,6 +550,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   guestsValue: { color: colors.ink, fontSize: 15, ...fonts.bodyBold },
+
+  /* Calendar. Seven equal columns; 44pt tall cells so a day stays a
+     comfortable target even on a 360pt-wide phone, where each column is
+     about 42pt across. */
+  calMonth: {
+    color: colors.ink,
+    ...fonts.bodyBold,
+    fontSize: 15,
+    textAlign: "center",
+    textTransform: "capitalize",
+    paddingBottom: 2,
+  },
+  calRow: { flexDirection: "row" },
+  calWeekday: {
+    width: "14.2857%",
+    textAlign: "center",
+    color: colors.inkSoft,
+    ...fonts.bodySemi,
+    fontSize: 11,
+    textTransform: "uppercase",
+    paddingVertical: 4,
+  },
+  calCell: { width: "14.2857%", height: 44, padding: 2 },
+  calPlate: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+  },
+  /** A bookable day carries a faint plate so the closed ones read as
+   *  gaps in the month rather than as text of a different colour. */
+  calPlateFree: { backgroundColor: colors.creamCard },
+  calPlateOn: { backgroundColor: colors.red },
+  calDay: { color: colors.ink, ...fonts.body, fontSize: 14 },
+  calDayOff: { color: colors.inkSoft, opacity: 0.4 },
+  calDayOn: { color: colors.onRed, ...fonts.bodyHeavy },
 });
 
 /**

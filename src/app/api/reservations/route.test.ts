@@ -185,6 +185,55 @@ describe("guest reservations", () => {
     expect([...RESERVATION_STATUSES]).toEqual(Object.values(ReservationStatus));
   });
 
+  /** POST an arbitrary date/time, without the 201 assertion `create` makes. */
+  async function post(date: string, time: string): Promise<Response> {
+    const ip = `10.8.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+    return POST(
+      new NextRequest("http://localhost:3000/api/reservations", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip },
+        body: JSON.stringify({
+          slug,
+          name: "Horizon",
+          phone: "+49 170 1234567",
+          guests: 2,
+          date,
+          time,
+        }),
+      }),
+    );
+  }
+
+  it("accepts the LAST day the picker offers, and refuses the day after", async () => {
+    // The date picker is a two-month calendar over the whole
+    // `RESERVATION_DAYS_AHEAD` window (P-B). It used to offer 14 days
+    // against a 60-day server limit, so the boundary was never exercised;
+    // now the last cell the guest can tap IS the limit, and an
+    // off-by-one here is a guest tapping an enabled day and being told
+    // "that time is unavailable".
+    const now = new Date();
+    const hours = { configured: true, days: HOURS.days };
+    const offered = reservableDates(hours, TIMEZONE, now);
+    const last = offered.at(-1);
+    if (!last) throw new Error("no reservable date in the fixture hours");
+    // These fixture hours open every day, so the window is offered whole.
+    expect(offered).toHaveLength(60);
+
+    const lastTimes = slotTimesForDate(hours, TIMEZONE, last.date, now);
+    const lastTime = lastTimes[0];
+    if (!lastTime) throw new Error("no slot on the last offered date");
+    expect((await post(last.date, lastTime)).status).toBe(201);
+
+    // One day further is a day the calendar draws disabled — and a forged
+    // POST for it is refused.
+    const beyond = new Date(`${last.date}T12:00:00Z`);
+    beyond.setUTCDate(beyond.getUTCDate() + 1);
+    const beyondISO = beyond.toISOString().slice(0, 10);
+    const res = await post(beyondISO, lastTime);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error?: string }).error).toBe("invalid_time");
+  });
+
   it("links a reservation to the signed-in guest and returns a verifiable token", async () => {
     const me = await signIn();
     const body = await create(me.token, { note: "Window table please" });

@@ -19,17 +19,18 @@ import * as Localization from "expo-localization";
  * The table below MIRRORS the web app's `src/lib/locales.ts` (the single
  * locale registry) — specifically its `ui: true` entries, i.e. the
  * locales with a complete guest-copy catalogue. The RN bundle cannot
- * import from the Next app's `src/`, so the five rows are copied here by
+ * import from the Next app's `src/`, so the six rows are copied here by
  * hand; keep them in the same order and with the same labels/flags/dir.
- * A venue may enable MORE locales than these (fr, nl, pl, …): those get
+ * A venue may enable MORE locales than these (nl, pl, pt, tr): those get
  * translated dish text from the API and English chrome, and they are
  * filtered out of the picker because this app has no catalogue for them.
  */
 export const LANGS = [
-  { code: "en", label: "English", flag: "🇬🇧", dir: "ltr" },
   { code: "de", label: "Deutsch", flag: "🇩🇪", dir: "ltr" },
-  { code: "it", label: "Italiano", flag: "🇮🇹", dir: "ltr" },
+  { code: "en", label: "English", flag: "🇬🇧", dir: "ltr" },
+  { code: "fr", label: "Français", flag: "🇫🇷", dir: "ltr" },
   { code: "es", label: "Español", flag: "🇪🇸", dir: "ltr" },
+  { code: "it", label: "Italiano", flag: "🇮🇹", dir: "ltr" },
   { code: "ar", label: "العربية", flag: "🇸🇦", dir: "rtl" },
 ] as const;
 
@@ -70,6 +71,8 @@ export function localeTag(lang: Lang): string {
   switch (lang) {
     case "de":
       return "de-DE";
+    case "fr":
+      return "fr-FR";
     case "it":
       return "it-IT";
     case "es":
@@ -169,6 +172,11 @@ const en = {
   dishMore: "Details",
   reserveBtn: "Reserve a table",
   reserveSub: "Book your spot with us",
+  reserveShort: "Reserve",
+  complainShort: "Complaint",
+  complainSub: "About your last order",
+  complainNoOrdersTitle: "No orders yet",
+  complainNoOrdersBody: "Complaints are raised from an order. Place an order first.",
   reserveTitle: "Reserve a table",
   reserveLead: "Pick a date and time — we only show times we're open.",
   resDate: "Date",
@@ -743,6 +751,11 @@ const de: Strings = {
   dishMore: "Details",
   reserveBtn: "Tisch reservieren",
   reserveSub: "Platz im Restaurant sichern",
+  reserveShort: "Reservieren",
+  complainShort: "Reklamation",
+  complainSub: "Zu Ihrer letzten Bestellung",
+  complainNoOrdersTitle: "Noch keine Bestellungen",
+  complainNoOrdersBody: "Eine Reklamation geht immer zu einer Bestellung. Bestellen Sie zuerst.",
   reserveTitle: "Tisch reservieren",
   reserveLead: "Wähle Datum und Uhrzeit — wir zeigen nur Zeiten, zu denen wir geöffnet sind.",
   resDate: "Datum",
@@ -1261,6 +1274,576 @@ const de: Strings = {
   },
 };
 
+const fr: Strings = {
+  restaurant: "RESTAURANT",
+  featCuisine: "Cuisine\nauthentique",
+  featFresh: "Ingrédients\nfrais",
+  featRecipes: "Recettes\ntraditionnelles",
+  featLove: "Servi\navec amour",
+  welcome: "Bienvenue",
+  taglineTop: "Goût authentique",
+  taglineBottom: "Recettes traditionnelles",
+  startOrdering: "Commencer la commande",
+  signInRegister: "Connexion / Inscription",
+  tabStart: "Accueil",
+  tabMenu: "Carte",
+  tabCart: "Panier",
+  tabOrders: "Commandes",
+  tabAccount: "Compte",
+  heroLine: "De délicieux plats,\nà portée de doigt !",
+  delivery: "Livraison",
+  deliverySub: "Nous livrons chez vous",
+  pickup: "À emporter",
+  pickupSub: "Commandez et récupérez",
+  categories: "Catégories",
+  popular: "Plats populaires",
+  showAll: "Tout afficher",
+  all: "Tout",
+  soldOut: "épuisé",
+  offer: "PROMO",
+  cartTitle: "Panier",
+  cartEmpty: "Votre panier est vide",
+  cartEmptySub: "Ajoutez des plats depuis la carte.",
+  dineIn: "Sur place",
+  tableOptional: "Numéro de table (facultatif)",
+  tablePlaceholder: "p. ex. 12",
+  timePickup: "Heure de retrait",
+  timeDelivery: "Heure de livraison",
+  asap: "Dès que possible",
+  locality: "Ville",
+  zipLabel: "Code postal",
+  close: "Fermer",
+  dishAllergens: "Allergènes",
+  dishTraces: "Peut contenir des traces de",
+  dishAdd: "Ajouter au panier",
+  dishMore: "Détails",
+  reserveBtn: "Réserver une table",
+  reserveSub: "Réservez votre table chez nous",
+  reserveShort: "Réserver",
+  complainShort: "Réclamation",
+  complainSub: "Au sujet de votre dernière commande",
+  complainNoOrdersTitle: "Aucune commande",
+  complainNoOrdersBody: "Une réclamation se rattache à une commande. Passez d'abord une commande.",
+  reserveTitle: "Réserver une table",
+  reserveLead: "Choisissez une date et une heure — nous n'affichons que nos horaires d'ouverture.",
+  resDate: "Date",
+  resTime: "Heure",
+  resGuests: "Personnes",
+  guest: "personne",
+  guests: "personnes",
+  resNote: "Remarque (facultatif)",
+  resNotePlaceholder: "Anniversaire, table près de la fenêtre …",
+  resSubmit: "Demander une réservation",
+  resSending: "Envoi en cours …",
+  resFootnote: "Aucun paiement requis — le restaurant confirme par téléphone.",
+  resDoneTitle: "Demande reçue !",
+  resDoneSub: "Le restaurant confirmera votre réservation par téléphone sous peu.",
+  resDoneBtn: "Terminé",
+  resTimeGone: "Ce créneau vient d'être pris — veuillez en choisir un autre.",
+  resTooMany: "Trop de demandes — veuillez réessayer dans un instant.",
+  resFailed: "Échec — veuillez réessayer ou nous appeler.",
+  resNoSlots: "Aucune réservation possible pour le moment.",
+  resDoneWhere: "Vous verrez le statut dans Compte → Réservations.",
+  resSectionTitle: "Réservations",
+  resStatusRequested: "Pas encore confirmée",
+  resStatusConfirmed: "Confirmée",
+  resStatusDeclined: "Refusée",
+  resPast: "Passées",
+  resCall: "Appeler le restaurant",
+  email: "E-mail",
+  passwordMin: "Mot de passe (min. 8 caractères)",
+  signInBtn: "Se connecter",
+  signUpBtn: "S'inscrire",
+  orWithEmail: "ou avec un e-mail",
+  authInvalid: "E-mail ou mot de passe incorrect.",
+  authExists: "Cette adresse e-mail a déjà un compte — connectez-vous.",
+  authFailed: "Échec — veuillez réessayer.",
+  name: "Nom",
+  namePlaceholder: "Votre nom",
+  phone: "Téléphone",
+  receiptEmail: "E-mail (facultatif)",
+  receiptEmailHint: "Pour votre reçu — nous vous l'envoyons par e-mail.",
+  street: "Rue et numéro",
+  chooseZip: "Zone de livraison — choisissez votre code postal",
+  zipPick: "Veuillez choisir votre code postal parmi les zones de livraison.",
+  deliveryFee: "Frais de livraison",
+  free: "gratuite",
+  minOrder: "Commande minimum",
+  freeOver: "gratuite à partir de",
+  toMinimum: "pour atteindre le minimum de commande en",
+  still: "Encore",
+  noteOptional: "Remarque (facultatif)",
+  notePlaceholder: "p. ex. 2e étage, sonner chez Khan",
+  subtotal: "Sous-total",
+  total: "Total",
+  placeOrder: "Commander",
+  payAtRestaurant: "Paiement au restaurant — en espèces ou par carte.",
+  paymentMethod: "Paiement",
+  methodCard: "Carte",
+  methodPaypal: "PayPal",
+  methodCash: "Espèces",
+  payHintCard: "Paiement par carte sécurisé via Stripe.",
+  payHintPaypal: "Vous validez le paiement sur PayPal, puis vous revenez ici.",
+  payNow: "Payer",
+  openingPayment: "Ouverture du paiement…",
+  simulatePayment: "Simuler le paiement (test)",
+  placingTitle: "Envoi de votre commande…",
+  placedTitle: "Commande #{orderNo} envoyée",
+  placingCard: "Ouverture du paiement sécurisé…",
+  placingPaypal: "En attente de PayPal…",
+  placingConfirm: "Confirmation…",
+  placingHint: "Veuillez garder l'application ouverte jusqu'à la fin du paiement.",
+  payWithCard: "Payer par carte",
+  payWithPaypal: "Payer avec PayPal",
+  payCancelledNote: "Paiement annulé — vous pouvez payer maintenant ou au restaurant.",
+  payFailedNote: "Le paiement a échoué — veuillez réessayer.",
+  orderFailed: "La commande a échoué — veuillez réessayer.",
+  orderingPaused: "Les commandes sont suspendues — veuillez réessayer plus tard.",
+  /* Fermé en ce moment : commander tout de suite est impossible, précommander non. */
+  orderClosedNow: "Nous sommes fermés — vous pouvez précommander pour plus tard aujourd'hui.",
+  orderClosedNoSlots: "Nous sommes fermés et il ne reste plus de créneau aujourd'hui.",
+  orderClosedDineIn: "La commande à table n'est possible que pendant les heures d'ouverture.",
+  orderVenueClosed: "La cuisine est fermée — cette commande n'a pas été enregistrée.",
+  outsideArea: "Désolé, nous ne livrons pas à ce code postal.",
+  belowMin: "Le montant minimum de commande n'est pas encore atteint.",
+  menuChanged: "La carte a été mise à jour — veuillez vérifier votre panier.",
+  trackTitle: "Suivre la commande",
+  back: "Retour",
+  loadingOrder: "Chargement de la commande…",
+  retrying: "Échec de la connexion — nouvelle tentative…",
+  orderConfirmed: "Commande confirmée",
+  orderDone: "Commande terminée",
+  orderNo: "Numéro de commande",
+  table: "Table",
+  paidOnline: "✓ Payé en ligne",
+  payConfirming: "✓ Paiement reçu — confirmation en cours…",
+  payNotYet: "Pas encore payé",
+  payAtRest: "Paiement au restaurant",
+  paidAtRest: "Payé au restaurant",
+  statusShort: {
+    placed: "Reçue",
+    preparing: "En cuisine",
+    ready: "Prête",
+    out_for_delivery: "En route",
+    done: "Terminée",
+    cancelled: "Annulée",
+  },
+  payShort: { paid: "Payé", unpaid: "À payer" },
+  receiptPdf: "Télécharger le reçu (PDF)",
+  ordersTitle: "Commandes",
+  ordersEmpty: "Pas encore de commande",
+  ordersEmptySub: "Les commandes passées depuis cet appareil s'afficheront ici.",
+  tabBoard: "Commandes",
+  boardTitle: "Commandes en direct",
+  boardDone: "Terminées aujourd'hui",
+  boardEmpty: "Aucune commande en cours",
+  boardEmptySub: "Les nouvelles commandes apparaissent ici dès qu'un client commande.",
+  boardReconnecting: "Reconnexion…",
+  boardMoved: "La commande a déjà avancé",
+  boardActionFailed: "Mise à jour impossible — veuillez réessayer.",
+  boardPlanned: "pour {time}",
+  boardCall: "Appeler",
+  boardDirections: "Itinéraire",
+  boardNote: "Remarque",
+  boardOrderDetails: "Commande {number} — détails",
+  staffSignedIn: "Connecté en tant que restaurant",
+  accountOrders: "Mes commandes (compte)",
+  accountTitle: "Compte",
+  language: "Langue",
+  signInLead: "Connectez-vous pour retrouver vos commandes sur tous vos appareils.",
+  signInGoogle: "Se connecter avec Google",
+  signInDev: "Connexion dev (local uniquement)",
+  signInWaiting: "En attente de la connexion dans le navigateur…",
+  signInCancel: "Annuler",
+  signedInAs: "Connecté en tant que",
+  signOut: "Se déconnecter",
+  signOutStaff: "Quitter le mode restaurant",
+  signInOptional: "Commander fonctionne sans compte — la connexion est facultative.",
+  continueWithGoogle: "Continuer avec Google",
+  signInToPrefill: "Connectez-vous pour remplir ces champs automatiquement",
+  restartTitle: "Redémarrer l'application",
+  restartBody:
+    "Veuillez fermer puis rouvrir l'application pour appliquer le nouveau sens d'écriture.",
+  hours: "Horaires d'ouverture",
+  closed: "fermé",
+  more: "Plus",
+  webMenu: "La carte en ligne",
+  imprint: "Mentions légales",
+  privacy: "Confidentialité",
+  footer: "Des recettes traditionnelles, servies avec amour 🌿",
+  rewardsTitle: "Fidélité",
+  rewardsPoints: "points",
+  rewardsEarnLine: "Chaque commande de plus de {min} rapporte {points} points",
+  rewardsWaiting: "Vous attend",
+  rewardsMeal: "repas à {value}",
+  rewardsValidUntil: "valable jusqu'au {date}",
+  rewardsArmedPill: "activée pour la prochaine commande",
+  rewardsCheck: "Voir ma récompense",
+  rewardsHistory: "Historique des points",
+  rewardsHistoryEmpty: "Pas encore de points — votre prochaine commande lance le compteur.",
+  rewardsOrder: "Commande",
+  rewardsReward: "Récompense",
+  rewardsCancelled: "Commande annulée",
+  rewardsAdjust: "Ajustement",
+  rewardsToGo: "Encore {points} points pour un repas à {value}",
+  rewardsEarnedTitle: "Bravo ! Vous avez gagné un repas à {value}",
+  rewardsUseNext: "Utiliser sur ma prochaine commande",
+  rewardsArmedTitle: "Votre récompense de {value} est prête pour votre prochaine commande",
+  rewardsTurnOff: "Désactiver",
+  rewardsArmFailed: "Impossible de modifier la récompense — veuillez réessayer.",
+  rewardsBanner: "Bravo ! Un repas à {value} vous attend",
+  rewardsBannerCta: "Ouvrir la fidélité",
+  cartEarnPoints: "Cette commande vous rapporte {points} points",
+  cartEarnSignIn: "Connectez-vous pour gagner {points} points sur cette commande",
+  cartRewardNotNow: "Pas maintenant",
+  cartPlaceWithReward: "Commander · {total} · récompense",
+  payNothingDue: "Rien à payer — votre récompense couvre cette commande.",
+  paidWithReward: "✓ Payé avec votre récompense",
+  trackRewardFailed: "Votre récompense n'a pas pu être appliquée",
+  ordersRewardPill: "Récompense",
+  ordersRewardOff: "−{value} récompense",
+  rewardsUsedOn: "Utilisée sur la commande #{number}",
+  rewardsRedeemed: "Récompense de {value} utilisée",
+  bootLoading: "Chargement de la carte…",
+  bootError: "La cuisine est injoignable.",
+  bootRetry: "Réessayer",
+  // --- Restaurant mode. Nothing below is ever shown to a guest: every
+  // string belongs to a screen that only exists behind a staff session.
+  ownerMenuTitle: "Restaurant",
+  ownerMenuOpen: "Menu restaurant",
+  ownerBoard: "Commandes en direct",
+  ownerMenuManage: "Gérer la carte",
+  ownerLoyalty: "Fidélité",
+  staffMenuTitle: "Gérer la carte",
+  staffMenuLive: "Les modifications sont visibles dès l'enregistrement.",
+  staffOffTag: "Inactif",
+  staffEditDish: "Modifier le plat",
+  staffPrice: "Prix",
+  staffAvailable: "Disponible",
+  staffOfferOn: "En promotion",
+  staffOfferPrice: "Prix promo",
+  staffOfferUntilDate: "Jusqu'au (date)",
+  staffOfferUntilTime: "Jusqu'à (heure)",
+  staffOfferOpenEnd: "Sans fin",
+  staffOfferDays: "Uniquement ces jours-là",
+  staffOfferAllDay: "Les jours choisis valent toute la journée.",
+  staffPriceInvalid: "Saisissez un prix, p. ex. 9,50",
+  staffOfferTooHigh: "Le prix promo doit être inférieur au prix normal.",
+  staffSave: "Enregistrer",
+  staffSaving: "Enregistrement…",
+  staffCancel: "Annuler",
+  staffSaveFailed: "Enregistrement impossible — veuillez réessayer.",
+  staffItemGone: "Ce plat ne figure plus sur la carte.",
+  staffToggleFailed: "Modification impossible — veuillez réessayer.",
+  staffOrderingTitle: "Prise de commandes",
+  staffLoyaltyTitle: "Fidélité",
+  staffLoyaltyOn: "Le programme de fidélité tourne",
+  staffLoyaltyOff: "Le programme de fidélité est arrêté",
+  staffLoyaltyOffHint: "Activez-le dans le tableau de bord.",
+  staffLoyaltyProgramme: "Programme",
+  staffLoyaltyMinOrder: "Commande minimum",
+  staffLoyaltyPerOrder: "Points par commande",
+  staffLoyaltyRewardPoints: "Points pour une récompense",
+  staffLoyaltyRewardValue: "Valeur d'une récompense",
+  staffLoyaltyExpiry: "Les récompenses expirent après",
+  staffLoyaltyMonths: "{months} mois",
+  staffLoyaltyMembers: "Membres",
+  staffLoyaltyPointsOut: "Points en circulation",
+  staffLoyaltyVouchers: "Récompenses prêtes",
+  staffLoyaltyRedeemed: "Utilisées (30 jours)",
+  staffLoyaltyGuests: "Clients",
+  staffLoyaltyEmpty: "Aucun client n'a encore cumulé de points.",
+  staffLoyaltyPoints: "{points} points",
+  staffLoyaltyRewardsReady: "{count} récompenses prêtes",
+  staffLoyaltyLastOrder: "Dernière commande {date}",
+  staffLoyaltyNoOrder: "Aucune commande",
+  staffLoadFailed: "Chargement impossible — tirez vers le bas pour réessayer.",
+  issueReport: "Signaler un problème",
+  issueView: "Voir la conversation",
+  issueTitle: "Signaler un problème",
+  issueTitleThread: "Votre signalement",
+  issueStaffTitle: "Réclamation",
+  issueIntro:
+    "Dites-nous ce qui n'a pas fonctionné. Ajoutez une photo si cela peut aider — le restaurant vous répond directement ici.",
+  issuePlaceholder: "Que s'est-il passé ?",
+  issueReplyPlaceholder: "Écrire un message …",
+  issueStaffPlaceholder: "Répondre au client …",
+  issueAddPhoto: "Ajouter une photo",
+  issueRemovePhoto: "Retirer la photo",
+  issuePhotoOpen: "Ouvrir la photo",
+  issueSend: "Envoyer",
+  issueSending: "Envoi en cours …",
+  issueMessageLabel: "Votre message",
+  issueYou: "Vous",
+  issueGuest: "Client",
+  issueRestaurantLabel: "Restaurant",
+  issueStatusLabels: { open: "Ouverte", answered: "Répondue", resolved: "Résolue" },
+  issuePill: "Problème",
+  issueResolvedNote:
+    "Cette conversation est close. Appelez le restaurant si vous avez encore besoin d'aide.",
+  issueWindowClosed:
+    "Le délai pour signaler un problème sur cette commande est dépassé. Veuillez appeler le restaurant.",
+  issueLoadFailed: "La conversation n'a pas pu être chargée.",
+  issueRetry: "Réessayer",
+  issuePhotoDenied: "Sans accès à vos photos, nous ne pouvons pas joindre d'image.",
+  issuePhotoFailed: "Cette image n'a pas pu être ouverte.",
+  issueResolve: "Marquer comme résolue",
+  issueResolveConfirm:
+    "Marquer cette réclamation comme résolue ? Le client pourra toujours lire la conversation.",
+  issueCancel: "Annuler",
+  issueErrors: {
+    window_closed: "Le délai de signalement pour cette commande est écoulé.",
+    resolved: "Le restaurant a clos cette conversation.",
+    too_large: "Cette photo est trop lourde — 5 Mo au maximum.",
+    invalid_photo: "Ce fichier n'est pas une photo JPEG, PNG ou WebP.",
+    invalid: "Veuillez d'abord écrire un message (2000 caractères au maximum).",
+    invalid_token: "Cette commande ne peut plus être ouverte sur cet appareil.",
+    not_found: "Cette commande n'existe plus.",
+    rate_limited: "Trop de messages d'un coup — veuillez patienter un instant.",
+    network: "Aucune connexion — veuillez réessayer.",
+  },
+  issuesTitle: "Réclamations",
+  ownerIssues: "Réclamations",
+  issuesEmpty: "Aucune réclamation pour l'instant.",
+  issuesEmptyOpen: "Rien n'attend de réponse.",
+  issuesShowResolved: "Afficher les résolues",
+  issueJustNow: "à l'instant",
+  issueMinutesAgo: "il y a {n} min",
+  issueHoursAgo: "il y a {n} h",
+  issueDaysAgo: "il y a {n} j",
+  orderCancelledTitle: "Commande annulée",
+  orderCancelledBody:
+    "Le restaurant a annulé cette commande — rien n'est en préparation. Tout paiement en ligne vous sera remboursé.",
+  boardCancelTitle: "Annuler cette commande ?",
+  boardCancelBody: "La commande s'arrête ici et le client en est informé. C'est irréversible.",
+  boardCancelKeep: "Conserver",
+  boardCancelConfirm: "Annuler",
+  boardCancelAction: "Annuler la commande",
+  boardCancelledPaid: "Payé en ligne — remboursez depuis votre tableau de bord Stripe / PayPal.",
+  offersTab: "Promos",
+  offersCardTitle: "Promos",
+  offersCardCount: "{n} plats",
+  offersCardCountOne: "1 plat",
+  offersEmpty: "Aucune promo en ce moment.",
+  forgotPassword: "Mot de passe oublié ?",
+  forgotTitle: "Réinitialiser votre mot de passe",
+  forgotIntro:
+    "Saisissez l'adresse e-mail de votre compte et nous vous enverrons un lien pour définir un nouveau mot de passe.",
+  forgotSend: "Envoyer le lien",
+  forgotSending: "Envoi en cours…",
+  forgotSentTitle: "Consultez votre boîte mail",
+  forgotSentBody:
+    "Si un compte existe pour cette adresse, un lien pour définir un nouveau mot de passe est en route. Il est valable une heure.",
+  forgotBadEmail: "Veuillez saisir une adresse e-mail valide.",
+  forgotFailed: "Cela n'a pas fonctionné — veuillez réessayer dans un instant.",
+  resetDoneTitle: "Mot de passe modifié",
+  resetDoneBody: "Reconnectez-vous avec votre nouveau mot de passe.",
+  pushChannelOrders: "Commandes",
+  ratingWriteReview: "Écrire un avis",
+  ratingA11y: "Noté {value} sur 5 d'après {count} avis Google",
+  /* Note Google, côté restaurateur (P7-14). */
+  ownerRating: "Note Google",
+  ratingOwnerShow: "Afficher la note aux clients",
+  ratingOwnerShowHint: "Désactivé, la ligne d'étoiles disparaît de la carte et de l'application.",
+  ratingOwnerHidden: "Actuellement masquée aux clients.",
+  ratingOwnerNone: "Pas encore de note",
+  ratingOwnerNoneHint: "Récupérez-la depuis Google, ou saisissez-la à la main ci-dessous.",
+  ratingOwnerReviews: "{count} avis",
+  ratingOwnerFromGoogle: "Depuis Google, actualisée {when}",
+  ratingOwnerFromGoogleNew: "Depuis Google",
+  ratingOwnerFromYou: "Saisie par vous",
+  ratingOwnerReviewLink: "Ouvrir la page des avis",
+  ratingOwnerFetchTitle: "Récupérer depuis Google",
+  ratingOwnerNoKey:
+    "Le serveur n'a pas de clé API Google — saisissez la note à la main ci-dessous.",
+  ratingOwnerPlaceId: "Google Place ID",
+  ratingOwnerPlaceIdHint: "Vide signifie que rien n'est lu depuis Google.",
+  ratingOwnerFind: "Chercher",
+  ratingOwnerSearchLabel: "Chercher votre restaurant sur Google",
+  ratingOwnerSearchPlaceholder: "Nom, rue et ville",
+  ratingOwnerSearch: "Rechercher",
+  ratingOwnerSearching: "Recherche en cours …",
+  ratingOwnerSearchEmpty:
+    "Aucun résultat. Essayez le nom avec la rue ou la ville, exactement comme sur Google Maps.",
+  ratingOwnerUseThis: "Utiliser",
+  ratingOwnerUnnamed: "Lieu sans nom",
+  ratingOwnerRefresh: "Actualiser maintenant",
+  ratingOwnerRefreshing: "Interrogation de Google …",
+  ratingOwnerRefreshHint:
+    "Interroge Google immédiatement au lieu d'attendre l'actualisation quotidienne.",
+  ratingOwnerRefreshed: "Note actualisée depuis Google.",
+  ratingOwnerManualTitle: "Saisir à la main",
+  ratingOwnerManualHint: "Affiché tant qu'aucune valeur n'a été récupérée.",
+  ratingOwnerManualBeaten:
+    "C'est la note récupérée sur Google qui prime — c'est elle que vos clients voient.",
+  ratingOwnerValue: "Note",
+  ratingOwnerValueHint: "Entre 1,0 et 5,0, une décimale.",
+  ratingOwnerCount: "Avis",
+  ratingOwnerCountHint: "Sur combien d'avis cette moyenne repose.",
+  ratingOwnerSave: "Enregistrer la note",
+  ratingOwnerSaving: "Enregistrement …",
+  ratingOwnerSaved: "Note enregistrée.",
+  ratingOwnerClear: "Effacer la note",
+  ratingOwnerCleared: "Votre note saisie a été supprimée.",
+  ratingOwnerPlaceIdSaved: "Place ID enregistré.",
+  ratingOwnerSaveFailed: "Enregistrement impossible — veuillez réessayer.",
+  ratingOwnerBadValue: "Saisissez une note entre 1,0 et 5,0.",
+  ratingOwnerBadCount: "Saisissez le nombre d'avis sous forme de nombre entier.",
+  ratingOwnerBadPlaceId: "Cela ne ressemble pas à un Google Place ID.",
+  ratingOwnerErrors: {
+    no_api_key:
+      "Ce serveur n'a pas de clé API Google, rien ne peut donc être lu depuis Google. Saisissez plutôt la note à la main.",
+    no_place_id: "Enregistrez d'abord un Google Place ID — il n'y a encore rien à actualiser.",
+    api_not_enabled: "L'API Places n'est pas activée pour la clé Google de ce serveur.",
+    key_invalid: "Google a refusé la clé API du serveur.",
+    quota: "Le quota Google est épuisé — veuillez réessayer plus tard.",
+    not_found: "Google n'a trouvé aucun lieu correspondant.",
+    network: "Google est injoignable pour le moment. Réessayez dans un instant.",
+    unknown: "La réponse de Google n'était pas compréhensible. Veuillez réessayer plus tard.",
+  },
+  timeNow: "Maintenant",
+  timeScheduled: "Programmé",
+  timeEarlier: "Plus tôt",
+  timeLater: "Plus tard",
+  addressTitle: "Adresse de livraison",
+  addressChange: "Modifier",
+  payOrChoose: "ou choisissez un autre moyen de paiement",
+  placingWallet: "En attente de votre portefeuille…",
+  /* Éditeur des horaires d'ouverture (restaurateur). */
+  ownerHours: "Horaires d'ouverture",
+  hoursOpenNow: "Ouvert maintenant",
+  hoursClosedNow: "Fermé maintenant",
+  hoursClosed: "Fermé",
+  hoursOpens: "Ouvre",
+  hoursCloses: "Ferme",
+  hoursAddSlot: "+ Ajouter un second créneau",
+  hoursRemoveSlot: "Supprimer ce créneau",
+  hoursCopyMonday: "Copier lundi sur mar.–ven.",
+  hoursCopied: "Horaires du lundi copiés sur mardi–vendredi. Enregistrez pour les conserver.",
+  hoursSave: "Enregistrer les horaires",
+  hoursSaving: "Enregistrement…",
+  hoursSaved: "Horaires d'ouverture enregistrés.",
+  hoursSaveFailed: "Les horaires d'ouverture n'ont pas pu être enregistrés.",
+  hoursBadDay: "Vérifiez {day} : chaque créneau a besoin d'une heure d'ouverture et de fermeture.",
+  hoursTimezone: "Heures indiquées en {zone}.",
+  hoursHint:
+    "Vos clients les voient sur la carte, et l'application s'en sert pour indiquer si vous êtes ouvert. Pour une pause de midi, utilisez les deux créneaux ; passé minuit (17:00–02:00), aucun souci.",
+
+  /* Coordonnées — l'éditeur du restaurateur et la carte pour les clients. */
+  ownerContact: "Contact",
+  contactOwnerTitle: "Coordonnées",
+  contactOwnerHint: "Vos clients les voient sur leur écran Compte ; laissez vide pour les masquer.",
+  contactOwnerLandline: "Fixe",
+  contactOwnerMobile: "Mobile",
+  contactOwnerWhatsapp: "WhatsApp",
+  contactOwnerNumberHint: "Avec ou sans indicatif — nous les mettons en forme pour vous.",
+  contactOwnerSave: "Enregistrer les coordonnées",
+  contactOwnerSaving: "Enregistrement…",
+  contactOwnerSaved: "Coordonnées enregistrées.",
+  contactOwnerSaveFailed: "Les coordonnées n'ont pas pu être enregistrées.",
+  contactOwnerBad: "Vérifiez {field} : cela ne ressemble pas à un numéro de téléphone.",
+  contactTitle: "Contacter le restaurant",
+  contactCallLandline: "Appeler le fixe",
+  contactCallMobile: "Appeler le mobile",
+  contactWhatsapp: "WhatsApp",
+
+  /* Champs obligatoires, signalés de la même façon sur chaque formulaire. */
+  fieldRequired: "obligatoire",
+  fieldRequiredLegend: "* obligatoire",
+
+  /* Impression des bons de cuisine (restaurateur). */
+  boardPrint: "Imprimer",
+  boardPrintTicket: "Imprimer le bon de cuisine de {number}",
+  boardAutoPrint: "Imprimer automatiquement les nouvelles commandes",
+  boardAutoPrintHint:
+    "Chaque nouvelle commande s'imprime une fois, dès son arrivée. Les commandes déjà affichées restent intactes.",
+  boardSound: "Son pour les nouvelles commandes",
+  boardPrinting: "Envoi à l'imprimante…",
+  boardPrinted: "Bon envoyé à l'imprimante.",
+  boardPrintFailed: "Ce bon n'a pas pu être imprimé.",
+  boardPrintOffline: "Aucune connexion à la cuisine — bon non imprimé.",
+
+  /* Fidélité, côté restaurateur : l'interrupteur et les règles. */
+  staffLoyaltyEnable: "Programme de fidélité activé",
+  staffLoyaltyEnableHint:
+    "Désactivé, les clients ne voient ni points, ni récompenses, ni ligne fidélité dans le panier.",
+  staffLoyaltyToggleFailed: "Le programme n'a pas pu être modifié.",
+  staffLoyaltySettings: "Réglages du programme",
+  staffLoyaltySettingsHint:
+    "Ce sont des décisions tarifaires — ce que vaut une commande et ce qu'une récompense vous coûte. Les changements s'appliquent aux points cumulés à partir de maintenant.",
+  staffLoyaltySave: "Enregistrer les réglages",
+  staffLoyaltySaved: "Réglages de fidélité enregistrés.",
+  staffLoyaltySaveFailed: "Les réglages de fidélité n'ont pas pu être enregistrés.",
+  staffLoyaltyBadNumber: "Saisissez un nombre entier, {max} au maximum.",
+  staffLoyaltyBadAmount: "Saisissez un montant, {max} au maximum.",
+  staffLoyaltyMonthsHint:
+    "0 signifie que la récompense expire à la fin du mois où elle a été obtenue.",
+
+  /* Nom et description d'un plat, modifiables depuis le comptoir. */
+  staffItemName: "Nom du plat",
+  staffItemDescription: "Description",
+  staffItemDescriptionHint:
+    "Ce que vos clients lisent sous le nom. Laissez vide pour n'en mettre aucune.",
+  staffNameInvalid: "Un plat a besoin d'un nom, 120 caractères au maximum.",
+  staffDescriptionInvalid: "Cette description est trop longue — 2000 caractères au maximum.",
+
+  /* La photo du plat, changée depuis le comptoir. */
+  staffItemPhoto: "Photo",
+  staffAddPhoto: "Ajouter une photo",
+  staffChangePhoto: "Changer la photo",
+  staffRemovePhoto: "Retirer la photo",
+  staffRemovePhotoConfirm: "Vos clients verront ce plat sans image.",
+  staffPhotoHint: "Vos clients la voient sur la carte. Les grandes photos sont réduites à l'envoi.",
+  staffPhotoUploading: "Envoi de la photo …",
+  staffPhotoRemoving: "Suppression de la photo …",
+  staffPhotoFailed: "Cette photo n'a pas pu être enregistrée. Veuillez réessayer.",
+  staffPhotoInvalid: "Ce fichier n'est pas une photo utilisable — JPEG, PNG ou WebP.",
+  staffPhotoTooLarge: "Cette photo est trop lourde — 10 Mo au maximum.",
+  staffPhotoDenied: "Sans accès à vos photos, nous ne pouvons pas changer la photo du plat.",
+
+  /* Ouvert/fermé, dans l'en-tête de l'application. */
+  venueOpen: "Ouvert",
+  venueClosed: "Fermé",
+
+  /* D'où vient la photo jointe à un problème. */
+  issuePhotoCamera: "Prendre une photo",
+  issuePhotoLibrary: "Choisir dans la photothèque",
+  issueCameraDenied:
+    "L'appareil photo n'est pas autorisé pour cette application. Vous pouvez l'activer dans les Réglages.",
+
+  /* Demande d'un avis Google, une fois la commande terminée. */
+  reviewCta: "Alors, c'était comment ? Notez-nous sur Google ★",
+  reviewCtaSub: "Cela prend une minute et nous aide vraiment beaucoup.",
+
+  boardCancelDisabled: "L'annulation depuis l'application est désactivée dans le tableau de bord.",
+  daysShort: ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+  days: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+  typeLabels: { dine_in: "Sur place", takeaway: "À emporter", delivery: "Livraison" },
+  allergens: {
+    gluten: "gluten",
+    crustaceans: "crustacés",
+    eggs: "œufs",
+    fish: "poisson",
+    peanuts: "arachides",
+    soybeans: "soja",
+    milk: "lait",
+    nuts: "fruits à coque",
+    celery: "céleri",
+    mustard: "moutarde",
+    sesame: "sésame",
+    sulphites: "sulfites",
+    lupin: "lupin",
+    molluscs: "mollusques",
+  },
+  dietary: {
+    vegetarian: "Végétarien",
+    vegan: "Végétalien",
+    gluten_free: "Sans gluten",
+    dairy_free: "Sans lactose",
+    halal: "Halal",
+  },
+};
+
 const it: Strings = {
   restaurant: "RISTORANTE",
   featCuisine: "Cucina\nautentica",
@@ -1306,6 +1889,11 @@ const it: Strings = {
   dishMore: "Dettagli",
   reserveBtn: "Prenota un tavolo",
   reserveSub: "Assicurati un posto da noi",
+  reserveShort: "Prenota",
+  complainShort: "Reclamo",
+  complainSub: "Sul tuo ultimo ordine",
+  complainNoOrdersTitle: "Nessun ordine",
+  complainNoOrdersBody: "Un reclamo parte sempre da un ordine. Effettua prima un ordine.",
   reserveTitle: "Prenota un tavolo",
   reserveLead: "Scegli data e ora — mostriamo solo gli orari in cui siamo aperti.",
   resDate: "Data",
@@ -1869,6 +2457,11 @@ const es: Strings = {
   dishMore: "Detalles",
   reserveBtn: "Reservar mesa",
   reserveSub: "Reserva tu sitio con nosotros",
+  reserveShort: "Reservar",
+  complainShort: "Reclamación",
+  complainSub: "Sobre tu último pedido",
+  complainNoOrdersTitle: "Aún no hay pedidos",
+  complainNoOrdersBody: "Una reclamación parte de un pedido. Haz primero un pedido.",
   reserveTitle: "Reservar mesa",
   reserveLead: "Elige fecha y hora — solo mostramos las horas en las que estamos abiertos.",
   resDate: "Fecha",
@@ -2429,6 +3022,11 @@ const ar: Strings = {
   dishMore: "التفاصيل",
   reserveBtn: "احجز طاولة",
   reserveSub: "احجز مكانك لدينا",
+  reserveShort: "احجز",
+  complainShort: "شكوى",
+  complainSub: "بخصوص طلبك الأخير",
+  complainNoOrdersTitle: "لا توجد طلبات بعد",
+  complainNoOrdersBody: "تُقدَّم الشكوى على طلب معيّن. اطلب أولاً.",
   reserveTitle: "حجز طاولة",
   reserveLead: "اختر التاريخ والوقت — نعرض فقط الأوقات التي نكون فيها مفتوحين.",
   resDate: "التاريخ",
@@ -2935,7 +3533,7 @@ const ar: Strings = {
   },
 };
 
-const STRINGS: Record<Lang, Strings> = { en, de, it, es, ar };
+const STRINGS: Record<Lang, Strings> = { de, en, fr, es, it, ar };
 
 /** What the venue told us about its languages (from /api/v1/menu). */
 export interface VenueLocales {
@@ -2948,32 +3546,50 @@ interface I18nApi {
   t: Strings;
   dir: Dir;
   /** Locales this venue enabled that the app also has copy for. Falls
-   *  back to all five until the menu has loaded. */
+   *  back to the whole catalogue until the menu has loaded. */
   available: readonly Lang[];
   setLang: (lang: Lang) => void;
-  /** Called once the menu is known, so the picker and the device default
-   *  can be narrowed to what the restaurant actually serves. */
+  /** Called once the menu is known, so the picker and the default can be
+   *  narrowed to what the restaurant actually serves. */
   applyVenueLocales: (venue: VenueLocales) => void;
+  /**
+   * The language on the signed-in guest's ACCOUNT (`/api/v1/me`).
+   *
+   * Outranks everything else: the device language, the venue default,
+   * and this device's own stored choice — which is then overwritten to
+   * match, so signing out leaves the guest in the language they were
+   * just using rather than snapping back. Null/unknown/not-offered is a
+   * no-op, which is what a guest who never picked one looks like.
+   */
+  applyProfileLocale: (locale: string | null | undefined) => void;
 }
 
 const I18nContext = createContext<I18nApi | null>(null);
 const KEY = "rangla-lang";
 
 /**
- * The device's own language, narrowed to what the venue offers: the
- * first device language present in (enabledLocales ∩ this catalogue),
- * else the venue's default locale when we have copy for it, else
- * English. No AsyncStorage here — this is only the value used until (or
- * unless) the guest picks one explicitly.
+ * The language to use when the guest has not chosen one, narrowed to
+ * what the venue offers.
+ *
+ * Order: the VENUE's own default locale, then the device's languages,
+ * then English, then whatever is left. No AsyncStorage here — this is
+ * only the value used until (or unless) the guest picks one.
+ *
+ * The venue default leads deliberately. This used to try the device
+ * first, which meant a German restaurant greeted an English-phone
+ * tourist in English while its dish names — the half the restaurant
+ * actually authors — were still German unless the owner had filled in
+ * an English translation row. One language for the whole app, and the
+ * house's own is the one guaranteed complete.
  */
 export function deviceDefault(pool: readonly Lang[], venueDefault?: string | null): Lang {
   const choices = pool.length > 0 ? pool : LANG_CODES;
+  const house = toLang(venueDefault);
+  if (house && choices.includes(house)) return house;
   for (const entry of Localization.getLocales()) {
     const match = toLang(entry.languageCode ?? entry.languageTag);
     if (match && choices.includes(match)) return match;
   }
-  const fallback = toLang(venueDefault);
-  if (fallback && choices.includes(fallback)) return fallback;
   return choices.includes("en") ? "en" : (choices[0] ?? "en");
 }
 
@@ -2989,10 +3605,19 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
    *  overwrite `lang` or we'd race the guest's own preference. */
   const [booted, setBooted] = useState(false);
   const venueRef = useRef<VenueLocales | null>(null);
+  /** The signed-in guest's account language, once `/api/v1/me` has
+   *  answered. A ref because it must survive a late boot and a late
+   *  menu, both of which re-decide `lang`. */
+  const profileLang = useRef<Lang | null>(null);
+  /** `available` for the callbacks, which must stay identity-stable. */
+  const availableRef = useRef<readonly Lang[]>(LANG_CODES);
 
   useEffect(() => {
     AsyncStorage.getItem(KEY)
       .then((saved) => {
+        // The account language already won — do not undo it with the
+        // value this device happened to have cached.
+        if (profileLang.current) return;
         if (isLang(saved)) {
           chosen.current = true;
           setLangState(saved);
@@ -3040,14 +3665,47 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
     // Keep the catalogue's own order so the picker never reshuffles, and
     // never end up with an empty list (an old server sends neither field).
     const pool = enabled.length > 0 ? LANG_CODES.filter((c) => enabled.includes(c)) : LANG_CODES;
+    availableRef.current = pool;
     setAvailable((current) =>
       current.length === pool.length && current.every((c, i) => c === pool[i]) ? current : pool,
     );
-    setLangState((current) =>
-      // An explicit choice wins — unless the restaurant switched that
-      // language off, in which case fall back rather than show gaps.
-      chosen.current && pool.includes(current) ? current : deviceDefault(pool, venue.defaultLocale),
-    );
+    setLangState((current) => {
+      // The signed-in guest's account language outranks this device.
+      const account = profileLang.current;
+      if (account && pool.includes(account)) return account;
+      // Otherwise an explicit choice wins — unless the restaurant
+      // switched that language off, in which case fall back rather than
+      // show gaps.
+      return chosen.current && pool.includes(current)
+        ? current
+        : deviceDefault(pool, venue.defaultLocale);
+    });
+  }, []);
+
+  /**
+   * Apply the language from the signed-in guest's profile.
+   *
+   * Ranked above the stored device choice on purpose: the account is the
+   * thing that follows the guest between their phone and their tablet,
+   * so it is what "my language" means once they are signed in. The local
+   * key is rewritten to match so signing out is not a language change.
+   *
+   * Deliberately stable (refs, not state, in the closure): `auth.tsx`
+   * calls this from an effect keyed on the profile, and a changing
+   * identity would re-run it on every render.
+   */
+  const applyProfileLocale = useCallback((locale: string | null | undefined) => {
+    const next = toLang(locale);
+    // A profile with no language, or one this build has no copy for, is
+    // simply no opinion — not a reason to change anything.
+    if (!next) return;
+    profileLang.current = next;
+    // Before the menu lands `availableRef` is the whole catalogue, so
+    // this is permissive early and narrows once the venue is known.
+    if (!availableRef.current.includes(next)) return;
+    chosen.current = true;
+    setLangState(next);
+    AsyncStorage.setItem(KEY, next).catch(() => {});
   }, []);
 
   const applyVenueLocales = useCallback(
@@ -3075,8 +3733,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
         AsyncStorage.setItem(KEY, next).catch(() => {});
       },
       applyVenueLocales,
+      applyProfileLocale,
     }),
-    [lang, available, applyVenueLocales],
+    [lang, available, applyVenueLocales, applyProfileLocale],
   );
   return <I18nContext.Provider value={api}>{children}</I18nContext.Provider>;
 }

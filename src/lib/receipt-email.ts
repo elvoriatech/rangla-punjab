@@ -26,8 +26,12 @@ export async function sendReceiptEmailForOrder(
     if (!order) return { sent: false, reason: "not_found" };
     if (!order.customerEmail) return { sent: false, reason: "no_email" };
 
-    // Venue language, collapsed to a locale we have a catalogue for.
-    const locale = uiLocale(order.venue.defaultLocale);
+    // The signed-in guest's own language when they have set one, else
+    // the venue's — collapsed to a locale we have a catalogue for. It
+    // picks the email copy AND rides the two links below, so the receipt
+    // PDF and the tracker page open in the same language as the mail.
+    // An anonymous order has no profile to ask, so it gets the venue's.
+    const locale = uiLocale(order.customerLocale ?? order.venue.defaultLocale);
     const token = signReceiptToken(order.id, tenantId);
     const base = siteUrl();
     const receiptUrl = `${base}/api/orders/${encodeURIComponent(order.id)}/receipt?token=${encodeURIComponent(token)}&locale=${locale}`;

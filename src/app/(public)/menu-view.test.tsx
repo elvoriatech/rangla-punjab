@@ -661,9 +661,16 @@ describe("MenuView localisation", () => {
     expect(html).toContain("Allergeninformationen");
   });
 
-  it("falls back to English chrome for a venue locale without a catalogue", () => {
-    // `fr` is a venue locale with no guest-copy catalogue (locales.ts).
+  it("French menu keeps the formal register", () => {
     const html = renderToStaticMarkup(<MenuView menu={localised("fr")} />);
+    expect(html).toContain("Tous les régimes");
+    expect(html).not.toContain("All diets");
+  });
+
+  it("falls back to English chrome for a venue locale without a catalogue", () => {
+    // `nl` is a venue locale with no guest-copy catalogue (locales.ts).
+    // This probe was `fr` until French was promoted to a full UI locale.
+    const html = renderToStaticMarkup(<MenuView menu={localised("nl")} />);
     expect(html).toContain("All diets");
   });
 
@@ -684,11 +691,17 @@ describe("MenuView localisation", () => {
 
 describe("MENU_COPY", () => {
   it("resolves every UI locale, including region tags and unknown codes", () => {
-    expect(UI_LOCALES).toEqual(["en", "de", "it", "es", "ar"]);
+    // Pins the ORDER as well as the membership: `LOCALES` in locales.ts
+    // is what the settings UI, the footer switcher and the app picker all
+    // sort by, so a reshuffle there is a visible change everywhere and
+    // has to be made deliberately.
+    expect(UI_LOCALES).toEqual(["de", "en", "fr", "es", "it", "ar"]);
     for (const l of UI_LOCALES) expect(menuCopy(l)).toBe(MENU_COPY[l]);
     expect(menuCopy("en-GB")).toBe(MENU_COPY.en);
     expect(menuCopy("ar-EG")).toBe(MENU_COPY.ar);
-    expect(menuCopy("fr")).toBe(MENU_COPY.en);
+    expect(menuCopy("fr-CA")).toBe(MENU_COPY.fr);
+    // `nl` is a venue locale with no catalogue — English chrome.
+    expect(menuCopy("nl")).toBe(MENU_COPY.en);
     expect(menuCopy(null)).toBe(MENU_COPY.en);
   });
 

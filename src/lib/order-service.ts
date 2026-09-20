@@ -509,6 +509,11 @@ export interface ReceiptOrder extends OrderFulfilment {
   orderNumber: number;
   tableNumber: string | null;
   customerEmail: string | null;
+  /** The signed-in guest's own UI language, when this order has one.
+   *  Outranks the venue default for the receipt email + PDF: a regular
+   *  who set the app to French should be mailed in French. Null for an
+   *  anonymous order, or a guest who never chose. */
+  customerLocale?: string | null;
   paymentStatus: string;
   paymentProvider: string | null;
   /** Loyalty reward applied to this order (0 = none). The item lines keep
@@ -557,6 +562,9 @@ export async function getOrderForReceipt(
         currency: true,
         createdAt: true,
         venue: { select: { name: true, slug: true, branding: true, defaultLocale: true } },
+        // Only the language — the receipt already carries the guest's
+        // name, phone and address from the order row itself.
+        customer: { select: { locale: true } },
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
@@ -573,6 +581,7 @@ export async function getOrderForReceipt(
     return {
       ...order,
       deliveryAddress: order.deliveryAddress as ReceiptOrder["deliveryAddress"],
+      customerLocale: order.customer?.locale ?? null,
       venue: {
         name: order.venue.name,
         slug: order.venue.slug,

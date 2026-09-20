@@ -357,6 +357,167 @@ const de: PostOrderCopy = {
   },
 };
 
+/** French addresses the guest formally ("vous"), the register a French
+ *  restaurant uses with its guests. French punctuation wants a space
+ *  before « : ; ! ? » — a plain U+0020, never a narrow no-break space,
+ *  so the string stays predictable in tests and in the PDF. */
+const fr: PostOrderCopy = {
+  trackTitle: "Suivre votre commande",
+  orderHeading: (n) => `Commande n° ${n}`,
+  tableSuffix: (table) => ` · Table ${table}`,
+  steps: {
+    confirmed: "Confirmée",
+    preparing: "En préparation",
+    ready: "Prête",
+    readyForPickup: "Prête à emporter",
+    onTheWay: "En route",
+    served: "Servie",
+    pickedUp: "Retirée",
+    delivered: "Livrée",
+  },
+  reward: "Bon",
+  total: "Total",
+  payment: "Paiement",
+  paidOnline: "✓ Payée en ligne",
+  paidWithReward: "✓ Payée avec votre bon",
+  payAtRestaurant: "Paiement au restaurant",
+  autoRefresh: "Cette page s'actualise automatiquement toutes les 15 secondes.",
+  backToMenu: "Retour à la carte",
+
+  net: "Montant HT",
+  vatLine: (rate) => `TVA ${rate} % (incluse)`,
+  paid: "Payée ✓",
+  showAtRestaurant:
+    "Présentez cet écran au restaurant si besoin : la cuisine voit la commande comme payée.",
+  backToApp: "Retour à l'appli",
+  signedIn: "Vous êtes connecté",
+  closeWindow: "Vous pouvez fermer cette fenêtre.",
+  downloadReceipt: "Télécharger le reçu (PDF)",
+  // ASCII on purpose: this lands in a file name, so "reçu" is out.
+  receiptFilePrefix: "ticket",
+  paused: "Commandes suspendues",
+  pausedBody:
+    "Les paiements en ligne sont suspendus pour l'instant. Merci de régler au restaurant ou de réessayer plus tard.",
+  incompleteLink:
+    "Ce lien de paiement est incomplet — merci de recommencer depuis la confirmation de votre commande.",
+  payAmount: (amount) => `Payer ${amount}`,
+  processing: "Traitement en cours…",
+  payFailed: "Le paiement n'a pas abouti — merci de réessayer.",
+  testPayPage: "Page de paiement de test — en production, Stripe héberge cette étape",
+  payWithPaypal: "Payer avec PayPal",
+  openingPaypal: "Ouverture de PayPal…",
+  paypalFailed: "PayPal n'a pas démarré — merci de réessayer.",
+  reservationsTitle: "Mes réservations",
+  reservationsEmpty: "Aucune demande de table avec ce compte pour le moment.",
+  reservationGuestsOne: "1 personne",
+  reservationGuestsMany: (n) => `${n} personnes`,
+  reservationRequestedOn: (when) => `Demandée le ${when}`,
+  reservationNote: "Remarque",
+  reservationStatus: {
+    requested: "En attente de confirmation",
+    confirmed: "Confirmée",
+    declined: "Refusée",
+    cancelled: "Annulée",
+  },
+  reservationHint: {
+    requested: "Le restaurant vous appellera pour confirmer cette table.",
+    confirmed: "Votre table est réservée — à très bientôt.",
+    declined: "Le restaurant n'a pas pu retenir ce créneau. Merci d'en choisir un autre.",
+    cancelled: "Cette réservation a été annulée.",
+  },
+
+  issue: {
+    title: "Un souci avec votre commande ?",
+    intro: "Dites-le au restaurant. Il le voit aussitôt et vous répond ici même.",
+    threadTitle: "Votre signalement",
+    bodyLabel: "Votre message",
+    placeholder: "Qu'est-ce qui n'a pas été avec cette commande ?",
+    addPhoto: "Ajouter une photo (facultatif)",
+    photoHint: "JPG, PNG ou WebP, jusqu'à 5 Mo.",
+    send: "Envoyer au restaurant",
+    replyLabel: "Votre réponse",
+    replyPlaceholder: "Ajouter quelque chose à ce signalement…",
+    replySend: "Envoyer la réponse",
+    reportLink: "Signaler un problème",
+    replyLink: "Répondre",
+    pausedNote: "L'actualisation automatique est suspendue pendant que vous écrivez.",
+    backToTracking: "Retour au suivi en direct",
+    youLabel: "Vous",
+    restaurantLabel: "Restaurant",
+    photoAlt: (who) => `Photo envoyée par ${who}`,
+    statusLabels: {
+      open: "En attente du restaurant",
+      answered: "Le restaurant a répondu",
+      resolved: "Résolu",
+    },
+    sent: "Merci — votre message est bien arrivé au restaurant.",
+    windowClosed:
+      "Le délai pour signaler un problème sur cette commande est écoulé — merci d'appeler le restaurant.",
+    resolvedNote:
+      "Le restaurant a marqué ce signalement comme résolu. Appelez-le si quelque chose ne va toujours pas.",
+    errors: {
+      invalid: "Merci d'écrire d'abord un message (2000 caractères maximum).",
+      invalidPhoto: "La photo doit être une image JPG, PNG ou WebP.",
+      tooLarge: "Cette photo dépasse 5 Mo — merci d'en envoyer une plus légère.",
+      windowClosed: "Le délai pour signaler un problème sur cette commande est écoulé.",
+      resolved: "Ce signalement est clos. Merci d'appeler le restaurant.",
+      notFound: "Nous n'avons pas trouvé cette commande.",
+      failed: "Votre message n'est pas parti — merci de réessayer.",
+    },
+  },
+
+  cancelledTitle: "Cette commande a été annulée",
+  cancelledBody:
+    "Le restaurant a annulé cette commande : rien n'est en préparation. Si vous aviez déjà payé, le restaurant vous remboursera — appelez-le si quelque chose n'est pas clair.",
+
+  required: {
+    mark: "(obligatoire)",
+    legend: "* champ obligatoire",
+  },
+
+  review: {
+    title: "Alors, c'était comment ?",
+    cta: "Donnez-nous votre avis sur Google ★",
+    newTab: "ouvre Google dans un nouvel onglet",
+    short: "Avis sur Google",
+  },
+
+  contact: {
+    title: "Contacter le restaurant",
+    intro: "Une question sur une commande, ou une table pour ce soir ? Appelez-nous directement.",
+    landline: "Appeler le fixe",
+    mobile: "Appeler le mobile",
+    whatsapp: "WhatsApp",
+    whatsappAria: (number) => `Écrire au ${number} sur WhatsApp (ouvre WhatsApp)`,
+  },
+
+  password: {
+    forgotLink: "Mot de passe oublié ?",
+    forgotTitle: "Mot de passe oublié ?",
+    forgotIntro:
+      "Indiquez l'adresse e-mail avec laquelle vous commandez : nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+    emailLabel: "E-mail",
+    sendLink: "Envoyez-moi le lien",
+    sent: "Si un compte existe pour cette adresse, le lien est déjà en route. Il ne fonctionne qu'une seule fois et expire au bout de 60 minutes.",
+    resetTitle: "Choisir un nouveau mot de passe",
+    resetIntro:
+      "Choisissez un mot de passe d'au moins 8 caractères. L'enregistrer vous déconnecte de tous vos autres appareils.",
+    newLabel: "Nouveau mot de passe",
+    confirmLabel: "Répétez le mot de passe",
+    save: "Enregistrer le nouveau mot de passe",
+    changedTitle: "Mot de passe modifié",
+    changedBody: "Votre mot de passe a été modifié — connectez-vous avec le nouveau.",
+    backToAccount: "Retour à mon compte",
+    backToSignIn: "Retour à la connexion",
+    errors: {
+      invalid: "Choisissez un mot de passe d'au moins 8 caractères.",
+      mismatch: "Les deux mots de passe ne correspondent pas — merci de les saisir à nouveau.",
+      expired: "Ce lien a déjà été utilisé, ou il a expiré. Merci d'en demander un nouveau.",
+      failed: "Cela n'a pas fonctionné — merci de réessayer.",
+    },
+  },
+};
+
 const es: PostOrderCopy = {
   trackTitle: "Seguimiento del pedido",
   orderHeading: (n) => `Pedido n.º ${n}`,
@@ -818,7 +979,7 @@ const ar: PostOrderCopy = {
   },
 };
 
-export const POST_ORDER_COPY: Record<UiLocale, PostOrderCopy> = { en, de, es, it, ar };
+export const POST_ORDER_COPY: Record<UiLocale, PostOrderCopy> = { de, en, fr, es, it, ar };
 
 /** Post-order copy for a venue/route locale (region tags collapse, unknown
  *  codes fall back to English). */

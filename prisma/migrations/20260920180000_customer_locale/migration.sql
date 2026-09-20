@@ -1,0 +1,18 @@
+-- migration:expand
+--
+-- The guest's own UI language, on their account rather than on the
+-- handset. The mobile app's language used to be guessed from the device
+-- and stored only in AsyncStorage, so a regular who set it to French
+-- once got German again on their tablet, and again after a reinstall.
+--
+-- EXPAND-only and additive: the column is nullable with no default, no
+-- existing row changes, and every reader treats NULL as "never chosen"
+-- (fall back to the venue's default locale, then the device language).
+-- Nothing writes it until the client that reads it ships, so this is
+-- safe to deploy ahead of the app.
+--
+-- VARCHAR(8) holds a BCP-47 tag with a region subtag ("pt-BR") even
+-- though `LOCALE_CODES` currently only ever writes a bare language code;
+-- the API validates against that list, so the width is headroom, not a
+-- second contract.
+ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "locale" VARCHAR(8);

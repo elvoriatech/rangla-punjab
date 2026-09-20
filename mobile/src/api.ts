@@ -853,6 +853,44 @@ export interface PaymentIntentInfo {
   merchantName: string;
 }
 
+/**
+ * The venue's wallet setup, WITHOUT an order to pay for.
+ *
+ * `GET /api/v1/pay/wallet-config` answers the same publishable key the
+ * PaymentIntent would carry — which is what lets the app initialise the
+ * Stripe SDK before there is anything to charge. `publishableKey: null`
+ * is the normal, safe answer (no Stripe account, a fake provider, a
+ * Connect fee model): it means "no wallet button".
+ *
+ * Every failure — offline, a server that predates the route (404), a
+ * body that isn't what we expect — collapses to the same null answer.
+ * A guest opening the cart must never see an error because a wallet
+ * probe could not reach the server.
+ */
+export interface WalletConfig {
+  publishableKey: string | null;
+  applePay: boolean;
+  /** Merchant country for the payment request, e.g. "DE". */
+  country: string;
+}
+
+export async function fetchWalletConfig(): Promise<WalletConfig> {
+  const off: WalletConfig = { publishableKey: null, applePay: false, country: "DE" };
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/pay/wallet-config`);
+    if (!res.ok) return off;
+    const body = (await res.json().catch(() => null)) as Partial<WalletConfig> | null;
+    if (!body) return off;
+    return {
+      publishableKey: typeof body.publishableKey === "string" ? body.publishableKey : null,
+      applePay: body.applePay === true,
+      country: typeof body.country === "string" && body.country ? body.country : "DE",
+    };
+  } catch {
+    return off;
+  }
+}
+
 export async function createPaymentIntent(
   orderId: string,
   token: string,
@@ -977,9 +1015,24 @@ export async function startPaypal(
   }
 }
 
-export function payPageUrl(orderId: string, token: string, appReturnUrl?: string): string {
+/**
+ * Our own hosted pay page, as a fallback when the native sheet and the
+ * provider-hosted checkout are both unavailable.
+ *
+ * `locale` matters: the page is fully server-rendered prose, and without
+ * it a French guest is bounced to a German one (it falls back to the
+ * venue's default locale). The page reads the same `?locale=` the menu
+ * endpoint does.
+ */
+export function payPageUrl(
+  orderId: string,
+  token: string,
+  appReturnUrl?: string,
+  locale?: string,
+): string {
   const app = appReturnUrl ? `&app=${encodeURIComponent(appReturnUrl)}` : "";
-  return `${BASE_URL}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}${app}`;
+  const lang = locale ? `&locale=${encodeURIComponent(locale)}` : "";
+  return `${BASE_URL}/pay/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}${app}${lang}`;
 }
 
 /** The receipt PDF is rendered server-side; `locale` picks the copy (the

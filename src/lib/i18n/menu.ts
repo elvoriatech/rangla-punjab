@@ -362,6 +362,155 @@ const de: MenuCopy = {
   },
 };
 
+/** French addresses the guest formally ("vous"), the register a French
+ *  restaurant uses with its guests. French punctuation wants a space
+ *  before « : ; ! ? » — a plain U+0020, never a narrow no-break space,
+ *  so the string stays predictable in tests and in the PDF. */
+const fr: MenuCopy = {
+  nav: {
+    categories: "Catégories",
+    dietaryFilter: "Filtre alimentaire",
+    language: "Langue",
+    all: "Tout",
+    allDiets: "Tous les régimes",
+  },
+  offers: {
+    title: "Offres",
+    tab: "Offres",
+    count: (n) => (n === 1 ? "1 plat en promotion" : `${n} plats en promotion`),
+  },
+  badges: {
+    open: "Ouvert",
+    until: (time) => `jusqu'à ${time}`,
+    closed: "Fermé",
+    opensAt: (day, time) => `Ouvre ${day} à ${time}`,
+    unavailable: "indisponible",
+    offer: "Offre",
+    regularPrice: "prix habituel",
+    offerPrice: "prix promotionnel",
+    price: "prix",
+    spicyTitle: (level) => `Épicé — niveau ${level} sur 3`,
+    spicyLevel: (level) => `Épicé, niveau ${level} sur 3`,
+  },
+  rating: {
+    write: "Laisser un avis",
+    writeAria: "Laisser un avis Google (s'ouvre dans un nouvel onglet)",
+    summary: (value, count) => `Note de ${value} sur 5, sur ${count} avis Google`,
+  },
+  privacy: {
+    title: "Votre vie privée",
+    body: "Cette carte ne dépose aucun cookie de suivi. Votre panier et ce choix sont enregistrés uniquement sur votre appareil.",
+    link: "Politique de confidentialité",
+    ok: "J'ai compris",
+  },
+  diets: {
+    vegan: "Végan",
+    vegetarian: "Végétarien",
+    gluten_free: "Sans gluten",
+    dairy_free: "Sans produits laitiers",
+    halal: "Halal",
+    kosher: "Casher",
+  },
+  allergens: {
+    info: "Informations sur les allergènes",
+    infoFor: (dish) => `Informations sur les allergènes — ${dish}`,
+    heading: "Allergènes",
+    contains: "Contient",
+    traces: "Peut contenir des traces de",
+    close: "Fermer",
+  },
+  dish: {
+    more: "Détails",
+    moreAbout: (dish) => `En savoir plus sur ${dish}`,
+    close: "Fermer",
+  },
+  reserve: {
+    buttonShort: "Réserver",
+    buttonLong: "Réserver une table",
+    title: "Réserver une table",
+    holdNote: "Nous gardons votre table pendant 15 minutes après l'heure réservée.",
+    close: "Fermer",
+    received: "Demande bien reçue !",
+    confirmByPhone: "Le restaurant vous confirmera votre réservation par téléphone sous peu.",
+    done: "Terminé",
+    date: "Date",
+    time: "Heure",
+    guests: "Convives",
+    name: "Nom",
+    phone: "Téléphone",
+    note: "Remarque (facultatif)",
+    select: "Choisir…",
+    pickDateFirst: "Choisissez d'abord une date",
+    guestCount: (n) => (n === 1 ? "1 personne" : `${n} personnes`),
+    notePlaceholder: "Anniversaire, table près de la fenêtre, poussette…",
+    sending: "Envoi en cours…",
+    submit: "Demander une réservation",
+    noPayment: "Aucun paiement requis — le restaurant confirme par téléphone.",
+    errorRateLimited: "Trop de demandes — merci de réessayer dans un instant.",
+    errorInvalidTime: "Ce créneau vient d'être pris — merci d'en choisir un autre.",
+    errorGeneric: "Une erreur est survenue — merci de réessayer ou de nous appeler.",
+    requiredMark: "(obligatoire)",
+    requiredLegend: "* champ obligatoire",
+  },
+  emptyStates: {
+    noDishesInSection: "Aucun plat dans cette section.",
+    noDietMatch:
+      "Aucun plat ne correspond à tous les régimes choisis. Décochez un filtre ci-dessus pour en voir davantage.",
+    emptyMenu: "La carte n'est pas encore en ligne — le restaurant est en train de la composer.",
+  },
+  banners: {
+    orderingPaused: "La commande en ligne est suspendue pour l'instant — revenez d'ici peu.",
+    draftPreview:
+      "Aperçu du brouillon — votre lien privé. Les clients ne voient que ce que vous publiez.",
+  },
+  footer: {
+    poweredBy: (brand) => `Propulsé par ${brand} · Cartes numériques`,
+    acceptedPayments: "Moyens de paiement acceptés",
+  },
+  contact: {
+    title: "Nous contacter",
+    landline: "Appeler le fixe",
+    mobile: "Appeler le mobile",
+    whatsapp: "WhatsApp",
+    callAria: (label, number) => `${label} : ${number}`,
+    whatsappAria: (number) => `Écrire au ${number} sur WhatsApp (ouvre WhatsApp)`,
+  },
+  app: {
+    navLabel: "Appli",
+    navAria: "Obtenir l'appli — aller aux liens de téléchargement",
+    title: "Obtenir l'appli",
+    blurb: "Commandez en un geste, gardez vos favoris et suivez votre commande.",
+    iosTop: "Disponible sur",
+    iosName: "App Store",
+    androidTop: "Disponible sur",
+    androidName: "Google Play",
+    storeAria: (badge) => `${badge} (s'ouvre dans un nouvel onglet)`,
+    apk: "Télécharger l'application Android (.apk)",
+    apkHint: "Android vous demandera d'autoriser l'installation.",
+  },
+  hero: {
+    welcomeAria: "Bienvenue",
+    welcomeTo: "Bienvenue chez",
+    tagline:
+      "Cuisiné minute, servi sans attendre — parcourez la carte et commandez depuis votre téléphone.",
+    orderNow: "Commander ↓",
+    features: [
+      { title: "Servi sans attendre", sub: "Droit sorti de la cuisine" },
+      { title: "Qualité au rendez-vous", sub: "Des produits frais" },
+      { title: "Des prix justes", sub: "Tous les jours" },
+    ],
+    categoriesHeading: "Nos catégories",
+    categoriesAria: "Catégories en images",
+    dishCount: (n) => (n === 1 ? "1 plat" : `${n} plats`),
+  },
+  metadata: {
+    title: (venue) => `${venue} — Carte`,
+    description: (venue) =>
+      `Carte de ${venue}. Plats, prix, allergènes et informations sur les régimes alimentaires.`,
+    srHeading: (venue) => `Carte de ${venue}`,
+  },
+};
+
 /** Neutral European Spanish, formal "usted" — a guest is a guest. */
 const es: MenuCopy = {
   nav: {
@@ -815,7 +964,7 @@ const ar: MenuCopy = {
   },
 };
 
-export const MENU_COPY: Record<UiLocale, MenuCopy> = { en, de, es, it, ar };
+export const MENU_COPY: Record<UiLocale, MenuCopy> = { de, en, fr, es, it, ar };
 
 /**
  * Catalogue for a venue/route locale. Region tags collapse ("en-GB" →

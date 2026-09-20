@@ -11,6 +11,7 @@ import {
 import { authenticateCustomer, customerToken } from "@/lib/customer-request";
 import { resolvePreviewContext } from "@/lib/preview-context";
 import { checkRateLimit, type RateLimitConfig } from "@/lib/rate-limit";
+import { isLocaleCode } from "@/lib/locales";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { signReceiptToken } from "@/lib/receipt-token";
 import { asTenant } from "@/lib/tenant";
@@ -23,7 +24,8 @@ import { asTenant } from "@/lib/tenant";
  * on any device.
  *
  * PATCH /api/v1/me — the guest edits their own profile: display name,
- * phone, and the delivery address checkout prefills from. Same auth.
+ * phone, the delivery address checkout prefills from, and the UI
+ * language the app follows on every device. Same auth.
  * Ordering back-fills the same fields (order-service), so this is the
  * "correct what the last order guessed" surface, not the only writer.
  *
@@ -48,6 +50,11 @@ function profileBody(customer: CustomerProfile) {
     name: customer.name,
     phone: customer.phone,
     lastDeliveryAddress: customer.lastDeliveryAddress,
+    // The guest's language, on the ACCOUNT. The app applies it on
+    // sign-in and on session restore, so it beats both the device
+    // language and the venue default — and beats the device's own
+    // stored choice, which it then overwrites to match.
+    locale: customer.locale,
   };
 }
 
@@ -114,16 +121,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 /**
- * Only the three fields checkout reads. Email is deliberately absent —
- * it is the identity the IdP vouched for, not a profile field. An
- * omitted key leaves the field untouched; `lastDeliveryAddress: null`
- * clears it ("forget where I live"), which is why it is nullable and
- * name/phone are not.
+ * Only the fields the guest owns. Email is deliberately absent — it is
+ * the identity the IdP vouched for, not a profile field. An omitted key
+ * leaves the field untouched; `lastDeliveryAddress: null` clears it
+ * ("forget where I live") and `locale: null` clears the language
+ * preference, which is why those two are nullable and name/phone are not.
+ *
+ * `locale` is checked against `LOCALE_CODES` — the one registry — rather
+ * than against the UI-catalogue tier: a venue may enable a locale the
+ * app has no chrome for, and storing it is still the guest's own answer.
  */
 const patchSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
     phone: z.string().trim().min(3).max(40).optional(),
+    locale: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .refine(isLocaleCode, { message: "unknown locale" })
+      .nullable()
+      .optional(),
     lastDeliveryAddress: z
       .object({
         street: z.string().trim().min(3).max(120),

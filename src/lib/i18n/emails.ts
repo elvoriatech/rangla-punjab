@@ -74,6 +74,32 @@ const receiptDe: ReceiptCopy = {
   notInvoice: "Dies ist eine Bestellbestätigung, keine Rechnung.",
 };
 
+const receiptFr: ReceiptCopy = {
+  subject: (n, venue) => `Votre commande n° ${n} chez ${venue}`,
+  heading: (n) => `Commande n° ${n}`,
+  thanks: "Merci pour votre commande !",
+  table: "Table",
+  pickup: "Retrait",
+  delivery: "Livraison",
+  planned: "Prévue pour",
+  asap: "dès que possible",
+  reward: "Bon de fidélité",
+  net: "Montant HT",
+  vat: `TVA ${VAT_RATE_LABEL} % (incluse)`,
+  total: "Total",
+  vatNote: `Tous les prix s'entendent TVA de ${VAT_RATE_LABEL} % incluse.`,
+  paidCard: "Payé en ligne (carte bancaire).",
+  paidPaypal: "Payé en ligne (PayPal).",
+  paidVoucher: "Payé avec votre bon de fidélité — plus rien à régler.",
+  unpaidDineIn: "Le paiement s'effectue au restaurant.",
+  unpaidPickup: "Le paiement s'effectue au retrait.",
+  unpaidDelivery: "Le paiement s'effectue à la livraison.",
+  pdf: "Télécharger le reçu (PDF)",
+  track: "Suivre votre commande",
+  rate: "Donnez-nous votre avis sur Google",
+  notInvoice: "Ceci est une confirmation de commande, et non une facture.",
+};
+
 const receiptEs: ReceiptCopy = {
   subject: (n, venue) => `Tu pedido n.º ${n} en ${venue}`,
   heading: (n) => `Pedido n.º ${n}`,
@@ -155,6 +181,7 @@ const receiptAr: ReceiptCopy = {
 export const RECEIPT_COPY: Record<UiLocale, ReceiptCopy> = {
   en: receiptEn,
   de: receiptDe,
+  fr: receiptFr,
   es: receiptEs,
   it: receiptIt,
   ar: receiptAr,
@@ -217,6 +244,32 @@ const newOrderDe: NewOrderCopy = {
   placedAt: "Eingegangen",
   footer:
     "Diese Benachrichtigung geht an die Adressen unter Dashboard → Einstellungen → Bestellungen.",
+};
+
+const newOrderFr: NewOrderCopy = {
+  subject: (n, where, total) => `Nouvelle commande n° ${n} · ${where} · ${total}`,
+  heading: (n) => `Nouvelle commande n° ${n}`,
+  dineIn: "Sur place",
+  table: (t) => `Table ${t}`,
+  noTable: "sans numéro de table",
+  pickup: "Retrait",
+  delivery: "Livraison",
+  planned: "Souhaitée pour",
+  asap: "dès que possible",
+  guest: "Client",
+  phone: "Téléphone",
+  address: "Adresse",
+  addressNote: "Remarque sur l'adresse",
+  reward: "Bon de fidélité",
+  total: "Total",
+  paidCard: "Payé en ligne (carte bancaire) — rien à encaisser.",
+  paidPaypal: "Payé en ligne (PayPal) — rien à encaisser.",
+  paidVoucher: "Payé avec un bon de fidélité — rien à encaisser.",
+  unpaid: (total) => `Pas encore payé — encaisser ${total} sur place.`,
+  open: "Ouvrir la commande sur l'écran cuisine",
+  placedAt: "Reçue le",
+  footer:
+    "Cette alerte est envoyée aux adresses indiquées dans Tableau de bord → Réglages → Commandes.",
 };
 
 const newOrderEs: NewOrderCopy = {
@@ -297,6 +350,7 @@ const newOrderAr: NewOrderCopy = {
 export const NEW_ORDER_COPY: Record<UiLocale, NewOrderCopy> = {
   en: newOrderEn,
   de: newOrderDe,
+  fr: newOrderFr,
   es: newOrderEs,
   it: newOrderIt,
   ar: newOrderAr,
@@ -354,6 +408,23 @@ const newIssueDe: NewIssueCopy = {
     "Diese Benachrichtigung geht an die Adressen unter Dashboard → Einstellungen → Bestellungen.",
 };
 
+const newIssueFr: NewIssueCopy = {
+  subject: (n) => `Problème signalé sur la commande n° ${n}`,
+  eyebrow: "Réclamation client",
+  heading: (n) => `Un problème avec la commande n° ${n}`,
+  lead: "Un client signale que sa commande ne s'est pas passée comme prévu. Il attend votre réponse.",
+  pill: "Réponse attendue",
+  guest: "Client",
+  phone: "Téléphone",
+  placedAt: "Commande passée le",
+  reportedAt: "Signalé le",
+  message: "Ce qu'écrit le client",
+  photo: "Le client a joint une photo — ouvrez la conversation pour la voir.",
+  open: "Ouvrir la réclamation",
+  footer:
+    "Cette alerte est envoyée aux adresses indiquées dans Tableau de bord → Réglages → Commandes.",
+};
+
 const newIssueEs: NewIssueCopy = {
   subject: (n) => `Problema notificado en el pedido n.º ${n}`,
   eyebrow: "Reclamación",
@@ -405,6 +476,7 @@ const newIssueAr: NewIssueCopy = {
 export const NEW_ISSUE_COPY: Record<UiLocale, NewIssueCopy> = {
   en: newIssueEn,
   de: newIssueDe,
+  fr: newIssueFr,
   es: newIssueEs,
   it: newIssueIt,
   ar: newIssueAr,
@@ -453,6 +525,21 @@ const rewardDe: RewardCopy = {
   footer: "Sie erhalten diese E-Mail, weil Sie bei Ihren Bestellungen Punkte sammeln.",
 };
 
+const rewardFr: RewardCopy = {
+  subject: (value) => `Bravo ! Vous avez gagné un repas d'une valeur de ${value}`,
+  eyebrow: "Votre récompense",
+  heading: "Un repas offert 🎉",
+  lead: (value) =>
+    `Vous avez cumulé assez de points pour un repas offert d'une valeur de ${value}. Merci de votre fidélité !`,
+  whereToFind:
+    "Votre bon vous attend dans l'application, sous Compte → Récompenses. Ouvrez-le au moment de commander et nous nous occupons du reste.",
+  expiry: (date) => `Valable jusqu'au ${date}.`,
+  cta: "Voir mes récompenses",
+  keepGoing:
+    "Les points continuent de s'accumuler — la prochaine commande lance la prochaine récompense.",
+  footer: "Vous recevez cet e-mail parce que vous cumulez des points à chaque commande chez nous.",
+};
+
 const rewardEs: RewardCopy = {
   subject: (value) => `¡Hurra! Has ganado una comida de ${value}`,
   eyebrow: "Tu recompensa",
@@ -496,6 +583,7 @@ const rewardAr: RewardCopy = {
 export const REWARD_COPY: Record<UiLocale, RewardCopy> = {
   en: rewardEn,
   de: rewardDe,
+  fr: rewardFr,
   es: rewardEs,
   it: rewardIt,
   ar: rewardAr,
@@ -543,6 +631,18 @@ const guestResetDe: GuestResetCopy = {
     "Wenn Sie das nicht angefordert haben, ignorieren Sie diese E-Mail einfach — Ihr Passwort bleibt unverändert.",
 };
 
+const guestResetFr: GuestResetCopy = {
+  subject: (venue) => `Choisissez un nouveau mot de passe pour ${venue}`,
+  eyebrow: "Votre compte",
+  heading: "Choisissez un nouveau mot de passe",
+  lead: "Quelqu'un a demandé la réinitialisation du mot de passe de votre compte client. Si c'était bien vous, choisissez-en un nouveau ici :",
+  cta: "Choisir un nouveau mot de passe",
+  orPaste: "Ou copiez ce lien dans votre navigateur :",
+  expiry: "Le lien ne fonctionne qu'une seule fois et expire au bout de 60 minutes.",
+  ignore:
+    "Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet e-mail — votre mot de passe reste inchangé.",
+};
+
 const guestResetEs: GuestResetCopy = {
   subject: (venue) => `Elige una nueva contraseña para ${venue}`,
   eyebrow: "Tu cuenta",
@@ -581,6 +681,7 @@ const guestResetAr: GuestResetCopy = {
 export const GUEST_RESET_COPY: Record<UiLocale, GuestResetCopy> = {
   en: guestResetEn,
   de: guestResetDe,
+  fr: guestResetFr,
   es: guestResetEs,
   it: guestResetIt,
   ar: guestResetAr,

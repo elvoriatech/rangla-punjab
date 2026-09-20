@@ -83,6 +83,9 @@ export function TrackScreen({
   onBack: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
+  /** Step-rail wording in the guest's own language, keyed on the stable
+   *  `key` the status route ships alongside its German/English pair. */
+  const stepShort = t.statusShort as Record<string, string>;
   const [tracking, setTracking] = useState<ApiTracking | null>(null);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -182,7 +185,10 @@ export function TrackScreen({
     }
     if (outcome === "unavailable") {
       const hosted = await startHostedPayment(orderId, token);
-      await openPayPage(hosted.ok ? hosted.url : payPageUrl(orderId, token, deepLink), deepLink);
+      await openPayPage(
+        hosted.ok ? hosted.url : payPageUrl(orderId, token, deepLink, lang),
+        deepLink,
+      );
     } else if (outcome === "paid") {
       setConfirmed(true);
     } else if (outcome === "cancelled" || outcome === "failed") {
@@ -200,7 +206,7 @@ export function TrackScreen({
     setBanner(null);
     // One tap: the server hands back PayPal's approve URL and the
     // browser both opens on it and closes itself on the way back.
-    await payWithPaypal(orderId, token);
+    await payWithPaypal(orderId, token, lang);
     setBusy(false);
     reloadRef.current();
   }
@@ -292,12 +298,16 @@ export function TrackScreen({
                       </View>
                       <View style={{ flex: 1, paddingBottom: 18 }}>
                         {/* The server ships only German + English step
-                          labels. Show the one that matches the guest, and
-                          pair it with the other only for those two
-                          languages — a Spanish guest gains nothing from a
-                          German subtitle. */}
+                          labels, but it also ships a stable `key` — and
+                          this app has that key in all six languages. So
+                          the rail is worded HERE, exactly as the Orders
+                          list already does it, and the server's pair is
+                          only the fallback for a key this build has never
+                          heard of. The German/English subtitle survives
+                          for those two languages alone: a French guest
+                          gains nothing from a German second line. */}
                         <Text style={[styles.stepPrimary, !step.reached && { opacity: 0.5 }]}>
-                          {lang === "de" ? step.labelDe : step.labelEn}
+                          {stepShort[step.key] ?? (lang === "de" ? step.labelDe : step.labelEn)}
                         </Text>
                         {lang === "de" || lang === "en" ? (
                           <Text style={styles.stepSecondary}>
