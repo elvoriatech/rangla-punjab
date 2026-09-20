@@ -1,4 +1,5 @@
-import { BASE_URL, rebaseUrl } from "./api";
+import type { UploadPhoto } from "./api";
+import { appendUploadPhoto, BASE_URL, rebaseUrl, warnUploadFailure } from "./api";
 import type { GiftCardView } from "./gift-cards";
 import { asGiftCard } from "./gift-cards";
 
@@ -802,35 +803,49 @@ function photoFailure(status: number, body: Record<string, unknown> | null): Sta
  * Put a photo on one dish. LIVE, like every other edit here: a 200 means
  * the guest menu already shows it.
  *
- * The caller is expected to have shrunk the image first (see
- * `shrinkPhoto` in `photo.ts`) — this sends whatever it is given.
+ * The caller is expected to have run the picked image through
+ * `preparePhotoUpload` (`photo.ts`) first — that is what shrinks it AND
+ * produces the bytes `appendUploadPhoto` needs, which is the only shape
+ * Expo's `fetch` will actually send (see that helper for why).
+ *
+ * `Content-Type` is deliberately NOT set: the runtime has to add its own
+ * multipart boundary.
+ *
+ * The two ways this can fail are kept apart on purpose. A throw from
+ * `fetch` means NOTHING answered — that, and only that, is "network".
+ * Once a response exists the server has spoken, so a body we then can't
+ * read is reported by its status, never as a lost connection.
  */
 export async function uploadStaffItemPhoto(
   token: string,
   itemId: string,
-  file: { uri: string; name: string; type: string },
+  file: UploadPhoto,
 ): Promise<StaffPhotoResult> {
+  let res: Response;
   try {
     const form = new FormData();
-    // The RN file descriptor: not a browser File, which is why this cast
-    // exists at all (same shape `postIssueMessage` sends).
-    form.append("photo", file as unknown as Blob);
-    const res = await fetch(`${BASE_URL}/api/v1/staff/items/${encodeURIComponent(itemId)}/photo`, {
+    await appendUploadPhoto(form, "photo", file);
+    res = await fetch(`${BASE_URL}/api/v1/staff/items/${encodeURIComponent(itemId)}/photo`, {
       method: "POST",
-      // No Content-Type: `fetch` has to set the multipart boundary.
       headers: { "X-Staff-Token": token },
       body: form,
     });
-    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-    // Defensive like every other route here: a 200 is the verdict, and
-    // an `ok` the server didn't send is not a failure it reported.
-    if (res.status !== 200 || !body || body.ok === false) {
-      return { ok: false, error: photoFailure(res.status, body) };
-    }
-    return { ok: true, data: asStaffItem(body.item) };
-  } catch {
+  } catch (err) {
+    warnUploadFailure("staff-photo", "request", err);
     return { ok: false, error: "network" };
   }
+  // A response EXISTS from here down. Nothing below may be reported as
+  // "no connection", whatever else goes wrong.
+  const body = (await res.json().catch((err: unknown) => {
+    warnUploadFailure("staff-photo", `response ${res.status}`, err);
+    return null;
+  })) as Record<string, unknown> | null;
+  // Defensive like every other route here: a 200 is the verdict, and
+  // an `ok` the server didn't send is not a failure it reported.
+  if (res.status !== 200 || !body || body.ok === false) {
+    return { ok: false, error: photoFailure(res.status, body) };
+  }
+  return { ok: true, data: asStaffItem(body.item) };
 }
 
 /** Take the photo off a dish. The row falls back to the empty tile. */

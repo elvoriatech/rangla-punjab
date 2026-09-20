@@ -1,6 +1,8 @@
 import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import type { UploadPhoto } from "./api";
+import { normalizeUploadFile } from "./api";
 
 /**
  * Getting a photo off this device, in the two steps every caller needs:
@@ -137,45 +139,120 @@ export const UPLOAD_QUALITY = 0.82;
 
 /**
  * Shrink a picked photo to something worth uploading over a restaurant's
- * wifi: longest edge {@link UPLOAD_MAX_EDGE}, re-encoded JPEG at
- * {@link UPLOAD_QUALITY}.
+ * wifi — longest edge {@link UPLOAD_MAX_EDGE}, re-encoded JPEG at
+ * {@link UPLOAD_QUALITY} — and hand back its bytes as base64.
  *
- * An image already smaller than the cap is NOT enlarged — it is only
+ * An image already smaller than the cap is NOT enlarged; it is only
  * re-encoded, which is what makes the size predictable either way.
+ *
+ * Throws, unlike everything else in this file, so its one caller can
+ * decide what an unopenable image means.
  *
  * Uses the contextual API (`manipulate(...).renderAsync()`); the old
  * `manipulateAsync` is deprecated in SDK 57.
  */
-export async function shrinkPhoto(
+async function renderForUpload(
   photo: PickedPhoto,
-  size?: { width: number; height: number } | null,
-  options?: { maxEdge?: number; quality?: number },
-): Promise<PickedPhoto> {
+  size: { width: number; height: number } | null | undefined,
+  options: { maxEdge?: number; quality?: number } | undefined,
+): Promise<{ uri: string; base64: string | undefined; bytes: number | null }> {
   const maxEdge = options?.maxEdge ?? UPLOAD_MAX_EDGE;
   const quality = options?.quality ?? UPLOAD_QUALITY;
-  try {
-    let width = size && size.width > 0 ? size.width : 0;
-    let height = size && size.height > 0 ? size.height : 0;
-    let context = ImageManipulator.manipulate(photo.uri);
-    if (width === 0 || height === 0) {
-      // The picker didn't say how big it is — decode once to find out,
-      // then manipulate the decoded image rather than the file again.
-      const probe = await context.renderAsync();
-      width = probe.width;
-      height = probe.height;
-      context = ImageManipulator.manipulate(probe);
-    }
-    // Only ONE dimension is given, so the other follows the ratio.
-    if (width >= height && width > maxEdge) context = context.resize({ width: maxEdge });
-    else if (height > width && height > maxEdge) context = context.resize({ height: maxEdge });
+  let width = size && size.width > 0 ? size.width : 0;
+  let height = size && size.height > 0 ? size.height : 0;
+  let context = ImageManipulator.manipulate(photo.uri);
+  if (width === 0 || height === 0) {
+    // The picker didn't say how big it is — decode once to find out,
+    // then manipulate the decoded image rather than the file again.
+    const probe = await context.renderAsync();
+    width = probe.width;
+    height = probe.height;
+    context = ImageManipulator.manipulate(probe);
+  }
+  // Only ONE dimension is given, so the other follows the ratio.
+  if (width >= height && width > maxEdge) context = context.resize({ width: maxEdge });
+  else if (height > width && height > maxEdge) context = context.resize({ height: maxEdge });
 
-    const rendered = await context.renderAsync();
-    const saved = await rendered.saveAsync({ compress: quality, format: SaveFormat.JPEG });
-    return { uri: saved.uri, name: jpegName(photo.name), type: "image/jpeg" };
+  const rendered = await context.renderAsync();
+  const saved = await rendered.saveAsync({
+    compress: quality,
+    format: SaveFormat.JPEG,
+    base64: true,
+  });
+  return { uri: saved.uri, base64: saved.base64, bytes: base64Bytes(saved.base64) };
+}
+
+/**
+ * How many bytes a base64 payload stands for, without decoding it.
+ *
+ * Base64 is how the bytes get out of the manipulator at all: this app has
+ * no `expo-file-system` (a native module, and adding one means a new
+ * binary on every phone), and neither the picker nor the manipulator
+ * reports the size of what it wrote. Affordable ONLY because it is asked
+ * after the shrink — a 1600 px JPEG is a few hundred KB, so the string is
+ * a few hundred KB too. Never ask it of an original.
+ */
+function base64Bytes(base64: string | undefined): number | null {
+  if (!base64) return null;
+  const body = base64.replace(/=+$/, "");
+  return Math.floor((body.length * 3) / 4);
+}
+
+export type PrepareOutcome =
+  | { ok: true; photo: UploadPhoto }
+  /** `too_large` survives the shrink only for something pathological;
+   *  `failed` means there is nothing sendable here at all. */
+  | { ok: false; reason: "too_large" | "failed" };
+
+/**
+ * Everything that has to happen to a picked photo between the picker
+ * closing and the upload starting, as one call: shrink it, weigh it, and
+ * hand back both the local file (for the preview) and its bytes (for the
+ * upload).
+ *
+ * The shrink is what makes this path work on a real phone: a modern
+ * camera hands over 5–12 MB, which is over the route's own cap and heavy
+ * enough that a restaurant's wifi can drop the upload mid-flight. It also
+ * doubles as the copy step — the manipulator always writes into the app's
+ * cache, so a `content://` the picker handed us stops being one here.
+ *
+ * A photo the manipulator cannot open FAILS rather than falling back to
+ * the original. That is not pessimism: Expo's `fetch` cannot upload a
+ * file it is only given the URI of (see `postIssueMessage`), so without
+ * bytes there is nothing to send, and saying so is better than sending a
+ * message with the photo silently dropped.
+ */
+export async function preparePhotoUpload(
+  photo: PickedPhoto,
+  size?: { width: number; height: number } | null,
+  options?: {
+    /** The route's own cap, enforced here so the guest is told before
+     *  the bytes go anywhere. */
+    maxBytes?: number;
+    maxEdge?: number;
+    quality?: number;
+  },
+): Promise<PrepareOutcome> {
+  const maxBytes = options?.maxBytes;
+  try {
+    const saved = await renderForUpload(photo, size, options);
+    if (!saved.base64) return { ok: false, reason: "failed" };
+    if (typeof maxBytes === "number" && saved.bytes !== null && saved.bytes > maxBytes) {
+      return { ok: false, reason: "too_large" };
+    }
+    return {
+      ok: true,
+      photo: {
+        ...normalizeUploadFile({
+          uri: saved.uri,
+          name: jpegName(photo.name),
+          type: "image/jpeg",
+        }),
+        base64: saved.base64,
+      },
+    };
   } catch {
-    // A manipulator that can't open the file is not a reason to lose the
-    // photo: the original is still a valid upload, just a heavier one.
-    return photo;
+    return { ok: false, reason: "failed" };
   }
 }
 

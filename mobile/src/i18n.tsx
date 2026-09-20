@@ -536,6 +536,7 @@ const en = {
   issueRetry: "Try again",
   issuePhotoDenied: "Without access to your photos we can't attach a picture.",
   issuePhotoFailed: "That picture couldn't be opened.",
+  issuePhotoPreparing: "Preparing photo…",
   issueResolve: "Mark resolved",
   issueResolveConfirm:
     "Mark this complaint as resolved? The guest can still read the conversation.",
@@ -1228,6 +1229,7 @@ const de: Strings = {
   issueRetry: "Erneut versuchen",
   issuePhotoDenied: "Ohne Zugriff auf Ihre Fotos können wir kein Bild anhängen.",
   issuePhotoFailed: "Dieses Bild konnte nicht geöffnet werden.",
+  issuePhotoPreparing: "Foto wird vorbereitet …",
   issueResolve: "Als erledigt markieren",
   issueResolveConfirm:
     "Diese Beschwerde als erledigt markieren? Der Gast kann die Unterhaltung weiter lesen.",
@@ -1913,6 +1915,7 @@ const fr: Strings = {
   issueRetry: "Réessayer",
   issuePhotoDenied: "Sans accès à vos photos, nous ne pouvons pas joindre d'image.",
   issuePhotoFailed: "Cette image n'a pas pu être ouverte.",
+  issuePhotoPreparing: "Préparation de la photo …",
   issueResolve: "Marquer comme résolue",
   issueResolveConfirm:
     "Marquer cette réclamation comme résolue ? Le client pourra toujours lire la conversation.",
@@ -2597,6 +2600,7 @@ const it: Strings = {
   issueRetry: "Riprova",
   issuePhotoDenied: "Senza accesso alle tue foto non possiamo allegare un'immagine.",
   issuePhotoFailed: "Non è stato possibile aprire quell'immagine.",
+  issuePhotoPreparing: "Preparazione della foto…",
   issueResolve: "Segna come risolto",
   issueResolveConfirm:
     "Segnare questo reclamo come risolto? Il cliente potrà comunque leggere la conversazione.",
@@ -3280,6 +3284,7 @@ const es: Strings = {
   issueRetry: "Reintentar",
   issuePhotoDenied: "Sin acceso a tus fotos no podemos adjuntar una imagen.",
   issuePhotoFailed: "No se pudo abrir esa imagen.",
+  issuePhotoPreparing: "Preparando la foto…",
   issueResolve: "Marcar como resuelta",
   issueResolveConfirm:
     "¿Marcar esta reclamación como resuelta? El cliente podrá seguir leyendo la conversación.",
@@ -3958,6 +3963,7 @@ const ar: Strings = {
   issueRetry: "إعادة المحاولة",
   issuePhotoDenied: "بدون الإذن بالوصول إلى صورك لا يمكننا إرفاق صورة.",
   issuePhotoFailed: "تعذّر فتح هذه الصورة.",
+  issuePhotoPreparing: "جارٍ تجهيز الصورة…",
   issueResolve: 'وضع علامة "تم الحل"',
   issueResolveConfirm: 'هل تضع علامة "تم الحل" على هذه الشكوى؟ سيظل بإمكان الضيف قراءة المحادثة.',
   issueCancel: "إلغاء",

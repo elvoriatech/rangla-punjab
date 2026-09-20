@@ -820,35 +820,199 @@ export async function fetchIssue(orderId: string, token: string): Promise<ApiIss
   }
 }
 
+/** What the upload routes accept. Anything else is normalised to JPEG
+ *  here rather than refused server-side with `invalid_photo`. */
+const UPLOAD_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+/** A photo on its way to a server: the local file, plus its bytes as
+ *  base64 once something has produced them (see `preparePhotoUpload`).
+ *  The URI is what a preview renders; the bytes are what is uploaded. */
+export interface UploadPhoto {
+  uri: string;
+  name: string;
+  type: string;
+  base64?: string;
+}
+
+/**
+ * The file part, spelled the way the platform that has to read it
+ * insists on.
+ *
+ * The NAME and TYPE are what the server stores and sniffs. The URI
+ * matters only on the legacy React-Native path (see `postIssueMessage`),
+ * and there Android is the strict one: its networking module parses the
+ * URI with `Uri.parse` and opens it through the content resolver, so
+ * `file://…` and `content://…` both open while a BARE PATH does not —
+ * null scheme, `openInputStream` throws, and RN surfaces that as
+ * "Network request failed", indistinguishable from a phone with no
+ * signal. Cheap insurance, so it is applied everywhere.
+ */
+export function normalizeUploadFile(file: {
+  uri: string;
+  name?: string | null;
+  type?: string | null;
+}): { uri: string; name: string; type: string } {
+  const type = file.type && UPLOAD_PHOTO_TYPES.includes(file.type) ? file.type : "image/jpeg";
+  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  // The extension has to match the BYTES, not the file the picker read:
+  // the server sniffs the type but stores the name, and a "photo.heic"
+  // holding JPEG bytes is a lie that outlives the request.
+  const base = (file.name ?? "")
+    .trim()
+    .replace(/\.[A-Za-z0-9]+$/, "")
+    .replace(/[^A-Za-z0-9._-]+/g, "_")
+    .slice(0, 60);
+  const uri = file.uri.trim();
+  const scheme = /^[A-Za-z][A-Za-z0-9+.\-]*:/.test(uri);
+  return {
+    uri: scheme ? uri : `file://${uri.startsWith("/") ? "" : "/"}${uri}`,
+    name: `${base || "photo"}.${ext}`,
+    type,
+  };
+}
+
+/**
+ * Dev-only breadcrumb for an upload that threw.
+ *
+ * Every failure on these paths reads as one word to the person looking
+ * at the screen, and two very different faults share it: a phone with no
+ * signal, and a file part the runtime could not read. The thrown message
+ * is the only thing that tells them apart, so in a dev build it is
+ * printed rather than swallowed.
+ */
+export function warnUploadFailure(where: string, stage: string, err: unknown): void {
+  if (!__DEV__) return;
+  const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  console.warn(`[${where}] upload failed (${stage}): ${detail}`);
+}
+
+/**
+ * Base64 → the bytes it stands for.
+ *
+ * Hand-rolled rather than `atob`, which React Native does not polyfill
+ * and whose presence therefore depends on the JS engine a given build
+ * happens to use. A few hundred KB of shrunk JPEG decodes in a few
+ * milliseconds; nothing bigger is ever handed to it.
+ */
+function base64ToBytes(base64: string): Uint8Array {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const clean = base64.replace(/[^A-Za-z0-9+/]/g, "");
+  const out = new Uint8Array(Math.floor((clean.length * 3) / 4));
+  let o = 0;
+  let buffer = 0;
+  let bits = 0;
+  for (let i = 0; i < clean.length; i++) {
+    buffer = (buffer << 6) | chars.indexOf(clean[i]);
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out[o++] = (buffer >> bits) & 0xff;
+    }
+  }
+  return out.subarray(0, o);
+}
+
+/**
+ * Put a photo into a multipart body, spelled the way the runtime that
+ * has to read it accepts. THE one place any upload in this app builds a
+ * file part, because the obvious spelling is broken here.
+ *
+ * Expo (SDK 54+) replaces the global `fetch` with its own WinterCG
+ * implementation, and that implementation accepts exactly three kinds of
+ * form value: a string, a `Blob`, and an object exposing `bytes()` — the
+ * shape `expo-file-system`'s `File` has. React Native's classic
+ * `{ uri, name, type }` file descriptor is NOT one of them: it throws
+ * `Unsupported FormDataPart implementation` from inside `fetch`, and a
+ * throw is not a response, so every caller that reads a throw as
+ * "offline" tells the user their connection failed while the phone sits
+ * on full wifi. That was the bug on both upload routes.
+ *
+ * So each runtime is handed what it actually supports:
+ *
+ *  - **native** — the shrunk JPEG's bytes. The photo is a few hundred KB
+ *    by the time it gets here (see `preparePhotoUpload`), so carrying it
+ *    through JS costs nothing worth counting, and no URI reaches the
+ *    native layer at all — which also retires every `content://` and
+ *    missing-scheme trap Android has.
+ *  - **web** — a real `Blob`, read back from the picker's own URI.
+ *  - **neither** — a photo that arrived without bytes (a caller that
+ *    skipped `preparePhotoUpload`) still goes as the legacy descriptor,
+ *    which is correct when RN's own `fetch` is in play
+ *    (`EXPO_PUBLIC_USE_RN_FETCH`).
+ */
+export async function appendUploadPhoto(
+  form: FormData,
+  field: string,
+  photo: UploadPhoto,
+): Promise<void> {
+  const file = normalizeUploadFile(photo);
+  if (Platform.OS === "web") {
+    const blob = await fetch(file.uri).then((r) => r.blob());
+    form.append(field, blob, file.name);
+    return;
+  }
+  if (photo.base64) {
+    const bytes = base64ToBytes(photo.base64);
+    // The file-like part Expo's `fetch` understands: `name` and `type`
+    // become the part's headers, `bytes()` becomes its body. The cast is
+    // the same lie the RN descriptor needed — neither is a browser
+    // `Blob`, and both are what the runtime asked for.
+    form.append(field, {
+      name: file.name,
+      type: file.type,
+      bytes: async () => bytes,
+    } as unknown as Blob);
+    return;
+  }
+  // The RN file descriptor: not a browser File, which is why this cast
+  // exists at all.
+  form.append(field, file as unknown as Blob);
+}
+
+/** A refusal that named no error of its own — a proxy's own 413 page, an
+ *  empty body on a reset connection. The status is all there is. */
+function errorForStatus(status: number): IssuePostError {
+  if (status === 429) return "rate_limited";
+  if (status === 413) return "too_large";
+  if (status === 401) return "invalid_token";
+  if (status === 404) return "not_found";
+  if (status === 403) return "window_closed";
+  if (status === 409) return "resolved";
+  return "invalid";
+}
+
 /**
  * Report a problem, or add to the thread already open on this order.
  *
- * With a photo the request is `multipart/form-data` — React Native's
- * `FormData` takes a `{ uri, name, type }` stand-in for a File and the
- * bridge streams the file off disk, so a 5 MB photo never passes through
- * JS. Without one it is plain JSON, which is cheaper and keeps the
- * text-only path working on web, where the RN file shape doesn't exist.
+ * With a photo the request is `multipart/form-data`; without one it is
+ * plain JSON, which is cheaper.
+ *
+ * The photo part is built by `appendUploadPhoto`, which is where the
+ * reason this is not one line lives.
  *
  * `Content-Type` is deliberately NOT set on the multipart branch: the
  * runtime has to add its own boundary, and naming the type by hand is the
  * classic way to get a 400 the server can't explain.
+ *
+ * The two ways this can fail are kept apart on purpose. A throw from
+ * `fetch` means NOTHING answered — that, and only that, is "network". Once
+ * a response exists the server has spoken, so a body we then can't read is
+ * reported by its status, never as a lost connection.
  */
 export async function postIssueMessage(
   orderId: string,
   token: string,
   body: string,
-  photo?: { uri: string; name: string; type: string } | null,
+  photo?: UploadPhoto | null,
 ): Promise<{ ok: true; issue: ApiIssue; created: boolean } | { ok: false; error: IssuePostError }> {
+  const url = `${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}/issue`;
+  let res: Response;
   try {
-    const url = `${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}/issue`;
-    let res: Response;
     if (photo) {
       const form = new FormData();
       form.append("token", token);
       form.append("body", body);
-      // The RN file descriptor: not a browser File, which is why this
-      // cast exists at all.
-      form.append("photo", photo as unknown as Blob);
+      await appendUploadPhoto(form, "photo", photo);
       res = await fetch(url, { method: "POST", body: form });
     } else {
       res = await fetch(url, {
@@ -857,26 +1021,26 @@ export async function postIssueMessage(
         body: JSON.stringify({ token, body }),
       });
     }
-    const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!res.ok || !payload || payload.ok !== true) {
-      // Prefer the server's own code; fall back to the status when it
-      // sent none (a proxy's 413, say).
-      const named = payload?.error;
-      if (typeof named === "string") return { ok: false, error: asIssueError(named) };
-      if (res.status === 429) return { ok: false, error: "rate_limited" };
-      if (res.status === 413) return { ok: false, error: "too_large" };
-      if (res.status === 401) return { ok: false, error: "invalid_token" };
-      if (res.status === 404) return { ok: false, error: "not_found" };
-      if (res.status === 403) return { ok: false, error: "window_closed" };
-      if (res.status === 409) return { ok: false, error: "resolved" };
-      return { ok: false, error: "invalid" };
-    }
-    const issue = asIssue(payload.issue);
-    if (!issue) return { ok: false, error: "invalid" };
-    return { ok: true, issue, created: payload.created === true };
-  } catch {
+  } catch (err) {
+    warnUploadFailure("issue", photo ? "request with photo" : "request", err);
     return { ok: false, error: "network" };
   }
+  // A response EXISTS from here down. Nothing below may be reported as
+  // "no connection", whatever else goes wrong.
+  const payload = (await res.json().catch((err: unknown) => {
+    warnUploadFailure("issue", `response ${res.status}`, err);
+    return null;
+  })) as Record<string, unknown> | null;
+  if (!res.ok || !payload || payload.ok !== true) {
+    // Prefer the server's own code; fall back to the status when it sent
+    // none (a proxy's 413, say).
+    const named = payload?.error;
+    if (typeof named === "string") return { ok: false, error: asIssueError(named) };
+    return { ok: false, error: errorForStatus(res.status) };
+  }
+  const issue = asIssue(payload.issue);
+  if (!issue) return { ok: false, error: "invalid" };
+  return { ok: true, issue, created: payload.created === true };
 }
 
 /**

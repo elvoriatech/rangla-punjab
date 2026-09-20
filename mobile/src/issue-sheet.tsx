@@ -14,9 +14,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { PickedPhoto } from "./photo";
-import { askPhotoSource, pickPhoto } from "./photo";
-import type { ApiIssue } from "./api";
+import { askPhotoSource, pickPhoto, preparePhotoUpload } from "./photo";
+import type { ApiIssue, UploadPhoto } from "./api";
 import { fetchIssue, postIssueMessage } from "./api";
 import type { StaffIssue } from "./staff";
 import { fetchStaffIssue, replyStaffIssue, resolveStaffIssue } from "./staff";
@@ -130,7 +129,11 @@ export function IssueSheet({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [draft, setDraft] = useState("");
-  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
+  const [photo, setPhoto] = useState<UploadPhoto | null>(null);
+  /** True while a picked photo is being shrunk. It is a second or two on
+   *  a big camera file, and a button that does nothing for two seconds
+   *  reads as a broken button. */
+  const [preparing, setPreparing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The photo the reader tapped, shown full-size over the sheet. */
@@ -191,6 +194,7 @@ export function IssueSheet({
     setFailed(false);
     setDraft("");
     setPhoto(null);
+    setPreparing(false);
     setError(null);
     setViewer(null);
     void load();
@@ -213,7 +217,7 @@ export function IssueSheet({
    * HEIC to JPEG) is shared with the owner's dish photo in `photo.ts`.
    */
   function choosePhotoSource(): void {
-    if (picking.current) return;
+    if (picking.current || preparing) return;
     askPhotoSource(
       {
         title: t.issueAddPhoto,
@@ -231,11 +235,15 @@ export function IssueSheet({
     // settled modal. What is NOT safe is closing the sheet and
     // presenting in the same tick (see `owner-menu.tsx`), so nothing on
     // this path calls `onClose()`.
-    if (picking.current) return;
+    if (picking.current || preparing) return;
     picking.current = true;
     setError(null);
     try {
-      const picked = await pickPhoto(source, { maxBytes: MAX_PHOTO_BYTES });
+      // NOT capped at the picker: a phone camera routinely hands over
+      // 5–12 MB and the shrink below turns that into a few hundred KB,
+      // so refusing it here would refuse a photo that is about to be
+      // perfectly sendable.
+      const picked = await pickPhoto(source);
       if (!picked.ok) {
         if (picked.reason === "cancelled") return;
         setError(
@@ -249,14 +257,29 @@ export function IssueSheet({
         );
         return;
       }
-      setPhoto(picked.photo);
+      // The same 1600 px / q 0.82 the owner's dish photo gets. Without
+      // it the raw camera file goes up as-is: over the route's cap, and
+      // heavy enough that the upload can die mid-flight — which reaches
+      // the guest as "no connection" and blames their wifi for our bug.
+      setPreparing(true);
+      const ready = await preparePhotoUpload(
+        picked.photo,
+        { width: picked.width, height: picked.height },
+        { maxBytes: MAX_PHOTO_BYTES },
+      );
+      if (!ready.ok) {
+        setError(ready.reason === "too_large" ? (errorLabels.too_large ?? "") : t.issuePhotoFailed);
+        return;
+      }
+      setPhoto(ready.photo);
     } finally {
       picking.current = false;
+      setPreparing(false);
     }
   }
 
   async function send(): Promise<void> {
-    if (!target || busy) return;
+    if (!target || busy || preparing) return;
     const body = draft.trim();
     if (!body) {
       setError(errorLabels.invalid ?? "");
@@ -468,7 +491,12 @@ export function IssueSheet({
 
                 {canWrite ? (
                   <View style={styles.composer}>
-                    {photo ? (
+                    {preparing ? (
+                      <View style={styles.pendingRow}>
+                        <ActivityIndicator color={colors.red} size="small" />
+                        <Text style={styles.preparingText}>{t.issuePhotoPreparing}</Text>
+                      </View>
+                    ) : photo ? (
                       <View style={styles.pendingRow}>
                         <Image source={{ uri: photo.uri }} style={styles.pendingThumb} />
                         <Pressable
@@ -514,12 +542,13 @@ export function IssueSheet({
                       {target?.mode === "guest" ? (
                         <Pressable
                           onPress={choosePhotoSource}
-                          disabled={busy}
+                          disabled={busy || preparing}
                           accessibilityRole="button"
                           accessibilityLabel={t.issueAddPhoto}
+                          accessibilityState={{ disabled: busy || preparing, busy: preparing }}
                           style={({ pressed }) => [
                             styles.photoBtn,
-                            (busy || pressed) && { opacity: 0.6 },
+                            (busy || preparing || pressed) && { opacity: 0.6 },
                           ]}
                         >
                           <Text style={styles.photoBtnText} numberOfLines={1}>
@@ -531,12 +560,14 @@ export function IssueSheet({
                       )}
                       <Pressable
                         onPress={() => void send()}
-                        disabled={busy || draft.trim().length === 0}
+                        /* Sending mid-shrink would send the message
+                           without the photo the guest just attached. */
+                        disabled={busy || preparing || draft.trim().length === 0}
                         accessibilityRole="button"
                         accessibilityLabel={t.issueSend}
                         style={({ pressed }) => [
                           styles.sendBtn,
-                          (busy || draft.trim().length === 0) && { opacity: 0.5 },
+                          (busy || preparing || draft.trim().length === 0) && { opacity: 0.5 },
                           pressed && { transform: [{ scale: 0.985 }] },
                         ]}
                       >
@@ -713,6 +744,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   removeText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
+  preparingText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
   composerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   photoBtn: {
     flex: 1,

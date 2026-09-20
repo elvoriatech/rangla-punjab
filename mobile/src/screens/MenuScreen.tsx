@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import type { ApiMenu, ApiItem } from "../api";
+import type { ApiMenu, ApiItem, UploadPhoto } from "../api";
 import { OFFERS_CATEGORY_ID, offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffItem, StaffItemPatch, StaffMenuCategory } from "../staff";
@@ -24,7 +24,6 @@ import { useLayout } from "../layout";
 import { DishSheet } from "../dish-sheet";
 import type { PhotoOutcome } from "../staff-menu";
 import { StaffDishRow, StaffItemSheet, staffViewOfGuestMenu } from "../staff-menu";
-import type { PickedPhoto } from "../photo";
 import { colors, fonts, isRTL } from "../theme";
 import { useI18n } from "../i18n";
 
@@ -168,7 +167,7 @@ export function MenuScreen({
    * sheet shows the new picture before the sheet is even closed.
    */
   const savePhoto = useCallback(
-    async (item: StaffItem, file: PickedPhoto | null): Promise<PhotoOutcome> => {
+    async (item: StaffItem, file: UploadPhoto | null): Promise<PhotoOutcome> => {
       if (!staffToken) return { ok: false, error: "unauthorized" };
       setNote(null);
       const res = file

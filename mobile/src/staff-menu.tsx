@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { ApiCategory } from "./api";
+import type { ApiCategory, UploadPhoto } from "./api";
 import type {
   StaffItem,
   StaffItemPatch,
@@ -24,8 +24,7 @@ import type {
   StaffPhotoError,
 } from "./staff";
 import { MAX_ITEM_PHOTO_BYTES } from "./staff";
-import type { PickedPhoto } from "./photo";
-import { askPhotoSource, pickPhoto, shrinkPhoto } from "./photo";
+import { askPhotoSource, pickPhoto, preparePhotoUpload } from "./photo";
 import { localeTag, useI18n } from "./i18n";
 import { FieldLabel, RequiredLegend } from "./components";
 import { colors, fonts, money, radius } from "./theme";
@@ -199,7 +198,7 @@ function sameWeekly(a: StaffOfferWeekly | null, b: StaffOfferWeekly | null): boo
 export type PhotoOutcome =
   { ok: true; item: StaffItem | null } | { ok: false; error: StaffPhotoError };
 
-export type PhotoSaver = (item: StaffItem, file: PickedPhoto | null) => Promise<PhotoOutcome>;
+export type PhotoSaver = (item: StaffItem, file: UploadPhoto | null) => Promise<PhotoOutcome>;
 
 /**
  * Edit one dish.
@@ -296,7 +295,7 @@ function StaffItemForm({
   /** The photo as it stands RIGHT NOW: it is saved on its own route the
    *  moment it is picked, so this is never part of the patch. */
   const [photoUrl, setPhotoUrl] = useState<string | null>(item.photoUrl);
-  const [photoBusy, setPhotoBusy] = useState<"upload" | "remove" | null>(null);
+  const [photoBusy, setPhotoBusy] = useState<"prepare" | "upload" | "remove" | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   /** True while the system picker is up, so a double tap cannot ask iOS
    *  to present a second one on top of the first. */
@@ -363,7 +362,11 @@ function StaffItemForm({
     picking.current = true;
     setPhotoError(null);
     try {
-      const picked = await pickPhoto(source, { maxBytes: MAX_ITEM_PHOTO_BYTES });
+      // NOT capped at the picker: a phone camera routinely hands over
+      // 5–12 MB and the shrink below turns that into a few hundred KB,
+      // so refusing it here would refuse a photo that is about to be
+      // perfectly sendable.
+      const picked = await pickPhoto(source);
       if (!picked.ok) {
         // Backing out of the picker is not an error worth a red line.
         if (picked.reason === "cancelled") return;
@@ -378,11 +381,22 @@ function StaffItemForm({
         );
         return;
       }
-      setPhotoBusy("upload");
       // A phone camera hands over 4000 px and several megabytes; the
       // menu shows it a screen wide. Shrunk here, so a counter on a
-      // restaurant's wifi uploads ~300 KB instead of ~4 MB.
-      const file = await shrinkPhoto(picked.photo, { width: picked.width, height: picked.height });
+      // restaurant's wifi uploads ~300 KB instead of ~4 MB — and the
+      // shrink is also what produces the bytes the upload needs.
+      setPhotoBusy("prepare");
+      const ready = await preparePhotoUpload(
+        picked.photo,
+        { width: picked.width, height: picked.height },
+        { maxBytes: MAX_ITEM_PHOTO_BYTES },
+      );
+      if (!ready.ok) {
+        setPhotoError(ready.reason === "too_large" ? t.staffPhotoTooLarge : t.issuePhotoFailed);
+        return;
+      }
+      const file = ready.photo;
+      setPhotoBusy("upload");
       const res = await onPhoto(item, file);
       if (!res.ok) {
         setPhotoError(photoMessage(res.error));
@@ -613,7 +627,11 @@ function StaffItemForm({
                   <View style={styles.photoBusyRow}>
                     <ActivityIndicator size="small" color={colors.red} />
                     <Text style={styles.hint}>
-                      {photoBusy === "upload" ? t.staffPhotoUploading : t.staffPhotoRemoving}
+                      {photoBusy === "prepare"
+                        ? t.issuePhotoPreparing
+                        : photoBusy === "upload"
+                          ? t.staffPhotoUploading
+                          : t.staffPhotoRemoving}
                     </Text>
                   </View>
                 ) : null}
