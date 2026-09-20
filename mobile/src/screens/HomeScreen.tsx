@@ -260,10 +260,6 @@ export function HomeScreen({
     .slice(0, 3)
     .map((i) => i.name)
     .join(" · ");
-  // Hooks cannot hang off `offerCount > 0`, so the flame's loop is built
-  // whether or not there are offers; with no card to render it drives
-  // nothing and costs one idle Animated value.
-  const fire = useFireFlicker();
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader
@@ -319,10 +315,10 @@ export function HomeScreen({
             the same set. Either can be switched off by the venue
             (reservations from its settings, gift cards from the shop
             route), and whichever is left simply takes the whole row.
-            Complaint used to live in this slot; it is a quiet full-width
-            row further down now, because a guest with a problem should
-            always be able to find the way to say so WITHOUT it competing
-            with the four things people actually come here to do. */}
+            Complaint is NOT in this set: it shares the row below with
+            Offers, because a guest with a problem should always be able
+            to find the way to say so WITHOUT it competing with the four
+            things people actually come here to do. */}
         {!restaurant && (menu.ordering.reservations || giftCardsOn) ? (
           <View style={styles.modeRow}>
             {menu.ordering.reservations ? (
@@ -362,57 +358,33 @@ export function HomeScreen({
           </Pressable>
         ) : null}
 
-        {/* Offers, between the hero and the categories: the one part of
-            the menu with a reason to be looked at today — and the only
-            card on this screen allowed to move, so the movement still
-            means something. */}
-        {offerCount > 0 && !restaurant ? (
-          <Pressable
-            style={styles.offersCard}
-            onPress={onOpenOffers}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.offersCardTitle} — ${
-              offerCount === 1 ? t.offersCardCountOne : fill(t.offersCardCount, { n: offerCount })
-            }`}
-          >
-            <PulsingBorder inset={2} style={styles.offersRing} />
-            <Animated.Text style={[styles.offersEmoji, fire]}>🔥</Animated.Text>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.offersTitle}>
-                {t.offersCardTitle} ·{" "}
-                {offerCount === 1
-                  ? t.offersCardCountOne
-                  : fill(t.offersCardCount, { n: offerCount })}
-              </Text>
-              {offerNames ? (
-                <Text style={styles.offersNames} numberOfLines={1}>
-                  {offerNames}
-                </Text>
-              ) : null}
-            </View>
-            <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
-          </Pressable>
-        ) : null}
-
-        {/* "Complaint · About your last order" — one quiet full-width
-            line under the offers, with a chevron like any other row that
-            leads somewhere. Demoted from the action grid deliberately:
-            it is a thing a guest needs to FIND, not a thing to invite
-            them into, and it should not be the same size as ordering
-            dinner. Still one tap, still always there. */}
+        {/* Offers and Reklamation, one row, half and half — between the
+            hero and the categories.
+            Offers is the one part of the menu with a reason to be looked
+            at today, and the only card on this screen allowed to move, so
+            the movement still means something. Complaint is its quiet
+            neighbour: the same plate and the same tinted circle as the
+            action set, but nothing to catch the eye — a thing a guest
+            needs to FIND, not a thing to be invited into.
+            Pairing them costs a full row of vertical space and loses
+            nothing: neither line ever needed 328 pt.
+            The row is `styles.modeRow`, so the two halves are the same
+            height by the row's `stretch` alone — no height is stated
+            anywhere, least of all a percentage one (see `actionCard`).
+            With no offers on, the complaint card is the row's only child
+            and `flexGrow: 1` gives it the whole width by itself. */}
         {restaurant ? null : (
-          <Pressable
-            onPress={onComplain}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.complainShort} — ${t.complainSub}`}
-            style={({ pressed }) => [styles.complainRow, pressed && { opacity: 0.75 }]}
-          >
-            <Ionicons name="chatbox-ellipses-outline" size={20} color={colors.inkSoft} />
-            <Text style={styles.complainText} numberOfLines={1}>
-              {t.complainShort} · {t.complainSub}
-            </Text>
-            <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
-          </Pressable>
+          <View style={styles.modeRow}>
+            {offerCount > 0 ? (
+              <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
+            ) : null}
+            <ActionCard
+              icon="chatbox-ellipses-outline"
+              title={t.complainShort}
+              subtitle={t.complainSub}
+              onPress={onComplain}
+            />
+          </View>
         )}
 
         <SectionTitle action={t.showAll} onAction={onBrowseAll}>
@@ -526,6 +498,80 @@ function ActionCard({
         <Text style={styles.actionSub} numberOfLines={1}>
           {subtitle}
         </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+/**
+ * Offers — the left half of the row, an `ActionCard` that is allowed to
+ * burn.
+ *
+ * It is deliberately the SAME card as its neighbour: the wrapper, the
+ * plate, the tinted circle, the two-line title slot and the one-line
+ * subtitle are `ActionCard`'s own styles, so the two halves line up
+ * whichever of them wraps. Only three things are added, and each is the
+ * reason this card exists rather than decoration — the ember ring, the
+ * flickering flame in place of an Ionicon, and the live count in the
+ * title.
+ *
+ * The overrides it needs on top of `actionCard`: a 2 pt TRANSPARENT
+ * border, because `PulsingBorder` is an absolutely-positioned sibling
+ * whose `inset={2}` resolves against the parent's padding edge — the
+ * ring then lands exactly on the border box and the two cards' outer
+ * edges stay flush. It states no height, for the same reason
+ * `actionCard` doesn't.
+ *
+ * The title carries "Angebote · 3 Gerichte" — long for half a 360 pt
+ * screen, so it gets the slot's `numberOfLines={2}` and
+ * `adjustsFontSizeToFit` exactly like the action titles. The subtitle is
+ * the offer names, clipped to one line: a taste of what's on, not a list.
+ */
+function OffersCard({
+  count,
+  names,
+  onPress,
+}: {
+  count: number;
+  names: string;
+  onPress: () => void;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const fire = useFireFlicker();
+  const press = usePressScale(0.97);
+  const countLabel = count === 1 ? t.offersCardCountOne : fill(t.offersCardCount, { n: count });
+  return (
+    <Animated.View style={[styles.actionWrap, press.style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        accessibilityRole="button"
+        accessibilityLabel={`${t.offersCardTitle} — ${countLabel}`}
+        style={({ pressed }) => [styles.actionCard, styles.offersCard, pressed && { opacity: 0.9 }]}
+      >
+        <PulsingBorder inset={2} style={styles.offersRing} />
+        {/* The flame sits in the action set's own circle, so the row reads
+            as two cards of one family — the fire is what it holds, not a
+            different shape. */}
+        <View style={[styles.actionIcon, styles.offersIcon]}>
+          <Animated.Text style={[styles.offersEmoji, fire]}>🔥</Animated.Text>
+        </View>
+        <View style={styles.actionTitleSlot}>
+          <Text
+            style={styles.actionTitle}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+          >
+            {t.offersCardTitle} · {countLabel}
+          </Text>
+        </View>
+        {names ? (
+          <Text style={styles.actionSub} numberOfLines={1}>
+            {names}
+          </Text>
+        ) : null}
       </Pressable>
     </Animated.View>
   );
@@ -807,21 +853,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   actionSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11.5, textAlign: "center" },
-  /** The demoted complaint row: a plate, not a card — no shadow, no
-   *  tinted circle, muted ink. It is findable, not inviting. */
-  complainRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    minHeight: 48,
-    backgroundColor: colors.creamCard,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    paddingHorizontal: 14,
-    marginTop: 14,
-  },
-  complainText: { flex: 1, color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13 },
   reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
   rewardBanner: {
     flexDirection: "row",
@@ -836,33 +867,29 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   rewardEmoji: { ...fonts.body, fontSize: 24 },
-  // Reads as a sibling of the reward banner, but it is the one card that
-  // pulses: a reward is the guest's own and will keep, an offer ends
-  // tonight. The border itself is TRANSPARENT — `PulsingBorder` draws the
-  // gold and the ember over it — and it is declared here anyway so the
-  // card's box is the same 2 pt whether the ring is drawn or not.
-  offersCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.creamCard,
-    borderWidth: 2,
-    borderColor: "transparent",
-    borderRadius: radius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 14,
-    // Android's share of the glow. Its elevation shadow takes no colour
-    // and would have to re-render the card's layer to breathe, so it is a
-    // steady lift rather than a pulse — the ring is what carries the
-    // movement there.
-    elevation: 3,
-  },
+  /**
+   * What the Offers card adds to `actionCard` — nothing about the box's
+   * SIZE, only its edge.
+   *
+   * The border is 2 pt and TRANSPARENT: `PulsingBorder` draws the gold and
+   * the ember over it, and the width is declared whether or not the ring
+   * is drawn so the card's outer edge stays flush with its row-mate's (the
+   * ring's `inset={2}` resolves against this padding edge).
+   *
+   * `elevation` is Android's share of the glow. Its elevation shadow takes
+   * no colour and would have to re-render the card's layer to breathe, so
+   * it is a steady lift rather than a pulse — the ring carries the
+   * movement there.
+   */
+  offersCard: { borderWidth: 2, borderColor: "transparent", elevation: 3 },
   /** The ring traces the card's OUTER edge, so it takes the outer radius. */
   offersRing: { borderRadius: radius.lg },
-  offersEmoji: { ...fonts.body, fontSize: 24 },
-  offersTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
-  offersNames: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
+  /** A warmer circle than the action set's rose: this one holds a flame.
+   *  Same 44 pt box, so the two halves' icons sit on the same line. */
+  offersIcon: { backgroundColor: "#fbe6cf" },
+  /** 22, matching the Ionicons next door — the flicker scales it to 1.15
+   *  at the top of its cycle and the circle has room for that. */
+  offersEmoji: { ...fonts.body, fontSize: 22 },
   rewardTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   rewardCta: { color: colors.gold, ...fonts.bodyBold, fontSize: 12 },
   catChip: { alignItems: "center", width: 72 },
