@@ -65,13 +65,25 @@ const ICON_INSET = 0.74;
 const ADAPTIVE_INSET = 0.62; // Android crops to the inner ~66% circle.
 /**
  * A finished, full-bleed launcher icon inset into Android's adaptive
- * foreground. Android draws a 108dp layer but only ever shows the inner
- * 72dp (0.667) — the circular mask's diameter — so a square wider than that
- * loses its edges, taking any wordmark along the bottom with it. 0.66 keeps
- * the whole square inside the visible circle (its corners still round off,
- * which is the point of a squircle icon).
+ * foreground. Android draws a 108dp layer but guarantees only the inner 72dp
+ * (0.667 of the canvas, radius 1/3) survives every OEM mask.
+ *
+ * The old 0.66 came from reading that number as "scale the square to 0.66" —
+ * but a *square* of side 0.66 has corners 0.467 from the centre, half again
+ * as far out as the safe circle's 1/3. Nothing showed it until the icon grew
+ * a wordmark: "RESTAURANT" runs the full width along the bottom, so its R and
+ * T sat exactly where a circular mask cuts, and both lost their outer half.
+ *
+ * What actually has to fit is the artwork's *ink*, not its bounding square.
+ * The Rangla master's furthest ink pixel (the R's bottom-left serif) sits
+ * 0.573 of the canvas from the centre, so the largest inset that keeps it
+ * inside is (1/3) / 0.573 = 0.581. 0.57 takes that with a hair to spare.
+ *
+ * Swapping in a master whose ink reaches further needs this re-measured —
+ * `scripts/brand-mobile.test.ts` fails if the shipped foreground breaks the
+ * safe circle, so it will say so.
  */
-const FINISHED_ICON_INSET = 0.66;
+const FINISHED_ICON_INSET = 0.57;
 const SPLASH_INSET = 0.7;
 /** Hero is a full-bleed background on a phone in portrait, so it goes wide. */
 const HERO_W = 1440;
