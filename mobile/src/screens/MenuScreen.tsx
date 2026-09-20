@@ -19,7 +19,7 @@ import {
   updateStaffItem,
   uploadStaffItemPhoto,
 } from "../staff";
-import { BrandHeader, DishRow, PulsingBorder } from "../components";
+import { BrandHeader, DishRow } from "../components";
 import { useLayout } from "../layout";
 import { DishSheet } from "../dish-sheet";
 import type { PhotoOutcome } from "../staff-menu";
@@ -231,7 +231,6 @@ export function MenuScreen({
             <Chip
               label={t.offersTab}
               icon="🔥"
-              pulse
               active={offersActive}
               onPress={() => setActiveId(OFFERS_CATEGORY_ID)}
             />
@@ -349,7 +348,6 @@ function Chip({
   photoUrl,
   icon,
   active,
-  pulse = false,
   onPress,
 }: {
   label: string;
@@ -357,20 +355,10 @@ function Chip({
   /** Website's category emoji; shown when there is no photo. */
   icon?: string | null;
   active: boolean;
-  /** Offers only: the same breathing ring the Home card wears, so a guest
-   *  who came from that card recognises where they landed. */
-  pulse?: boolean;
   onPress: () => void;
 }): React.ReactElement {
   return (
     <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
-      {/* The ring hugs the chip's own bounds rather than reaching outside
-          them: the rail's chips are laid out on a fixed gap, and a ring
-          that grew the offers chip by 2 pt a side would push every
-          category along it. Selected, it has to lose the same corner the
-          red bubble does, or it would round off the point the tail grows
-          out of. */}
-      {pulse ? <PulsingBorder style={active ? styles.chipRingActive : styles.chipRing} /> : null}
       {/* Owner-uploaded category photo, when there is one — tiny round
           thumb so the rail stays a text rail, just richer. */}
       {photoUrl ? (
@@ -423,8 +411,6 @@ const styles = StyleSheet.create({
     borderEndEndRadius: 0,
   },
   chipTail: { position: "absolute", end: -15, bottom: 0 },
-  chipRing: { borderRadius: 18 },
-  chipRingActive: { borderRadius: 18, borderEndEndRadius: 0 },
   chipText: { color: colors.ink, fontSize: 13.5, ...fonts.bodySemi },
   chipTextActive: { color: colors.onRed, ...fonts.bodyBold },
   catHeading: { color: colors.ink, fontSize: 17, ...fonts.bodyHeavy, marginTop: 8 },
