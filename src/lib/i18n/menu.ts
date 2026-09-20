@@ -73,6 +73,18 @@ const en = {
     summary: (value: string, count: string): string =>
       `Rated ${value} out of 5 from ${count} Google reviews`,
   },
+  /**
+   * P7-14 follow-up — the first-visit privacy notice on the public menu.
+   * Not a cookie banner: the page sets no cookie and loads no third-party
+   * script, so there is nothing to consent to. It exists to SAY that, and
+   * to point at the policy — which is why the only control is "Got it".
+   */
+  privacy: {
+    title: "Your privacy",
+    body: "This menu sets no tracking cookies. Your basket and this choice are saved only on your device.",
+    link: "Privacy policy",
+    ok: "Got it",
+  },
   diets: {
     vegan: "Vegan",
     vegetarian: "Vegetarian",
@@ -236,6 +248,12 @@ const de: MenuCopy = {
     writeAria: "Eine Google-Bewertung schreiben (öffnet in einem neuen Tab)",
     summary: (value, count) => `Mit ${value} von 5 bewertet, aus ${count} Google-Bewertungen`,
   },
+  privacy: {
+    title: "Ihre Privatsphäre",
+    body: "Diese Speisekarte setzt keine Tracking-Cookies. Ihr Warenkorb und diese Auswahl werden nur auf Ihrem Gerät gespeichert.",
+    link: "Datenschutzerklärung",
+    ok: "Verstanden",
+  },
   diets: {
     vegan: "Vegan",
     vegetarian: "Vegetarisch",
@@ -377,6 +395,12 @@ const es: MenuCopy = {
     summary: (value, count) =>
       `Valorado con ${value} sobre 5 a partir de ${count} reseñas de Google`,
   },
+  privacy: {
+    title: "Tu privacidad",
+    body: "Esta carta no usa cookies de seguimiento. Tu cesta y esta elección se guardan solo en tu dispositivo.",
+    link: "Política de privacidad",
+    ok: "Entendido",
+  },
   diets: {
     vegan: "Vegano",
     vegetarian: "Vegetariano",
@@ -517,6 +541,12 @@ const it: MenuCopy = {
     write: "Scrivi una recensione",
     writeAria: "Scrivi una recensione su Google (si apre in una nuova scheda)",
     summary: (value, count) => `Valutato ${value} su 5 da ${count} recensioni Google`,
+  },
+  privacy: {
+    title: "La tua privacy",
+    body: "Questo menu non usa cookie di tracciamento. Il carrello e questa scelta restano solo sul tuo dispositivo.",
+    link: "Informativa sulla privacy",
+    ok: "Ho capito",
   },
   diets: {
     vegan: "Vegano",
@@ -670,6 +700,12 @@ const ar: MenuCopy = {
     write: "اكتب تقييماً",
     writeAria: "اكتب تقييماً على Google (يفتح في علامة تبويب جديدة)",
     summary: (value, count) => `التقييم ${value} من 5 بناءً على ${count} تقييماً على Google`,
+  },
+  privacy: {
+    title: "خصوصيتك",
+    body: "لا تستخدم هذه القائمة ملفات تعريف ارتباط للتتبع. تُحفظ سلتك وهذا الاختيار على جهازك فقط.",
+    link: "سياسة الخصوصية",
+    ok: "حسناً",
   },
   diets: {
     vegan: "نباتي صرف",

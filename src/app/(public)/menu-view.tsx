@@ -26,6 +26,7 @@ import { AllergenDialog, type AllergenLabels } from "./allergen-dialog";
 import { DishDescription, type DishDescriptionLabels } from "./dish-description";
 import type { ReserveLabels } from "./reserve-dialog";
 import { CategoryLink, CategoryTabs as CategoryTabsClient, TabLink } from "./category-tabs";
+import { PrivacyNotice } from "./privacy-notice";
 import { checkoutCopy } from "@/lib/i18n/checkout";
 import { menuCopy, type MenuCopy } from "@/lib/i18n/menu";
 import { LOCALES, uiLocale } from "@/lib/locales";
@@ -177,18 +178,27 @@ function formatRatingCount(count: number, locale: string): string {
 }
 
 /**
- * "★ 4.6 (312) · Write a review →" — the venue's Google rating, directly
- * under its name (P7-14). Server-rendered, zero JS, and absent entirely
- * unless the server actually has a rating: a venue whose owner has neither
- * saved a Place ID nor typed a rating by hand arrives here as `null` and
- * renders nothing. The "Write a review" half needs a Place ID of its own
- * and drops out without one.
+ * "★ 4.6 (312)" — the venue's Google rating, as a PILL in the page's
+ * top-corner badge stack, directly under the "Reserve table" button
+ * (P7-14). Server-rendered, zero JS, and absent entirely unless the server
+ * actually has a rating: a venue whose owner has neither saved a Place ID
+ * nor typed a rating by hand arrives here as `null` and renders nothing.
+ *
+ * It wears the same two coats as `AppJumpLink`, the badge it sits next to
+ * — `onDark` (white-on-scrim, for the hero's photo) and the light variant
+ * (hairline + page ink, for the sticky bar) — so the corner reads as one
+ * row of badges rather than three unrelated chips.
+ *
+ * The figure alone, no "Write a review" link: the web menu is where a
+ * guest orders food, and a link that takes them off it to Google's review
+ * form belongs in the app instead. `rating.reviewUrl` is still carried by
+ * the type and the API for exactly that reason — it is simply not
+ * rendered here, which is also why this is a `<span>` and not an anchor.
  *
  * Accessibility: the star and the bracketed count are decoration and mean
  * nothing read aloud, so the visual run is `aria-hidden` and a screen
  * reader gets one plain sentence instead ("Rated 4.6 out of 5 from 312
- * Google reviews"). The link says where it goes and that it opens a new
- * tab, because it leaves the restaurant's site for Google's review form.
+ * Google reviews").
  *
  * Deliberately NOT mirrored into JSON-LD: Google's structured-data policy
  * forbids a site marking up third-party ratings of itself, so
@@ -203,44 +213,26 @@ function RatingLine({
   rating: NonNullable<PublicMenu["rating"]>;
   locale: string;
   t: MenuCopy;
-  /** On the banner hero the line sits on a photo scrim, where the theme's
-   *  page ink has no contrast guarantee — white with the same drop shadow
-   *  as the name above it. */
+  /** The pill sits on the hero's photo scrim, where the theme's page ink
+   *  has no contrast guarantee — white on a translucent black wash, like
+   *  every other badge up there. */
   onDark?: boolean;
 }): React.ReactElement {
   const value = formatRatingValue(rating.value, locale);
   const count = formatRatingCount(rating.count, locale);
   return (
-    <p
-      className={`flex flex-wrap items-center gap-x-1.5 text-xs leading-tight ${
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium ${
         onDark
-          ? "text-white/90 drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
-          : "text-[var(--menu-text)]/80"
+          ? "border-white/40 bg-black/45 text-white backdrop-blur"
+          : "border-[var(--menu-text)]/25 text-[var(--menu-text)]/85"
       }`}
     >
-      <span aria-hidden="true" className="whitespace-nowrap">
+      <span aria-hidden="true">
         <span className="text-[var(--menu-accent)]">★</span> {value} ({count})
       </span>
       <span className="sr-only">{t.rating.summary(value, count)}</span>
-      {/* No Place ID means no review form to send anyone to — the owner
-          typed this number in themselves. The figure still stands on its
-          own, so the line renders without the link (and without the
-          separator that would otherwise dangle after it). */}
-      {rating.reviewUrl ? (
-        <>
-          <span aria-hidden="true">·</span>
-          <a
-            href={rating.reviewUrl}
-            target="_blank"
-            rel="noopener"
-            aria-label={t.rating.writeAria}
-            className="whitespace-nowrap underline decoration-[var(--menu-accent)]/60 underline-offset-2 hover:decoration-[var(--menu-accent)]"
-          >
-            {t.rating.write} <span aria-hidden="true">→</span>
-          </a>
-        </>
-      ) : null}
-    </p>
+    </span>
   );
 }
 
@@ -723,6 +715,9 @@ export function MenuView({
           acceptsAsapNow={menu.ordering?.acceptsAsapNow ?? true}
           onlinePayment={Boolean(onlinePayment)}
           paypalPayment={Boolean(paypalPayment)}
+          /* Apple Pay / Google Pay show up only when the owner ticked
+             them in Settings → "Payment methods you accept". */
+          acceptedPayments={modes.acceptedPayments}
           loyalty={
             loyalty?.enabled
               ? {
@@ -752,6 +747,11 @@ export function MenuView({
           __html: `<script>(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||!('IntersectionObserver'in window))return;var cards=[].slice.call(document.querySelectorAll('.dish-card'));var vh=window.innerHeight,i=0;cards.forEach(function(c){if(c.getBoundingClientRect().top<vh){c.style.animationDelay=Math.min(i++*60,360)+'ms';c.classList.add('in-view');}else{c.classList.add('pre-reveal');}});var o=new IntersectionObserver(function(es){var j=0;es.forEach(function(e){var t=e.target;if(!e.isIntersecting)return;o.unobserve(t);if(!t.classList.contains('pre-reveal'))return;t.style.animationDelay=Math.min(j++*55,275)+'ms';t.classList.remove('pre-reveal');t.classList.add('in-view');});},{rootMargin:'0px 0px -6% 0px',threshold:0.05});cards.forEach(function(c){if(!c.classList.contains('in-view'))o.observe(c);});setTimeout(function(){cards.forEach(function(c){c.classList.remove('pre-reveal');});},3000);})();</script>`,
         }}
       />
+      {/* First-visit privacy notice. Client-only (it reads the guest's own
+          localStorage, which a static edge-cached page cannot), and never
+          in the owner's draft preview — that surface is a proof of the
+          menu, not a guest visit. */}
+      {menu.isPreview ? null : <PrivacyNotice labels={t.privacy} />}
     </div>
   );
 }
@@ -1731,8 +1731,9 @@ function ShowcaseDishCard({
 /* ------------------------------------------------------------------ */
 
 /** Banner hero: the owner's wide image as the page top, identity
- *  overlaid — logo + name bottom-left on a scrim, open/closed pill
- *  top-right. The sticky bar below carries only menu controls. */
+ *  overlaid — logo + name bottom-left on a scrim; and top-right the badge
+ *  stack, open/closed → reserve → rating → get-the-app. The sticky bar
+ *  below carries only menu controls. */
 function HeroBanner({
   venue,
   rating,
@@ -1743,6 +1744,9 @@ function HeroBanner({
   locale,
 }: {
   venue: PublicMenu["venue"];
+  /** P7-14 — the rating pill in the top-corner badge stack, under the
+   *  reserve button. Only a page WITH a banner gets it here; without one
+   *  the sticky bar's cluster carries it instead. */
   rating?: PublicMenu["rating"];
   openNow?: OpenState;
   reserve?: { slug: string; hours: OpeningHours; timezone: string };
@@ -1770,23 +1774,28 @@ function HeroBanner({
         aria-hidden="true"
         className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
       />
+      {/* Badge stack, top corner: open/closed, then reserve, then the
+          rating, then the app jump. P7-14 — the rating pill hangs off the
+          reserve button rather than the identity, which keeps the
+          bottom-left to one job (who this restaurant is) and puts the
+          social proof where a guest is already deciding whether to book. */}
       <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
         <OpenBadge state={openNow} t={t} locale={locale} />
         {reserve ? (
           <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
         ) : null}
+        {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
         {hasApp ? <AppJumpLink t={t} onDark /> : null}
       </div>
       <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
-        <VenueMark venue={venue} />
+        {/* `showName={false}`: the big white serif below IS the name here,
+            so the mark contributes the logo only and the venue is not
+            written twice on the same scrim. */}
+        <VenueMark venue={venue} showName={false} />
         <div className="min-w-0">
           <span className="block font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
             {venue.name}
           </span>
-          {/* P7-14 — the rating sits directly under the name, here on the
-              hero and (without a banner) under the name in the bar below.
-              Exactly one of the two renders on any given page. */}
-          {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
         </div>
       </div>
     </div>
@@ -1811,8 +1820,9 @@ function StickyBar({
   locale,
 }: {
   venue: PublicMenu["venue"];
-  /** P7-14 — rendered under the venue name here, but only on a page with
-   *  no banner hero; with a banner the hero carries the line instead. */
+  /** P7-14 — the rating pill in the right-corner badge cluster, but only
+   *  on a page with no banner hero; with a banner the hero's own stack
+   *  carries it. Exactly one of the two renders on any given page. */
   rating?: PublicMenu["rating"];
   categories: { id: string; name: string }[];
   activeCategoryId: string | null;
@@ -1855,7 +1865,7 @@ function StickyBar({
         <div className="mx-auto flex min-h-[3.5rem] max-w-none items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:px-12">
           {/* Logo + restaurant name, leading edge at every width (right
               of the bar under dir="rtl"). */}
-          <VenueMark venue={venue} rating={rating} locale={locale} t={t} />
+          <VenueMark venue={venue} />
           {/* Category tabs: desktop only, fill the middle — unless the
               owner chose the side rail, which replaces them on lg+. */}
           <div className={`min-w-0 flex-1 lg:px-6 ${sideNav ? "hidden" : "hidden lg:block"}`}>
@@ -1868,13 +1878,16 @@ function StickyBar({
               t={t}
             />
           </div>
-          {/* Open/closed pill + reserve button + app jump: right corner at
-              every width. */}
+          {/* Open/closed pill + reserve button + rating + app jump: right
+              corner at every width. Same order as the hero's stack, so a
+              venue with a banner and one without put the badges in the
+              same places. */}
           <div className="flex shrink-0 items-center gap-2">
             <OpenBadge state={openNow} t={t} locale={locale} />
             {reserve ? (
               <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
             ) : null}
+            {rating ? <RatingLine rating={rating} locale={locale} t={t} /> : null}
             {hasApp ? <AppJumpLink t={t} /> : null}
           </div>
         </div>
@@ -1997,18 +2010,20 @@ function OpenBadge({
   );
 }
 
+/**
+ * Logo + restaurant name, the venue's identity as the sticky bar carries
+ * it. The rating is NOT part of this any more — it lives in the top-corner
+ * badge stack beside the reserve button (see `RatingLine`).
+ */
 function VenueMark({
   venue,
-  rating,
-  locale,
-  t,
+  showName = true,
 }: {
   venue: PublicMenu["venue"];
-  /** P7-14 — shown under the name in the sticky bar when the page has no
-   *  banner hero (the hero carries its own copy of the line). */
-  rating?: PublicMenu["rating"];
-  locale?: string;
-  t?: MenuCopy;
+  /** The banner hero prints the venue name itself, in its own large white
+   *  serif — so it asks for the logo alone and the name is not set twice
+   *  on the same scrim. Everywhere else the mark is the name. */
+  showName?: boolean;
 }): React.ReactElement {
   // Top bar leads with the logo + restaurant name, so the venue's identity
   // stays visible as the guest scrolls. The name truncates on narrow
@@ -2026,16 +2041,13 @@ function VenueMark({
         height={44}
         className={`shrink-0 ${venue.branding.logoKey ? "h-11 w-11 rounded-full object-cover" : "h-11 w-11"}`}
       />
-      <div className="min-w-0">
-        <span className="block min-w-0 truncate font-serif text-lg italic leading-tight text-[var(--menu-text)]">
-          {venue.name}
-        </span>
-        {rating && t ? (
-          <div className="mt-0.5">
-            <RatingLine rating={rating} locale={locale ?? "en"} t={t} />
-          </div>
-        ) : null}
-      </div>
+      {showName ? (
+        <div className="min-w-0">
+          <span className="block min-w-0 truncate font-serif text-lg italic leading-tight text-[var(--menu-text)]">
+            {venue.name}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

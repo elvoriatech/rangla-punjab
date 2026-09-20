@@ -341,7 +341,7 @@ describe("MenuView", () => {
     expect(html).not.toContain("Accepted payments");
   });
 
-  it("renders the Google rating line under the venue name, once, with a review link (P7-14)", () => {
+  it("renders the rating pill beside the reserve button once, with no review link (P7-14)", () => {
     const rated: PublicMenu = {
       ...fixture,
       rating: {
@@ -354,27 +354,67 @@ describe("MenuView", () => {
     expect(html).toContain("★");
     expect(html).toMatch(/4\.6/);
     expect(html).toContain("(312)");
-    expect(html).toContain("Write a review");
     // Exactly one line: the sticky bar renders it, the (absent) banner
-    // hero does not.
-    expect(html.split("Write a review").length - 1).toBe(1);
-    // External link, new tab, and opener severed.
-    expect(html).toContain('href="https://search.google.com/local/writereview?placeid=PLACE1"');
-    expect(html).toContain('rel="noopener"');
-    // The star + numbers are decoration; the sentence is what is read out.
-    expect(html).toContain(menuCopy("en").rating.summary("4.6", "312"));
-    expect(html).toContain(menuCopy("en").rating.writeAria);
+    // hero does not. The sr-only sentence is the one-per-line marker.
+    const summary = menuCopy("en").rating.summary("4.6", "312");
+    expect(html).toContain(summary);
+    expect(html.split(summary).length - 1).toBe(1);
+    expect(html.split("(312)").length - 1).toBe(1);
+    // The link is gone from the web menu — reviewUrl still rides the API
+    // for the app, but nothing here sends a guest to Google.
+    expect(html).not.toContain("Write a review");
+    expect(html).not.toContain("writereview");
   });
 
-  it("puts the rating on the banner hero instead when the venue has one (P7-14)", () => {
+  it("puts the rating pill in the hero's badge stack when the venue has a banner (P7-14)", () => {
     const rated: PublicMenu = {
       ...fixture,
       venue: { ...fixture.venue, branding: { ...fixture.venue.branding, bannerKey: "b1" } },
       rating: { value: 4.6, count: 312, reviewUrl: "https://example.com/r" },
     };
     const html = renderToStaticMarkup(<MenuView menu={rated} />);
-    // Still exactly one line — the hero's, not the sticky bar's.
-    expect(html.split("Write a review").length - 1).toBe(1);
+    // Still exactly one pill — the hero's, not the sticky bar's.
+    const summary = menuCopy("en").rating.summary("4.6", "312");
+    expect(html.split(summary).length - 1).toBe(1);
+    expect(html.split("(312)").length - 1).toBe(1);
+    expect(html).not.toContain("Write a review");
+    // It rides the badge stack, so it wears the stack's dark coat rather
+    // than the sticky bar's hairline one.
+    expect(html).toContain("border-white/40 bg-black/45 text-white backdrop-blur");
+  });
+
+  it("the hero prints the venue name once — VenueMark hands the name to the big serif", () => {
+    // `VenueMark`'s own name span (the sticky bar's small italic) must NOT
+    // appear on a hero page: the hero passes `showName={false}` and prints
+    // the name itself in white. An absolute count of the venue name is
+    // brittle — it also appears in JSON-LD, the sr-only H1, the footer and
+    // the metadata — so this checks the one piece of markup that actually
+    // moved, and then that the hero page says the name no more often than
+    // the sticky-bar page does.
+    const MARK_NAME = "block min-w-0 truncate font-serif text-lg italic leading-tight";
+    const hero: PublicMenu = {
+      ...fixture,
+      venue: { ...fixture.venue, branding: { ...fixture.venue.branding, bannerKey: "b1" } },
+    };
+    const heroHtml = renderToStaticMarkup(<MenuView menu={hero} />);
+    const barHtml = renderToStaticMarkup(<MenuView menu={fixture} />);
+    expect(heroHtml.split(MARK_NAME).length - 1).toBe(0);
+    expect(barHtml.split(MARK_NAME).length - 1).toBe(1);
+    const count = (html: string): number => html.split(fixture.venue.name).length - 1;
+    expect(count(heroHtml)).toBe(count(barHtml));
+    // The hero still shows the logo, exactly once.
+    expect(heroHtml.split('width="44" height="44"').length - 1).toBe(1);
+  });
+
+  it("keeps the privacy notice out of the server HTML — it is client-only", () => {
+    // The menu page is static and edge-cached: the server cannot know
+    // whether THIS guest has acknowledged, so the notice must appear only
+    // after the client has read localStorage. Baking it into the HTML
+    // would show it to every guest on every cached page, forever.
+    const html = renderToStaticMarkup(<MenuView menu={fixture} />);
+    expect(html).not.toContain(menuCopy("en").privacy.title);
+    expect(html).not.toContain(menuCopy("en").privacy.ok);
+    expect(html).not.toContain("/legal/privacy");
   });
 
   it("keeps the rating out of JSON-LD — Google disallows self-serving ratings (P7-14)", () => {
@@ -389,6 +429,8 @@ describe("MenuView", () => {
 
   it("shows no rating line at all when the server sends none", () => {
     const html = renderToStaticMarkup(<MenuView menu={fixture} />);
+    expect(html).not.toContain("★");
+    expect(html).not.toContain("out of 5 from");
     expect(html).not.toContain("Write a review");
     expect(html).not.toContain("writereview");
   });
