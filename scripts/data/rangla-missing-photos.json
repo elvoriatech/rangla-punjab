@@ -1,0 +1,294 @@
+{
+  "venueSlug": "rangla-punjab",
+  "note": "Fill imageUrl with a direct link to a JPEG/PNG/WebP (landscape or square, min 800px). Leave empty to skip.",
+  "items": [
+    {
+      "id": "cmu9ymm0u00142wjx2hmxbrjm",
+      "category": "Thali",
+      "name": "Vegetarisches Thali – Montag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Matter Paneer – Hausgemachter frischer Rahmkäse, grüne Erbsen · A",
+      "imageUrl": "https://images.pexels.com/photos/35008222/pexels-photo-35008222.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/indian%20thali/",
+      "credit": "Photo by Rajani33 on Pexels"
+    },
+    {
+      "id": "cmu9ymm0v00152wjxdyo9sxv3",
+      "category": "Thali",
+      "name": "Vegetarisches Thali – Dienstag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Palak Paneer – Hausgemachter Rahmkäse mit Spinat · Sabzi Curry – ",
+      "imageUrl": "https://images.pexels.com/photos/31249589/pexels-photo-31249589.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/paneer%20thali/",
+      "credit": "Photo by Kiran More on Pexels"
+    },
+    {
+      "id": "cmu9ymm0w00162wjxx52fngul",
+      "category": "Thali",
+      "name": "Vegetarisches Thali – Mittwoch",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Paneer Butter Masala – Hausgem. Käse, Butter, indische Gewürze, s",
+      "imageUrl": "https://images.pexels.com/photos/5127316/pexels-photo-5127316.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/indian%20food/",
+      "credit": "Photo by Gansham Ramchandani on Pexels"
+    },
+    {
+      "id": "cmu9ymm0x00172wjxyqa6zrr6",
+      "category": "Thali",
+      "name": "Vegetarisches Thali – Donnerstag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Karahi Paneer – Hausgemachter Rahmkäse, Currysauce, Paprika, Toma",
+      "imageUrl": "https://images.pexels.com/photos/29685056/pexels-photo-29685056.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/paneer/",
+      "credit": "Photo by Kunal Lakhotia on Pexels"
+    },
+    {
+      "id": "cmu9ymm0x00182wjxgrug3tdd",
+      "category": "Thali",
+      "name": "Vegetarisches Thali – Freitag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Sabzi Curry – Curry aus frischem Gemüse der Saison · Palak Paneer",
+      "imageUrl": "https://images.pexels.com/photos/26245461/pexels-photo-26245461.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/indian%20vegetarian%20food/",
+      "credit": "Photo by Parvin Aktar on Pexels"
+    },
+    {
+      "id": "cmu9ymm0y00192wjxepeiocxy",
+      "category": "Thali",
+      "name": "Thali mit Fleisch – Montag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Curry – Hähnchenfilet „Nordindische Art“ in Currysauce · ",
+      "imageUrl": "https://images.pexels.com/photos/33430559/pexels-photo-33430559.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/chicken%20curry/",
+      "credit": "Photo by Anil Sharma on Pexels"
+    },
+    {
+      "id": "cmu9ymm0z001a2wjxon2sqw32",
+      "category": "Thali",
+      "name": "Thali mit Fleisch – Dienstag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Kashmeri – Gebratenes Hähnchen, getrocknete Früchte, Sauc",
+      "imageUrl": "https://images.pexels.com/photos/38400477/pexels-photo-38400477.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/chicken%20curry/",
+      "credit": "Photo by arijit dey on Pexels"
+    },
+    {
+      "id": "cmu9ymm0z001b2wjxv6v4cy5n",
+      "category": "Thali",
+      "name": "Thali mit Fleisch – Mittwoch",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Saag – Hähnchenfilet, Spinat, frischer Ingwer, Knoblauch ",
+      "imageUrl": "https://images.pexels.com/photos/7111537/pexels-photo-7111537.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/chicken%20saag/",
+      "credit": "Photo by Piotr Arnoldes on Pexels"
+    },
+    {
+      "id": "cmu9ymm10001c2wjxlpdxipiw",
+      "category": "Thali",
+      "name": "Thali mit Fleisch – Donnerstag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Churry – Hähnchenfilet, saisonalem frischen Gemüse, Curry",
+      "imageUrl": "https://images.pexels.com/photos/35156497/pexels-photo-35156497.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/chicken%20curry/",
+      "credit": "Photo by Muhammad Khawar Nazir on Pexels"
+    },
+    {
+      "id": "cmu9ymm10001d2wjx7i0ce2zg",
+      "category": "Thali",
+      "name": "Thali mit Fleisch – Freitag",
+      "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Fisch Masala – Seelachslion in einer Zubereitung aus Zwiebeln, fr",
+      "imageUrl": "https://images.pexels.com/photos/38324319/pexels-photo-38324319.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/fish%20curry/",
+      "credit": "Photo by Gansham Ramchandani on Pexels"
+    },
+    {
+      "id": "cmu9ymm51006s2wjxxpkj7k60",
+      "category": "Kalte Getränke",
+      "name": "Säfte als Schorle 0,5l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/17612820/pexels-photo-17612820.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/juice/",
+      "credit": "Photo by Shameel mukkath on Pexels"
+    },
+    {
+      "id": "cmu9ymm55006z2wjxhsvsqrm4",
+      "category": "Bier",
+      "name": "Pils / Export / Helles 0,5l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/16814456/pexels-photo-16814456.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/pilsner/",
+      "credit": "Photo by Frank Schrader on Pexels"
+    },
+    {
+      "id": "cmu9ymm5600702wjxpz5mwg4i",
+      "category": "Bier",
+      "name": "Hefeweizen 0,5l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/1009068/pexels-photo-1009068.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/german%20hefeweizen%20beer/",
+      "credit": "Photo by Atlantic Ambience on Pexels"
+    },
+    {
+      "id": "cmu9ymm5700712wjx8e7bfn19",
+      "category": "Bier",
+      "name": "Radler-Russ 0,5l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/5649898/pexels-photo-5649898.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/radler%20beer/",
+      "credit": "Photo by HONG SON on Pexels"
+    },
+    {
+      "id": "cmu9ymm5800732wjxcjfau0dl",
+      "category": "Aperitif",
+      "name": "Aperol Spritz 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/128242/pexels-photo-128242.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/aperol%20spritz/",
+      "credit": "Photo by Markus Spiske on Pexels"
+    },
+    {
+      "id": "cmu9ymm5900742wjxu5ke6jny",
+      "category": "Aperitif",
+      "name": "Campari Spritz 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/32443614/pexels-photo-32443614.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/campari%20spritz/",
+      "credit": "Photo by Markus Winkler on Pexels"
+    },
+    {
+      "id": "cmu9ymm5900752wjx0rs7uliq",
+      "category": "Aperitif",
+      "name": "Gin Tonic 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/225236/pexels-photo-225236.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/gin%20tonic/",
+      "credit": "Photo by picjumbo.com on Pexels"
+    },
+    {
+      "id": "cmu9ymm5a00762wjxa09hungq",
+      "category": "Aperitif",
+      "name": "Sekt 0,1l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/106672/pexels-photo-106672.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/sparkling%20wine/",
+      "credit": "Photo by Mike Bird on Pexels"
+    },
+    {
+      "id": "cmu9ymm5b00772wjxkijxqy4m",
+      "category": "Aperitif",
+      "name": "Wodka Lemon 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/616836/pexels-photo-616836.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/vodka%20lemon/",
+      "credit": "Photo by Toni Cuenca on Pexels"
+    },
+    {
+      "id": "cmu9ymm5c00792wjxcl440mb4",
+      "category": "Weißwein",
+      "name": "Sula (Indischer Wein) 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/10403547/pexels-photo-10403547.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/white%20wine/",
+      "credit": "Photo by Adrian ozuna on Pexels"
+    },
+    {
+      "id": "cmu9ymm5d007a2wjx5bb8ao5j",
+      "category": "Weißwein",
+      "name": "Pinot Grigio 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/2584451/pexels-photo-2584451.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/pinot%20grigio/",
+      "credit": "Photo by Krisztina Papp on Pexels"
+    },
+    {
+      "id": "cmu9ymm5d007b2wjxucrsr0ln",
+      "category": "Weißwein",
+      "name": "Müller-Thurgau 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/5895443/pexels-photo-5895443.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/white%20wine/",
+      "credit": "Photo by Elle Hughes on Pexels"
+    },
+    {
+      "id": "cmu9ymm5e007c2wjx9ihbre1i",
+      "category": "Weißwein",
+      "name": "Gutedel 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/370984/pexels-photo-370984.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/white%20wine/",
+      "credit": "Photo by Creative Vix on Pexels"
+    },
+    {
+      "id": "cmu9ymm5f007d2wjxgrkr1pix",
+      "category": "Weißwein",
+      "name": "Grauburgunder 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/4871271/pexels-photo-4871271.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/white%20wine/",
+      "credit": "Photo by ROMAN ODINTSOV on Pexels"
+    },
+    {
+      "id": "cmu9ymm5g007f2wjx6vcjf77g",
+      "category": "Rotwein",
+      "name": "Sula (Indischer Wein) 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/3937673/pexels-photo-3937673.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/red%20wine/",
+      "credit": "Photo by Kate Trifo on Pexels"
+    },
+    {
+      "id": "cmu9ymm5h007g2wjxz2bt8hnl",
+      "category": "Rotwein",
+      "name": "Spätburgunder 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/31011781/pexels-photo-31011781.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/red%20wine/",
+      "credit": "Photo by Gaidar Iskakov on Pexels"
+    },
+    {
+      "id": "cmu9ymm5h007h2wjxkz3q7ica",
+      "category": "Rotwein",
+      "name": "Merlot 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/6449866/pexels-photo-6449866.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/merlot/",
+      "credit": "Photo by Luisa Fernanda Bayona on Pexels"
+    },
+    {
+      "id": "cmu9ymm5i007i2wjxtk3zbaap",
+      "category": "Rotwein",
+      "name": "Montepulciano 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/14943491/pexels-photo-14943491.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/montepulciano%20wine/",
+      "credit": "Photo by Alina Skazka on Pexels"
+    },
+    {
+      "id": "cmu9ymm5i007j2wjxvvglljlp",
+      "category": "Rotwein",
+      "name": "Chianti 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/28826629/pexels-photo-28826629.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/chianti/",
+      "credit": "Photo by Emanuele Nuccilli on Pexels"
+    },
+    {
+      "id": "cmu9ymm5j007k2wjx7208wsi0",
+      "category": "Rotwein",
+      "name": "Seeliebe 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/5953605/pexels-photo-5953605.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/red%20wine/",
+      "credit": "Photo by Anna Shvets on Pexels"
+    },
+    {
+      "id": "cmu9ymm5l007m2wjxy3424ad5",
+      "category": "Rosé",
+      "name": "Spätburgunder 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/26647497/pexels-photo-26647497.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/rose%20wine/",
+      "credit": "Photo by Benoit Roy on Pexels"
+    },
+    {
+      "id": "cmu9ymm5l007n2wjxhldestno",
+      "category": "Rosé",
+      "name": "Seeliebe 0,25l",
+      "description": "",
+      "imageUrl": "https://images.pexels.com/photos/15503657/pexels-photo-15503657.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "imageSearchUrl": "https://www.pexels.com/search/rose%20wine/",
+      "credit": "Photo by Studio Naae on Pexels"
+    }
+  ]
+}
