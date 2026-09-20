@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { ReservationStatus } from "@prisma/client";
 import { NextRequest } from "next/server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { signupUser } from "@/lib/auth-service";
 import { signInCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/db";
-import { reservableDates, slotTimesForDate } from "@/lib/opening-hours";
+import { RESERVATION_DAYS_AHEAD, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 import { RESERVATION_STATUSES, setReservationStatus } from "@/lib/reservation-service";
 import { signReservationToken, verifyReservationToken } from "@/lib/reservation-token";
 import { asTenant } from "@/lib/tenant";
@@ -211,27 +211,48 @@ describe("guest reservations", () => {
     // now the last cell the guest can tap IS the limit, and an
     // off-by-one here is a guest tapping an enabled day and being told
     // "that time is unavailable".
-    const now = new Date();
-    const hours = { configured: true, days: HOURS.days };
-    const offered = reservableDates(hours, TIMEZONE, now);
-    const last = offered.at(-1);
-    if (!last) throw new Error("no reservable date in the fixture hours");
-    // These fixture hours open every day, so the window is offered whole.
-    expect(offered).toHaveLength(60);
+    //
+    // The clock is pinned, because both sides of this assertion read it:
+    // `reservableDates` here, and `new Date()` inside the endpoint. Run
+    // for real late in a Berlin evening and today's last slot has already
+    // gone, today drops out of the offered list, and the window is 59 —
+    // a red CI that says nothing about the boundary. 10:00 venue-local is
+    // a morning with slots still ahead, so today counts and the endpoint
+    // agrees with the picker on which day is last.
+    //
+    // Only Date is faked: the suite talks to real Postgres and Redis, and
+    // stubbing setTimeout would hang their drivers.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-09-21T10:00:00+02:00"));
+      const now = new Date();
+      const hours = { configured: true, days: HOURS.days };
+      const offered = reservableDates(hours, TIMEZONE, now);
+      const last = offered.at(-1);
+      if (!last) throw new Error("no reservable date in the fixture hours");
+      // These fixture hours open every day and the pinned "now" is a
+      // morning, so today counts and the window is offered whole.
+      expect(offered).toHaveLength(RESERVATION_DAYS_AHEAD);
+      expect(offered[0]?.date).toBe("2026-09-21");
+      expect(last.date).toBe("2026-11-19");
 
-    const lastTimes = slotTimesForDate(hours, TIMEZONE, last.date, now);
-    const lastTime = lastTimes[0];
-    if (!lastTime) throw new Error("no slot on the last offered date");
-    expect((await post(last.date, lastTime)).status).toBe(201);
+      const lastTimes = slotTimesForDate(hours, TIMEZONE, last.date, now);
+      const lastTime = lastTimes[0];
+      if (!lastTime) throw new Error("no slot on the last offered date");
+      expect((await post(last.date, lastTime)).status).toBe(201);
 
-    // One day further is a day the calendar draws disabled — and a forged
-    // POST for it is refused.
-    const beyond = new Date(`${last.date}T12:00:00Z`);
-    beyond.setUTCDate(beyond.getUTCDate() + 1);
-    const beyondISO = beyond.toISOString().slice(0, 10);
-    const res = await post(beyondISO, lastTime);
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as { error?: string }).error).toBe("invalid_time");
+      // One day further is a day the calendar draws disabled — and a forged
+      // POST for it is refused.
+      const beyond = new Date(`${last.date}T12:00:00Z`);
+      beyond.setUTCDate(beyond.getUTCDate() + 1);
+      const beyondISO = beyond.toISOString().slice(0, 10);
+      expect(offered.map((d) => d.date)).not.toContain(beyondISO);
+      const res = await post(beyondISO, lastTime);
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error?: string }).error).toBe("invalid_time");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("links a reservation to the signed-in guest and returns a verifiable token", async () => {
