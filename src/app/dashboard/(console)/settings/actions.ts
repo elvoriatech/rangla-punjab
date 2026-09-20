@@ -5,10 +5,11 @@ import type { DayHours, Weekday } from "@/lib/opening-hours";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSessionUserId } from "@/lib/auth";
+import { getSessionUserId, setSessionCookie } from "@/lib/auth";
+import { changeUserPassword } from "@/lib/auth-service";
 import { clientIp } from "@/lib/client-ip";
 import { saveUploadedImage } from "@/lib/media-service";
-import { checkRateLimit, GOOGLE_LOOKUP_IP } from "@/lib/rate-limit";
+import { checkRateLimit, GOOGLE_LOOKUP_IP, PASSWORD_CHANGE_IP } from "@/lib/rate-limit";
 import { searchPlaces } from "@/lib/google-rating";
 import {
   refreshVenueGoogleRating,
@@ -40,6 +41,60 @@ async function finish(userId: string, ok: boolean, flag: string): Promise<never>
   revalidatePath("/dashboard/settings", "page");
   revalidatePath("/dashboard", "page");
   redirect(ok ? `${path}?saved=${flag}` : `${path}?error=${flag}`);
+}
+
+/**
+ * `finish`'s twin for the one card on this page that isn't about the
+ * VENUE. Same redirect contract (`?saved=` / `?error=` read by the same
+ * MESSAGES map), minus the CDN purge: a password appears on no cached
+ * copy of the public menu, so purging it would be an API call that buys
+ * nothing.
+ */
+async function finishAccount(userId: string, ok: boolean, flag: string): Promise<never> {
+  const path = `${(await venueAdminBase(userId)) ?? "/dashboard"}/settings`;
+  revalidatePath("/dashboard/settings", "page");
+  redirect(ok ? `${path}?saved=${flag}` : `${path}?error=${flag}`);
+}
+
+/**
+ * The owner's own password — current, new, confirm.
+ *
+ * The current password is not ceremony: this page is reached from a
+ * dashboard that stays open on the counter's tablet all service, and
+ * without it anyone walking past could lock the owner out of their own
+ * restaurant. `changeUserPassword` owns every rule; this action is the
+ * cookie half.
+ *
+ * That cookie half matters. A successful change bumps
+ * `sessions_valid_from`, which kills EVERY session value issued before
+ * it — including the one in the browser that just submitted the form. So
+ * we mint a fresh cookie immediately afterwards: other devices (and the
+ * restaurant app, if it is signed in on the same account) are signed
+ * out, this browser is not. That is exactly what the success banner
+ * promises.
+ */
+export async function changePasswordAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+
+  // Per-IP ceiling on top of the session check: the form takes the
+  // current password, so an unattended dashboard is otherwise a guessing
+  // oracle. Server actions don't receive the Request; `headers()` carries
+  // the same proxy headers, so the trust boundary stays in `clientIp()`.
+  const ip = clientIp(new Request("http://action.local", { headers: await headers() }));
+  const rl = await checkRateLimit(PASSWORD_CHANGE_IP, ip);
+  if (!rl.ok) return finishAccount(userId, false, "password_rate_limited");
+
+  const result = await changeUserPassword(userId, {
+    currentPassword: String(form.get("currentPassword") ?? ""),
+    newPassword: String(form.get("newPassword") ?? ""),
+    confirmPassword: String(form.get("confirmPassword") ?? ""),
+  });
+  if (!result.ok) return finishAccount(userId, false, `password_${result.error}`);
+
+  // Re-issued AFTER the write, so its `iat` sits at or past the new
+  // cutoff. Legal here because a Server Function may write cookies.
+  await setSessionCookie(userId);
+  return finishAccount(userId, true, "password");
 }
 
 export async function saveVenueNameAction(form: FormData): Promise<void> {

@@ -116,6 +116,7 @@ export default async function OrderStatusPage({
           paymentStatus: order.paymentStatus,
           paymentProvider: order.paymentProvider,
           discountCents: order.discountCents,
+          discountPoints: order.discountPoints,
           totalCents: order.totalCents,
           currency: order.currency,
           createdAt: order.createdAt,

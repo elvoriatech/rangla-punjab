@@ -138,9 +138,14 @@ export function OrdersScreen({
                   : order.payment
                     ? { icon: methodIcon, text: payShort.unpaid, settled: false }
                     : null;
-            // Part-paid by a reward: the pill stays honest about the
-            // method, and this says what the reward took off.
-            const discountCents = byReward ? 0 : (s?.discountCents ?? 0);
+            // The reward line shows whatever a reward took off, INCLUDING
+            // when it covered the whole bill. It used to be suppressed in
+            // that case as a duplicate of the pill, but the pill only says
+            // "Reward" — it never says how much, or what it cost in
+            // points, which is what the guest is actually owed an answer
+            // about.
+            const discountCents = s?.discountCents ?? 0;
+            const discountPoints = s?.discountPoints ?? 0;
             return (
               <Pressable
                 key={order.orderId}
@@ -238,8 +243,9 @@ export function OrdersScreen({
                     ) : null}
                     {discountCents > 0 ? (
                       <Text style={styles.rewardOff}>
-                        {fill(t.ordersRewardOff, {
+                        {fill(discountPoints > 0 ? t.ordersRewardOffPoints : t.ordersRewardOff, {
                           value: money(discountCents, order.currency),
+                          points: discountPoints,
                         })}
                       </Text>
                     ) : null}

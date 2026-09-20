@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
+import { ComplaintLink } from "./complaint-link";
 import { ReserveDialog } from "./reserve-dialog";
 import {
   formatPrice,
@@ -1784,6 +1785,10 @@ function HeroBanner({
         {reserve ? (
           <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
         ) : null}
+        {/* Directly after Reserve, before the rating: the two are the
+            same kind of thing — something the guest DOES about this
+            restaurant — and the app's home screen already pairs them. */}
+        <ComplaintLink slug={venue.slug} labels={t.complaint} onDark />
         {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
         {hasApp ? <AppJumpLink t={t} onDark /> : null}
       </div>
@@ -1887,6 +1892,7 @@ function StickyBar({
             {reserve ? (
               <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
             ) : null}
+            <ComplaintLink slug={venue.slug} labels={t.complaint} />
             {rating ? <RatingLine rating={rating} locale={locale} t={t} /> : null}
             {hasApp ? <AppJumpLink t={t} /> : null}
           </div>

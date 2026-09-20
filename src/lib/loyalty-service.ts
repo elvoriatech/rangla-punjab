@@ -96,7 +96,13 @@ export function getLoyaltyConfig(venueLoyaltyJson: unknown): LoyaltyConfig {
 /**
  * When a voucher minted `at` dies: 23:59:59 on the last day of the
  * calendar month, in the VENUE's timezone, plus `months` extra months
- * (0 = this month, 1 = the end of next month, …).
+ * (1 = the end of next month, 12 = a year, …).
+ *
+ * `months` of 0 still computes "the end of this month" — the arithmetic
+ * is unchanged, and the backfill script needs to be able to ask for any
+ * number. It is the CONFIG that no longer offers 0 (see
+ * `loyalty-config.ts`), because a reward earned on the 28th that died on
+ * the 31st was the thing being fixed.
  *
  * Computed as "midnight on the 1st of the month after, minus one second"
  * so no month-length table is needed and DST is handled by the same
@@ -557,6 +563,13 @@ export async function setVoucherArmed(
 export interface VoucherClaim {
   voucherId: string;
   discountCents: number;
+  /** What the voucher cost the guest in points, carried out of the claim
+   *  so the order can copy it onto its own row — see
+   *  `orders.discount_points`. Every surface that draws the reward line
+   *  states the points, and re-reading the voucher on each of them was
+   *  eight lookups for a number that stops changing the moment it is
+   *  spent. */
+  pointsSpent: number;
 }
 
 /**
@@ -593,7 +606,7 @@ export async function claimArmedVoucher(
     // Soonest to die goes first: a guest holding two rewards should spend
     // the one they would otherwise lose.
     orderBy: [{ expiresAt: "asc" }, { createdAt: "asc" }],
-    select: { id: true, valueCents: true },
+    select: { id: true, valueCents: true, pointsSpent: true },
   });
   if (!voucher) return null;
 
@@ -609,6 +622,7 @@ export async function claimArmedVoucher(
   return {
     voucherId: voucher.id,
     discountCents: Math.max(0, Math.min(voucher.valueCents, chargeableCents)),
+    pointsSpent: voucher.pointsSpent,
   };
 }
 

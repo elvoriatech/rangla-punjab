@@ -745,6 +745,28 @@ describe("MENU_COPY", () => {
     expect(dirFor(undefined)).toBe("ltr");
   });
 
+  /**
+   * The Complaint button beside Reserve (mirrors the app's home row).
+   *
+   * Asserted in German and Arabic rather than English because the failure
+   * this guards against is a translated catalogue silently falling back to
+   * the English word — the SERVER renders this label, so a miss ships to
+   * every guest of that locale.
+   */
+  it("renders the Complaint button in the guest's own language", () => {
+    for (const locale of ["de", "ar"] as const) {
+      const html = renderToStaticMarkup(
+        <MenuView
+          menu={{ ...fixture, locale, venue: { ...fixture.venue, defaultLocale: locale } }}
+        />,
+      );
+      expect(html, locale).toContain(MENU_COPY[locale].complaint.button);
+      // Not the English one: a catalogue that fell back would still
+      // "contain a button", which is why this is the assertion.
+      expect(MENU_COPY[locale].complaint.button, locale).not.toBe(MENU_COPY.en.complaint.button);
+    }
+  });
+
   it("gives each locale its own copy — no English left in a translation", () => {
     for (const locale of UI_LOCALES) {
       if (locale === "en") continue;

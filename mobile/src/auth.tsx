@@ -140,6 +140,12 @@ interface AuthApi {
   /** A staff route answered 401: the session is already gone server-side,
    *  so drop it locally without another round trip. */
   clearStaff: () => void;
+  /** Swap the staff credential for a re-issued one WITHOUT re-signing in.
+   *  Changing the password invalidates every token minted before it, so
+   *  `POST /api/v1/staff/password` hands back a fresh one; adopting it is
+   *  what keeps the device that made the change signed in. The profile
+   *  (name, email) is unchanged — it is the same account. */
+  replaceStaffToken: (next: string) => Promise<void>;
   busyProvider: string | null;
   providers: { id: string; label: string }[];
   /** Is there ANY route to a Google account from this build — the native
@@ -559,6 +565,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     void clearStaffToken();
   }, []);
 
+  /** Same slot, same profile, new bearer. Persisted before it is
+   *  announced, so a crash between the two leaves the device holding the
+   *  token that still works rather than the one that no longer does. */
+  const replaceStaffToken = useCallback(
+    async (next: string) => {
+      if (!staff || !next) return;
+      await writeStaffToken(JSON.stringify({ token: next, ...staff } satisfies StaffSession));
+      setStaffToken(next);
+    },
+    [staff],
+  );
+
   const logoutStaff = useCallback(async () => {
     const current = staffToken;
     setStaffToken(null);
@@ -613,6 +631,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       staffToken,
       logoutStaff,
       clearStaff,
+      replaceStaffToken,
       busyProvider,
       providers,
       googleAvailable,
@@ -633,6 +652,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       staffToken,
       logoutStaff,
       clearStaff,
+      replaceStaffToken,
       busyProvider,
       providers,
       googleAvailable,

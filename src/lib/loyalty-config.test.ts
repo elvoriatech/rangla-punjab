@@ -20,7 +20,7 @@ describe("loyalty config", () => {
       pointsPerOrder: 5,
       rewardPoints: 100,
       rewardValueCents: 2000,
-      voucherExpiryMonths: 0,
+      voucherExpiryMonths: 12,
     });
     // null / undefined / a non-object all land on the same defaults —
     // a venue row that was never touched behaves like one that was reset.
@@ -67,9 +67,30 @@ describe("loyalty config", () => {
     expect(config.rewardPoints).toBe(100);
     expect(config.rewardValueCents).toBe(2000);
     // Out of range is treated like any other unusable value: back to the
-    // default (0 = end of this month), which is the conservative choice —
-    // never a 999-month voucher the owner never meant to grant.
-    expect(config.voucherExpiryMonths).toBe(0);
+    // default (a year) — never a 999-month voucher the owner never meant
+    // to grant.
+    expect(config.voucherExpiryMonths).toBe(12);
+  });
+
+  /**
+   * The one field with history. 0 used to mean "expires at the end of the
+   * month it was earned in" AND was the default, so every venue that ever
+   * saved the Loyalty form has a stored 0 — there is no way to tell a
+   * deliberate 0 from an untouched one. Rewards that die days after being
+   * earned is exactly what the owner asked us to stop, so a stored 0 now
+   * reads as "never chose" and becomes the new default.
+   */
+  it("reads a stored 0 (the old default) as a year", () => {
+    expect(parseLoyaltyConfig({ voucherExpiryMonths: 0 }).voucherExpiryMonths).toBe(12);
+    expect(parseLoyaltyConfig({ voucherExpiryMonths: "0" }).voucherExpiryMonths).toBe(12);
+    // Below 1 at all — a negative from a hand-edited blob — is the same.
+    expect(parseLoyaltyConfig({ voucherExpiryMonths: -3 }).voucherExpiryMonths).toBe(12);
+    expect(parseLoyaltyConfig({ voucherExpiryMonths: 0.4 }).voucherExpiryMonths).toBe(12);
+    // A value the owner really did choose is untouched, including the
+    // ones no longer on the list.
+    for (const months of [1, 2, 3, 6, 12, 24, 60]) {
+      expect(parseLoyaltyConfig({ voucherExpiryMonths: months }).voucherExpiryMonths).toBe(months);
+    }
   });
 
   it("accepts the decimal strings the settings form posts and rounds to cents", () => {

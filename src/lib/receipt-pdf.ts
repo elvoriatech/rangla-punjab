@@ -152,6 +152,12 @@ export async function buildReceiptPdf(
   // tax record both need those), and the discount is visible as the thing
   // that brought the total down.
   const discountCents = Math.max(0, order.discountCents);
+  // The POINTS the reward cost, on the row itself — a guest reading
+  // "Reward -20,00" a week later has no way to tell what they gave up for
+  // it. 0 means the order predates the column, and the row then reads as
+  // it always did rather than claiming the reward was free.
+  const rewardLabel =
+    order.discountPoints > 0 ? t.rewardPoints(String(order.discountPoints)) : t.reward;
   const paidByReward = order.paymentStatus === "paid" && order.paymentProvider === "voucher";
   const height =
     110 + // header block
@@ -247,7 +253,7 @@ export async function buildReceiptPdf(
   // The reward comes off the bill before the tax split: `order.totalCents`
   // is already the charged amount, so the VAT below is the VAT on what the
   // guest actually paid.
-  if (discountCents > 0) spread(t.reward, `-${price(discountCents)}`);
+  if (discountCents > 0) spread(rewardLabel, `-${price(discountCents)}`);
   // German gross pricing: the total already includes 19 % VAT — show the
   // net/VAT split so the receipt doubles as a tax-transparent record.
   const vatCents = vatFromGross(order.totalCents);

@@ -64,6 +64,9 @@ export interface TicketOrder {
   paymentStatus: string;
   paymentProvider: string | null;
   discountCents: number;
+  /** Points the reward cost. 0 = no reward, or an order from before the
+   *  column existed — the row then omits the points. */
+  discountPoints: number;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -304,8 +307,13 @@ ${
 ${
   // The dishes keep their menu prices; the reward comes off here, so the
   // ticket's arithmetic matches the till.
+  // The points are on the label so the counter can see what the guest
+  // gave up for it; 0 means an order from before the column existed and
+  // the row reads exactly as it always did.
   order.discountCents > 0
-    ? `<div class="disc"><span>GUTSCHEIN / REWARD</span><span>-${esc(money(order.discountCents))}</span></div>`
+    ? `<div class="disc"><span>GUTSCHEIN / REWARD${
+        order.discountPoints > 0 ? ` &middot; ${order.discountPoints} P` : ""
+      }</span><span>-${esc(money(order.discountCents))}</span></div>`
     : ""
 }
 <div class="total"><span>TOTAL</span><span>${esc(money(order.totalCents))}</span></div>

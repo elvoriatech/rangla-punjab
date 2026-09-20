@@ -106,6 +106,14 @@ const en = {
     moreAbout: (dish: string): string => `More about ${dish}`,
     close: "Close",
   },
+  /* The Complaint button beside "Reserve table" — and what it says when
+     this browser has no order to attach a complaint to. */
+  complaint: {
+    button: "Complaint",
+    title: "Raising a complaint",
+    body: "Complaints are raised on an order. Open the tracking link in your order confirmation, or place an order first.",
+    close: "Close",
+  },
   reserve: {
     buttonShort: "Reserve",
     buttonLong: "Reserve a table",
@@ -275,6 +283,14 @@ const de: MenuCopy = {
     moreAbout: (dish) => `Mehr über ${dish}`,
     close: "Schließen",
   },
+  /* Der Reklamations-Button neben „Tisch reservieren" – und was er sagt,
+     wenn dieser Browser keine Bestellung kennt. */
+  complaint: {
+    button: "Reklamation",
+    title: "Reklamation melden",
+    body: "Eine Reklamation gehört zu einer Bestellung. Öffnen Sie den Tracking-Link aus Ihrer Bestellbestätigung oder geben Sie zuerst eine Bestellung auf.",
+    close: "Schließen",
+  },
   reserve: {
     buttonShort: "Reservieren",
     buttonLong: "Tisch reservieren",
@@ -424,6 +440,14 @@ const fr: MenuCopy = {
     moreAbout: (dish) => `En savoir plus sur ${dish}`,
     close: "Fermer",
   },
+  /* Le bouton Réclamation à côté de « Réserver une table » — et ce qu'il
+     dit quand ce navigateur ne connaît aucune commande. */
+  complaint: {
+    button: "Réclamation",
+    title: "Faire une réclamation",
+    body: "Une réclamation se rattache à une commande. Ouvrez le lien de suivi de votre confirmation de commande, ou passez d'abord une commande.",
+    close: "Fermer",
+  },
   reserve: {
     buttonShort: "Réserver",
     buttonLong: "Réserver une table",
@@ -571,6 +595,14 @@ const es: MenuCopy = {
     moreAbout: (dish) => `Más sobre ${dish}`,
     close: "Cerrar",
   },
+  /* El botón de Reclamación junto a «Reservar mesa», y lo que dice cuando
+     este navegador no conoce ningún pedido. */
+  complaint: {
+    button: "Reclamación",
+    title: "Presentar una reclamación",
+    body: "Una reclamación va ligada a un pedido. Abre el enlace de seguimiento de tu confirmación de pedido, o haz primero un pedido.",
+    close: "Cerrar",
+  },
   reserve: {
     buttonShort: "Reservar",
     buttonLong: "Reservar mesa",
@@ -716,6 +748,14 @@ const it: MenuCopy = {
   dish: {
     more: "Altro",
     moreAbout: (dish) => `Altro su ${dish}`,
+    close: "Chiudi",
+  },
+  /* Il pulsante Reclamo accanto a «Prenota un tavolo», e cosa dice quando
+     questo browser non conosce alcun ordine. */
+  complaint: {
+    button: "Reclamo",
+    title: "Inviare un reclamo",
+    body: "Un reclamo è legato a un ordine. Apri il link di tracciamento nella conferma d'ordine, oppure effettua prima un ordine.",
     close: "Chiudi",
   },
   reserve: {
@@ -875,6 +915,14 @@ const ar: MenuCopy = {
   dish: {
     more: "المزيد",
     moreAbout: (dish) => `المزيد عن ${dish}`,
+    close: "إغلاق",
+  },
+  /* زر الشكوى بجوار «احجز طاولة»، وما يقوله عندما لا يعرف هذا المتصفّح أي
+     طلب. */
+  complaint: {
+    button: "شكوى",
+    title: "تقديم شكوى",
+    body: "ترتبط الشكوى بطلب. افتح رابط التتبّع في تأكيد طلبك، أو قدّم طلبًا أولًا.",
     close: "إغلاق",
   },
   reserve: {

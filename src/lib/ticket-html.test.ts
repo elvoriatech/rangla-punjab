@@ -26,6 +26,7 @@ function order(over: Partial<TicketOrder> = {}): TicketOrder {
     paymentStatus: "none",
     paymentProvider: null,
     discountCents: 0,
+    discountPoints: 0,
     totalCents: 2400,
     currency: "EUR",
     createdAt: new Date("2026-09-19T17:30:00Z"),
@@ -139,7 +140,10 @@ describe("renderTicketHtml", () => {
   });
 
   it("shows the reward line so the ticket's arithmetic matches the till", () => {
-    const html = renderTicketHtml(order({ discountCents: 500, totalCents: 1900 }), VENUE);
+    const html = renderTicketHtml(
+      order({ discountCents: 500, discountPoints: 100, totalCents: 1900 }),
+      VENUE,
+    );
     expect(html).toContain("GUTSCHEIN / REWARD");
     expect(html).toContain("-5,00");
     expect(html).toContain("19,00");

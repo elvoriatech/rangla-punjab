@@ -26,7 +26,7 @@ export const LOYALTY_DEFAULTS = {
   pointsPerOrder: 5,
   rewardPoints: 100,
   rewardValueCents: 2000,
-  voucherExpiryMonths: 0,
+  voucherExpiryMonths: 12,
 } as const;
 
 /** Non-negative integer that tolerates null/garbage by falling back. */
@@ -40,6 +40,34 @@ const intField = (max: number, fallback: number) =>
           : NaN;
     return Number.isFinite(n) && n >= 0 ? Math.round(n) : fallback;
   }, z.number().int().min(0).max(max).catch(fallback));
+
+/**
+ * Voucher lifetime, in whole months — the one field where 0 is not a
+ * number but a legacy.
+ *
+ * It used to mean "dies at the end of the calendar month it was earned in"
+ * AND it was the default, so every venue that has ever opened the Loyalty
+ * form and pressed Save has a stored 0: an explicit choice and "never
+ * chose" are indistinguishable in the data. A reward earned on the 28th
+ * that expires on the 31st is what the owner asked us to stop, so 0 — and
+ * anything below 1 — now reads as "never chose" and becomes the new
+ * default of a year. The option is gone from both editors, so nothing can
+ * write a fresh 0 back.
+ */
+const expiryMonthsField = z.preprocess((v) => {
+  const n =
+    typeof v === "number"
+      ? v
+      : typeof v === "string" && v.trim() !== ""
+        ? Number(v.trim().replace(",", "."))
+        : NaN;
+  if (!Number.isFinite(n)) return LOYALTY_DEFAULTS.voucherExpiryMonths;
+  const months = Math.round(n);
+  // Anything ABOVE the ceiling is left for zod to refuse, so it falls
+  // back to the default exactly like every other junk value — a 999 is a
+  // typo, not a request for an 83-year voucher.
+  return months < 1 ? LOYALTY_DEFAULTS.voucherExpiryMonths : months;
+}, z.number().int().min(1).max(60).catch(LOYALTY_DEFAULTS.voucherExpiryMonths));
 
 export const loyaltyConfigSchema = z.object({
   /** Master switch. Off = guests never see loyalty anywhere. */
@@ -63,11 +91,10 @@ export const loyaltyConfigSchema = z.object({
   rewardValueCents: intField(1_000_000, LOYALTY_DEFAULTS.rewardValueCents).default(
     LOYALTY_DEFAULTS.rewardValueCents,
   ),
-  /** 0 = the voucher dies at the end of the calendar month it was created
-   *  (venue timezone, 23:59:59); 1 = end of the following month, and so on. */
-  voucherExpiryMonths: intField(60, LOYALTY_DEFAULTS.voucherExpiryMonths).default(
-    LOYALTY_DEFAULTS.voucherExpiryMonths,
-  ),
+  /** How long a minted voucher lives, in whole months: 1 = the end of the
+   *  month AFTER the one it was earned in (venue timezone, 23:59:59), 12 =
+   *  a year. See `expiryMonthsField` for why 0 is no longer a value. */
+  voucherExpiryMonths: expiryMonthsField.default(LOYALTY_DEFAULTS.voucherExpiryMonths),
 });
 
 export type LoyaltyConfig = z.infer<typeof loyaltyConfigSchema>;

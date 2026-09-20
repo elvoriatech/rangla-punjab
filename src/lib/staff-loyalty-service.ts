@@ -182,6 +182,11 @@ export const staffLoyaltyPatchSchema = z.object({
   pointsPerOrder: z.number().int().min(0).max(10_000).optional(),
   rewardPoints: z.number().int().min(0).max(1_000_000).optional(),
   rewardValueCents: z.number().int().min(0).max(1_000_000).optional(),
+  // Still accepts 0, on purpose: an app build older than the "rewards
+  // last a year" change still has "end of the month it was earned" in its
+  // picker, and an owner tapping Save on it deserves the new default
+  // (`loyaltyConfigSchema` normalises 0 → 12) rather than a refusal for a
+  // value our own UI put in front of them.
   voucherExpiryMonths: z.number().int().min(0).max(60).optional(),
 });
 

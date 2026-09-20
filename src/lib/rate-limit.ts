@@ -223,6 +223,18 @@ export const STAFF_IP: RateLimitConfig = {
   windowSec: 60,
   failOpen: true,
 };
+// Changing your own password (dashboard Settings + POST /api/v1/staff/password).
+// The form takes the CURRENT password, so an unattended dashboard or a
+// borrowed staff tablet is a password-guessing oracle — this is the ceiling
+// on that. 10/hour is far more than an owner mistyping their own password a
+// few times, and far below a useful number of guesses. Fail-CLOSED (the
+// default) like every other auth limiter: refusing a password change during
+// a Redis outage is the safe half of the trade.
+export const PASSWORD_CHANGE_IP: RateLimitConfig = {
+  scope: "password-change:ip",
+  limit: 10,
+  windowSec: 3600,
+};
 // Complaint messages (P7-10). Anonymous like ordering — the receipt token
 // authorizes the write, so per-IP is the only handle on someone spraying
 // posts at a guessed order id. 10 per 10 minutes is far above a real

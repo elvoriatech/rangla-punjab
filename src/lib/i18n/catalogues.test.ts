@@ -132,8 +132,12 @@ describe("guest copy catalogues", () => {
       for (const key of labels) {
         expect(copy[key].length, `pdf.${locale}.${key} too wide`).toBeLessThanOrEqual(10);
       }
+      // The catalogue holds plain strings, string arrays (the footer
+      // blocks) and — since the reward line started naming the points —
+      // one template function. Each is checked as what it renders to.
       for (const value of Object.values(copy).flat()) {
-        expect(value, `pdf.${locale} has a non-WinAnsi character`).toMatch(/^[\x20-\xFF]*$/);
+        const rendered = typeof value === "function" ? value("100") : value;
+        expect(rendered, `pdf.${locale} has a non-WinAnsi character`).toMatch(/^[\x20-\xFF]*$/);
       }
     }
   });

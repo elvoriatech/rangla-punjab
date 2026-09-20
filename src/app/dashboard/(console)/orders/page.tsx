@@ -308,8 +308,14 @@ export default async function OrdersPage({
                   <span className="text-xs uppercase tracking-[0.18em] text-muted">Total</span>
                   <span className="whitespace-nowrap text-right text-sm font-bold tabular-nums">
                     {order.discountCents > 0 ? (
+                      // The points the guest spent, not just the money off:
+                      // "100 points" is what tells the owner this was a
+                      // loyalty redemption and not a manual discount.
                       <span className="mr-2 text-xs font-normal text-orange-dark">
-                        −{formatPrice(order.discountCents, order.currency, "de")} reward
+                        −{formatPrice(order.discountCents, order.currency, "de")}{" "}
+                        {order.discountPoints > 0
+                          ? `reward · ${order.discountPoints} pts`
+                          : "reward"}
                       </span>
                     ) : null}
                     {formatPrice(order.totalCents, order.currency, "de")}
@@ -407,7 +413,8 @@ export default async function OrdersPage({
                   {order.discountCents > 0 ? (
                     <span className="text-orange-dark">
                       {" "}
-                      · −{formatPrice(order.discountCents, order.currency, "de")} reward
+                      · −{formatPrice(order.discountCents, order.currency, "de")}{" "}
+                      {order.discountPoints > 0 ? `reward · ${order.discountPoints} pts` : "reward"}
                     </span>
                   ) : null}
                 </span>

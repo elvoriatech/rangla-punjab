@@ -570,6 +570,18 @@ model Order {
   /// `loyalty_vouchers.id` the discount above came from. Plain reference,
   /// no FK: round two decides the delete/restore semantics.
   voucherId     String? @map("voucher_id")
+  /// The POINTS that voucher cost the guest, copied off
+  /// `loyalty_vouchers.points_spent` when the order was placed.
+  ///
+  /// Denormalised deliberately. Every surface that shows the reward line
+  /// — receipt PDF, both emails, the dashboard, the kitchen ticket, the
+  /// tracker, the app's three order screens — reads the ORDER, and
+  /// `voucherId` is a plain reference with no relation to join through,
+  /// so the alternative was eight separate voucher lookups for one
+  /// integer that can never change after redemption. 0 means "no reward"
+  /// or "placed before this column existed"; readers show the reward
+  /// line without the points rather than printing "0 points".
+  discountPoints Int    @default(0) @map("discount_points")
 
   /// When the guest followed the "Rate us on Google" link for this order.
   /// A TAP, not a review — Google never tells us whether one was written —

@@ -20,7 +20,7 @@ import {
 import { BrandHeader } from "../components";
 import { IssueSheet } from "../issue-sheet";
 import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
-import { useI18n } from "../i18n";
+import { fill, useI18n } from "../i18n";
 
 /**
  * Bestellung verfolgen — the mockup's tracking screen. Polls the v1
@@ -229,6 +229,7 @@ export function TrackScreen({
   // so the pay buttons stay away even before the status poll catches up.
   const paidByReward = tracking?.paymentProvider === "voucher";
   const discountCents = tracking?.discountCents ?? 0;
+  const discountPoints = tracking?.discountPoints ?? 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -341,7 +342,14 @@ export function TrackScreen({
                 the guest sees the subtraction, not just a smaller number. */}
             {discountCents > 0 ? (
               <View style={styles.rewardRow}>
-                <Text style={styles.rewardLabel}>★ {t.rewardsReward}</Text>
+                {/* The points the reward cost ride on the label: "Reward
+                    -20,00" alone never tells the guest what they spent. */}
+                <Text style={styles.rewardLabel}>
+                  ★ {t.rewardsReward}
+                  {discountPoints > 0
+                    ? ` · ${fill(t.rewardPointsSpent, { points: discountPoints })}`
+                    : ""}
+                </Text>
                 <Text style={styles.rewardValue}>−{money(discountCents, tracking.currency)}</Text>
               </View>
             ) : null}

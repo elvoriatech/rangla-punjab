@@ -24,6 +24,9 @@ export interface TrackerOrder {
   paymentProvider?: string | null;
   /** Reward applied to this order (0 = none). `totalCents` is net of it. */
   discountCents?: number;
+  /** What that reward cost in points. 0/absent on an order placed before
+   *  the column existed — the line then omits the points. */
+  discountPoints?: number;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -188,7 +191,9 @@ export function OrderTrackerCard({
           </ul>
           {order.discountCents ? (
             <div className="mb-1 flex justify-between text-[var(--menu-surface-accent,var(--menu-accent))]">
-              <span>{t.reward}</span>
+              <span>
+                {order.discountPoints ? t.rewardPoints(String(order.discountPoints)) : t.reward}
+              </span>
               <span className="tabular-nums">−{money.format(order.discountCents / 100)}</span>
             </div>
           ) : null}

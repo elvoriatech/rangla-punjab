@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +25,7 @@ import { listStoredOrders, type StoredOrder } from "./src/orders-store";
 import type { PushTarget } from "./src/push";
 import { registerForStaffPush, usePushRouting } from "./src/push";
 import { fetchStaffSummary } from "./src/staff";
+import { useBumpOnChange } from "./src/motion";
 import { walletsFromAccepted } from "./src/payments";
 import { colors, fonts } from "./src/theme";
 import { TAB_BAR_MAX } from "./src/layout";
@@ -42,6 +43,7 @@ import { HoursOwnerScreen } from "./src/screens/HoursOwnerScreen";
 import { ContactOwnerScreen } from "./src/screens/ContactOwnerScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { OwnerMenuSheet } from "./src/owner-menu";
+import { PasswordSheet } from "./src/password-sheet";
 
 /**
  * Rangla Punjab — the single-restaurant app. One hand-rolled tab shell
@@ -129,6 +131,9 @@ function Shell(): React.ReactElement {
   /** The complaint a push asked us to open, handed to IssuesScreen. */
   const [openIssueId, setOpenIssueId] = useState<string | null>(null);
   const [ownerMenu, setOwnerMenu] = useState(false);
+  /** The owner's "change my password" sheet. A sheet, not a tab: it is a
+   *  one-off errand with no screen to return to. */
+  const [passwordSheet, setPasswordSheet] = useState(false);
 
   /**
    * The menu, and everything clock-shaped riding on it (`openNow`,
@@ -576,8 +581,15 @@ function Shell(): React.ReactElement {
           onRating={() => setTab("rating")}
           onHours={() => setTab("hours")}
           onContact={() => setTab("contact")}
+          // A sheet rather than a tab: changing a password is a single
+          // errand with nothing to come back to, and the owner's menu is
+          // where it was opened from.
+          onPassword={() => setPasswordSheet(true)}
           openIssues={openIssues}
         />
+      ) : null}
+      {restaurant ? (
+        <PasswordSheet visible={passwordSheet} onClose={() => setPasswordSheet(false)} />
       ) : null}
     </View>
   );
@@ -598,6 +610,13 @@ function TabButton({
 }): React.ReactElement {
   // Mockup's tab language: filled mark when active, outline when not.
   const name = (active ? icon : `${icon}-outline`) as keyof typeof Ionicons.glyphMap;
+  // A count that moves while the guest is on another tab is the whole
+  // reason this badge exists — a dish added from the menu, an order
+  // arriving on the board — so it pops when the number changes. The bump
+  // is keyed on 0 for "no badge" so appearing and disappearing count as
+  // changes too, and it deliberately does not fire on mount: every tab
+  // bouncing at launch would say "new" about a basket from yesterday.
+  const bump = useBumpOnChange(badge ?? 0);
   return (
     <Pressable onPress={onPress} style={styles.tabBtn} accessibilityLabel={label}>
       <View>
@@ -608,9 +627,9 @@ function TabButton({
           style={!active && { opacity: 0.7 }}
         />
         {badge ? (
-          <View style={styles.badge}>
+          <Animated.View style={[styles.badge, bump]}>
             <Text style={styles.badgeText}>{badge > 99 ? "99" : badge}</Text>
-          </View>
+          </Animated.View>
         ) : null}
       </View>
       <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>

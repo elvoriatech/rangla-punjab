@@ -22,6 +22,7 @@ const sample: ReceiptOrder = {
   deliveryAddress: null,
   paymentStatus: "none",
   discountCents: 0,
+  discountPoints: 0,
   paymentProvider: null,
   totalCents: 2380,
   currency: "EUR",
@@ -54,6 +55,7 @@ describe("new-order email template", () => {
         order: {
           ...sample,
           discountCents: 2000,
+          discountPoints: 100,
           totalCents: 380,
           paymentStatus: "paid",
           paymentProvider: "voucher",
@@ -63,6 +65,9 @@ describe("new-order email template", () => {
       }),
     );
     expect(html).toContain("Gutschein");
+    // The restaurant sees what the reward cost the guest, not only what it
+    // took off — that is what marks the line as a loyalty redemption.
+    expect(html).toContain("Gutschein · 100 Punkte");
     expect(html).toMatch(/−.?20,00/);
     expect(html).toContain("Mit Treuegutschein bezahlt");
     expect(html).not.toMatch(/Noch nicht bezahlt/);

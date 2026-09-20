@@ -20,6 +20,7 @@ const baseOrder: ReceiptOrder = {
   customerEmail: null,
   paymentStatus: "unpaid",
   discountCents: 0,
+  discountPoints: 0,
   paymentProvider: null,
   totalCents: 1990,
   currency: "eur",
@@ -101,6 +102,7 @@ describe("buildReceiptPdf", () => {
       ...baseOrder,
       items: [{ name: "Shahi Tofu", priceCents: 1245, quantity: 2 }],
       discountCents: 2000,
+      discountPoints: 100,
       totalCents: 490,
     };
     for (const locale of ["de", "en", "es", "it", "ar"]) {
@@ -115,6 +117,15 @@ describe("buildReceiptPdf", () => {
       // Courier face would silently strip anything else.
       expect(pdfCopy(locale).reward).not.toBe("");
       expect(pdfCopy(locale).reward).toMatch(/^[\x20-\xFF]+$/);
+      // The points ride on the same label, and must be WinAnsi-safe too —
+      // including the middle dot, which Courier can encode but a stray
+      // typographic character would not be.
+      const withPoints = pdfCopy(locale).rewardPoints("100");
+      expect(withPoints).toContain("100");
+      expect(withPoints).toMatch(/^[\x20-\xFF]+$/);
+      // Long enough to matter, short enough to share a 38-column line
+      // with the amount.
+      expect(withPoints.length).toBeLessThanOrEqual(26);
     }
   });
 
@@ -123,6 +134,7 @@ describe("buildReceiptPdf", () => {
       ...baseOrder,
       items: [{ name: "Shahi Tofu", priceCents: 1245, quantity: 1 }],
       discountCents: 1245,
+      discountPoints: 100,
       totalCents: 0,
       paymentStatus: "paid",
       paymentProvider: "voucher",

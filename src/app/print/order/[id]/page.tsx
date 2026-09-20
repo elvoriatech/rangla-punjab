@@ -184,7 +184,12 @@ export default async function OrderTicketPage({
             the ticket's arithmetic matches the till. */}
         {order.discountCents > 0 ? (
           <div className="flex justify-between">
-            <span>GUTSCHEIN / REWARD</span>
+            {/* Points on the label, same as the 80 mm ticket the kitchen
+                prints — the two must not disagree about one order. */}
+            <span>
+              GUTSCHEIN / REWARD
+              {order.discountPoints > 0 ? ` · ${order.discountPoints} P` : ""}
+            </span>
             <span>-{formatPrice(order.discountCents, order.currency, "de")}</span>
           </div>
         ) : null}

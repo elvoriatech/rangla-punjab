@@ -25,6 +25,7 @@ export function OwnerMenuSheet({
   onRating,
   onHours,
   onContact,
+  onPassword,
   openIssues = 0,
 }: {
   visible: boolean;
@@ -39,6 +40,8 @@ export function OwnerMenuSheet({
   onHours: () => void;
   /** The numbers a guest can phone the restaurant on. */
   onContact: () => void;
+  /** The owner's own sign-in password, changed in a sheet of its own. */
+  onPassword: () => void;
   /** Unresolved complaints; 0 hides the badge entirely. */
   openIssues?: number;
 }): React.ReactElement {
@@ -95,6 +98,7 @@ export function OwnerMenuSheet({
           <Row icon="star-outline" label={t.ownerRating} onPress={() => go(onRating)} />
           <Row icon="time-outline" label={t.ownerHours} onPress={() => go(onHours)} />
           <Row icon="call-outline" label={t.ownerContact} onPress={() => go(onContact)} />
+          <Row icon="key-outline" label={t.ownerPassword} onPress={() => go(onPassword)} />
           <View style={styles.rule} />
           <Row icon="log-out-outline" label={t.signOutStaff} danger onPress={confirmSignOut} />
         </Pressable>
@@ -145,7 +149,7 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 28,
     gap: 2,
-    // Capped and centred on a tablet: a column of seven rows does not
+    // Capped and centred on a tablet: a column of eight rows does not
     // get wider just because the glass did.
     width: "100%",
     maxWidth: SHEET_MAX,

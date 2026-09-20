@@ -23,6 +23,7 @@ import {
   setQuantity,
   subscribeToCart,
 } from "./cart-store";
+import { rememberOrder } from "./last-order-store";
 
 interface PlacedOrder {
   orderId: string;
@@ -833,6 +834,15 @@ export function CartDrawer({
       const value = (await res.json()) as PlacedOrder;
       // Landed — retire the key so the guest's next basket is a new order.
       attemptRef.current = null;
+      // Remembered HERE rather than in `commitPlaced`, because the wallet
+      // path defers that call until the charge resolves: the order is real
+      // from this moment either way, and a guest whose wallet payment
+      // failed still needs the way back to it.
+      rememberOrder(slug, {
+        orderId: value.orderId,
+        receiptToken: value.receiptToken,
+        placedAt: new Date().toISOString(),
+      });
       if (commit) commitPlaced(value);
       return value;
     } catch {

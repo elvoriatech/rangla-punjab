@@ -155,7 +155,12 @@ export function NewOrderEmail({
           ))}
           {order.discountCents > 0 ? (
             <tr>
-              <td style={{ ...styles.itemCell, fontSize: 16 }}>{t.reward}</td>
+              {/* Points as well as money: the restaurant reading this
+                  needs to see that a reward was spent, and the number is
+                  what makes the line legible as one. 0 = older order. */}
+              <td style={{ ...styles.itemCell, fontSize: 16 }}>
+                {order.discountPoints > 0 ? t.rewardPoints(String(order.discountPoints)) : t.reward}
+              </td>
               <td style={{ ...right, fontSize: 16 }}>−{money(order.discountCents)}</td>
             </tr>
           ) : null}

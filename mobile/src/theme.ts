@@ -25,11 +25,20 @@ export { brand, logo, hero, scrim } from "./brand.generated";
  * the counter cannot misread. Both pairings clear WCAG AA on the card:
  * ink-blue on the tint is 7.8:1, and the app's muted ink still reads
  * 5.3:1 against it.
+ *
+ * `ember` is the far end of the Offers pulse (see `usePulse`). It is not
+ * brand either: the pulse only reads as movement if the two tones are far
+ * enough apart, and every warm colour the venue already owns — red, gold,
+ * goldSoft — is within a few degrees of hue of the others. It is used for
+ * a border and a glow only, never behind text, so no contrast pair depends
+ * on it; a venue whose generated gold drifts orange still gets a visible
+ * swing because this end is fixed.
  */
 export const colors = {
   ...generated,
   info: "#1f4e79",
   infoSoft: "#eef3fa",
+  ember: "#f28c28",
 } as const;
 
 /**

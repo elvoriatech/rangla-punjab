@@ -597,7 +597,9 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       pointsPerOrder: 5,
       rewardPoints: 20,
       rewardValueCents: 2000,
-      voucherExpiryMonths: 0,
+      // The venue fixture stores 0, which is the OLD default and now reads
+      // as "never chose" — the parser answers with the new one (a year).
+      voucherExpiryMonths: 12,
     });
     expect(body.totals).toEqual({
       members: 2,

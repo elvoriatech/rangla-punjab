@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Image,
   ImageBackground,
   Pressable,
@@ -16,7 +17,8 @@ import { useAuth } from "../auth";
 import type { StaffHoursWeek, StaffOrdering } from "../staff";
 import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
 import { useVenueOpenNow, venueTimezone } from "../hours";
-import { BrandHeader, DishRow, SectionTitle, VenueStatePill } from "../components";
+import { BrandHeader, DishRow, PulsingBorder, SectionTitle, VenueStatePill } from "../components";
+import { useBumpOnChange, useFireFlicker } from "../motion";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 import { fill, useI18n } from "../i18n";
 import { headlineVoucher, useLoyalty } from "../loyalty";
@@ -66,9 +68,15 @@ const HERO_SLIDES = [
 function HeroCarousel({
   text,
   openNow,
+  points,
+  onOpenPoints,
 }: {
   text: string;
   openNow: boolean | null;
+  /** The signed-in guest's points balance, or null when there is nobody
+   *  to show one to (signed out, programme off, restaurant mode). */
+  points: number | null;
+  onOpenPoints: () => void;
 }): React.ReactElement {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
@@ -122,8 +130,57 @@ function HeroCarousel({
           <View key={i} style={[styles.heroDot, i === page && styles.heroDotActive]} />
         ))}
       </View>
-      {openNow === null ? null : <VenueStatePill open={openNow} style={styles.heroState} />}
+      {/* The hero's top-end corner, as a COLUMN: at 360 pt "Geschlossen"
+          and "35 Pkt." side by side would run into the headline, so the
+          points pill stacks under the open/closed one and both keep the
+          same 12 pt inset. Empty when there is neither. */}
+      <View style={styles.heroBadges}>
+        {openNow === null ? null : <VenueStatePill open={openNow} />}
+        {points === null ? null : <PointsPill points={points} onPress={onOpenPoints} />}
+      </View>
     </ImageBackground>
+  );
+}
+
+/**
+ * "★ 35 Pkt." in the hero's top-end corner — what the guest has, where
+ * they are already looking.
+ *
+ * Tapping it opens the Account screen's rewards card, which is the only
+ * place the number means anything. It is NOT decorative like the
+ * open/closed pill beside it, so it is a real button with a spoken label
+ * ("Your points: 35") rather than a bare number a screen reader would
+ * read out of context.
+ *
+ * It pops when the BALANCE moves — an order settled, a reward spent — and
+ * only then. Points are earned while the guest is elsewhere in the app, so
+ * without the pop the number simply reads differently the next time anyone
+ * happens to look at the hero.
+ */
+function PointsPill({
+  points,
+  onPress,
+}: {
+  points: number;
+  onPress: () => void;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const bump = useBumpOnChange(points);
+  return (
+    <Animated.View style={bump}>
+      <Pressable
+        onPress={onPress}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={fill(t.pointsBadgeLabel, { points })}
+        style={({ pressed }) => [styles.pointsPill, pressed && { opacity: 0.75 }]}
+      >
+        <Ionicons name="star" size={12} color={colors.goldSoft} />
+        <Text style={styles.pointsPillText} numberOfLines={1}>
+          {fill(t.pointsBadge, { points })}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -227,6 +284,10 @@ export function HomeScreen({
     .slice(0, 3)
     .map((i) => i.name)
     .join(" · ");
+  // Hooks cannot hang off `offerCount > 0`, so the flame's loop is built
+  // whether or not there are offers; with no card to render it drives
+  // nothing and costs one idle Animated value.
+  const fire = useFireFlicker();
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader
@@ -236,7 +297,15 @@ export function HomeScreen({
         rating={menu.rating ?? null}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <HeroCarousel text={t.heroLine} openNow={openNow} />
+        <HeroCarousel
+          text={t.heroLine}
+          openNow={openNow}
+          // `useLoyalty` already answers null when the guest is signed
+          // out or the venue's programme is off, so the badge appears
+          // exactly when there is a real balance to show.
+          points={loyalty ? loyalty.balance : null}
+          onOpenPoints={onOpenAccount}
+        />
 
         {/* The counter's own controls: which services are taking orders
             right now. Guests never see this — they see the RESULT, as
@@ -278,7 +347,13 @@ export function HomeScreen({
                 accessibilityLabel={`${t.reserveShort} — ${t.reserveSub}`}
               >
                 <TableForGuestsIcon size={26} />
-                <Text style={styles.modeTitle}>{t.reserveShort}</Text>
+                {/* Two lines allowed on BOTH cards: "Tisch reservieren"
+                    and "Réserver une table" wrap at 360 pt, and a title
+                    that wraps on one card while the other's stays on one
+                    line makes the pair different heights. */}
+                <Text style={styles.modeTitle} numberOfLines={2}>
+                  {t.reserveShort}
+                </Text>
                 <Text style={styles.modeSub} numberOfLines={1}>
                   {t.reserveSub}
                 </Text>
@@ -291,7 +366,9 @@ export function HomeScreen({
               accessibilityLabel={`${t.complainShort} — ${t.complainSub}`}
             >
               <Ionicons name="chatbox-ellipses-outline" size={26} color={colors.red} />
-              <Text style={styles.modeTitle}>{t.complainShort}</Text>
+              <Text style={styles.modeTitle} numberOfLines={2}>
+                {t.complainShort}
+              </Text>
               <Text style={styles.modeSub} numberOfLines={1}>
                 {t.complainSub}
               </Text>
@@ -318,7 +395,9 @@ export function HomeScreen({
         ) : null}
 
         {/* Offers, between the hero and the categories: the one part of
-            the menu with a reason to be looked at today. */}
+            the menu with a reason to be looked at today — and the only
+            card on this screen allowed to move, so the movement still
+            means something. */}
         {offerCount > 0 && !restaurant ? (
           <Pressable
             style={styles.offersCard}
@@ -328,7 +407,8 @@ export function HomeScreen({
               offerCount === 1 ? t.offersCardCountOne : fill(t.offersCardCount, { n: offerCount })
             }`}
           >
-            <Text style={styles.offersEmoji}>🔥</Text>
+            <PulsingBorder inset={2} style={styles.offersRing} />
+            <Animated.Text style={[styles.offersEmoji, fire]}>🔥</Animated.Text>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={styles.offersTitle}>
                 {t.offersCardTitle} ·{" "}
@@ -544,7 +624,32 @@ const styles = StyleSheet.create({
    *  rather than `right`, so an RTL build mirrors it to the left. Above
    *  the slides (z 1) and the dots (z 2) on both platforms — Android
    *  sorts by `elevation` first, hence both. */
-  heroState: { position: "absolute", top: 12, end: 12, zIndex: 3, elevation: 4 },
+  heroBadges: {
+    position: "absolute",
+    top: 12,
+    end: 12,
+    zIndex: 3,
+    elevation: 4,
+    gap: 6,
+    // `flex-end` rather than `right`, so an RTL build mirrors the stack
+    // to the top-left along with everything else in the hero.
+    alignItems: "flex-end",
+  },
+  pointsPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    // Near-black at 78%: the hero artwork underneath is the venue's own
+    // and may be pale or busy, so the pill carries its own contrast
+    // rather than borrowing the scrim's. Cream on this clears AA, and
+    // the star is `goldSoft` (not the ink-dark `gold`) for the same
+    // reason.
+    backgroundColor: "rgba(20,10,5,0.78)",
+  },
+  pointsPillText: { color: colors.cream, ...fonts.bodyHeavy, fontSize: 12 },
   heroDots: {
     position: "absolute",
     zIndex: 2,
@@ -611,27 +716,39 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   rewardEmoji: { ...fonts.body, fontSize: 24 },
-  // Reads as a sibling of the reward banner but in the brand red, not
-  // gold: a reward is the guest's own, an offer is the house's.
+  // Reads as a sibling of the reward banner, but it is the one card that
+  // pulses: a reward is the guest's own and will keep, an offer ends
+  // tonight. The border itself is TRANSPARENT — `PulsingBorder` draws the
+  // gold and the ember over it — and it is declared here anyway so the
+  // card's box is the same 2 pt whether the ring is drawn or not.
   offersCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     backgroundColor: colors.creamCard,
-    borderWidth: 1.5,
-    borderColor: colors.red,
+    borderWidth: 2,
+    borderColor: "transparent",
     borderRadius: radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 14,
+    // Android's share of the glow. Its elevation shadow takes no colour
+    // and would have to re-render the card's layer to breathe, so it is a
+    // steady lift rather than a pulse — the ring is what carries the
+    // movement there.
+    elevation: 3,
   },
+  /** The ring traces the card's OUTER edge, so it takes the outer radius. */
+  offersRing: { borderRadius: radius.lg },
   offersEmoji: { ...fonts.body, fontSize: 24 },
   offersTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   offersNames: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   rewardTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   rewardCta: { color: colors.gold, ...fonts.bodyBold, fontSize: 12 },
   modeEmoji: { ...fonts.body, fontSize: 26 },
-  modeTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
+  // Centred explicitly: a title that wraps to two lines would
+  // otherwise be left-aligned inside a centred card.
+  modeTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, textAlign: "center" },
   modeSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11 },
   catChip: { alignItems: "center", width: 72 },
   catPhoto: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.line },

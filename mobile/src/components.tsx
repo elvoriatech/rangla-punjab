@@ -1,8 +1,10 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -14,6 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
+import { usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
 
 /**
@@ -424,6 +427,47 @@ export function DishBadges({
   );
 }
 
+/**
+ * The "look at this" ring: a steady gold hairline with a warm ember one
+ * fading in and out over it, ~1.6 s a cycle. Worn by the Home screen's
+ * Offers card and by the Offers chip in the menu rail, which is why it
+ * lives here rather than in either of them.
+ *
+ * TWO overlaid rings rather than one animated `borderColor`, because
+ * `borderColor` cannot be driven by the native driver: a colour loop has to
+ * cross the bridge on every frame, for as long as the screen is open, and
+ * is the first thing to stutter when the menu is being fetched underneath
+ * it. Opacity can go native, so the colour change is faked by cross-fading
+ * two borders that never move.
+ *
+ * The host reserves the 2 pt itself — a transparent border of the same
+ * width — so the ring costs no layout, and `inset` is how far back out the
+ * ring has to reach to cover it: absolutely-positioned children start at
+ * the parent's PADDING box, which is already inside the border the ring is
+ * meant to trace. `style` carries the host's own corner geometry, since
+ * only the host knows whether it is a 16 pt card or a chip with one corner
+ * squared off for its tail.
+ */
+export function PulsingBorder({
+  inset = 0,
+  style,
+}: {
+  inset?: number;
+  style?: StyleProp<ViewStyle>;
+}): React.ReactElement {
+  const pulse = usePulse();
+  const edges = { top: -inset, bottom: -inset, start: -inset, end: -inset };
+  return (
+    <>
+      <View pointerEvents="none" style={[styles.ring, styles.ringGold, edges, style]} />
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.ring, styles.ringEmber, edges, style, { opacity: pulse }]}
+      />
+    </>
+  );
+}
+
 /** The mockup's dish row: photo left, name + description, price, red ⊕. */
 export function DishRow({
   item,
@@ -437,6 +481,7 @@ export function DishRow({
   onOpen?: (item: ApiItem) => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  const add = usePressScale();
   return (
     <Pressable style={styles.dishRow} onPress={() => onOpen?.(item)} accessibilityLabel={item.name}>
       <View style={styles.dishPhotoBox}>
@@ -467,14 +512,21 @@ export function DishRow({
           ) : null}
           <Text style={styles.dishPrice}>{money(item.priceCents, item.currency)}</Text>
           {item.isAvailable ? (
-            <Pressable
-              onPress={() => onAdd(item)}
-              hitSlop={10}
-              accessibilityLabel={`${t.dishAdd} — ${item.name}`}
-              style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}
-            >
-              <Text style={styles.addBtnText}>+</Text>
-            </Pressable>
+            // The wrapper, not the button, carries the auto margin: a
+            // transform cannot push a sibling, so the ⊕ has to be pinned to
+            // the end of the row from outside the thing that scales.
+            <Animated.View style={[styles.addBtnWrap, add.style]}>
+              <Pressable
+                onPress={() => onAdd(item)}
+                onPressIn={add.onPressIn}
+                onPressOut={add.onPressOut}
+                hitSlop={10}
+                accessibilityLabel={`${t.dishAdd} — ${item.name}`}
+                style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.addBtnText}>+</Text>
+              </Pressable>
+            </Animated.View>
           ) : (
             <Text style={[styles.soldOut, { marginStart: "auto" }]}>{t.soldOut}</Text>
           )}
@@ -491,15 +543,35 @@ export function QtyStepper({
   quantity: number;
   onChange: (next: number) => void;
 }): React.ReactElement {
+  // Both keys, not just the plus: a stepper where one half answers to the
+  // finger and the other does not feels broken rather than restrained.
+  const less = usePressScale();
+  const more = usePressScale();
   return (
     <View style={styles.stepper}>
-      <Pressable onPress={() => onChange(quantity - 1)} hitSlop={8} style={styles.stepBtn}>
-        <Text style={styles.stepBtnText}>−</Text>
-      </Pressable>
+      <Animated.View style={less.style}>
+        <Pressable
+          onPress={() => onChange(quantity - 1)}
+          onPressIn={less.onPressIn}
+          onPressOut={less.onPressOut}
+          hitSlop={8}
+          style={styles.stepBtn}
+        >
+          <Text style={styles.stepBtnText}>−</Text>
+        </Pressable>
+      </Animated.View>
       <Text style={styles.stepQty}>{quantity}</Text>
-      <Pressable onPress={() => onChange(quantity + 1)} hitSlop={8} style={styles.stepBtn}>
-        <Text style={styles.stepBtnText}>+</Text>
-      </Pressable>
+      <Animated.View style={more.style}>
+        <Pressable
+          onPress={() => onChange(quantity + 1)}
+          onPressIn={more.onPressIn}
+          onPressOut={more.onPressOut}
+          hitSlop={8}
+          style={styles.stepBtn}
+        >
+          <Text style={styles.stepBtnText}>+</Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -521,6 +593,28 @@ const styles = StyleSheet.create({
    *  Brand red on cream clears AA at this size, and the glyph itself —
    *  not the colour — is what carries the meaning. */
   requiredMark: { color: colors.red, ...fonts.bodyHeavy },
+  /** The two halves of `PulsingBorder`. Same box, same corners; only the
+   *  colour and the glow differ, so the cross-fade never shifts an edge. */
+  ring: { position: "absolute", borderWidth: 2 },
+  ringGold: { borderColor: colors.goldSoft },
+  ringEmber: {
+    borderColor: colors.ember,
+    /** The glow rides the ring's OWN opacity — one native-driven fade moves
+     *  the border colour and the halo together, where an animated
+     *  `shadowOpacity` would have to run on the JS thread. Android is left
+     *  out on purpose: its elevation shadow takes no colour, so an orange
+     *  halo is not a thing it can draw, and the hosts carry a steady
+     *  `elevation` for lift instead. */
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.ember,
+        shadowOpacity: 0.55,
+        shadowRadius: 9,
+        shadowOffset: { width: 0, height: 0 },
+      },
+      default: {},
+    }),
+  },
   requiredLegend: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The red slab. It owns the padding and the colour so the rows
    *  inside it are pure layout — and so the status line, when it is
@@ -743,6 +837,7 @@ const styles = StyleSheet.create({
   // Smaller tile, bigger glyph: the button reads as a compact control
   // while the "+" stays the thing the thumb aims at. hitSlop on the
   // Pressable keeps the tap target comfortable despite the smaller box.
+  addBtnWrap: { marginStart: "auto" },
   addBtn: {
     width: 28,
     height: 28,
@@ -750,7 +845,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.red,
     alignItems: "center",
     justifyContent: "center",
-    marginStart: "auto",
   },
   addBtnText: { color: colors.onRed, fontSize: 22, ...fonts.bodySemi, lineHeight: 25 },
   soldOut: { color: colors.inkSoft, ...fonts.body, fontSize: 11, fontStyle: "italic" },

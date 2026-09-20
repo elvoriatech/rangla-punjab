@@ -140,6 +140,7 @@ async function orderRow(
 ): Promise<{
   totalCents: number;
   discountCents: number;
+  discountPoints: number;
   voucherId: string | null;
   paymentStatus: string;
   paymentProvider: string | null;
@@ -150,6 +151,7 @@ async function orderRow(
       select: {
         totalCents: true,
         discountCents: true,
+        discountPoints: true,
         voucherId: true,
         paymentStatus: true,
         paymentProvider: true,
@@ -164,7 +166,9 @@ const ON = {
   pointsPerOrder: 5,
   rewardPoints: 100,
   rewardValueCents: 2000,
-  voucherExpiryMonths: 0,
+  // A year, the default since rewards stopped dying at the end of the
+  // month they were earned in.
+  voucherExpiryMonths: 12,
 };
 
 // One cleanup for the whole file: every describe below mints its own
@@ -351,14 +355,24 @@ describe("loyalty threshold", () => {
     expect(summary.history.find((h) => h.reason === "voucher")?.orderNumber).toBeNull();
   });
 
-  it("expires the voucher at the last second of the venue's calendar month", async () => {
-    const fx = await fixture({ ...ON, rewardPoints: 5, rewardValueCents: 2000 });
-    const orderId = await order(fx, 2);
-    await creditOrderIfEligible(fx.tenantId, orderId);
-    const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
-    expect(summary.vouchers).toHaveLength(1);
+  /** The month a voucher minted NOW should die in, `months` out, as
+   *  "YYYY-MM" in the venue's own zone. */
+  function venueMonthAhead(months: number): string {
+    const now = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Berlin",
+      year: "numeric",
+      month: "2-digit",
+    })
+      .format(new Date())
+      .split("-")
+      .map(Number);
+    const exclusive = (now[1] ?? 1) - 1 + months;
+    const year = (now[0] ?? 0) + Math.floor(exclusive / 12);
+    return `${year}-${String((exclusive % 12) + 1).padStart(2, "0")}`;
+  }
 
-    const expires = new Date(summary.vouchers[0]!.expiresAt);
+  /** The venue-local Y-M-D h:m:s of an instant, as one lookup. */
+  function berlinParts(at: Date): (kind: string) => string {
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Europe/Berlin",
       year: "numeric",
@@ -368,21 +382,47 @@ describe("loyalty threshold", () => {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
-    }).formatToParts(expires);
-    const get = (t: string): string => parts.find((p) => p.type === t)?.value ?? "";
-    // Venue-local 23:59:59 on the last day of the month it was earned.
+    }).formatToParts(at);
+    return (kind) => parts.find((p) => p.type === kind)?.value ?? "";
+  }
+
+  it("expires the voucher a YEAR out, at the last second of that month", async () => {
+    const fx = await fixture({ ...ON, rewardPoints: 5, rewardValueCents: 2000 });
+    const orderId = await order(fx, 2);
+    await creditOrderIfEligible(fx.tenantId, orderId);
+    const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
+    expect(summary.vouchers).toHaveLength(1);
+
+    const expires = new Date(summary.vouchers[0]!.expiresAt);
+    const get = berlinParts(expires);
     expect(`${get("hour")}:${get("minute")}:${get("second")}`).toBe("23:59:59");
-    const today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Berlin",
-      year: "numeric",
-      month: "2-digit",
-    }).format(new Date());
-    expect(`${get("year")}-${get("month")}`).toBe(today);
+    // Twelve months out, not this one — the whole point of the change.
+    expect(`${get("year")}-${get("month")}`).toBe(venueMonthAhead(12));
     // Tomorrow is the 1st of the NEXT month, which proves "last day".
     const next = new Date(expires.getTime() + 1000);
     expect(
       new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", day: "2-digit" }).format(next),
     ).toBe("01");
+  });
+
+  /**
+   * Every venue that ever pressed Save on the old Loyalty form stored a
+   * 0, which used to mean "dies at the end of the month it was earned
+   * in". The config parser reads that as "never chose" and hands the
+   * service the new default, so the rows this mints must look exactly
+   * like the ones above — a stored 0 must not still be minting
+   * three-day rewards.
+   */
+  it("mints a year-long voucher for a venue still holding the old 0", async () => {
+    const fx = await fixture({ ...ON, rewardPoints: 5, voucherExpiryMonths: 0 });
+    const orderId = await order(fx, 2);
+    await creditOrderIfEligible(fx.tenantId, orderId);
+    const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
+    expect(summary.vouchers).toHaveLength(1);
+
+    const get = berlinParts(new Date(summary.vouchers[0]!.expiresAt));
+    expect(`${get("year")}-${get("month")}`).toBe(venueMonthAhead(12));
+    expect(`${get("hour")}:${get("minute")}:${get("second")}`).toBe("23:59:59");
   });
 
   it("computes expiry per timezone and per month offset", () => {
@@ -395,6 +435,39 @@ describe("loyalty threshold", () => {
     // Year rollover from December.
     const dec = new Date("2026-12-04T09:00:00Z");
     expect(voucherExpiry("Europe/Berlin", 1, dec).toISOString()).toBe("2027-01-31T22:59:59.000Z");
+  });
+});
+
+describe("voucher minting", () => {
+  /**
+   * The voucher records what it COST, not only what it is worth.
+   *
+   * `pointsSpent` has been written since minting shipped but nothing ever
+   * read it, so nothing would have caught it drifting. It is now the
+   * source of `orders.discount_points`, which every surface that draws
+   * the reward line reads — quoted from the voucher rather than from the
+   * venue's current `rewardPoints`, so an owner who later raises the
+   * price of a reward does not rewrite what last month's guest paid.
+   */
+  it("records the points a minted voucher cost, at the rate in force then", async () => {
+    const fx = await fixture({ ...ON, rewardPoints: 5 });
+    await creditOrderIfEligible(fx.tenantId, await order(fx, 2));
+
+    const vouchers = await asTenant(fx.tenantId, (tx) =>
+      tx.loyaltyVoucher.findMany({ select: { valueCents: true, pointsSpent: true } }),
+    );
+    expect(vouchers).toHaveLength(1);
+    expect(vouchers[0]).toMatchObject({ pointsSpent: 5, valueCents: ON.rewardValueCents });
+
+    // Raising the price of a reward does not rewrite the one already won.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({ data: { loyalty: { ...ON, rewardPoints: 50 } } }),
+    );
+    expect(
+      await asTenant(fx.tenantId, (tx) =>
+        tx.loyaltyVoucher.findFirstOrThrow({ select: { pointsSpent: true } }),
+      ),
+    ).toMatchObject({ pointsSpent: 5 });
   });
 });
 
@@ -469,6 +542,10 @@ describe("redeeming a voucher", () => {
     expect(await orderRow(fx.tenantId, result.orderId)).toMatchObject({
       totalCents: 490,
       discountCents: 2000,
+      // Copied off the voucher at placement. Every surface that draws the
+      // reward line names the points, and `voucherId` has no relation to
+      // join through — so the order has to carry the number itself.
+      discountPoints: 5,
       voucherId: voucher.id,
       paymentStatus: "none",
     });
@@ -518,6 +595,7 @@ describe("redeeming a voucher", () => {
     expect(result).toMatchObject({ discountCents: 0, chargedCents: 2490, totalCents: 2490 });
     expect(await orderRow(fx.tenantId, result.orderId)).toMatchObject({
       discountCents: 0,
+      discountPoints: 0,
       voucherId: null,
     });
     const summary = await getLoyaltySummary(fx.tenantId, fx.customerId);
@@ -558,6 +636,9 @@ describe("redeeming a voucher", () => {
     expect(await orderRow(fx.tenantId, result.orderId)).toMatchObject({
       totalCents: 0,
       discountCents: 1245,
+      // A reward that covered the WHOLE bill still says what it cost —
+      // the "paid with reward" marker alone never does.
+      discountPoints: 5,
       paymentStatus: "paid",
       paymentProvider: "voucher",
     });

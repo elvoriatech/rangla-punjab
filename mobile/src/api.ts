@@ -534,6 +534,10 @@ export interface ApiTracking {
   items?: ApiTrackItem[];
   /** What a redeemed reward took off this order; absent/0 = none. */
   discountCents?: number;
+  /** The points that reward cost. Absent on a server that predates the
+   *  column, and 0 on an order placed before it — the reward line then
+   *  shows the money without the points rather than "0 points". */
+  discountPoints?: number;
   /** The CHARGED total — i.e. already net of `discountCents`. */
   totalCents: number;
   currency: string;

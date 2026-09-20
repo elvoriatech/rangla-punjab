@@ -4,6 +4,7 @@ import { getOrderingSettings, getVenueForUser } from "@/lib/venue-service";
 import { BRAND } from "@/lib/brand";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { listRecentOrders } from "@/lib/order-service";
+import { formatPrice } from "@/lib/public-menu";
 import { advanceOrderAction } from "../dashboard/(console)/orders/actions";
 import { advanceIcon, advanceLabel, isOpenStatus, nextStatus } from "@/lib/order-status";
 import { AutoRefresh } from "../dashboard/(console)/orders/auto-refresh";
@@ -169,7 +170,12 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                             ? "Paid · PayPal"
                             : order.paymentProvider === "stripe"
                               ? "Paid · Card"
-                              : "Paid"
+                              : // A reward that covered the whole bill used to
+                                // read as a bare "Paid", which tells the pass
+                                // nothing about why no money changed hands.
+                                order.paymentProvider === "voucher"
+                                ? "Paid · Reward"
+                                : "Paid"
                           : "Cash"}
                       </span>
                     </p>
@@ -211,6 +217,20 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                       </li>
                     ))}
                   </ul>
+                  {/* The one money line on this screen. The kitchen display
+                      deliberately shows no prices — the pass does not handle
+                      payment — but a redeemed reward is not a price: it is
+                      the reason this ticket is already settled, and the
+                      restaurant asked to see it everywhere the order is
+                      shown. The points are what mark it as loyalty rather
+                      than a manual discount. */}
+                  {order.discountCents > 0 ? (
+                    <p className="mt-3 text-sm font-semibold text-amber-300">
+                      ★ Reward
+                      {order.discountPoints > 0 ? ` · ${order.discountPoints} pts` : ""} · −
+                      {formatPrice(order.discountCents, order.currency, "de")}
+                    </p>
+                  ) : null}
                   {/* mt-auto pins the action row to the card's bottom edge so
                       it sits at the same height on every card in the row.
                       Exactly ONE button lives here: the status control. It

@@ -139,6 +139,10 @@ export interface PlacedOrder {
   receiptToken: string;
   /** The reward applied to this order, 0 when none was. */
   discountCents: number;
+  /** What the reward cost the guest, in points. 0 when no reward was
+   *  used, and on orders placed before the column existed — the line then
+   *  shows the amount without the points. */
+  discountPoints: number;
   /** Explicit alias of `totalCents`: what Stripe / PayPal / the till
    *  collect. Named so the app never has to guess which of the two
    *  numbers the payment sheet should use. */
@@ -348,6 +352,7 @@ export async function placeOrder(
           totalCents: true,
           currency: true,
           discountCents: true,
+          discountPoints: true,
           paymentProvider: true,
         },
       });
@@ -365,6 +370,7 @@ export async function placeOrder(
             currency: existing.currency,
             receiptToken: signReceiptToken(existing.id, context.tenantId),
             discountCents: existing.discountCents,
+            discountPoints: existing.discountPoints,
             chargedCents: existing.totalCents,
             paidByVoucher: existing.paymentProvider === VOUCHER_PROVIDER,
             replayed: true as const,
@@ -415,6 +421,10 @@ export async function placeOrder(
         totalCents,
         discountCents,
         voucherId: claim?.voucherId ?? null,
+        // Copied off the voucher rather than looked up later: the reward
+        // line names the points on every surface, and none of them has a
+        // relation to join through (`voucherId` is a plain reference).
+        discountPoints: claim?.pointsSpent ?? 0,
         ...(paidByVoucher ? { paymentStatus: "paid", paymentProvider: VOUCHER_PROVIDER } : {}),
         currency,
         items: {
@@ -485,6 +495,7 @@ export async function placeOrder(
         currency,
         receiptToken: signReceiptToken(order.id, context.tenantId),
         discountCents,
+        discountPoints: claim?.pointsSpent ?? 0,
         chargedCents: totalCents,
         paidByVoucher,
       },
@@ -520,6 +531,10 @@ export interface ReceiptOrder extends OrderFulfilment {
    *  their menu prices, so every receipt surface shows this as its own
    *  "Reward −€20.00" row between the lines and the total. */
   discountCents: number;
+  /** What the reward cost the guest, in points. 0 when no reward was
+   *  used, and on orders placed before the column existed — the line then
+   *  shows the amount without the points. */
+  discountPoints: number;
   /** The CHARGED total: already net of `discountCents`. */
   totalCents: number;
   currency: string;
@@ -558,6 +573,7 @@ export async function getOrderForReceipt(
         paymentStatus: true,
         paymentProvider: true,
         discountCents: true,
+        discountPoints: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -609,6 +625,10 @@ export interface KitchenOrder extends OrderFulfilment {
   paymentProvider: string | null;
   /** Loyalty reward applied (0 = none); `totalCents` is already net of it. */
   discountCents: number;
+  /** What the reward cost the guest, in points. 0 when no reward was
+   *  used, and on orders placed before the column existed — the line then
+   *  shows the amount without the points. */
+  discountPoints: number;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -673,6 +693,7 @@ export async function listRecentOrders(
         paymentStatus: true,
         paymentProvider: true,
         discountCents: true,
+        discountPoints: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -708,6 +729,7 @@ export async function getKitchenOrder(
         paymentStatus: true,
         paymentProvider: true,
         discountCents: true,
+        discountPoints: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -802,6 +824,10 @@ export interface OrderTracking {
   paymentProvider: string | null;
   /** Loyalty reward applied (0 = none); `totalCents` is already net of it. */
   discountCents: number;
+  /** What the reward cost the guest, in points. 0 when no reward was
+   *  used, and on orders placed before the column existed — the line then
+   *  shows the amount without the points. */
+  discountPoints: number;
   totalCents: number;
   currency: string;
   requestedFor: Date | null;
@@ -845,6 +871,7 @@ export async function getOrderTracking(
         paymentStatus: true,
         paymentProvider: true,
         discountCents: true,
+        discountPoints: true,
         totalCents: true,
         currency: true,
         requestedFor: true,

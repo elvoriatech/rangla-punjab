@@ -21,7 +21,9 @@ import { uploadedImageUrl } from "@/lib/menu-images";
 import { siteUrl } from "@/lib/public-menu";
 import { DeliveryAreasEditor } from "./delivery-areas-editor";
 import type { PlaceSuggestion } from "@/lib/google-rating";
+import { OWNER_PASSWORD_MIN_LENGTH } from "@/lib/auth-service";
 import {
+  changePasswordAction,
   clearGoogleManualRatingAction,
   refreshGoogleRatingAction,
   saveAppLinksAction,
@@ -191,6 +193,29 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
       "Currency and languages saved. Prices on the draft use the new currency — publish to show guests.",
     error: "Pick a currency, at least one language, and a default from the enabled languages.",
   },
+  // Your own password. One success line, and a refusal per reason — "that
+  // didn't work" in front of three password boxes is the least useful
+  // thing a form can say, and the reasons here are all things the owner
+  // can act on without support.
+  password: {
+    saved: "Password changed. Other devices have been signed out — this one stays open.",
+  },
+  password_wrong_password: {
+    error:
+      "That isn't your current password. Type the password you use to sign in today, then the new one twice.",
+  },
+  password_mismatch: {
+    error: "The two new passwords don't match. Type the new password again in both boxes.",
+  },
+  password_too_short: {
+    error: `Your new password needs at least ${OWNER_PASSWORD_MIN_LENGTH} characters. A short sentence you'll remember beats a short scramble you won't.`,
+  },
+  password_same_as_current: {
+    error: "That's the password you already have. Choose a different one.",
+  },
+  password_rate_limited: {
+    error: "Too many password attempts from here. Wait an hour and try again.",
+  },
 };
 
 /**
@@ -278,6 +303,17 @@ export default async function SettingsPage({
     : error
       ? { kind: "error" as const, text: MESSAGES[error]?.error }
       : null;
+
+  // The password card is the LAST thing on a long page, and the flash
+  // popup lives at the top of it. Repeating the same sentence inside the
+  // card — in a live region, so it is announced as well as seen — means
+  // the owner reads the answer where they typed the question.
+  const passwordNotice =
+    saved === "password"
+      ? { kind: "saved" as const, text: MESSAGES.password?.saved }
+      : error?.startsWith("password")
+        ? { kind: "error" as const, text: MESSAGES[error]?.error }
+        : null;
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 text-ink sm:px-6 md:py-12 lg:px-10">
@@ -1307,21 +1343,25 @@ export default async function SettingsPage({
               </span>
             </label>
             <label className="block text-sm">
-              <span className="font-medium">Voucher expires after</span>
+              <span className="font-medium">Reward stays valid for</span>
+              {/* "End of the month it was earned" is gone: a guest who
+                  earned a reward on the 28th lost it on the 31st. A year
+                  is the default, and a stored 0 from the old list reads
+                  as a year too (see `loyalty-config.ts`). */}
               <select
                 name="loyaltyExpiryMonths"
                 defaultValue={String(loyalty.voucherExpiryMonths)}
                 className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
               >
-                <option value="0">End of the month it was earned</option>
-                <option value="1">End of the following month</option>
-                <option value="2">End of the month after that</option>
-                <option value="3">3 months later</option>
-                <option value="6">6 months later</option>
-                <option value="12">12 months later</option>
+                <option value="1">1 month</option>
+                <option value="3">3 months</option>
+                <option value="6">6 months</option>
+                <option value="12">1 year — recommended</option>
+                <option value="24">2 years</option>
               </select>
               <span className="mt-1 block text-xs text-muted">
-                Always the last second of that month, in your restaurant&apos;s timezone.
+                Counted from the month the reward was earned, and always the last second of that
+                month in your restaurant&apos;s timezone.
               </span>
             </label>
           </div>
@@ -1370,6 +1410,115 @@ export default async function SettingsPage({
           we set up a redirect so old codes keep working.
         </p>
       </section>
+
+      {/* Password — the only card here about the ACCOUNT rather than the
+          restaurant, which is why it sits last, under a rule. The current
+          password is required on purpose: this dashboard stays open on the
+          counter's tablet through service. */}
+      <form
+        action={changePasswordAction}
+        className="mt-10 border-t border-ink/15 pt-8"
+        aria-labelledby="password-heading"
+      >
+        <div className="border border-ink/15 bg-card px-6 py-5">
+          <p id="password-heading" className="text-sm font-medium">
+            Password
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            The password you sign in with — here and in the restaurant app. Changing it signs your
+            other devices out; this one stays open.
+          </p>
+
+          {/* Announced as well as shown: the flash popup is at the top of
+              a page the owner has just scrolled to the bottom of. */}
+          {/* Rendered empty rather than conditionally: a live region has
+              to be in the DOM before the text lands in it. */}
+          <div aria-live="polite" aria-atomic="true">
+            {passwordNotice?.text ? (
+              <p
+                className={`mt-3 border px-3 py-2 text-xs ${
+                  passwordNotice.kind === "error"
+                    ? "border-red-800/30 bg-red-50 text-red-900"
+                    : "border-emerald-800/30 bg-emerald-50 text-emerald-900"
+                }`}
+              >
+                {passwordNotice.text}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block text-sm sm:col-span-2">
+              <span className="font-medium">
+                Current password
+                <RequiredMark />
+              </span>
+              <input
+                type="password"
+                name="currentPassword"
+                autoComplete="current-password"
+                required
+                maxLength={1024}
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+              />
+              <span className="mt-1 block text-xs text-muted">
+                The one you use today. Forgotten it? Sign out and use “Forgot password”.
+              </span>
+            </label>
+
+            <label className="block text-sm">
+              <span className="font-medium">
+                New password
+                <RequiredMark />
+              </span>
+              <input
+                type="password"
+                name="newPassword"
+                autoComplete="new-password"
+                required
+                minLength={OWNER_PASSWORD_MIN_LENGTH}
+                maxLength={1024}
+                aria-describedby="password-hint"
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+              />
+              {/* One template literal rather than `{N} characters`: JSX
+                  eats the space between an expression and the text that
+                  follows it on the next source line, and "At least
+                  12characters" is not a sentence. */}
+              <span id="password-hint" className="mt-1 block text-xs text-muted">
+                {`At least ${OWNER_PASSWORD_MIN_LENGTH} characters. A short sentence you'll remember works better than a scramble you won't.`}
+              </span>
+            </label>
+
+            <label className="block text-sm">
+              <span className="font-medium">
+                Confirm new password
+                <RequiredMark />
+              </span>
+              <input
+                type="password"
+                name="confirmPassword"
+                autoComplete="new-password"
+                required
+                minLength={OWNER_PASSWORD_MIN_LENGTH}
+                maxLength={1024}
+                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+              />
+              <span className="mt-1 block text-xs text-muted">
+                Type the new password a second time so a typo can&apos;t lock you out.
+              </span>
+            </label>
+          </div>
+
+          <RequiredLegend />
+          <SubmitButton
+            pendingLabel="Changing…"
+            className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+          >
+            Change password
+          </SubmitButton>
+        </div>
+      </form>
     </main>
   );
 }

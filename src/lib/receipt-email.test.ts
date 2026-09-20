@@ -24,6 +24,7 @@ const sample: ReceiptOrder = {
   paymentStatus: "paid",
   paymentProvider: "stripe",
   discountCents: 0,
+  discountPoints: 0,
   totalCents: 2380,
   currency: "EUR",
   createdAt: new Date("2026-09-18T18:00:00Z"),
@@ -57,27 +58,52 @@ describe("receipt email template", () => {
     // menu prices and the VAT is computed on what the guest actually paid.
     const html = renderToStaticMarkup(
       ReceiptEmail({
-        order: { ...sample, discountCents: 2000, totalCents: 490 },
+        order: { ...sample, discountCents: 2000, discountPoints: 100, totalCents: 490 },
         locale: "de",
         receiptUrl: "https://x/r.pdf",
         trackUrl: "https://x/t",
       }),
     );
     expect(html).toContain("Gutschein");
+    // The POINTS are on the label, not just the money off: a guest reading
+    // this a week later cannot otherwise tell what the reward cost them.
+    expect(html).toContain("Gutschein · 100 Punkte");
     expect(html).toMatch(/−.?20,00/);
     expect(html).toMatch(/4,90/);
-    // 4,90 gross → 0,78 VAT at 19 %, i.e. the tax follows the discount.
-    expect(html).toMatch(/0,78/);
 
-    const free = renderToStaticMarkup(
+    // An order placed before the column existed carries 0 points, and gets
+    // the plain label rather than "Gutschein · 0 Punkte".
+    const older = renderToStaticMarkup(
       ReceiptEmail({
-        order: { ...sample, discountCents: 2380, totalCents: 0, paymentProvider: "voucher" },
+        order: { ...sample, discountCents: 2000, discountPoints: 0, totalCents: 490 },
         locale: "de",
         receiptUrl: "https://x/r.pdf",
         trackUrl: "https://x/t",
       }),
     );
+    expect(older).toContain("Gutschein");
+    expect(older).not.toContain("Punkte");
+    // 4,90 gross → 0,78 VAT at 19 %, i.e. the tax follows the discount.
+    expect(html).toMatch(/0,78/);
+
+    const free = renderToStaticMarkup(
+      ReceiptEmail({
+        order: {
+          ...sample,
+          discountCents: 2380,
+          discountPoints: 100,
+          totalCents: 0,
+          paymentProvider: "voucher",
+        },
+        locale: "de",
+        receiptUrl: "https://x/r.pdf",
+        trackUrl: "https://x/t",
+      }),
+    );
+    // A reward that covered the WHOLE bill keeps both: the "paid with
+    // your reward" line AND the row saying what it cost.
     expect(free).toContain("Mit Ihrem Gutschein bezahlt");
+    expect(free).toContain("Gutschein · 100 Punkte");
     expect(free).not.toContain("Online bezahlt (Karte).");
   });
 

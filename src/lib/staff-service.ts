@@ -47,6 +47,10 @@ export interface StaffOrder {
   paymentProvider: string | null;
   totalCents: number;
   discountCents: number;
+  /** Points the reward cost the guest. 0 = no reward (or an order placed
+   *  before the column existed): the board then draws the line without
+   *  the points rather than claiming it cost nothing. */
+  discountPoints: number;
   currency: string;
   items: StaffOrderItem[];
   /** The complaint thread on this order, if there is one (P7-10). The
@@ -125,6 +129,7 @@ export function toStaffOrder(
     paymentProvider: order.paymentProvider,
     totalCents: order.totalCents,
     discountCents: order.discountCents,
+    discountPoints: order.discountPoints,
     currency: order.currency,
     items: order.items.map((i) => ({
       name: i.name,

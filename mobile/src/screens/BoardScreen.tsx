@@ -695,7 +695,11 @@ export function BoardScreen({
         : order.paymentProvider === "cash"
           ? { icon: "💶", text: t.methodCash, settled: false }
           : { icon: methodIcon, text: payShort.unpaid, settled: false };
-    const discountCents = byReward ? 0 : order.discountCents;
+    // Shown even when the reward covered the whole bill: the pill says a
+    // reward paid, this says how much it was worth and what it cost the
+    // guest in points — which is what the counter is asked about.
+    const discountCents = order.discountCents;
+    const discountPoints = order.discountPoints;
     const address = order.deliveryAddress;
     // One line for the doorbell, and the thing the maps app is handed.
     const addressLine = address
@@ -872,7 +876,10 @@ export function BoardScreen({
 
             {discountCents > 0 ? (
               <Text style={styles.rewardOff}>
-                {fill(t.ordersRewardOff, { value: money(discountCents, order.currency) })}
+                {fill(discountPoints > 0 ? t.ordersRewardOffPoints : t.ordersRewardOff, {
+                  value: money(discountCents, order.currency),
+                  points: discountPoints,
+                })}
               </Text>
             ) : null}
 

@@ -50,6 +50,9 @@ export interface StaffOrder {
   paymentProvider: string | null;
   totalCents: number;
   discountCents: number;
+  /** Points the reward cost the guest. 0 = no reward, or an order from
+   *  before the server carried the number. */
+  discountPoints: number;
   currency: string;
   items: StaffOrderItem[];
   /** The complaint thread on this order — "open" | "answered" |
@@ -150,6 +153,7 @@ export function asStaffOrder(raw: unknown): StaffOrder | null {
     paymentProvider: nullableStr(o.paymentProvider),
     totalCents: num(o.totalCents),
     discountCents: num(o.discountCents),
+    discountPoints: num(o.discountPoints),
     currency: str(o.currency, "EUR"),
     items: Array.isArray(o.items)
       ? o.items.map(asItem).filter((i): i is StaffOrderItem => i !== null)
@@ -1416,4 +1420,79 @@ export async function fetchStaffTicketHtml(
   // sheet out of the kitchen printer is worse than an error on screen.
   if (!html.trim()) return { ok: false, error: "server" };
   return { ok: true, data: html };
+}
+
+/* ------------------------------------------------------------------ *
+ * The owner's own password.
+ *
+ * The staff credential IS a signed session value, and changing the
+ * password invalidates every value issued before the change — including
+ * the one this call is made with. The server therefore answers with a
+ * FRESH token, and the caller must adopt it (`replaceStaffToken`) or the
+ * next poll signs the counter out.
+ *
+ * `wrong_password` arrives as a 400, never a 401: a mistyped password
+ * must not look like a dead session.
+ * ------------------------------------------------------------------ */
+
+/** The server's own floor (`OWNER_PASSWORD_MIN_LENGTH`), mirrored so the
+ *  sheet can say the number before it spends a round trip on it. The
+ *  server re-checks and may answer with its own `minLength`. */
+export const STAFF_PASSWORD_MIN_LENGTH = 12;
+
+export type StaffPasswordError =
+  | "wrong_password"
+  | "mismatch"
+  | "too_short"
+  | "same_as_current"
+  | "rate_limited"
+  /** The session itself is gone — the caller signs the device out. */
+  | "unauthorized"
+  | "network"
+  | "server";
+
+export type StaffPasswordResult =
+  { ok: true; token: string } | { ok: false; error: StaffPasswordError; minLength?: number };
+
+const PASSWORD_ERRORS: readonly string[] = [
+  "wrong_password",
+  "mismatch",
+  "too_short",
+  "same_as_current",
+  "rate_limited",
+];
+
+export async function changeStaffPassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword?: string,
+): Promise<StaffPasswordResult> {
+  const res = await staffFetch(token, "/api/v1/staff/password", {
+    method: "POST",
+    body: {
+      currentPassword,
+      newPassword,
+      ...(confirmPassword === undefined ? {} : { confirmPassword }),
+    },
+  });
+  if (!res) return { ok: false, error: "network" };
+
+  const minLength = typeof res.body?.minLength === "number" ? res.body.minLength : undefined;
+
+  if (res.status !== 200) {
+    // The named reasons travel in the body; anything else falls back to
+    // the shared status mapping ("unauthorized" for a dead session).
+    const named = typeof res.body?.error === "string" ? res.body.error : "";
+    if (PASSWORD_ERRORS.includes(named)) {
+      return { ok: false, error: named as StaffPasswordError, minLength };
+    }
+    return { ok: false, error: failure(res.status) as StaffPasswordError, minLength };
+  }
+
+  const next = typeof res.body?.token === "string" ? res.body.token : "";
+  // A 200 with no token would leave the app holding a value the server
+  // has just killed — treat it as a server fault rather than a success.
+  if (!next) return { ok: false, error: "server" };
+  return { ok: true, token: next };
 }

@@ -120,7 +120,12 @@ export function ReceiptEmail({
           ))}
           {order.discountCents > 0 ? (
             <tr>
-              <td style={{ ...styles.value, paddingTop: 12 }}>{t.reward}</td>
+              {/* The points the reward cost sit on the label, so the guest
+                  sees what they spent and not only what came off. An order
+                  from before that column has 0 and keeps the plain label. */}
+              <td style={{ ...styles.value, paddingTop: 12 }}>
+                {order.discountPoints > 0 ? t.rewardPoints(String(order.discountPoints)) : t.reward}
+              </td>
               <td style={{ ...styles.value, paddingTop: 12, textAlign: amountAlign }}>
                 −{money(order.discountCents)}
               </td>

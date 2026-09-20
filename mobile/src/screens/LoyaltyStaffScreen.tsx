@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -310,11 +311,8 @@ export function LoyaltyStaffScreen({
                       bad={badField === "rewardValueCents"}
                       onChange={(v) => onField("rewardValueCents", v)}
                     />
-                    <Field
-                      label={t.staffLoyaltyExpiry}
+                    <ExpiryPicker
                       value={draft.voucherExpiryMonths}
-                      hint={t.staffLoyaltyMonthsHint}
-                      bad={badField === "voucherExpiryMonths"}
                       onChange={(v) => onField("voucherExpiryMonths", v)}
                     />
                     <PrimaryButton
@@ -379,6 +377,71 @@ export function LoyaltyStaffScreen({
  * are converted to cents by the caller; counts take digits only. The
  * keyboard follows, so a tablet never offers letters for a price.
  */
+/**
+ * How long a reward stays valid — a short list of chips, not a number
+ * box.
+ *
+ * It used to be a free-text field whose hint had to explain that 0 meant
+ * "dies at the end of the month it was earned in". That option is gone
+ * (a guest who earned a reward on the 28th lost it on the 31st), and a
+ * rule this consequential should not be a number an owner can fat-finger
+ * into 1 when they meant 12. A year is the recommended answer and the
+ * default, so it is on the list rather than in a paragraph.
+ *
+ * A venue still holding some older value (2 months, say) keeps it on the
+ * list until they choose something else — a picker must never silently
+ * change a setting just by being opened.
+ */
+const EXPIRY_MONTHS: readonly number[] = [1, 3, 6, 12, 24];
+
+function ExpiryPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const current = Number(value);
+  const options = EXPIRY_MONTHS.includes(current)
+    ? EXPIRY_MONTHS
+    : [...EXPIRY_MONTHS, current].filter((m) => Number.isFinite(m) && m > 0).sort((a, b) => a - b);
+
+  const label = (months: number): string => {
+    if (months === 12) return t.staffLoyaltyOneYear;
+    if (months === 24) return t.staffLoyaltyTwoYears;
+    return fill(t.staffLoyaltyMonths, { months });
+  };
+
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={styles.configLabel}>{t.staffLoyaltyExpiry}</Text>
+      <View style={styles.chips} accessibilityRole="radiogroup">
+        {options.map((months) => {
+          const selected = months === current;
+          return (
+            <Pressable
+              key={months}
+              onPress={() => onChange(String(months))}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={label(months)}
+              style={({ pressed }) => [
+                styles.chip,
+                selected && styles.chipOn,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={[styles.chipText, selected && styles.chipTextOn]}>{label(months)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={styles.fieldHint}>{t.staffLoyaltyMonthsHint}</Text>
+    </View>
+  );
+}
+
 function Field({
   label,
   value,
@@ -437,6 +500,21 @@ const styles = StyleSheet.create({
   failed: { color: colors.danger, ...fonts.bodySemi, fontSize: 13 },
   ok: { color: colors.positive, ...fonts.bodySemi, fontSize: 13 },
   settingsHint: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, lineHeight: 17 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.cream,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    // A thumb on a counter, one-handed: the chip is a touch target.
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  chipOn: { borderColor: colors.red, backgroundColor: colors.red },
+  chipText: { color: colors.ink, ...fonts.bodySemi, fontSize: 13 },
+  chipTextOn: { color: colors.onRed },
   fieldRow: {
     flexDirection: "row",
     alignItems: "center",
