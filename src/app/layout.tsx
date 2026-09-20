@@ -25,15 +25,21 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: `${BRAND.name} — Order Online`,
   description: BRAND.tagline,
-  // The restaurant app icon as the favicon on EVERY page — declared via metadata (not
+  // The restaurant logo as the favicon on EVERY page — declared via metadata (not
   // the app/favicon.ico file convention) so the guest menu can swap in an
   // uploaded restaurant logo without the file-convention icon competing.
+  //
+  // `?v=3` is a cache buster, bumped whenever `pnpm brand:web` changes the art.
+  // Browsers cache favicons far more stubbornly than any other asset — Chrome
+  // keeps them in a separate database that a normal reload never touches — so
+  // without a new URL the September 2026 rebrand would leave the old lettered
+  // icon in every returning guest's tab.
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" },
+      { url: "/favicon.ico?v=3", sizes: "16x16 32x32 48x48" },
+      { url: "/rangla-icon-180.png?v=3", sizes: "180x180", type: "image/png" },
     ],
-    apple: [{ url: "/rangla-icon-180.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/rangla-icon-180.png?v=3", sizes: "180x180", type: "image/png" }],
   },
   // Site web-app manifest (served dynamically from the restaurant's
   // branding at /menu.webmanifest — /manifest.webmanifest is reserved by
