@@ -3,6 +3,7 @@ import { FlashMessage } from "@/components/flash-message";
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import {
+  getGiftCardSettings,
   getLoyaltySettings,
   getOrderingSettings,
   getVenueAppLinks,
@@ -14,6 +15,12 @@ import {
   SUPPORTED_LOCALES,
 } from "@/lib/venue-service";
 import { PLAN_LABELS } from "@/lib/plan-state";
+import {
+  GIFT_CARD_RECOMMENDED_EXPIRY_MONTHS,
+  GIFT_CARD_RISKY_EXPIRY_BELOW_MONTHS,
+  isRiskyExpiry,
+} from "@/lib/gift-card-config";
+import { listGiftCardProducts } from "@/lib/gift-card-service";
 import { MAX_NOTIFY_EMAILS, PAYMENT_METHODS } from "@/lib/ordering-config";
 import { MAX_APP_LINK_LENGTH } from "@/lib/app-links-config";
 import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
@@ -31,6 +38,9 @@ import {
   removeLogoAction,
   saveBannerAction,
   saveContactAction,
+  removeGiftCardImageAction,
+  saveGiftCardProductAction,
+  saveGiftCardsAction,
   saveGoogleAction,
   saveGoogleManualRatingAction,
   saveGoogleRatingEnabledAction,
@@ -89,6 +99,24 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   halal: {
     saved: "Saved. The Halal filter and badge now match your choice on the public menu.",
     error: "Couldn't save the Halal setting — try again.",
+  },
+  // Gift cards. The switch and the three designs save separately, so each
+  // says which of the two took — an owner who has just uploaded a picture
+  // shouldn't have to guess whether the price went with it.
+  giftcards: {
+    saved: "Gift cards saved. Guests see the change the next time they open the app.",
+    error: "Couldn't save gift cards — check how long cards stay valid and try again.",
+  },
+  "giftcard-product": {
+    saved: "Design saved. Cards bought from now on carry the new name, price and picture.",
+    error: "Couldn't save that design. Give it a name and a price above €0.00 — then try again.",
+  },
+  "giftcard-image": {
+    error: "That picture didn't save. Use a JPEG, PNG, or WebP up to 10 MB.",
+  },
+  "giftcard-image-removed": {
+    saved: "Picture removed. That design shows without artwork until you upload a new one.",
+    error: "Couldn't remove the picture — try again.",
   },
   // Contact numbers. One success line, and a refusal per box — an owner
   // who mistyped one number needs to know WHICH one, not that "something"
@@ -219,6 +247,24 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
 };
 
 /**
+ * Terms offered for a gift card's life, in months. 36 leads because it
+ * matches the statutory limitation period (§ 195 BGB) a German court
+ * would apply to a PAID voucher anyway; the shorter ones are here because
+ * some owners will want them, and the hint under the box says plainly
+ * what they are taking on.
+ */
+const GIFT_CARD_EXPIRY_TERMS = [6, 12, 24, 36, 48, 60] as const;
+
+function giftCardTermLabel(months: number): string {
+  const years = months / 12;
+  const base =
+    Number.isInteger(years) && years >= 1
+      ? `${years} ${years === 1 ? "year" : "years"} (${months} months)`
+      : `${months} months`;
+  return months === GIFT_CARD_RECOMMENDED_EXPIRY_MONTHS ? `${base} — recommended` : base;
+}
+
+/**
  * The Place ID search results, handed back through the redirect URL (the
  * only place a zero-JS form round-trip can carry them). Everything here
  * arrived in a query string the owner could have typed themselves, so the
@@ -271,6 +317,17 @@ export default async function SettingsPage({
   const ordering = orderingResult.ok ? orderingResult.value : null;
   const loyaltyResult = await getLoyaltySettings(userId);
   const loyalty = loyaltyResult.ok ? loyaltyResult.value : null;
+  const giftCardResult = await getGiftCardSettings(userId);
+  const giftCards = giftCardResult.ok ? giftCardResult.value : null;
+  // Reading the products seeds the three shipped designs on a venue that
+  // has never sold a card, so the editor below is never an empty box.
+  const giftCardProducts = giftCards ? await listGiftCardProducts(venue.tenantId, venue.id) : [];
+  // A term saved before this list existed (or typed into the JSON by hand)
+  // has to appear in the select, or the browser would silently show the
+  // first option and the next save would change a setting nobody touched.
+  const giftCardTerms = giftCards
+    ? Array.from(new Set([...GIFT_CARD_EXPIRY_TERMS, giftCards.expiryMonths])).sort((a, b) => a - b)
+    : [];
   const googleResult = await getVenueGoogle(userId);
   const google = googleResult.ok ? googleResult.value : null;
   const appLinksResult = await getVenueAppLinks(userId);
@@ -1373,6 +1430,230 @@ export default async function SettingsPage({
             Save loyalty
           </SubmitButton>
         </form>
+      ) : null}
+
+      {/* Gift cards. A <section> of sibling forms rather than one form:
+          the switches and each of the three designs are separate posts,
+          and HTML has no nested forms. */}
+      {giftCards ? (
+        <section aria-label="Gift cards" className="mt-6 border border-ink/15 bg-card px-6 py-5">
+          <p className="text-sm font-medium">Gift cards</p>
+          <p className="mt-1 text-xs text-muted">
+            Sell gift cards for your restaurant. A guest buys one in the app, pays for it there, and
+            gets a code they can forward — your staff take it at the counter, or the guest spends it
+            in their own cart. Every card sold shows up under{" "}
+            <strong className="font-medium text-ink">Gift cards</strong> in the menu on the left.
+          </p>
+
+          <form action={saveGiftCardsAction} className="mt-4">
+            <label className="flex cursor-pointer items-center justify-between gap-4 text-sm">
+              <span>
+                Sell gift cards
+                <span className="block text-xs text-muted">
+                  Off hides the whole gift-card section from guests. Cards already sold keep working
+                  — switching off stops new sales, it never voids a card someone paid for.
+                </span>
+              </span>
+              <span className="relative inline-flex shrink-0">
+                <input
+                  type="checkbox"
+                  name="giftCardsEnabled"
+                  defaultChecked={giftCards.enabled}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className="h-6 w-11 rounded-full bg-ink/25 transition-colors peer-checked:bg-orange peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-orange motion-reduce:transition-none"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 motion-reduce:transition-none"
+                />
+              </span>
+            </label>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 border-t border-ink/10 pt-4 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="font-medium">Cards stay valid for</span>
+                <select
+                  name="giftCardExpiryMonths"
+                  defaultValue={String(giftCards.expiryMonths)}
+                  aria-describedby="giftcard-expiry-hint"
+                  className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                >
+                  {giftCardTerms.map((m) => (
+                    <option key={m} value={String(m)}>
+                      {giftCardTermLabel(m)}
+                    </option>
+                  ))}
+                </select>
+                <span id="giftcard-expiry-hint" className="mt-1 block text-xs text-muted">
+                  Counted from the day the card is paid for, and always the last second of that day
+                  in your restaurant&apos;s timezone.
+                </span>
+              </label>
+            </div>
+
+            {/* The legal note is the reason this card has a recommended
+                value at all: a gift card is PAID for, which puts it on a
+                different footing from a loyalty reward the guest was given.
+                Written out rather than linked — the owner is making the
+                decision right here, and a link is a decision deferred. */}
+            <div className="mt-4 space-y-2 border border-ink/15 bg-cream px-4 py-3 text-xs leading-relaxed">
+              <p>
+                <strong className="font-semibold">
+                  Three years ({GIFT_CARD_RECOMMENDED_EXPIRY_MONTHS} months) is the recommended
+                  term.
+                </strong>{" "}
+                A gift card is paid for, so a shorter expiry is legally risky in Germany: the
+                statutory limitation period is three years (§ 195 BGB), and a court will normally
+                side with the guest against anything shorter. We save whatever you choose — the call
+                is yours — but {GIFT_CARD_RECOMMENDED_EXPIRY_MONTHS} months is the term least likely
+                to be struck down.
+              </p>
+              <p>
+                <strong className="font-semibold">
+                  VAT falls due when a card is redeemed, not when it is sold.
+                </strong>{" "}
+                A card you sell here is a multi-purpose voucher (Mehrzweckgutschein, § 3 Abs. 14
+                UStG), so taking the money is not yet a taxable turnover. That is what the Gift
+                cards page is for: it lists every card with the date it was redeemed, and its CSV
+                export is the file your accountant needs.
+              </p>
+            </div>
+
+            {isRiskyExpiry(giftCards.expiryMonths) ? (
+              <p className="mt-3 border border-orange/40 bg-orange/10 px-4 py-3 text-xs leading-relaxed">
+                Your cards currently expire after{" "}
+                <strong className="font-semibold">{giftCards.expiryMonths} months</strong> — under{" "}
+                {GIFT_CARD_RISKY_EXPIRY_BELOW_MONTHS} months, which is the risky end for a voucher
+                someone paid for. A guest can challenge it, and § 195 BGB gives them three years.
+                Raise it to {GIFT_CARD_RECOMMENDED_EXPIRY_MONTHS} months unless your tax adviser has
+                told you otherwise.
+              </p>
+            ) : null}
+
+            <SubmitButton
+              pendingLabel="Saving…"
+              className="mt-4 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+            >
+              Save gift cards
+            </SubmitButton>
+          </form>
+
+          <div className="mt-6 border-t border-ink/10 pt-5">
+            <p className="text-sm font-medium">Your three designs</p>
+            <p className="mt-1 text-xs text-muted">
+              Three cards, three price points — rename them, set your own prices, and give each one
+              a picture. Untick a design to take it off sale without losing it.
+            </p>
+            <ul className="mt-4 space-y-4">
+              {giftCardProducts.map((product) => (
+                <li key={product.id} className="border border-ink/15 px-4 py-4">
+                  <form action={saveGiftCardProductAction}>
+                    <input type="hidden" name="productId" value={product.id} />
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+                      {/* `imagePath` rather than `imageUrl`: the preview is
+                          same-origin, so it renders even when APP_URL is not
+                          reachable from the owner's browser (local dev). */}
+                      {product.imagePath ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={product.imagePath}
+                          alt={`${product.name} gift card`}
+                          className="h-24 w-40 shrink-0 border border-ink/15 bg-white object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-24 w-40 shrink-0 items-center justify-center border border-dashed border-ink/20 text-center text-[10px] uppercase leading-tight text-muted">
+                          no picture yet
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <label className="block text-sm">
+                            <span className="font-medium">
+                              Design name
+                              <RequiredMark />
+                            </span>
+                            <input
+                              type="text"
+                              name="name"
+                              required
+                              maxLength={120}
+                              defaultValue={product.name}
+                              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                            />
+                          </label>
+                          <label className="block text-sm">
+                            <span className="font-medium">
+                              Card value (€)
+                              <RequiredMark />
+                            </span>
+                            <input
+                              type="number"
+                              name="price"
+                              required
+                              min={0.5}
+                              step="0.50"
+                              defaultValue={(product.priceCents / 100).toFixed(2)}
+                              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                            />
+                            <span className="mt-1 block text-xs text-muted">
+                              What the guest pays, and what the card is worth at your counter.
+                            </span>
+                          </label>
+                        </div>
+                        <label className="mt-4 block text-sm">
+                          <span className="font-medium">
+                            {product.imagePath ? "Replace the picture" : "Picture"}
+                          </span>
+                          <input
+                            type="file"
+                            name="image"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
+                          />
+                          <span className="mt-1 block text-xs text-muted">
+                            Shown to the guest while they choose, and on the card they forward. Wide
+                            images look best — about 800 × 500 pixels. JPEG, PNG, or WebP up to
+                            10&nbsp;MB. Leave empty to keep the picture you have.
+                          </span>
+                        </label>
+                        <label className="mt-4 flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            name="active"
+                            defaultChecked={product.active}
+                            className="accent-orange"
+                          />
+                          <span>On sale</span>
+                        </label>
+                        <RequiredLegend className="mt-2 text-xs text-muted" />
+                        <SubmitButton
+                          pendingLabel="Saving…"
+                          className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+                        >
+                          Save design
+                        </SubmitButton>
+                      </div>
+                    </div>
+                  </form>
+                  {product.imageKey ? (
+                    <form action={removeGiftCardImageAction} className="mt-2">
+                      <input type="hidden" name="productId" value={product.id} />
+                      <SubmitButton
+                        pendingLabel="Removing…"
+                        className="text-xs text-red-800 underline underline-offset-2 hover:text-red-900"
+                      >
+                        Remove picture
+                      </SubmitButton>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
       ) : null}
 
       {/* Diet filters */}

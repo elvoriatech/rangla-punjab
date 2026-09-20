@@ -20,7 +20,8 @@ import {
 import { BrandHeader } from "../components";
 import { IssueSheet } from "../issue-sheet";
 import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
-import { fill, useI18n } from "../i18n";
+import { fill, localeTag, useI18n } from "../i18n";
+import { venueTimezone } from "../hours";
 
 /**
  * Bestellung verfolgen — the mockup's tracking screen. Polls the v1
@@ -52,6 +53,7 @@ export function TrackScreen({
   paidHint,
   note,
   rewardFailed,
+  giftCardFailed,
   openIssue,
   onBack,
 }: {
@@ -77,6 +79,11 @@ export function TrackScreen({
   /** The cart previewed a reward this order didn't get (expired, or
    *  already spent). One line, no action — the order itself is fine. */
   rewardFailed?: boolean;
+  /** The cart applied a gift card this order didn't get — the code was
+   *  wrong, or the card was spent somewhere else between the tap and
+   *  the request. Same posture as `rewardFailed`: one line, no action,
+   *  the order itself stands. */
+  giftCardFailed?: boolean;
   /** The guest asked for the problem thread from the orders list, so it
    *  opens with the screen instead of waiting to be found on it. */
   openIssue?: boolean;
@@ -230,6 +237,36 @@ export function TrackScreen({
   const paidByReward = tracking?.paymentProvider === "voucher";
   const discountCents = tracking?.discountCents ?? 0;
   const discountPoints = tracking?.discountPoints ?? 0;
+  // The same three facts for a gift card. `paidByGiftCard` is the
+  // twin of `paidByReward`: the card swallowed the bill, so there is
+  // nothing to pay and no pay button should ever appear.
+  const paidByGiftCard = tracking?.paymentProvider === "gift_card";
+  const giftCardCents = tracking?.giftCardDiscountCents ?? 0;
+  const giftCardLast4 = tracking?.giftCardLast4 ?? null;
+  /** Anything took money off this bill — what the total row's spacing
+   *  keys on, whichever of the two (or both) it was. */
+  const anyDiscount = discountCents > 0 || giftCardCents > 0;
+  /**
+   * When the food actually left the kitchen, on the venue's clock.
+   *
+   * The guest may be reading this from anywhere — a hotel, another
+   * country — and "on the way since 17:06" has to mean the restaurant's
+   * 17:06, the same one the counter and the printed ticket show.
+   * `venueTimezone()` is the zone baked into the build, and `undefined`
+   * (no zone configured) falls back to the device's, which is what every
+   * other time in this app already does.
+   */
+  const outAt = ((): string => {
+    const iso = tracking?.outForDeliveryAt;
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString(localeTag(lang), {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: venueTimezone() ?? undefined,
+    });
+  })();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -309,6 +346,13 @@ export function TrackScreen({
                           gains nothing from a German second line. */}
                         <Text style={[styles.stepPrimary, !step.reached && { opacity: 0.5 }]}>
                           {stepShort[step.key] ?? (lang === "de" ? step.labelDe : step.labelEn)}
+                          {/* "Unterwegs 17:06" — the one step whose TIME
+                              the guest is actually waiting on, and only
+                              once it has happened. The web tracker reads
+                              the same line. */}
+                          {step.key === "out_for_delivery" && step.reached && outAt ? (
+                            <Text style={styles.stepTime}>{` ${outAt}`}</Text>
+                          ) : null}
                         </Text>
                         {lang === "de" || lang === "en" ? (
                           <Text style={styles.stepSecondary}>
@@ -353,7 +397,21 @@ export function TrackScreen({
                 <Text style={styles.rewardValue}>−{money(discountCents, tracking.currency)}</Text>
               </View>
             ) : null}
-            <View style={[styles.totalRow, discountCents > 0 && styles.totalRowAfterReward]}>
+            {/* The gift card, under the reward and above the total it
+                produced: an order can carry BOTH, and the server spends
+                the reward first, so this is the order the numbers
+                actually happened in. */}
+            {giftCardCents > 0 ? (
+              <View style={styles.rewardRow}>
+                <Text style={styles.rewardLabel}>
+                  {giftCardLast4
+                    ? fill(t.cartGiftCardLine, { last4: giftCardLast4 })
+                    : t.ordersGiftCardPill}
+                </Text>
+                <Text style={styles.rewardValue}>−{money(giftCardCents, tracking.currency)}</Text>
+              </View>
+            ) : null}
+            <View style={[styles.totalRow, anyDiscount && styles.totalRowAfterReward]}>
               <Text style={styles.totalLabel}>{t.total}</Text>
               <Text style={styles.totalValue}>{money(tracking.totalCents, tracking.currency)}</Text>
             </View>
@@ -361,29 +419,36 @@ export function TrackScreen({
                 line at all: "settled at the counter" would be a story
                 about a meal that never happened. One that WAS paid keeps
                 its line — that money is the guest's refund. */}
-            {cancelled && tracking.paymentStatus !== "paid" && !paidByReward ? null : (
+            {cancelled &&
+            tracking.paymentStatus !== "paid" &&
+            !paidByReward &&
+            !paidByGiftCard ? null : (
               <Text style={styles.payState}>
                 {paidByReward
                   ? t.paidWithReward
-                  : tracking.paymentStatus === "paid"
-                    ? t.paidOnline
-                    : confirmed
-                      ? t.payConfirming
-                      : closed
-                        ? t.paidAtRest
-                        : payment === "cash" ||
-                            (payment === undefined && !canPayCard && !canPayPaypal)
-                          ? t.payAtRest
-                          : t.payNotYet}
+                  : paidByGiftCard
+                    ? t.paidWithGiftCard
+                    : tracking.paymentStatus === "paid"
+                      ? t.paidOnline
+                      : confirmed
+                        ? t.payConfirming
+                        : closed
+                          ? t.paidAtRest
+                          : payment === "cash" ||
+                              (payment === undefined && !canPayCard && !canPayPaypal)
+                            ? t.payAtRest
+                            : t.payNotYet}
               </Text>
             )}
             {rewardFailed ? <Text style={styles.rewardFailed}>{t.trackRewardFailed}</Text> : null}
+            {giftCardFailed ? <Text style={styles.rewardFailed}>{t.giftCardApplyErr}</Text> : null}
 
             {/* Settled (server, sheet or reward), chosen cash, or the
                 kitchen has closed the order: nothing left to pay. */}
             {tracking.paymentStatus !== "paid" &&
             !confirmed &&
             !paidByReward &&
+            !paidByGiftCard &&
             payment !== "cash" &&
             !closed ? (
               <>
@@ -585,6 +650,9 @@ const styles = StyleSheet.create({
   totalLabel: { color: colors.ink, fontSize: 15, ...fonts.bodyBold },
   totalValue: { color: colors.red, fontSize: 15, ...fonts.bodyHeavy },
   payState: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 4 },
+  /** Nested in the step's own line, so it inherits the "not reached"
+   *  dimming and never becomes a second row of type. */
+  stepTime: { color: colors.red, ...fonts.bodyHeavy },
   payBtn: {
     marginTop: 14,
     borderRadius: radius.pill,

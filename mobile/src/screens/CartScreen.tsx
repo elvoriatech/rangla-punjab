@@ -33,6 +33,8 @@ import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
 import { useVenueOpenNow, venueTimezone } from "../hours";
 import { armedVoucher, discountFor, useLoyalty } from "../loyalty";
+import type { GiftCardView } from "../gift-cards";
+import { fetchMyGiftCards, giftCardLast4, isSpendable, normalizeGiftCardCode } from "../gift-cards";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, FieldLabel, PrimaryButton, QtyStepper, RequiredLegend } from "../components";
 import { GoogleButton } from "../google-button";
@@ -63,6 +65,8 @@ type Placing = {
   fake?: { ref: string };
   /** Carried through so every exit can pass it to `onPlaced`. */
   rewardFailed?: boolean;
+  /** The cart applied a gift card the server didn't end up honouring. */
+  giftCardFailed?: boolean;
 };
 
 /**
@@ -98,6 +102,8 @@ export function CartScreen({
       paid?: boolean;
       /** The cart previewed a reward the server then didn't apply. */
       rewardFailed?: boolean;
+      /** Same for a gift card: the code was sent, nothing came off. */
+      giftCardFailed?: boolean;
     },
   ) => void;
 }): React.ReactElement {
@@ -242,11 +248,107 @@ export function CartScreen({
   /** What the armed reward takes off THIS basket. The server recomputes
    *  it on placement and its number wins; this is the preview. */
   const rewardCents = cart.lines.length > 0 ? discountFor(armed, grandTotal) : 0;
-  const chargedTotal = Math.max(0, grandTotal - rewardCents);
-  /** The reward swallows the bill: there is nothing left to pay, so the
-   *  payment choice is meaningless and must not be offered. */
-  const fullyCovered = rewardCents > 0 && chargedTotal === 0;
+  /** What is still owed once the reward has been spent. The SERVER
+   *  applies the reward first and lets the gift card cover the
+   *  remainder, so this — not the basket total — is what a card is
+   *  measured against. */
+  const afterReward = Math.max(0, grandTotal - rewardCents);
+
+  /* ── Gift cards ──────────────────────────────────────────────────
+   *
+   * A gift card is a BEARER instrument: the code is the value, so any
+   * code the guest can produce is spendable here — including one
+   * somebody else bought and forwarded them. What the account can
+   * offer as a LIST is only the cards this guest paid for, which is
+   * why typing a code is a first-class option beside the picker
+   * rather than a fallback.
+   *
+   * The entry point appears only for a signed-in guest who holds at
+   * least one active card. A guest with none has nothing to pick and
+   * no reason to believe a code field would work; the place to learn
+   * about gift cards is the Home screen's own entry.
+   */
+  const [myCards, setMyCards] = useState<GiftCardView[]>([]);
+  useEffect(() => {
+    if (!auth.token) {
+      setMyCards([]);
+      return;
+    }
+    let alive = true;
+    void fetchMyGiftCards(auth.token).then((cards) => {
+      if (alive) setMyCards(cards.filter(isSpendable));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [auth.token]);
+
+  /** The picker/field panel is open. */
+  const [giftOpen, setGiftOpen] = useState(false);
+  /** The code that will actually be sent, "" when none. */
+  const [giftCode, setGiftCode] = useState("");
+  /** What the guest is typing, before Apply. */
+  const [giftTyped, setGiftTyped] = useState("");
+  /** The forfeit box has been ticked FOR THE CURRENT SITUATION. Cleared
+   *  whenever the card or the basket changes, because an agreement to
+   *  lose €12 is not an agreement to lose €40. */
+  const [forfeitOk, setForfeitOk] = useState(false);
+
+  /** The applied card, when it is one of the guest's own — which is the
+   *  only case where the app knows what it is worth. A forwarded code
+   *  has no value we may look up (a public code lookup would be an
+   *  oracle for walking the code space), so the server stays the sole
+   *  authority for those. */
+  const appliedCard =
+    giftCode === ""
+      ? null
+      : (myCards.find((c) => c.code === normalizeGiftCardCode(giftCode)) ?? null);
+  const giftValueKnown = appliedCard !== null;
+  /** The preview. 0 for a code whose value we cannot see — we never
+   *  show a discount we have not been told about. */
+  const giftCents = appliedCard ? Math.min(appliedCard.valueCents, afterReward) : 0;
+
+  const chargedTotal = Math.max(0, afterReward - giftCents);
+  /** The reward alone swallows the bill. */
+  const coveredByReward = rewardCents > 0 && afterReward === 0;
+  /** The card finishes the bill off — the order is settled on placement
+   *  and no payment sheet may open. */
+  const coveredByGiftCard = !coveredByReward && giftCents > 0 && chargedTotal === 0;
+  /** Nothing left to pay, whichever of the two did it: the payment
+   *  choice is meaningless and must not be offered. */
+  const fullyCovered = coveredByReward || coveredByGiftCard;
+
+  /**
+   * THE FORFEIT RULE. A gift card is single use, FULL VALUE: spending a
+   * €50 card on a €18 order destroys the other €32. That is the one
+   * thing about this feature a guest can genuinely lose money to, so it
+   * is never implied and never silent — the warning is shown and the
+   * order is blocked until the guest ticks the box in so many words.
+   *
+   * Two cases need it:
+   *  - a card we can price, worth more than what is left to pay; and
+   *  - a code we CANNOT price (someone else's card). We have no way to
+   *    know it isn't a €100 card against a €12 basket, and "we couldn't
+   *    tell" is not a reason to let the money go quietly — so the tick
+   *    is required there too, with the checkbox's own words carrying the
+   *    rule since there are no numbers to put in the sentence.
+   */
+  const forfeitCents = appliedCard ? Math.max(0, appliedCard.valueCents - afterReward) : 0;
+  const forfeitNeeded = giftCode !== "" && (!giftValueKnown || forfeitCents > 0);
   const [disarming, setDisarming] = useState(false);
+
+  /** Take the card back off the order. */
+  const clearGiftCard = (): void => {
+    setGiftCode("");
+    setGiftTyped("");
+    setForfeitOk(false);
+  };
+
+  // The basket moved under an agreed forfeit: adding a dish changes what
+  // is lost, so the tick has to be earned again.
+  useEffect(() => {
+    setForfeitOk(false);
+  }, [giftCode, afterReward]);
 
   /** "Not now" — put the reward back in the guest's pocket. The server
    *  owns the flag, so the state is re-read rather than patched here. */
@@ -374,6 +476,8 @@ export function CartScreen({
   const missing =
     cart.lines.length === 0 ||
     closedBlocked ||
+    // No tick, no order: see the forfeit rule above.
+    (forfeitNeeded && !forfeitOk) ||
     (needsContact && (!name.trim() || !phone.trim())) ||
     (orderType === "delivery" &&
       (!street.trim() || zip.trim().length < 3 || (areas.length > 0 && !area) || belowMinimum));
@@ -418,6 +522,9 @@ export function CartScreen({
         // Only ever true when the account really holds an armed voucher —
         // the server checks again and owns the outcome.
         redeemVoucher: rewardCents > 0 ? true : undefined,
+        // Sent as typed; the server normalises it, re-checks that the
+        // card is live and owns the amount that actually comes off.
+        giftCardCode: giftCode || undefined,
         address:
           orderType === "delivery"
             ? {
@@ -453,6 +560,11 @@ export function CartScreen({
     // preview and this request. The order still stands — say so once on
     // the tracking screen rather than blocking anything.
     const rewardFailed = rewardCents > 0 && order.discountCents === 0 ? true : undefined;
+    // The same test for the card, and for the same reasons — it may have
+    // been redeemed at the counter, expired, or simply never existed
+    // (a mistyped code someone read out over the phone). The ORDER
+    // stands; the guest is told once on the tracking screen.
+    const giftCardFailed = giftCode !== "" && order.giftCardDiscountCents === 0 ? true : undefined;
     await rememberOrder({
       orderId: order.orderId,
       orderNumber: order.orderNumber,
@@ -466,15 +578,18 @@ export function CartScreen({
     });
     // NOT cleared here. The cart is emptied only where this flow hands over
     // to the tracking screen, below.
-    setPlacing({ order, step: "placing", method, wallet, rewardFailed });
+    setPlacing({ order, step: "placing", method, wallet, rewardFailed, giftCardFailed });
 
-    // The reward covered the whole bill: the order is already paid, so
-    // every payment branch below would be asking for €0.00.
-    if (order.paidByVoucher) {
+    // The reward or the gift card covered the whole bill: the order is
+    // already settled, so every payment branch below would be asking for
+    // €0.00. The two flags are the same fact from two sources, and the
+    // app must treat them identically.
+    if (order.paidByVoucher || order.paidByGiftCard) {
       setBusy(false);
       setPlacing(null);
       cart.clear();
-      onPlaced(order, { payment: method, paid: true, rewardFailed });
+      clearGiftCard();
+      onPlaced(order, { payment: method, paid: true, rewardFailed, giftCardFailed });
       return;
     }
 
@@ -482,7 +597,8 @@ export function CartScreen({
       setBusy(false);
       setPlacing(null);
       cart.clear();
-      onPlaced(order, { payment: "cash", rewardFailed });
+      clearGiftCard();
+      onPlaced(order, { payment: "cash", rewardFailed, giftCardFailed });
       return;
     }
 
@@ -499,20 +615,21 @@ export function CartScreen({
       // is over (paid, cancelled or failed) and the tracking screen takes
       // over from here.
       cart.clear();
-      onPlaced(order, { payment: method, note, paid, rewardFailed });
+      clearGiftCard();
+      onPlaced(order, { payment: method, note, paid, rewardFailed, giftCardFailed });
     };
 
     if (method === "paypal") {
       // Straight into PayPal: the server starts the payment and the
       // in-app browser opens on the approve page, then closes itself the
       // moment the return leg bounces back to the deep link.
-      setPlacing({ order, step: "opening", method, rewardFailed });
+      setPlacing({ order, step: "opening", method, rewardFailed, giftCardFailed });
       await payWithPaypal(order.orderId, order.receiptToken, lang);
       done();
       return;
     }
 
-    setPlacing({ order, step: "paying", method, wallet, rewardFailed });
+    setPlacing({ order, step: "paying", method, wallet, rewardFailed, giftCardFailed });
     const pay = wallet ? payWithPlatformPay : payWithCard;
     const outcome = await pay(order.orderId, order.receiptToken, {
       merchantDisplayName: menu.venue.name,
@@ -532,13 +649,14 @@ export function CartScreen({
         wallet,
         fake: { ref: outcome.fake.ref },
         rewardFailed,
+        giftCardFailed,
       });
       return;
     }
     if (outcome === "unavailable") {
       // Expo Go, web, or a venue without a publishable key — the hosted
       // checkout page can still take the money.
-      setPlacing({ order, step: "opening", method, rewardFailed });
+      setPlacing({ order, step: "opening", method, rewardFailed, giftCardFailed });
       const hosted = await startHostedPayment(order.orderId, order.receiptToken);
       const url = hosted.ok
         ? hosted.url
@@ -553,7 +671,7 @@ export function CartScreen({
     if (outcome === "paid") {
       // Settle server-side right away (Stripe lookup), so the tracking
       // screen opens on "Paid" even if the webhook is late or missing.
-      setPlacing({ order, step: "confirming", method, wallet, rewardFailed });
+      setPlacing({ order, step: "confirming", method, wallet, rewardFailed, giftCardFailed });
       await verifyPayment(order.orderId, order.receiptToken);
       done(undefined, true);
     } else done(outcome);
@@ -568,12 +686,14 @@ export function CartScreen({
     if (!order || !ref || busy) return;
     setBusy(true);
     const rewardFailed = placing?.rewardFailed;
-    setPlacing({ order, step: "confirming", method: "card", rewardFailed });
+    const giftCardFailed = placing?.giftCardFailed;
+    setPlacing({ order, step: "confirming", method: "card", rewardFailed, giftCardFailed });
     await confirmFakePayment(order.orderId, order.receiptToken, ref);
     setBusy(false);
     setPlacing(null);
     cart.clear();
-    onPlaced(order, { payment: "card", paid: true, rewardFailed });
+    clearGiftCard();
+    onPlaced(order, { payment: "card", paid: true, rewardFailed, giftCardFailed });
   }
 
   return (
@@ -620,6 +740,21 @@ export function CartScreen({
                   <Row
                     label={`★ ${t.rewardsReward}`}
                     value={`−${money(rewardCents, menu.venue.currency)}`}
+                  />
+                ) : null}
+                {placing.order && placing.order.giftCardDiscountCents > 0 ? (
+                  /* The SERVER's number once it has answered — the
+                     preview above is only ever a courtesy. */
+                  <Row
+                    label={fill(t.cartGiftCardLine, {
+                      last4: placing.order.giftCardLast4 ?? giftCardLast4(giftCode),
+                    })}
+                    value={`−${money(placing.order.giftCardDiscountCents, menu.venue.currency)}`}
+                  />
+                ) : giftCents > 0 ? (
+                  <Row
+                    label={fill(t.cartGiftCardLine, { last4: giftCardLast4(giftCode) })}
+                    value={`−${money(giftCents, menu.venue.currency)}`}
                   />
                 ) : null}
                 <Row label={t.total} value={money(placedTotal, menu.venue.currency)} bold />
@@ -965,8 +1100,149 @@ export function CartScreen({
                     </Text>
                   </View>
                 ) : null}
+                {/* The gift card, UNDER the reward and styled to match:
+                    the server spends the reward first and the card
+                    covers what is left, so this is the order the
+                    subtractions actually happen in. The value is shown
+                    only when the app knows it — a forwarded code is
+                    priced by the server, not guessed at here. */}
+                {giftCode !== "" ? (
+                  <View style={styles.rewardRow}>
+                    <View style={styles.rewardLabelWrap}>
+                      <Text style={styles.giftLabel}>
+                        {fill(t.cartGiftCardLine, { last4: giftCardLast4(giftCode) })}
+                      </Text>
+                      <Pressable
+                        onPress={clearGiftCard}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.cartGiftCardRemove}
+                      >
+                        <Text style={styles.rewardNotNow}>{t.cartGiftCardRemove}</Text>
+                      </Pressable>
+                    </View>
+                    {giftCents > 0 ? (
+                      <Text style={styles.giftValue}>−{money(giftCents, menu.venue.currency)}</Text>
+                    ) : null}
+                  </View>
+                ) : null}
                 <Row label={t.total} value={money(chargedTotal, menu.venue.currency)} bold />
               </View>
+
+              {/* THE FORFEIT CONFIRM. Single use, full value: whatever
+                  the card is worth beyond this bill is destroyed. The
+                  order cannot be placed until this is ticked — see the
+                  rule at the top of this screen. */}
+              {forfeitNeeded ? (
+                <View style={styles.forfeitBox}>
+                  {giftValueKnown && appliedCard ? (
+                    <Text style={styles.forfeitText}>
+                      {fill(t.cartGiftCardForfeit, {
+                        value: money(appliedCard.valueCents, menu.venue.currency),
+                        total: money(afterReward, menu.venue.currency),
+                        rest: money(forfeitCents, menu.venue.currency),
+                      })}
+                    </Text>
+                  ) : null}
+                  <Pressable
+                    onPress={() => setForfeitOk((on) => !on)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: forfeitOk }}
+                    accessibilityLabel={t.cartGiftCardForfeitAgree}
+                    style={({ pressed }) => [styles.forfeitAgree, pressed && { opacity: 0.7 }]}
+                  >
+                    <Ionicons
+                      name={forfeitOk ? "checkbox" : "square-outline"}
+                      size={22}
+                      color={forfeitOk ? colors.red : colors.inkSoft}
+                    />
+                    <Text style={styles.forfeitAgreeText}>{t.cartGiftCardForfeitAgree}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {/* "Use a gift card" — offered only to a signed-in guest
+                  who actually holds one. The picker and the code field
+                  sit together because they are the same decision: a card
+                  is a bearer instrument, so someone else's code is every
+                  bit as valid as one from this account's own list. */}
+              {auth.token && myCards.length > 0 && giftCode === "" ? (
+                <View style={{ gap: 8 }}>
+                  <Pressable
+                    onPress={() => setGiftOpen((open) => !open)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: giftOpen }}
+                    accessibilityLabel={t.cartUseGiftCard}
+                    style={({ pressed }) => [styles.giftOpenRow, pressed && { opacity: 0.75 }]}
+                  >
+                    <Ionicons name="card-outline" size={20} color={colors.red} />
+                    <Text style={styles.giftOpenText}>{t.cartUseGiftCard}</Text>
+                    <Ionicons
+                      name={giftOpen ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color={colors.inkSoft}
+                    />
+                  </Pressable>
+
+                  {giftOpen ? (
+                    <View style={styles.giftPanel}>
+                      <Text style={styles.giftPanelLabel}>{t.cartGiftCardPick}</Text>
+                      {myCards.map((card) => (
+                        <Pressable
+                          key={card.id}
+                          onPress={() => {
+                            setGiftCode(card.code);
+                            setGiftOpen(false);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${money(card.valueCents, card.currency)} · ${card.codeFormatted.split("-").join(" ")}`}
+                          style={({ pressed }) => [styles.giftCardRow, pressed && { opacity: 0.7 }]}
+                        >
+                          <Text style={styles.giftCardValue}>
+                            {money(card.valueCents, card.currency)}
+                          </Text>
+                          <Text style={styles.giftCardCode} numberOfLines={1}>
+                            {card.codeFormatted}
+                          </Text>
+                        </Pressable>
+                      ))}
+
+                      <Text style={styles.giftPanelLabel}>{t.cartGiftCardEnter}</Text>
+                      <View style={styles.giftEnterRow}>
+                        <TextInput
+                          value={giftTyped}
+                          onChangeText={setGiftTyped}
+                          placeholder={t.redeemGiftCardPlaceholder}
+                          placeholderTextColor={colors.inkSoft}
+                          autoCapitalize="characters"
+                          autoCorrect={false}
+                          maxLength={200}
+                          accessibilityLabel={t.cartGiftCardEnter}
+                          style={styles.giftInput}
+                        />
+                        <Pressable
+                          onPress={() => {
+                            const typed = giftTyped.trim();
+                            if (!typed) return;
+                            setGiftCode(normalizeGiftCardCode(typed));
+                            setGiftOpen(false);
+                          }}
+                          disabled={giftTyped.trim().length < 4}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.cartGiftCardApply}
+                          style={({ pressed }) => [
+                            styles.giftApply,
+                            giftTyped.trim().length < 4 && { opacity: 0.5 },
+                            pressed && { opacity: 0.75 },
+                          ]}
+                        >
+                          <Text style={styles.giftApplyText}>{t.cartGiftCardApply}</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
 
               {/* What this basket is worth in points, said where the
                   guest is already reading the money. Signed out it
@@ -1060,13 +1336,22 @@ export function CartScreen({
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <PrimaryButton
                 label={
-                  fullyCovered
+                  coveredByReward
                     ? fill(t.cartPlaceWithReward, {
                         total: money(0, menu.venue.currency),
                       })
-                    : payMethod === "cash"
-                      ? `${t.placeOrder} · ${money(chargedTotal, menu.venue.currency)}`
-                      : `${t.payNow} ${money(chargedTotal, menu.venue.currency)}`
+                    : // The card settles the whole bill: the server marks
+                      // the order paid on placement, so this button
+                      // PLACES rather than pays and no sheet follows.
+                      coveredByGiftCard
+                      ? t.cartPlaceWithGiftCard
+                      : payMethod === "cash"
+                        ? `${t.placeOrder} · ${money(chargedTotal, menu.venue.currency)}`
+                        : giftCode !== ""
+                          ? fill(t.cartPayRemaining, {
+                              total: money(chargedTotal, menu.venue.currency),
+                            })
+                          : `${t.payNow} ${money(chargedTotal, menu.venue.currency)}`
                 }
                 busyLabel={paying ? t.openingPayment : undefined}
                 tone="red"
@@ -1074,7 +1359,19 @@ export function CartScreen({
                 disabled={missing}
                 busy={busy}
               />
-              <Text style={styles.payNote}>{fullyCovered ? t.payNothingDue : payHint}</Text>
+              {/* Name the instrument that actually covered the bill. A
+                  gift card is money the guest PAID for, and saying
+                  "your reward covers this" at the moment they are being
+                  asked to accept losing the remainder names the wrong
+                  thing entirely — so when both a reward and a card
+                  applied, the card is the one that gets the credit. */}
+              <Text style={styles.payNote}>
+                {coveredByGiftCard
+                  ? t.payNothingDueGiftCard
+                  : fullyCovered
+                    ? t.payNothingDue
+                    : payHint}
+              </Text>
             </>
           )}
         </ScrollView>
@@ -1486,6 +1783,80 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   rewardValue: { color: colors.gold, ...fonts.bodyHeavy, fontSize: 14 },
+  // The gift-card line: the same row as the reward above it, in the
+  // brand red rather than the gold, so the two subtractions read as
+  // siblings without pretending to be the same thing.
+  giftLabel: { color: colors.red, ...fonts.bodyBold, fontSize: 14, flexShrink: 1 },
+  giftValue: { color: colors.red, ...fonts.bodyHeavy, fontSize: 14 },
+  giftOpenRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minHeight: 48,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+  },
+  giftOpenText: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
+  giftPanel: {
+    gap: 8,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: 12,
+  },
+  giftPanelLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
+  giftCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    backgroundColor: colors.cream,
+  },
+  giftCardValue: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 14 },
+  giftCardCode: { flex: 1, color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
+  giftEnterRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  giftInput: {
+    flex: 1,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    color: colors.ink,
+    ...fonts.bodySemi,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  giftApply: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    backgroundColor: colors.red,
+  },
+  giftApplyText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 13.5 },
+  // The one warning on this screen a guest can lose money by ignoring,
+  // so it gets the danger tint rather than the quiet gold of a hint.
+  forfeitBox: {
+    gap: 8,
+    backgroundColor: "#fdeae8",
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: radius.md,
+    padding: 12,
+  },
+  forfeitText: { color: "#8a1c15", ...fonts.bodySemi, fontSize: 13, lineHeight: 18 },
+  forfeitAgree: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 },
+  forfeitAgreeText: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 13.5 },
   rowLabel: { color: colors.inkSoft, ...fonts.body, fontSize: 14 },
   rowValue: { color: colors.ink, fontSize: 14, ...fonts.bodySemi },
   rowBold: { ...fonts.bodyHeavy, fontSize: 16, color: colors.ink },

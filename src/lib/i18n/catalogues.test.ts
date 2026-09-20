@@ -3,14 +3,18 @@ import { UI_LOCALES } from "@/lib/locales";
 import { CHECKOUT_COPY, checkoutCopy } from "./checkout";
 import { POST_ORDER_COPY, postOrderCopy } from "./post-order";
 import {
+  GIFT_CARD_COPY,
+  GIFT_CARD_REDEEMED_COPY,
   GUEST_RESET_COPY,
   NEW_ISSUE_COPY,
   NEW_ORDER_COPY,
+  ON_THE_WAY_COPY,
   RECEIPT_COPY,
   REWARD_COPY,
   newOrderCopy,
   receiptCopy,
 } from "./emails";
+import { GIFT_CARD_PAGE_COPY } from "./gift-card";
 import { PDF_COPY, pdfCopy, pdfLocale } from "./pdf";
 
 /**
@@ -70,6 +74,17 @@ const NAMESPACES = {
   newIssue: NEW_ISSUE_COPY,
   reward: REWARD_COPY,
   guestReset: GUEST_RESET_COPY,
+  // Gift cards: the buyer's two emails and the public share page the
+  // recipient opens. The share page is the one surface a guest reaches
+  // with no account and no prior contact with the venue, so an untranslated
+  // string there is the whole first impression.
+  giftCardEmail: GIFT_CARD_COPY,
+  giftCardRedeemedEmail: GIFT_CARD_REDEEMED_COPY,
+  giftCardPage: GIFT_CARD_PAGE_COPY,
+  // The delivery status ping: one mail, six locales, no English fallback
+  // — it lands mid-order, when a guest is least willing to decode a
+  // language they didn't pick.
+  onTheWayEmail: ON_THE_WAY_COPY,
   pdf: PDF_COPY,
 } as const;
 

@@ -94,6 +94,26 @@ async function handleCheckoutCompleted(event: StripeEvent): Promise<void> {
  * belongs to someone else's flow and is logged, not thrown on.
  */
 async function handleOrderSettlement(event: StripeEvent, object: HasMetadata): Promise<void> {
+  // A GIFT CARD purchase is stamped with its own metadata key rather
+  // than an orderId, so the two can never be confused: settling one as
+  // the other would either print a kitchen ticket for food nobody
+  // ordered, or leave a paid card unspendable.
+  const giftCardId = object.metadata?.giftCardId;
+  if (giftCardId) {
+    const giftTenantId = object.metadata?.tenantId;
+    if (!giftTenantId) {
+      logger.warn("stripe.giftcard.missing_tenant", { eventId: event.id, giftCardId });
+      return;
+    }
+    const { activateGiftCard } = await import("../gift-card-service");
+    const activated = await activateGiftCard(giftTenantId, giftCardId, {
+      provider: "stripe",
+      ref: refOf(object),
+    });
+    logger.info("stripe.giftcard.paid", { eventId: event.id, giftCardId, activated });
+    return;
+  }
+
   const orderId = object.metadata?.orderId;
   if (!orderId) return;
   const orderTenantId = object.metadata?.tenantId;
@@ -103,6 +123,13 @@ async function handleOrderSettlement(event: StripeEvent, object: HasMetadata): P
   }
   const settled = await markOrderPaid(orderTenantId, orderId);
   logger.info("stripe.order.paid", { eventId: event.id, orderId, settled });
+}
+
+/** The provider's own id for the settled object, recorded on the card as
+ *  its `payment_ref`. Absent on shapes that do not carry one. */
+function refOf(object: HasMetadata): string | null {
+  const id = (object as { id?: unknown }).id;
+  return typeof id === "string" ? id : null;
 }
 
 async function handleAccountUpdated(event: StripeEvent): Promise<void> {

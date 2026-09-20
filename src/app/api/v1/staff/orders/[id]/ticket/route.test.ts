@@ -218,7 +218,7 @@ describe("/api/v1/staff/orders/{id}/ticket", () => {
     expect(html).toContain("Bornstraße 12, 44145 Dortmund");
     expect(html).toContain("2. OG, klingeln");
     // Inline SVG, not an <img> the printer would have to go and fetch.
-    expect(html).toContain("Scan für Navigation");
+    expect(html).toContain("Scan: unterwegs + Route / out for delivery + route");
     expect(html).toContain("<svg");
   });
 

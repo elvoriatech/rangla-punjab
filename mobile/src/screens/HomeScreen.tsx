@@ -18,11 +18,13 @@ import type { StaffHoursWeek, StaffOrdering } from "../staff";
 import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
 import { useVenueOpenNow, venueTimezone } from "../hours";
 import { BrandHeader, DishRow, PulsingBorder, SectionTitle, VenueStatePill } from "../components";
-import { useBumpOnChange, useFireFlicker } from "../motion";
+import { useFireFlicker, usePressScale } from "../motion";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 import { fill, useI18n } from "../i18n";
 import { headlineVoucher, useLoyalty } from "../loyalty";
-import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
+import type { GiftCardShop } from "../gift-cards";
+import { fetchGiftCardShop } from "../gift-cards";
+import { ReserveSheet } from "../reserve-sheet";
 import { DishSheet } from "../dish-sheet";
 
 /**
@@ -68,15 +70,9 @@ const HERO_SLIDES = [
 function HeroCarousel({
   text,
   openNow,
-  points,
-  onOpenPoints,
 }: {
   text: string;
   openNow: boolean | null;
-  /** The signed-in guest's points balance, or null when there is nobody
-   *  to show one to (signed out, programme off, restaurant mode). */
-  points: number | null;
-  onOpenPoints: () => void;
 }): React.ReactElement {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
@@ -130,57 +126,14 @@ function HeroCarousel({
           <View key={i} style={[styles.heroDot, i === page && styles.heroDotActive]} />
         ))}
       </View>
-      {/* The hero's top-end corner, as a COLUMN: at 360 pt "Geschlossen"
-          and "35 Pkt." side by side would run into the headline, so the
-          points pill stacks under the open/closed one and both keep the
-          same 12 pt inset. Empty when there is neither. */}
+      {/* The hero's top-end corner. The points badge used to stack
+          under this pill; it lives in the red header now, where it is
+          on every screen rather than only this one — so the corner is
+          back to the single piece of VENUE state it was built for. */}
       <View style={styles.heroBadges}>
         {openNow === null ? null : <VenueStatePill open={openNow} />}
-        {points === null ? null : <PointsPill points={points} onPress={onOpenPoints} />}
       </View>
     </ImageBackground>
-  );
-}
-
-/**
- * "★ 35 Pkt." in the hero's top-end corner — what the guest has, where
- * they are already looking.
- *
- * Tapping it opens the Account screen's rewards card, which is the only
- * place the number means anything. It is NOT decorative like the
- * open/closed pill beside it, so it is a real button with a spoken label
- * ("Your points: 35") rather than a bare number a screen reader would
- * read out of context.
- *
- * It pops when the BALANCE moves — an order settled, a reward spent — and
- * only then. Points are earned while the guest is elsewhere in the app, so
- * without the pop the number simply reads differently the next time anyone
- * happens to look at the hero.
- */
-function PointsPill({
-  points,
-  onPress,
-}: {
-  points: number;
-  onPress: () => void;
-}): React.ReactElement {
-  const { t } = useI18n();
-  const bump = useBumpOnChange(points);
-  return (
-    <Animated.View style={bump}>
-      <Pressable
-        onPress={onPress}
-        hitSlop={6}
-        accessibilityRole="button"
-        accessibilityLabel={fill(t.pointsBadgeLabel, { points })}
-        style={({ pressed }) => [styles.pointsPill, pressed && { opacity: 0.75 }]}
-      >
-        <Ionicons name="star" size={12} color={colors.goldSoft} />
-        <Text style={styles.pointsPillText} numberOfLines={1}>
-          {fill(t.pointsBadge, { points })}
-        </Text>
-      </Pressable>
-    </Animated.View>
   );
 }
 
@@ -192,6 +145,7 @@ export function HomeScreen({
   onBrowseAll,
   onStartOrder,
   onOpenAccount,
+  onOpenGiftCards,
   onComplain,
   onOpenOwnerMenu,
   onMenuChanged,
@@ -205,6 +159,9 @@ export function HomeScreen({
   onStartOrder: (type: "takeaway" | "delivery") => void;
   /** Switches to the Account tab, where the Rewards card lives. */
   onOpenAccount: () => void;
+  /** Opens the gift-card shop. Only reachable while the venue has the
+   *  feature on and at least one active design (see `giftShop`). */
+  onOpenGiftCards: () => void;
   /** Opens the complaint flow on the guest's most recent stored order,
    *  or explains that there isn't one yet. */
   onComplain: () => void;
@@ -270,6 +227,25 @@ export function HomeScreen({
   // Signed out, programme off, or nothing won yet ⇒ no banner at all.
   const { loyalty } = useLoyalty(menu.loyalty?.enabled);
   const voucher = headlineVoucher(loyalty);
+  /**
+   * The venue's gift-card shop window, read straight from the public
+   * route rather than the menu payload (gift cards are not part of it).
+   * Null until it answers, and `enabled` is already "switched on AND at
+   * least one active design" — so the entry appears exactly when there
+   * is something to buy, and nothing flashes in and out on a venue that
+   * does not sell them.
+   */
+  const [giftShop, setGiftShop] = useState<GiftCardShop | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void fetchGiftCardShop().then((shop) => {
+      if (alive) setGiftShop(shop);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const giftCardsOn = !restaurant && Boolean(giftShop?.enabled);
   const [reserveOpen, setReserveOpen] = useState(false);
   const [openDish, setOpenDish] = useState<ApiItem | null>(null);
   const popular = menu.categories
@@ -295,84 +271,76 @@ export function HomeScreen({
         subtitle={t.restaurant}
         onMenu={onOpenOwnerMenu}
         rating={menu.rating ?? null}
+        // `useLoyalty` already answers null when the guest is signed out
+        // or the venue's programme is off, so the pill appears exactly
+        // when there is a real balance to show — and never behind the
+        // counter, where the burger owns this corner.
+        points={!restaurant && loyalty ? loyalty.balance : null}
+        onPoints={onOpenAccount}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <HeroCarousel
-          text={t.heroLine}
-          openNow={openNow}
-          // `useLoyalty` already answers null when the guest is signed
-          // out or the venue's programme is off, so the badge appears
-          // exactly when there is a real balance to show.
-          points={loyalty ? loyalty.balance : null}
-          onOpenPoints={onOpenAccount}
-        />
+        <HeroCarousel text={t.heroLine} openNow={openNow} />
 
         {/* The counter's own controls: which services are taking orders
             right now. Guests never see this — they see the RESULT, as
             entry points that are simply there or not. */}
         {restaurant ? <ServiceSwitches onChanged={onMenuChanged} /> : null}
 
+        {/* THE ACTION SET — four cards, one design.
+            Delivery and Pickup are what a guest usually came for;
+            Reserve and Gift cards are the two errands that are not an
+            order. They used to be three different card styles (emoji,
+            a bespoke SVG, an Ionicon), which read as three unrelated
+            features stacked on top of each other. One plate, one icon
+            family, one tinted circle — so the block reads as a set and
+            the eye can pick a row rather than parse four things. */}
         {restaurant ? null : (
           <View style={styles.modeRow}>
             {menu.ordering.delivery ? (
-              <Pressable style={styles.modeCard} onPress={() => onStartOrder("delivery")}>
-                <Text style={styles.modeEmoji}>🛵</Text>
-                <Text style={styles.modeTitle}>{t.delivery}</Text>
-                <Text style={styles.modeSub}>{t.deliverySub}</Text>
-              </Pressable>
+              <ActionCard
+                icon="bicycle-outline"
+                title={t.delivery}
+                subtitle={t.deliverySub}
+                onPress={() => onStartOrder("delivery")}
+              />
             ) : null}
             {menu.ordering.takeaway ? (
-              <Pressable style={styles.modeCard} onPress={() => onStartOrder("takeaway")}>
-                <Text style={styles.modeEmoji}>🛍️</Text>
-                <Text style={styles.modeTitle}>{t.pickup}</Text>
-                <Text style={styles.modeSub}>{t.pickupSub}</Text>
-              </Pressable>
+              <ActionCard
+                icon="bag-handle-outline"
+                title={t.pickup}
+                subtitle={t.pickupSub}
+                onPress={() => onStartOrder("takeaway")}
+              />
             ) : null}
           </View>
         )}
 
-        {/* Booking a table and raising a complaint, side by side: the two
-            things a guest comes to the app for that are not an order.
-            Reservations disappear when the restaurant switches them off,
-            and the complaint card then takes the whole row — it is
-            always available, because a guest with a problem should never
-            have to hunt for the way to say so. */}
-        {!restaurant ? (
+        {/* Booking a table and buying a gift card — the second half of
+            the same set. Either can be switched off by the venue
+            (reservations from its settings, gift cards from the shop
+            route), and whichever is left simply takes the whole row.
+            Complaint used to live in this slot; it is a quiet full-width
+            row further down now, because a guest with a problem should
+            always be able to find the way to say so WITHOUT it competing
+            with the four things people actually come here to do. */}
+        {!restaurant && (menu.ordering.reservations || giftCardsOn) ? (
           <View style={styles.modeRow}>
             {menu.ordering.reservations ? (
-              <Pressable
-                style={styles.actionCard}
+              <ActionCard
+                icon="restaurant-outline"
+                title={t.reserveShort}
+                subtitle={t.reserveSub}
                 onPress={() => setReserveOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`${t.reserveShort} — ${t.reserveSub}`}
-              >
-                <TableForGuestsIcon size={26} />
-                {/* Two lines allowed on BOTH cards: "Tisch reservieren"
-                    and "Réserver une table" wrap at 360 pt, and a title
-                    that wraps on one card while the other's stays on one
-                    line makes the pair different heights. */}
-                <Text style={styles.modeTitle} numberOfLines={2}>
-                  {t.reserveShort}
-                </Text>
-                <Text style={styles.modeSub} numberOfLines={1}>
-                  {t.reserveSub}
-                </Text>
-              </Pressable>
+              />
             ) : null}
-            <Pressable
-              style={styles.actionCard}
-              onPress={onComplain}
-              accessibilityRole="button"
-              accessibilityLabel={`${t.complainShort} — ${t.complainSub}`}
-            >
-              <Ionicons name="chatbox-ellipses-outline" size={26} color={colors.red} />
-              <Text style={styles.modeTitle} numberOfLines={2}>
-                {t.complainShort}
-              </Text>
-              <Text style={styles.modeSub} numberOfLines={1}>
-                {t.complainSub}
-              </Text>
-            </Pressable>
+            {giftCardsOn ? (
+              <ActionCard
+                icon="gift-outline"
+                title={t.giftCardsTitle}
+                subtitle={t.giftCardsSub}
+                onPress={onOpenGiftCards}
+              />
+            ) : null}
           </View>
         ) : null}
 
@@ -426,6 +394,27 @@ export function HomeScreen({
           </Pressable>
         ) : null}
 
+        {/* "Complaint · About your last order" — one quiet full-width
+            line under the offers, with a chevron like any other row that
+            leads somewhere. Demoted from the action grid deliberately:
+            it is a thing a guest needs to FIND, not a thing to invite
+            them into, and it should not be the same size as ordering
+            dinner. Still one tap, still always there. */}
+        {restaurant ? null : (
+          <Pressable
+            onPress={onComplain}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.complainShort} — ${t.complainSub}`}
+            style={({ pressed }) => [styles.complainRow, pressed && { opacity: 0.75 }]}
+          >
+            <Ionicons name="chatbox-ellipses-outline" size={20} color={colors.inkSoft} />
+            <Text style={styles.complainText} numberOfLines={1}>
+              {t.complainShort} · {t.complainSub}
+            </Text>
+            <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
+          </Pressable>
+        )}
+
         <SectionTitle action={t.showAll} onAction={onBrowseAll}>
           {t.categories}
         </SectionTitle>
@@ -466,6 +455,73 @@ export function HomeScreen({
       <ReserveSheet menu={menu} visible={reserveOpen} onClose={() => setReserveOpen(false)} />
       <DishSheet item={openDish} onClose={() => setOpenDish(null)} onAdd={onAdd} />
     </View>
+  );
+}
+
+/**
+ * One of the four entry points at the top of Home.
+ *
+ * The whole point is that they are INTERCHANGEABLE: the icon in its
+ * tinted circle, the display-serif title, one line of soft ink under
+ * it, on the same plate at the same radius. Anything that made one card
+ * special — an emoji here, a bespoke SVG there — made the block read as
+ * four unrelated features rather than a set of four choices.
+ *
+ * Equal heights inside a row come from the flexed wrapper plus the
+ * row's default `stretch`, not from a hard height: "Tisch reservieren"
+ * wraps to two lines at 360 pt while "Abholung" does not, and a fixed
+ * height would either clip one or pad the other.
+ *
+ * The press-back is the app's shared `usePressScale`, which returns a
+ * still style and no-op handlers on a device with Reduce Motion on — the
+ * `pressed` opacity below is then the whole feedback, which is what the
+ * setting asks for.
+ */
+function ActionCard({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}): React.ReactElement {
+  const press = usePressScale(0.97);
+  return (
+    // The wrapper carries both the flex and the transform: a scale on
+    // the card itself cannot make its sibling the same height.
+    <Animated.View style={[styles.actionWrap, press.style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        accessibilityRole="button"
+        accessibilityLabel={`${title} — ${subtitle}`}
+        style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.9 }]}
+      >
+        <View style={styles.actionIcon}>
+          <Ionicons name={icon} size={22} color={colors.red} />
+        </View>
+        {/* Two lines allowed on every card, so a title that wraps in one
+            language cannot make its neighbour a different height — and
+            `adjustsFontSizeToFit` for the one word that still does not
+            fit at 360 pt ("Geschenkgutscheine"), which would otherwise
+            break mid-word and leave a line with one letter on it. */}
+        <Text
+          style={styles.actionTitle}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
+          {title}
+        </Text>
+        <Text style={styles.actionSub} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -635,21 +691,6 @@ const styles = StyleSheet.create({
     // to the top-left along with everything else in the hero.
     alignItems: "flex-end",
   },
-  pointsPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    // Near-black at 78%: the hero artwork underneath is the venue's own
-    // and may be pale or busy, so the pill carries its own contrast
-    // rather than borrowing the scrim's. Cream on this clears AA, and
-    // the star is `goldSoft` (not the ink-dark `gold`) for the same
-    // reason.
-    backgroundColor: "rgba(20,10,5,0.78)",
-  },
-  pointsPillText: { color: colors.cream, ...fonts.bodyHeavy, fontSize: 12 },
   heroDots: {
     position: "absolute",
     zIndex: 2,
@@ -675,33 +716,71 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
     flex: 1,
   },
+  /** `stretch` (the default) is what makes the two cards in a row the
+   *  same height whichever of them wraps. */
   modeRow: { flexDirection: "row", gap: 12, marginTop: 14 },
-  modeCard: {
-    flex: 1,
-    backgroundColor: colors.creamCard,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    padding: 14,
-    alignItems: "center",
-    gap: 2,
-  },
-  /** Reserve / Complaint. Same plate as `modeCard` but centred on an
-   *  icon rather than an emoji, and `minHeight` keeps it a comfortable
-   *  target even when the subtitle wraps to nothing. */
+  /** The flexed, animated wrapper — see `ActionCard`. */
+  actionWrap: { flex: 1 },
+  /**
+   * The one plate all four entry points share: 16 pt radius, hairline
+   * border, and a shadow soft enough to lift the card off the cream
+   * without turning the row into a set of floating tiles. `height:
+   * "100%"` is what makes the shorter card fill its stretched wrapper,
+   * so the two borders line up exactly.
+   */
   actionCard: {
-    flex: 1,
-    minHeight: 88,
+    height: "100%",
+    minHeight: 104,
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
+  /** Brand red on a rose-tinted cream: the same warm family as the
+   *  card, so the circle reads as part of the plate rather than a badge
+   *  stuck on it. 44 pt, which is also the minimum touch target — handy,
+   *  since the icon is the thing a thumb aims at. */
+  actionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f7e3dd",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionTitle: {
+    color: colors.ink,
+    ...fonts.display,
+    fontSize: 14.5,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+  actionSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11.5, textAlign: "center" },
+  /** The demoted complaint row: a plate, not a card — no shadow, no
+   *  tinted circle, muted ink. It is findable, not inviting. */
+  complainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minHeight: 48,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    marginTop: 14,
+  },
+  complainText: { flex: 1, color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13 },
   reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
   rewardBanner: {
     flexDirection: "row",
@@ -745,11 +824,6 @@ const styles = StyleSheet.create({
   offersNames: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   rewardTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   rewardCta: { color: colors.gold, ...fonts.bodyBold, fontSize: 12 },
-  modeEmoji: { ...fonts.body, fontSize: 26 },
-  // Centred explicitly: a title that wraps to two lines would
-  // otherwise be left-aligned inside a centred card.
-  modeTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, textAlign: "center" },
-  modeSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11 },
   catChip: { alignItems: "center", width: 72 },
   catPhoto: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.line },
   catFallback: {

@@ -3,6 +3,7 @@ import { Linking, Platform } from "react-native";
 import Constants from "expo-constants";
 import * as ExpoLinking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import type { PaymentIntentInfo } from "./api";
 import {
   confirmFakePayment,
   createPaymentIntent,
@@ -226,8 +227,23 @@ export async function payWithCard(
     if (FALL_BACK_TO_HOSTED.has(created.error)) return "unavailable";
     return "failed";
   }
-  const intent = created.intent;
+  return payIntentWithCard(created.intent, opts);
+}
 
+/**
+ * The payment sheet, against an intent SOMEONE ELSE created.
+ *
+ * Split out of `payWithCard` for gift cards: buying one mints its
+ * PaymentIntent in the same call that mints the card
+ * (`POST /api/v1/gift-cards` answers with both), so there is no second
+ * "create an intent" round trip to make — but the sheet, the wallet
+ * rows, the test-provider escape hatch and the `CardOutcome` union
+ * should be letter-for-letter the ones the cart already handles.
+ */
+export async function payIntentWithCard(
+  intent: PaymentIntentInfo,
+  opts: { merchantDisplayName: string; wallets: WalletChoice },
+): Promise<CardOutcome> {
   // Dev/CI provider: there is no sheet to present. The caller shows the
   // test button and settles through `confirmFakePayment`.
   if (intent.mode === "fake") return { fake: { ref: intent.ref } };

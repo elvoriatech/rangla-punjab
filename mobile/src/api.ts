@@ -399,6 +399,17 @@ export interface PlaceOrderInput {
    * is a courtesy, never the authority.
    */
   redeemVoucher?: boolean;
+  /**
+   * Spend a gift card on this order. Any code the guest can produce is
+   * valid — a card is a BEARER instrument, so this is deliberately not
+   * limited to cards the account bought.
+   *
+   * A reward and a card can both apply: the server spends the reward
+   * first and the card covers what is left. Single use, full value —
+   * whatever the card is worth beyond this bill is gone, which is why
+   * the cart makes the guest confirm that in so many words.
+   */
+  giftCardCode?: string;
   address?: { street: string; zip: string; city?: string; note?: string };
 }
 export interface PlacedOrder {
@@ -415,6 +426,17 @@ export interface PlacedOrder {
   /** The reward covered the whole order: it is already paid, and the app
    *  must skip every payment step. */
   paidByVoucher: boolean;
+  /** What a gift card took off, 0 when none was applied (or the server
+   *  predates gift cards). The app previews a discount; THIS is the
+   *  authority, and a 0 here against a preview means the card was
+   *  refused. */
+  giftCardDiscountCents: number;
+  /** The last four characters of the code that was spent — what the
+   *  receipt and the "Gift card ····1234" line show. */
+  giftCardLast4: string | null;
+  /** A gift card settled the whole order: it is already paid, and every
+   *  payment step must be skipped, exactly like `paidByVoucher`. */
+  paidByGiftCard: boolean;
 }
 
 /** Where the in-flight submit's idempotency key is parked. */
@@ -490,6 +512,10 @@ export async function placeOrder(
   const totalCents = Number(body.totalCents ?? 0);
   const discountCents = Number(body.discountCents ?? 0);
   const chargedCents = typeof body.chargedCents === "number" ? body.chargedCents : totalCents;
+  // Read exactly as defensively as the voucher fields beside them: a
+  // server that predates gift cards sends none of these, and an order
+  // then behaves as it always did.
+  const giftCardDiscountCents = Number(body.giftCardDiscountCents ?? 0);
   return {
     ok: true,
     order: {
@@ -503,6 +529,13 @@ export async function placeOrder(
       // order" is the same fact, and an older-but-redeeming server may
       // only send the amounts.
       paidByVoucher: body.paidByVoucher === true || (discountCents > 0 && chargedCents === 0),
+      giftCardDiscountCents,
+      giftCardLast4: typeof body.giftCardLast4 === "string" ? body.giftCardLast4 : null,
+      // Derived as well as read, for the same reason the voucher flag is:
+      // "nothing left to charge on a card-discounted order" is the same
+      // fact, and a server may only send the amounts.
+      paidByGiftCard:
+        body.paidByGiftCard === true || (giftCardDiscountCents > 0 && chargedCents === 0),
     },
   };
 }
@@ -538,6 +571,16 @@ export interface ApiTracking {
    *  column, and 0 on an order placed before it — the reward line then
    *  shows the money without the points rather than "0 points". */
   discountPoints?: number;
+  /** What a gift card took off this order; absent/0 = none. A reward and
+   *  a card can both appear — the server spends the reward first. */
+  giftCardDiscountCents?: number;
+  /** The last four characters of the code that paid, for the
+   *  "Gift card ····1234" line. Absent/null = no card. */
+  giftCardLast4?: string | null;
+  /** When the order left the kitchen, ISO — what the "on the way" step
+   *  is timestamped with. Absent/null until it does, and on every order
+   *  that is not a delivery. */
+  outForDeliveryAt?: string | null;
   /** The CHARGED total — i.e. already net of `discountCents`. */
   totalCents: number;
   currency: string;

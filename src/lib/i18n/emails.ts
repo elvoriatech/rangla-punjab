@@ -28,6 +28,9 @@ const receiptEn = {
   asap: "as soon as possible",
   reward: "Reward",
   rewardPoints: (points: string) => `Reward · ${points} points`,
+  giftCard: "Gift card",
+  giftCardCode: (last4: string) => `Gift card ····${last4}`,
+  paidWithGiftCard: "Paid · Gift card",
   net: "Net",
   vat: `VAT ${VAT_RATE_LABEL}% (included)`,
   total: "Total",
@@ -60,6 +63,9 @@ const receiptDe: ReceiptCopy = {
   asap: "so bald wie möglich",
   reward: "Gutschein",
   rewardPoints: (points) => `Gutschein · ${points} Punkte`,
+  giftCard: "Geschenkgutschein",
+  giftCardCode: (last4) => `Geschenkgutschein ····${last4}`,
+  paidWithGiftCard: "Bezahlt · Geschenkgutschein",
   net: "Netto",
   vat: `MwSt. ${VAT_RATE_LABEL} % (enthalten)`,
   total: "Gesamt",
@@ -87,6 +93,9 @@ const receiptFr: ReceiptCopy = {
   asap: "dès que possible",
   reward: "Bon de fidélité",
   rewardPoints: (points) => `Bon de fidélité · ${points} points`,
+  giftCard: "Carte cadeau",
+  giftCardCode: (last4) => `Carte cadeau ····${last4}`,
+  paidWithGiftCard: "Payé · Carte cadeau",
   net: "Montant HT",
   vat: `TVA ${VAT_RATE_LABEL} % (incluse)`,
   total: "Total",
@@ -114,6 +123,9 @@ const receiptEs: ReceiptCopy = {
   asap: "lo antes posible",
   reward: "Vale",
   rewardPoints: (points) => `Vale · ${points} puntos`,
+  giftCard: "Tarjeta regalo",
+  giftCardCode: (last4) => `Tarjeta regalo ····${last4}`,
+  paidWithGiftCard: "Pagado · Tarjeta regalo",
   net: "Base imponible",
   vat: `IVA ${VAT_RATE_LABEL} % (incluido)`,
   total: "Total",
@@ -141,6 +153,9 @@ const receiptIt: ReceiptCopy = {
   asap: "il prima possibile",
   reward: "Buono",
   rewardPoints: (points) => `Buono · ${points} punti`,
+  giftCard: "Carta regalo",
+  giftCardCode: (last4) => `Carta regalo ····${last4}`,
+  paidWithGiftCard: "Pagato · Carta regalo",
   net: "Imponibile",
   vat: `IVA ${VAT_RATE_LABEL}% (inclusa)`,
   total: "Totale",
@@ -168,6 +183,9 @@ const receiptAr: ReceiptCopy = {
   asap: "في أقرب وقت ممكن",
   reward: "قسيمة",
   rewardPoints: (points) => `قسيمة · ${points} نقطة`,
+  giftCard: "بطاقة هدايا",
+  giftCardCode: (last4) => `بطاقة هدايا ····${last4}`,
+  paidWithGiftCard: "مدفوع · بطاقة هدايا",
   net: "الصافي",
   vat: `ضريبة القيمة المضافة ${VAT_RATE_LABEL}% (مشمولة)`,
   total: "الإجمالي",
@@ -215,6 +233,9 @@ const newOrderEn = {
   addressNote: "Address note",
   reward: "Reward",
   rewardPoints: (points: string) => `Reward · ${points} points`,
+  giftCard: "Gift card",
+  giftCardCode: (last4: string) => `Gift card ····${last4}`,
+  paidWithGiftCard: "Paid · Gift card",
   total: "Total",
   paidCard: "Paid online (card) — nothing to collect.",
   paidPaypal: "Paid online (PayPal) — nothing to collect.",
@@ -243,6 +264,9 @@ const newOrderDe: NewOrderCopy = {
   addressNote: "Hinweis zur Adresse",
   reward: "Gutschein",
   rewardPoints: (points) => `Gutschein · ${points} Punkte`,
+  giftCard: "Geschenkgutschein",
+  giftCardCode: (last4) => `Geschenkgutschein ····${last4}`,
+  paidWithGiftCard: "Bezahlt · Geschenkgutschein",
   total: "Gesamt",
   paidCard: "Online bezahlt (Karte) — nichts mehr kassieren.",
   paidPaypal: "Online bezahlt (PayPal) — nichts mehr kassieren.",
@@ -270,6 +294,9 @@ const newOrderFr: NewOrderCopy = {
   addressNote: "Remarque sur l'adresse",
   reward: "Bon de fidélité",
   rewardPoints: (points) => `Bon de fidélité · ${points} points`,
+  giftCard: "Carte cadeau",
+  giftCardCode: (last4) => `Carte cadeau ····${last4}`,
+  paidWithGiftCard: "Payé · Carte cadeau",
   total: "Total",
   paidCard: "Payé en ligne (carte bancaire) — rien à encaisser.",
   paidPaypal: "Payé en ligne (PayPal) — rien à encaisser.",
@@ -297,6 +324,9 @@ const newOrderEs: NewOrderCopy = {
   addressNote: "Nota de la dirección",
   reward: "Vale",
   rewardPoints: (points) => `Vale · ${points} puntos`,
+  giftCard: "Tarjeta regalo",
+  giftCardCode: (last4) => `Tarjeta regalo ····${last4}`,
+  paidWithGiftCard: "Pagado · Tarjeta regalo",
   total: "Total",
   paidCard: "Pagado online (tarjeta): no hay que cobrar nada.",
   paidPaypal: "Pagado online (PayPal): no hay que cobrar nada.",
@@ -323,6 +353,9 @@ const newOrderIt: NewOrderCopy = {
   addressNote: "Nota sull'indirizzo",
   reward: "Buono",
   rewardPoints: (points) => `Buono · ${points} punti`,
+  giftCard: "Carta regalo",
+  giftCardCode: (last4) => `Carta regalo ····${last4}`,
+  paidWithGiftCard: "Pagato · Carta regalo",
   total: "Totale",
   paidCard: "Pagato online (carta): non c'è nulla da incassare.",
   paidPaypal: "Pagato online (PayPal): non c'è nulla da incassare.",
@@ -349,6 +382,9 @@ const newOrderAr: NewOrderCopy = {
   addressNote: "ملاحظة على العنوان",
   reward: "قسيمة",
   rewardPoints: (points) => `قسيمة · ${points} نقطة`,
+  giftCard: "بطاقة هدايا",
+  giftCardCode: (last4) => `بطاقة هدايا ····${last4}`,
+  paidWithGiftCard: "مدفوع · بطاقة هدايا",
   total: "الإجمالي",
   paidCard: "مدفوع عبر الإنترنت (بطاقة) — لا شيء للتحصيل.",
   paidPaypal: "مدفوع عبر الإنترنت (PayPal) — لا شيء للتحصيل.",
@@ -701,3 +737,332 @@ export const GUEST_RESET_COPY: Record<UiLocale, GuestResetCopy> = {
 
 export const guestResetCopy = (locale?: string | null): GuestResetCopy =>
   GUEST_RESET_COPY[uiLocale(locale)];
+
+/* ------------------------------------------------------------------ */
+/* Gift card: "here is your gift card"                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The buyer's confirmation, sent the moment the payment settles. The
+ * money, the expiry date and the dashed code are all pre-formatted by
+ * `gift-card-service.ts`, so these strings never do currency, calendar or
+ * formatting work of their own.
+ *
+ * German note: a gift card is a **Geschenkgutschein** here, never a bare
+ * "Gutschein" — that word is already the loyalty voucher a few blocks up,
+ * and a guest who holds both must be able to tell them apart.
+ */
+const giftCardEn = {
+  subject: (venue: string) => `Your ${venue} gift card`,
+  eyebrow: "Your gift card",
+  heading: "Your gift card is ready 🎁",
+  lead: (value: string) =>
+    `Here it is — a gift card worth ${value}. Pass it on to whoever you like.`,
+  codeLabel: "Card code",
+  forLabel: (name: string) => `For ${name}`,
+  productLabel: "Card",
+  howTo:
+    "The holder shows this code at the restaurant, or uses it when ordering in the app. It is used once, for its full value.",
+  expiry: (date: string) => `Valid until ${date}.`,
+  cta: "Open the card",
+  shareHint:
+    "Send this link to the person you're giving it to — it shows the card, the code and the expiry date.",
+  legal: "This is a multi-purpose voucher. It cannot be exchanged for cash.",
+  footer: "You're getting this because you bought a gift card from us.",
+};
+
+export type GiftCardCopy = typeof giftCardEn;
+
+const giftCardDe: GiftCardCopy = {
+  subject: (venue) => `Ihr Geschenkgutschein für ${venue}`,
+  eyebrow: "Ihr Geschenkgutschein",
+  heading: "Ihr Geschenkgutschein ist fertig 🎁",
+  lead: (value) =>
+    `Hier ist er — ein Geschenkgutschein im Wert von ${value}. Schenken Sie ihn, wem Sie möchten.`,
+  codeLabel: "Geschenkgutschein-Code",
+  forLabel: (name) => `Für ${name}`,
+  productLabel: "Geschenkgutschein",
+  howTo:
+    "Wer den Geschenkgutschein erhält, zeigt diesen Code im Restaurant vor oder gibt ihn beim Bestellen in der App ein. Er wird einmal eingelöst, über den vollen Wert.",
+  expiry: (date) => `Gültig bis ${date}.`,
+  cta: "Geschenkgutschein öffnen",
+  shareHint:
+    "Senden Sie diesen Link an die beschenkte Person — er zeigt den Geschenkgutschein, den Code und das Gültigkeitsdatum.",
+  legal: "Dies ist ein Mehrzweckgutschein. Eine Barauszahlung ist ausgeschlossen.",
+  footer: "Sie erhalten diese E-Mail, weil Sie bei uns einen Geschenkgutschein gekauft haben.",
+};
+
+const giftCardFr: GiftCardCopy = {
+  subject: (venue) => `Votre carte cadeau ${venue}`,
+  eyebrow: "Votre carte cadeau",
+  heading: "Votre carte cadeau est prête 🎁",
+  lead: (value) =>
+    `La voici — une carte cadeau d'une valeur de ${value}. Offrez-la à qui vous voulez.`,
+  codeLabel: "Code de la carte",
+  forLabel: (name) => `Pour ${name}`,
+  productLabel: "Carte",
+  howTo:
+    "Le porteur présente ce code au restaurant, ou le saisit au moment de commander dans l'application. Il s'utilise une seule fois, pour la totalité de son montant.",
+  expiry: (date) => `Valable jusqu'au ${date}.`,
+  cta: "Ouvrir la carte",
+  shareHint:
+    "Envoyez ce lien à la personne à qui vous l'offrez — il affiche la carte, le code et la date de validité.",
+  legal: "Il s'agit d'un bon à usages multiples. Il ne peut pas être échangé contre des espèces.",
+  footer: "Vous recevez cet e-mail parce que vous avez acheté une carte cadeau chez nous.",
+};
+
+const giftCardEs: GiftCardCopy = {
+  subject: (venue) => `Tu tarjeta regalo de ${venue}`,
+  eyebrow: "Tu tarjeta regalo",
+  heading: "Tu tarjeta regalo está lista 🎁",
+  lead: (value) =>
+    `Aquí la tienes: una tarjeta regalo por valor de ${value}. Regálasela a quien quieras.`,
+  codeLabel: "Código de la tarjeta",
+  forLabel: (name) => `Para ${name}`,
+  productLabel: "Tarjeta",
+  howTo:
+    "Quien la tenga muestra este código en el restaurante, o lo introduce al hacer el pedido en la app. Se canjea una sola vez, por su valor completo.",
+  expiry: (date) => `Válida hasta el ${date}.`,
+  cta: "Abrir la tarjeta",
+  shareHint:
+    "Envía este enlace a la persona a la que se la regalas: muestra la tarjeta, el código y la fecha de validez.",
+  legal: "Es un bono polivalente. No se puede canjear por dinero en efectivo.",
+  footer: "Recibes este correo porque nos has comprado una tarjeta regalo.",
+};
+
+const giftCardIt: GiftCardCopy = {
+  subject: (venue) => `La tua carta regalo ${venue}`,
+  eyebrow: "La tua carta regalo",
+  heading: "La tua carta regalo è pronta 🎁",
+  lead: (value) => `Eccola: una carta regalo del valore di ${value}. Regalala a chi vuoi.`,
+  codeLabel: "Codice della carta",
+  forLabel: (name) => `Per ${name}`,
+  productLabel: "Carta",
+  howTo:
+    "Chi la riceve mostra questo codice al ristorante, oppure lo inserisce quando ordina nell'app. Si usa una sola volta, per l'intero valore.",
+  expiry: (date) => `Valida fino al ${date}.`,
+  cta: "Apri la carta",
+  shareHint:
+    "Invia questo link alla persona a cui la regali: mostra la carta, il codice e la data di scadenza.",
+  legal: "È un buono multiuso. Non è convertibile in denaro contante.",
+  footer: "Ricevi questa email perché hai acquistato una carta regalo da noi.",
+};
+
+const giftCardAr: GiftCardCopy = {
+  subject: (venue) => `بطاقة الهدايا الخاصة بك من ${venue}`,
+  eyebrow: "بطاقة الهدايا",
+  heading: "بطاقة هداياك جاهزة 🎁",
+  lead: (value) => `ها هي — بطاقة هدايا بقيمة ${value}. أهدها لمن تشاء.`,
+  codeLabel: "رمز البطاقة",
+  forLabel: (name) => `إلى ${name}`,
+  productLabel: "البطاقة",
+  howTo:
+    "يُظهر حاملها هذا الرمز في المطعم، أو يستخدمه عند الطلب من التطبيق. تُستخدم مرة واحدة، بكامل قيمتها.",
+  expiry: (date) => `صالحة حتى ${date}.`,
+  cta: "فتح البطاقة",
+  shareHint: "أرسل هذا الرابط إلى من تهديه البطاقة — يعرض البطاقة والرمز وتاريخ انتهاء الصلاحية.",
+  legal: "هذه قسيمة متعددة الأغراض. لا يمكن استبدالها نقدًا.",
+  footer: "تصلك هذه الرسالة لأنك اشتريت منا بطاقة هدايا.",
+};
+
+export const GIFT_CARD_COPY: Record<UiLocale, GiftCardCopy> = {
+  en: giftCardEn,
+  de: giftCardDe,
+  fr: giftCardFr,
+  es: giftCardEs,
+  it: giftCardIt,
+  ar: giftCardAr,
+};
+
+export const giftCardCopy = (locale?: string | null): GiftCardCopy =>
+  GIFT_CARD_COPY[uiLocale(locale)];
+
+/* ------------------------------------------------------------------ */
+/* Gift card: "your card was redeemed"                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The buyer's receipt-side note, sent when somebody spends the card. Kept
+ * deliberately short — the card is gone, so there is nothing to act on
+ * and nothing to click. Same German rule as above: Geschenkgutschein.
+ */
+const giftCardRedeemedEn = {
+  subject: (venue: string) => `Your ${venue} gift card was redeemed`,
+  eyebrow: "Gift card",
+  heading: "Your gift card was redeemed",
+  lead: (value: string) =>
+    `The ${value} gift card you bought has been used. We hope it was enjoyed.`,
+  codeLabel: "Card code",
+  onLabel: (date: string) => `Redeemed on ${date}.`,
+  footer: "You're getting this because you bought this gift card.",
+};
+
+export type GiftCardRedeemedCopy = typeof giftCardRedeemedEn;
+
+const giftCardRedeemedDe: GiftCardRedeemedCopy = {
+  subject: (venue) => `Ihr Geschenkgutschein für ${venue} wurde eingelöst`,
+  eyebrow: "Geschenkgutschein",
+  heading: "Ihr Geschenkgutschein wurde eingelöst",
+  lead: (value) =>
+    `Der von Ihnen gekaufte Geschenkgutschein über ${value} wurde eingelöst. Wir hoffen, er hat Freude gemacht.`,
+  codeLabel: "Geschenkgutschein-Code",
+  onLabel: (date) => `Eingelöst am ${date}.`,
+  footer: "Sie erhalten diese E-Mail, weil Sie diesen Geschenkgutschein gekauft haben.",
+};
+
+const giftCardRedeemedFr: GiftCardRedeemedCopy = {
+  subject: (venue) => `Votre carte cadeau ${venue} a été utilisée`,
+  eyebrow: "Carte cadeau",
+  heading: "Votre carte cadeau a été utilisée",
+  lead: (value) =>
+    `La carte cadeau de ${value} que vous avez achetée a été utilisée. Nous espérons qu'elle a fait plaisir.`,
+  codeLabel: "Code de la carte",
+  onLabel: (date) => `Utilisée le ${date}.`,
+  footer: "Vous recevez cet e-mail parce que vous avez acheté cette carte cadeau.",
+};
+
+const giftCardRedeemedEs: GiftCardRedeemedCopy = {
+  subject: (venue) => `Tu tarjeta regalo de ${venue} se ha canjeado`,
+  eyebrow: "Tarjeta regalo",
+  heading: "Tu tarjeta regalo se ha canjeado",
+  lead: (value) =>
+    `La tarjeta regalo de ${value} que compraste ya se ha utilizado. Esperamos que se haya disfrutado.`,
+  codeLabel: "Código de la tarjeta",
+  onLabel: (date) => `Canjeada el ${date}.`,
+  footer: "Recibes este correo porque compraste esta tarjeta regalo.",
+};
+
+const giftCardRedeemedIt: GiftCardRedeemedCopy = {
+  subject: (venue) => `La tua carta regalo ${venue} è stata utilizzata`,
+  eyebrow: "Carta regalo",
+  heading: "La tua carta regalo è stata utilizzata",
+  lead: (value) =>
+    `La carta regalo da ${value} che hai acquistato è stata utilizzata. Speriamo sia stata apprezzata.`,
+  codeLabel: "Codice della carta",
+  onLabel: (date) => `Utilizzata il ${date}.`,
+  footer: "Ricevi questa email perché hai acquistato questa carta regalo.",
+};
+
+const giftCardRedeemedAr: GiftCardRedeemedCopy = {
+  subject: (venue) => `تم استخدام بطاقة الهدايا الخاصة بك من ${venue}`,
+  eyebrow: "بطاقة هدايا",
+  heading: "تم استخدام بطاقة هداياك",
+  lead: (value) =>
+    `تم استخدام بطاقة الهدايا بقيمة ${value} التي اشتريتها. نأمل أن تكون قد نالت الإعجاب.`,
+  codeLabel: "رمز البطاقة",
+  onLabel: (date) => `استُخدمت بتاريخ ${date}.`,
+  footer: "تصلك هذه الرسالة لأنك اشتريت هذه البطاقة.",
+};
+
+export const GIFT_CARD_REDEEMED_COPY: Record<UiLocale, GiftCardRedeemedCopy> = {
+  en: giftCardRedeemedEn,
+  de: giftCardRedeemedDe,
+  fr: giftCardRedeemedFr,
+  es: giftCardRedeemedEs,
+  it: giftCardRedeemedIt,
+  ar: giftCardRedeemedAr,
+};
+
+export const giftCardRedeemedCopy = (locale?: string | null): GiftCardRedeemedCopy =>
+  GIFT_CARD_REDEEMED_COPY[uiLocale(locale)];
+
+/* ------------------------------------------------------------------ */
+/* Delivery: "your order is on the way"                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The one status ping a delivery order sends: fired once, from
+ * `dispatch-service.ts`, the moment the order flips to
+ * `out_for_delivery` — a driver scanning the ticket's dispatch QR, or
+ * staff tapping it on the board.
+ *
+ * Short on purpose. The guest already has the receipt; this mail exists
+ * to say "it left, keep your phone near you", so there is no total, no
+ * item list and nothing to click. The order number arrives pre-padded
+ * ("0031") from the template, and each locale supplies its own way of
+ * writing it (`#`, `Nr.`, `n°`, `n.º`, `n.`, `رقم`) exactly as the
+ * receipt and kitchen-ticket namespaces above do.
+ */
+const onTheWayEn = {
+  subject: (orderNumber: string) => `Your order #${orderNumber} is on the way`,
+  eyebrow: "On the way",
+  heading: "Your food is on its way 🛵",
+  lead: (orderNumber: string) => `Order #${orderNumber} just left our kitchen.`,
+  greeting: (name: string) => `Hi ${name},`,
+  addressLabel: "Delivering to",
+  patience:
+    "It should be with you shortly. Please keep your phone nearby in case the driver needs to reach you.",
+  footer: "You're getting this because you ordered from us.",
+};
+
+export type OnTheWayCopy = typeof onTheWayEn;
+
+const onTheWayDe: OnTheWayCopy = {
+  subject: (orderNumber) => `Ihre Bestellung Nr. ${orderNumber} ist unterwegs`,
+  eyebrow: "Unterwegs",
+  heading: "Ihr Essen ist unterwegs 🛵",
+  lead: (orderNumber) => `Bestellung Nr. ${orderNumber} hat gerade unsere Küche verlassen.`,
+  greeting: (name) => `Hallo ${name},`,
+  addressLabel: "Lieferung an",
+  patience:
+    "Gleich ist es bei Ihnen. Halten Sie Ihr Telefon bitte griffbereit, falls der Fahrer Sie erreichen muss.",
+  footer: "Sie erhalten diese E-Mail, weil Sie bei uns bestellt haben.",
+};
+
+const onTheWayFr: OnTheWayCopy = {
+  subject: (orderNumber) => `Votre commande n° ${orderNumber} est en route`,
+  eyebrow: "En route",
+  heading: "Votre repas est en route 🛵",
+  lead: (orderNumber) => `La commande n° ${orderNumber} vient de quitter notre cuisine.`,
+  greeting: (name) => `Bonjour ${name},`,
+  addressLabel: "Livraison à",
+  patience:
+    "Elle arrive d'un instant à l'autre. Gardez votre téléphone à portée de main, au cas où le livreur aurait besoin de vous joindre.",
+  footer: "Vous recevez cet e-mail parce que vous avez commandé chez nous.",
+};
+
+const onTheWayEs: OnTheWayCopy = {
+  subject: (orderNumber) => `Tu pedido n.º ${orderNumber} va en camino`,
+  eyebrow: "En camino",
+  heading: "Tu comida va en camino 🛵",
+  lead: (orderNumber) => `El pedido n.º ${orderNumber} acaba de salir de nuestra cocina.`,
+  greeting: (name) => `Hola ${name}:`,
+  addressLabel: "Entrega en",
+  patience: "Llegará enseguida. Ten el teléfono a mano por si el repartidor necesita localizarte.",
+  footer: "Recibes este correo porque has hecho un pedido con nosotros.",
+};
+
+const onTheWayIt: OnTheWayCopy = {
+  subject: (orderNumber) => `Il tuo ordine n. ${orderNumber} è in arrivo`,
+  eyebrow: "In arrivo",
+  heading: "Il tuo pasto è in viaggio 🛵",
+  lead: (orderNumber) => `L'ordine n. ${orderNumber} ha appena lasciato la nostra cucina.`,
+  greeting: (name) => `Ciao ${name},`,
+  addressLabel: "Consegna a",
+  patience:
+    "Arriverà a momenti. Tieni il telefono a portata di mano, nel caso il fattorino debba contattarti.",
+  footer: "Ricevi questa email perché hai ordinato da noi.",
+};
+
+const onTheWayAr: OnTheWayCopy = {
+  subject: (orderNumber) => `طلبك رقم ${orderNumber} في الطريق إليك`,
+  eyebrow: "في الطريق",
+  heading: "طعامك في طريقه إليك 🛵",
+  lead: (orderNumber) => `غادر الطلب رقم ${orderNumber} مطبخنا للتو.`,
+  greeting: (name) => `مرحبًا ${name}،`,
+  addressLabel: "التوصيل إلى",
+  patience: "سيصل إليك بعد قليل. يُرجى إبقاء هاتفك قريبًا منك تحسبًا لحاجة السائق للتواصل معك.",
+  footer: "تصلك هذه الرسالة لأنك طلبت منّا.",
+};
+
+export const ON_THE_WAY_COPY: Record<UiLocale, OnTheWayCopy> = {
+  en: onTheWayEn,
+  de: onTheWayDe,
+  fr: onTheWayFr,
+  es: onTheWayEs,
+  it: onTheWayIt,
+  ar: onTheWayAr,
+};
+
+export const onTheWayCopy = (locale?: string | null): OnTheWayCopy =>
+  ON_THE_WAY_COPY[uiLocale(locale)];

@@ -222,6 +222,148 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
     expect(order.paymentStatus).toBe("pending");
   });
 
+  /**
+   * A gift-card purchase rides the SAME `payment_intent.succeeded` event
+   * as an order, told apart only by which metadata key is set. Settling
+   * one as the other would either print a kitchen ticket for food nobody
+   * ordered, or leave a paid card unspendable — so both halves are
+   * asserted: the card activates, and the order in the same tenant does
+   * not move.
+   */
+  async function seedCardAndOrder(tenantId: string): Promise<{ cardId: string; orderId: string }> {
+    return asTenant(tenantId, async (tx) => {
+      const venue = await tx.venue.create({
+        data: { tenantId, name: "Gift Venue", slug: `gift-${randomUUID().slice(0, 8)}` },
+        select: { id: true },
+      });
+      const customer = await tx.customer.create({
+        data: {
+          tenantId,
+          provider: "dev",
+          providerSub: `dev:${randomUUID()}`,
+          email: `buyer-${randomUUID().slice(0, 8)}@ex.com`,
+        },
+        select: { id: true },
+      });
+      const card = await tx.giftCard.create({
+        data: {
+          tenantId,
+          venueId: venue.id,
+          code: randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase(),
+          purchaserCustomerId: customer.id,
+          valueCents: 5000,
+          currency: "EUR",
+          status: "pending_payment",
+        },
+        select: { id: true },
+      });
+      const order = await tx.order.create({
+        data: {
+          tenantId,
+          venueId: venue.id,
+          orderType: "dine_in",
+          orderNumber: 4,
+          currency: "EUR",
+          totalCents: 1990,
+          paymentStatus: "pending",
+        },
+        select: { id: true },
+      });
+      return { cardId: card.id, orderId: order.id };
+    });
+  }
+
+  it("payment_intent.succeeded with a giftCardId activates the card and touches no order", async () => {
+    const { tenantId, userId } = await seedTenant();
+    createdTenantIds.push(tenantId);
+    createdUserIds.push(userId);
+    const { cardId, orderId } = await seedCardAndOrder(tenantId);
+
+    const event: StripeEvent = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.succeeded",
+      data: {
+        object: { id: "pi_gift", amount: 5000, metadata: { giftCardId: cardId, tenantId } },
+      },
+    };
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+
+    const card = await asTenant(tenantId, (tx) =>
+      tx.giftCard.findFirstOrThrow({
+        where: { id: cardId },
+        select: {
+          status: true,
+          paidAt: true,
+          expiresAt: true,
+          paymentProvider: true,
+          paymentRef: true,
+        },
+      }),
+    );
+    expect(card).toMatchObject({
+      status: "active",
+      paymentProvider: "stripe",
+      paymentRef: "pi_gift",
+    });
+    // The money arriving is what starts the card's clock.
+    expect(card.paidAt).toBeInstanceOf(Date);
+    expect(card.expiresAt!.getTime()).toBeGreaterThan(Date.now());
+
+    // The pending order in the same tenant is none of this event's business.
+    const order = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
+    );
+    expect(order.paymentStatus).toBe("pending");
+  });
+
+  it("a replayed gift-card event does not re-settle the card", async () => {
+    const { tenantId, userId } = await seedTenant();
+    createdTenantIds.push(tenantId);
+    createdUserIds.push(userId);
+    const { cardId } = await seedCardAndOrder(tenantId);
+
+    const event: StripeEvent = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.succeeded",
+      data: {
+        object: { id: "pi_gift_replay", amount: 5000, metadata: { giftCardId: cardId, tenantId } },
+      },
+    };
+    expect((await handleStripeEvent(event)).kind).toBe("processed");
+
+    // Put the card back by hand. A second delivery that actually ran would
+    // activate it again — and re-stamp `paidAt`, silently extending the
+    // card by however long Stripe's retry was delayed. A correctly-guarded
+    // replay leaves it exactly where it is.
+    await asTenant(tenantId, (tx) =>
+      tx.giftCard.updateMany({
+        where: { id: cardId },
+        data: { status: "pending_payment", paidAt: null, expiresAt: null },
+      }),
+    );
+
+    expect((await handleStripeEvent(event)).kind).toBe("replayed");
+    expect(
+      await asTenant(tenantId, (tx) =>
+        tx.giftCard.findFirstOrThrow({
+          where: { id: cardId },
+          select: { status: true, paidAt: true, expiresAt: true },
+        }),
+      ),
+    ).toEqual({ status: "pending_payment", paidAt: null, expiresAt: null });
+  });
+
+  it("a gift-card payment with no tenant in its metadata is logged, not thrown on", async () => {
+    // Without a tenant there is no GUC to set and therefore no card we may
+    // legally touch. Shrugging it off beats 500-ing at Stripe forever.
+    const event: StripeEvent = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.succeeded",
+      data: { object: { id: "pi_orphan", metadata: { giftCardId: "cmu_nope" } } },
+    };
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+  });
+
   it("account.updated mirrors charges_enabled onto the tenant", async () => {
     const { tenantId, userId } = await seedTenant();
     createdTenantIds.push(tenantId);

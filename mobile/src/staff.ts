@@ -1,4 +1,6 @@
 import { BASE_URL, rebaseUrl } from "./api";
+import type { GiftCardView } from "./gift-cards";
+import { asGiftCard } from "./gift-cards";
 
 /**
  * The restaurant side of the API — everything behind `X-Staff-Token`.
@@ -44,6 +46,10 @@ export interface StaffOrder {
   deliveryAddress: StaffAddress | null;
   /** When the guest asked for it (pickup/delivery slot); null = ASAP. */
   requestedFor: string | null;
+  /** When the order actually left the kitchen, ISO. Null until it does,
+   *  and on a non-delivery order. Written by whichever route moved it —
+   *  the board's own button, the ticket QR, or the staff app. */
+  outForDeliveryAt: string | null;
   createdAt: string;
   updatedAt: string;
   paymentStatus: string;
@@ -53,6 +59,12 @@ export interface StaffOrder {
   /** Points the reward cost the guest. 0 = no reward, or an order from
    *  before the server carried the number. */
   discountPoints: number;
+  /** What a gift card took off. 0 = none, or an order placed before the
+   *  venue had gift cards. */
+  giftCardDiscountCents: number;
+  /** The last four characters of the code that was spent, so the board
+   *  can say WHICH card without printing a live bearer code. */
+  giftCardLast4: string | null;
   currency: string;
   items: StaffOrderItem[];
   /** The complaint thread on this order — "open" | "answered" |
@@ -154,6 +166,9 @@ export function asStaffOrder(raw: unknown): StaffOrder | null {
     totalCents: num(o.totalCents),
     discountCents: num(o.discountCents),
     discountPoints: num(o.discountPoints),
+    outForDeliveryAt: nullableStr(o.outForDeliveryAt),
+    giftCardDiscountCents: num(o.giftCardDiscountCents),
+    giftCardLast4: nullableStr(o.giftCardLast4),
     currency: str(o.currency, "EUR"),
     items: Array.isArray(o.items)
       ? o.items.map(asItem).filter((i): i is StaffOrderItem => i !== null)
@@ -1495,4 +1510,204 @@ export async function changeStaffPassword(
   // has just killed — treat it as a server fault rather than a success.
   if (!next) return { ok: false, error: "server" };
   return { ok: true, token: next };
+}
+
+/* ------------------------------------------------------------------ *
+ * Gift cards, restaurant side.
+ *
+ * Two jobs, and they are deliberately two REQUESTS: the cashier looks a
+ * code up, reads the value back to the guest, and only then commits.
+ * "Look" and "spend" are never one tap, because redemption is single
+ * use, full value and irreversible from the app.
+ *
+ * The lookup answers for a card in ANY state — expired, already
+ * redeemed, refunded — because that is precisely what staff need to see
+ * in order to explain themselves; a bare "not found" turns a
+ * ten-second conversation into an argument.
+ * ------------------------------------------------------------------ */
+
+/** The buyer's name rides along on the owner's list (the guest-side
+ *  `GiftCardView` has no such field — a bearer instrument has no owner). */
+export interface StaffGiftCard extends GiftCardView {
+  buyerName: string | null;
+  buyerEmail: string | null;
+}
+
+export interface StaffGiftCardTotals {
+  soldCount: number;
+  soldCents: number;
+  redeemedCount: number;
+  redeemedCents: number;
+  /** Money taken that the kitchen still owes food for — the number the
+   *  accountant cares about, since VAT falls due at redemption. */
+  outstandingCount: number;
+  outstandingCents: number;
+}
+
+export interface StaffGiftCards {
+  cards: StaffGiftCard[];
+  totals: StaffGiftCardTotals;
+}
+
+function asStaffGiftCard(raw: unknown): StaffGiftCard | null {
+  const card = asGiftCard(raw);
+  if (!card) return null;
+  const r = raw as Record<string, unknown>;
+  return { ...card, buyerName: nullableStr(r.buyerName), buyerEmail: nullableStr(r.buyerEmail) };
+}
+
+/** The venue's whole gift-card book plus totals — the owner's phone
+ *  mirror of the dashboard page. */
+export async function fetchStaffGiftCards(token: string): Promise<StaffResult<StaffGiftCards>> {
+  const res = await staffFetch(token, "/api/v1/staff/gift-cards");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const totals = (res.body.totals ?? {}) as Record<string, unknown>;
+  return {
+    ok: true,
+    data: {
+      cards: Array.isArray(res.body.cards)
+        ? res.body.cards.map(asStaffGiftCard).filter((c): c is StaffGiftCard => c !== null)
+        : [],
+      totals: {
+        soldCount: num(totals.soldCount),
+        soldCents: num(totals.soldCents),
+        redeemedCount: num(totals.redeemedCount),
+        redeemedCents: num(totals.redeemedCents),
+        outstandingCount: num(totals.outstandingCount),
+        outstandingCents: num(totals.outstandingCents),
+      },
+    },
+  };
+}
+
+/** One card, by the code the cashier typed. `notfound` is the server's
+ *  404 for a code we have never issued — "check what you typed". */
+export async function lookupStaffGiftCard(
+  token: string,
+  code: string,
+): Promise<StaffResult<GiftCardView>> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/gift-cards?code=${encodeURIComponent(code.trim())}`,
+  );
+  if (!res) return { ok: false, error: "network" };
+  const card = asGiftCard(res.body?.card);
+  if (res.status !== 200 || !card) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: card };
+}
+
+/**
+ * Why a redemption was refused, in the server's own vocabulary.
+ *
+ * Every one of these is a DIFFERENT sentence at the counter — "it's
+ * expired" and "someone already used it" are not the same conversation —
+ * so they are carried through rather than collapsed into "invalid".
+ */
+export type StaffGiftCardRefusal =
+  "unknown" | "not_paid" | "expired" | "already_redeemed" | "refunded" | "wrong_venue";
+
+export type StaffRedeemResult =
+  | { ok: true; data: GiftCardView }
+  | { ok: false; error: StaffError; reason?: StaffGiftCardRefusal };
+
+const GIFT_CARD_REFUSALS: readonly string[] = [
+  "unknown",
+  "not_paid",
+  "expired",
+  "already_redeemed",
+  "refunded",
+  "wrong_venue",
+];
+
+/**
+ * Take the card. Single use, full value, and irreversible from here —
+ * which is why the screen above this makes the cashier look the card up
+ * first and press a second, differently-worded button to commit.
+ */
+export async function redeemStaffGiftCard(
+  token: string,
+  code: string,
+  note?: string,
+): Promise<StaffRedeemResult> {
+  const res = await staffFetch(token, "/api/v1/staff/gift-cards/redeem", {
+    method: "POST",
+    body: { code: code.trim(), ...(note?.trim() ? { note: note.trim() } : {}) },
+  });
+  if (!res) return { ok: false, error: "network" };
+  const card = asGiftCard(res.body?.card);
+  if (res.status !== 200 || !card) {
+    const error = failure(res.status);
+    const named = typeof res.body?.error === "string" ? res.body.error : "";
+    return GIFT_CARD_REFUSALS.includes(named)
+      ? { ok: false, error, reason: named as StaffGiftCardRefusal }
+      : { ok: false, error };
+  }
+  return { ok: true, data: card };
+}
+
+/* ------------------------------------------------------------------ *
+ * Driver dispatch (the staff-app half).
+ *
+ * A delivery ticket's QR encodes `https://<site>/dispatch/{orderId}?t=…`.
+ * On a phone WITHOUT this app it opens the web page, which is a complete
+ * flow; on a phone with it, the OS hands the link to us and we call this
+ * instead — same transition, same idempotence, no token in play because
+ * the caller is already a staff session.
+ * ------------------------------------------------------------------ */
+
+export interface DispatchedOrder {
+  /**
+   * The order was ALREADY out (or delivered) — a second driver scanning
+   * the same ticket, or the same driver scanning twice.
+   *
+   * This is a SUCCESS. The screen says "on the way" and still offers the
+   * route: a driver holding two bags who is handed an error will just
+   * find another way round it, and the order is in exactly the state
+   * they wanted it in.
+   */
+  already: boolean;
+  orderNumber: number;
+  customerName: string | null;
+  addressLine: string | null;
+  /** Google Maps for `addressLine`; null when the order has no usable
+   *  address, and the screen then simply offers no route. */
+  directionsUrl: string | null;
+  status: string;
+}
+
+/** Why a dispatch was refused, in the server's own vocabulary — each one
+ *  a different sentence to a driver standing by a car. */
+export type DispatchRefusal = "not_found" | "not_delivery" | "wrong_state";
+
+export type DispatchResult =
+  { ok: true; data: DispatchedOrder } | { ok: false; error: StaffError; reason?: DispatchRefusal };
+
+const DISPATCH_REFUSALS: readonly string[] = ["not_found", "not_delivery", "wrong_state"];
+
+export async function dispatchStaffOrder(token: string, orderId: string): Promise<DispatchResult> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/orders/${encodeURIComponent(orderId)}/dispatch`,
+    { method: "POST", body: {} },
+  );
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body || res.body.ok !== true) {
+    const error = failure(res.status);
+    const named = typeof res.body?.error === "string" ? res.body.error : "";
+    return DISPATCH_REFUSALS.includes(named)
+      ? { ok: false, error, reason: named as DispatchRefusal }
+      : { ok: false, error };
+  }
+  return {
+    ok: true,
+    data: {
+      already: res.body.already === true,
+      orderNumber: num(res.body.orderNumber),
+      customerName: nullableStr(res.body.customerName),
+      addressLine: nullableStr(res.body.addressLine),
+      directionsUrl: nullableStr(res.body.directionsUrl),
+      status: str(res.body.status, "out_for_delivery"),
+    },
+  };
 }

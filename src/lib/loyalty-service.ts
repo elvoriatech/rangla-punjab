@@ -166,6 +166,15 @@ interface MintedVoucher {
  * `foodValueCents` already yields the charged food value and a €24 order
  * that a €20 reward brought down to €4 earns nothing. Spending a reward
  * must not quietly earn most of the next one.
+ *
+ * A GIFT CARD works out the same way, and by the same mechanism:
+ * `total_cents` is stored net of `gift_card_discount_cents` too, so the
+ * base here is already "what the guest handed over today". The rule is
+ * deliberate rather than incidental — the card's value was paid for (and
+ * earned points for) when it was BOUGHT, so crediting it again when it
+ * is spent would pay the scheme out twice for one euro. A €40 order
+ * settled entirely by a gift card therefore earns nothing, exactly as a
+ * reward-settled one does.
  */
 export async function creditOrderIfEligible(
   tenantId: string,
@@ -250,6 +259,13 @@ export async function creditOrderIfEligible(
  */
 export async function reverseOrderCredit(tenantId: string, orderId: string): Promise<CreditResult> {
   await restoreOrderVoucher(tenantId, orderId);
+  // And the gift card the cancelled order spent, on exactly the same
+  // terms. Dynamically imported because `gift-card-service` imports this
+  // module's `formatPrice` neighbours and a static edge here would be a
+  // cycle. A card whose expiry passed while the order sat open comes
+  // back `expired` rather than `active` — see `releaseGiftCardFromOrder`.
+  const { releaseGiftCardFromOrder } = await import("./gift-card-service");
+  await releaseGiftCardFromOrder(tenantId, orderId);
   const result = await asTenant(tenantId, async (tx) => {
     const earned = await tx.loyaltyLedger.findFirst({
       where: { orderId, reason: "order" },

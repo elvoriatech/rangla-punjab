@@ -27,6 +27,15 @@ export interface TrackerOrder {
   /** What that reward cost in points. 0/absent on an order placed before
    *  the column existed — the line then omits the points. */
   discountPoints?: number;
+  /** Cents a gift card paid (0/absent = none). Its own line under the
+   *  reward: one order can carry both. `totalCents` is net of it too. */
+  giftCardDiscountCents?: number;
+  /** Last four characters of that card's code, for the masked label. */
+  giftCardLast4?: string | null;
+  /** When a delivery order left the kitchen. Absent on anything never
+   *  dispatched, and on orders older than the column — the step then
+   *  renders without a time rather than with a made-up one. */
+  outForDeliveryAt?: Date | null;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -72,6 +81,11 @@ export function OrderTrackerCard({
   const money = new Intl.NumberFormat(locale, { style: "currency", currency: order.currency });
   const time = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: order.timezone || "Europe/Berlin",
+  });
+  /** Time only: the guest already knows what day their dinner is. */
+  const clock = new Intl.DateTimeFormat(locale, {
     timeStyle: "short",
     timeZone: order.timezone || "Europe/Berlin",
   });
@@ -168,6 +182,15 @@ export function OrderTrackerCard({
                     className={`pt-1 text-start text-sm font-semibold ${reached ? "" : "opacity-60"}`}
                   >
                     {t.steps[step.label]}
+                    {/* The one step whose MOMENT the guest cares about:
+                        "on the way" is the point they start listening for
+                        the doorbell. Only ever drawn when we actually
+                        recorded it. */}
+                    {step.key === "out_for_delivery" && reached && order.outForDeliveryAt ? (
+                      <span className="ms-2 font-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                        {clock.format(order.outForDeliveryAt)}
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               );
@@ -197,6 +220,14 @@ export function OrderTrackerCard({
               <span className="tabular-nums">−{money.format(order.discountCents / 100)}</span>
             </div>
           ) : null}
+          {order.giftCardDiscountCents ? (
+            <div className="mb-1 flex justify-between text-[var(--menu-surface-accent,var(--menu-accent))]">
+              <span>{order.giftCardLast4 ? t.giftCardCode(order.giftCardLast4) : t.giftCard}</span>
+              <span className="tabular-nums">
+                −{money.format(order.giftCardDiscountCents / 100)}
+              </span>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <span>{t.total}</span>
             <span className="font-semibold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))]">
@@ -210,7 +241,12 @@ export function OrderTrackerCard({
                 ? t.payAtRestaurant
                 : order.paymentProvider === "voucher"
                   ? t.paidWithReward
-                  : t.paidOnline}
+                  : order.paymentProvider === "gift_card"
+                    ? // `paidWithGiftCard` carries no tick of its own — the
+                      // PDF catalogue it shares a shape with cannot encode
+                      // one — so this surface adds it to match its neighbour.
+                      `✓ ${t.paidWithGiftCard}`
+                    : t.paidOnline}
             </span>
           </div>
         </div>

@@ -175,7 +175,11 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                                 // nothing about why no money changed hands.
                                 order.paymentProvider === "voucher"
                                 ? "Paid · Reward"
-                                : "Paid"
+                                : // Same for a gift card that covered the
+                                  // whole bill: the pass collects nothing.
+                                  order.paymentProvider === "gift_card"
+                                  ? "Paid · Gift card"
+                                  : "Paid"
                           : "Cash"}
                       </span>
                     </p>
@@ -229,6 +233,17 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                       ★ Reward
                       {order.discountPoints > 0 ? ` · ${order.discountPoints} pts` : ""} · −
                       {formatPrice(order.discountCents, order.currency, "de")}
+                    </p>
+                  ) : null}
+                  {/* Same reasoning one row down: a gift card is not a
+                      price either, it is the other way this ticket came in
+                      already settled. The masked last 4 are what tie the
+                      line to the card the guest handed over. */}
+                  {order.giftCardDiscountCents > 0 ? (
+                    <p className="mt-3 text-sm font-semibold text-amber-300">
+                      ★ Gift card
+                      {order.giftCardLast4 ? ` · ····${order.giftCardLast4}` : ""} · −
+                      {formatPrice(order.giftCardDiscountCents, order.currency, "de")}
                     </p>
                   ) : null}
                   {/* mt-auto pins the action row to the card's bottom edge so

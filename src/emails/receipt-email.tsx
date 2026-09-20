@@ -46,12 +46,16 @@ export function ReceiptEmail({
   // A reward that covered the whole bill is "paid" without a card ever
   // being touched — saying "Paid online (card)" would be a lie the guest
   // could reasonably query.
+  // A gift card that covered the whole bill is the same story with a
+  // different instrument — say so rather than implying a card payment.
   const paymentLine = paid
-    ? order.paymentProvider === "voucher"
-      ? t.paidVoucher
-      : order.paymentProvider === "paypal"
-        ? t.paidPaypal
-        : t.paidCard
+    ? order.paymentProvider === "gift_card"
+      ? t.paidWithGiftCard
+      : order.paymentProvider === "voucher"
+        ? t.paidVoucher
+        : order.paymentProvider === "paypal"
+          ? t.paidPaypal
+          : t.paidCard
     : order.orderType === "delivery"
       ? t.unpaidDelivery
       : order.orderType === "takeaway"
@@ -128,6 +132,20 @@ export function ReceiptEmail({
               </td>
               <td style={{ ...styles.value, paddingTop: 12, textAlign: amountAlign }}>
                 −{money(order.discountCents)}
+              </td>
+            </tr>
+          ) : null}
+          {order.giftCardDiscountCents > 0 ? (
+            <tr>
+              {/* Its own row under the reward: one order can carry both,
+                  and the masked last 4 say WHICH card paid — the guest
+                  may hold several. No last4 = an order from before the
+                  column, which keeps the plain label. */}
+              <td style={{ ...styles.value, paddingTop: 12 }}>
+                {order.giftCardLast4 ? t.giftCardCode(order.giftCardLast4) : t.giftCard}
+              </td>
+              <td style={{ ...styles.value, paddingTop: 12, textAlign: amountAlign }}>
+                −{money(order.giftCardDiscountCents)}
               </td>
             </tr>
           ) : null}

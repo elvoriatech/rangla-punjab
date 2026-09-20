@@ -21,6 +21,8 @@ export function OwnerMenuSheet({
   onBoard,
   onManageMenu,
   onLoyalty,
+  onRedeemGiftCard,
+  onGiftCards,
   onIssues,
   onRating,
   onHours,
@@ -33,6 +35,11 @@ export function OwnerMenuSheet({
   onBoard: () => void;
   onManageMenu: () => void;
   onLoyalty: () => void;
+  /** Take a gift card at the counter — the one job here that happens
+   *  with a guest standing in front of the phone. */
+  onRedeemGiftCard: () => void;
+  /** The venue's gift-card book: what was sold, redeemed, outstanding. */
+  onGiftCards: () => void;
   onIssues: () => void;
   /** The Google star line under the restaurant's name (P7-14). */
   onRating: () => void;
@@ -89,6 +96,15 @@ export function OwnerMenuSheet({
             onPress={() => go(onManageMenu)}
           />
           <Row icon="gift-outline" label={t.ownerLoyalty} onPress={() => go(onLoyalty)} />
+          {/* `card-outline`, not another gift: Loyalty already owns the
+              gift glyph above, and two identical icons in one column is
+              how a cashier taps the wrong row mid-service. */}
+          <Row
+            icon="card-outline"
+            label={t.ownerRedeemGiftCard}
+            onPress={() => go(onRedeemGiftCard)}
+          />
+          <Row icon="pricetags-outline" label={t.ownerGiftCards} onPress={() => go(onGiftCards)} />
           <Row
             icon="alert-circle-outline"
             label={t.ownerIssues}

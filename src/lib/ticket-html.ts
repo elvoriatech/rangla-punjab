@@ -67,6 +67,12 @@ export interface TicketOrder {
   /** Points the reward cost. 0 = no reward, or an order from before the
    *  column existed — the row then omits the points. */
   discountPoints: number;
+  /** Cents a gift card paid. 0 = none; its own row under the reward,
+   *  because one order can carry both. */
+  giftCardDiscountCents: number;
+  /** Last 4 characters of the card's code, masked on the row so the
+   *  counter can match it to the card in the guest's hand. */
+  giftCardLast4: string | null;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -135,6 +141,9 @@ function paymentBanner(order: TicketOrder): string | null {
     if (order.paymentProvider === "voucher") {
       return "** MIT GUTSCHEIN BEZAHLT / PAID WITH REWARD **";
     }
+    if (order.paymentProvider === "gift_card") {
+      return "** MIT GESCHENKGUTSCHEIN BEZAHLT / PAID WITH GIFT CARD **";
+    }
     return `** PAID ONLINE${order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **`;
   }
   if (order.paymentStatus === "pending") return "** ONLINE PAYMENT PENDING **";
@@ -143,9 +152,13 @@ function paymentBanner(order: TicketOrder): string | null {
 
 function paymentFooter(order: TicketOrder): string {
   if (order.paymentStatus === "paid") {
-    return order.paymentProvider === "voucher"
-      ? "Mit Treuegutschein bezahlt / paid with a loyalty reward — nothing to collect."
-      : `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`;
+    if (order.paymentProvider === "voucher") {
+      return "Mit Treuegutschein bezahlt / paid with a loyalty reward — nothing to collect.";
+    }
+    if (order.paymentProvider === "gift_card") {
+      return "Mit Geschenkgutschein bezahlt / paid with a gift card — nothing to collect.";
+    }
+    return `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`;
   }
   if (order.paymentStatus === "pending") {
     return "Online payment NOT confirmed yet — do not hand out; wait for the paid ticket.";
@@ -297,8 +310,15 @@ ${paid ? `<p class="pay">${esc(paid)}</p>` : ""}
 ${rows.length > 0 ? `<div class="rows">${rows.join("")}</div>` : ""}
 ${
   // Our own generated markup from our own qr lib — never user input.
+  // The QR now encodes OUR dispatch link rather than the Maps URL
+  // directly (see `dispatch-service.ts`): scanning it flips the order to
+  // "out for delivery" and THEN forwards to the same route, so the
+  // driver's one existing gesture is what tells the guest the food left.
+  // The caption says both things it now does, in the ticket's two
+  // languages, because a driver who thinks it is only navigation will
+  // stop scanning it the day their phone remembers the address.
   opts.navQrSvg
-    ? `<div class="qr">${opts.navQrSvg}<p>&gt;&gt; Scan für Navigation &lt;&lt;</p></div>`
+    ? `<div class="qr">${opts.navQrSvg}<p>&gt;&gt; Scan: unterwegs + Route / out for delivery + route &lt;&lt;</p></div>`
     : ""
 }
 <p class="rule">${RULE}</p>
@@ -314,6 +334,16 @@ ${
     ? `<div class="disc"><span>GUTSCHEIN / REWARD${
         order.discountPoints > 0 ? ` &middot; ${order.discountPoints} P` : ""
       }</span><span>-${esc(money(order.discountCents))}</span></div>`
+    : ""
+}
+${
+  // A gift card is its own row directly under the reward — a guest can
+  // spend both on one order — and the masked last 4 are what let the
+  // counter tie the line to the card that was handed over.
+  order.giftCardDiscountCents > 0
+    ? `<div class="disc"><span>GESCHENKGUTSCHEIN / GIFT CARD${
+        order.giftCardLast4 ? ` &middot;&middot;&middot;&middot;${esc(order.giftCardLast4)}` : ""
+      }</span><span>-${esc(money(order.giftCardDiscountCents))}</span></div>`
     : ""
 }
 <div class="total"><span>TOTAL</span><span>${esc(money(order.totalCents))}</span></div>

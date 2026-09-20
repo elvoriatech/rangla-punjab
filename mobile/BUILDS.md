@@ -674,3 +674,75 @@ the probe made, with `googlePay.testEnv` derived from `pk_test_`.
 **Do not remove the init.** Any new caller of `isPlatformPaySupported`, or of
 anything else that builds a native Stripe launcher, must initialise first.
 The seam in `src/stripe-module.ts` carries the same warning.
+
+---
+
+## ⛔ Deep links for the driver dispatch QR (human step)
+
+A delivery ticket's QR now encodes `https://<site>/dispatch/{orderId}?t=…`
+(see `src/lib/dispatch-service.ts`). Scanning it flips the order to
+"out for delivery" and forwards to Google Maps.
+
+**The web page works today, on any phone, with no setup.** Everything below
+is the optional upgrade that makes a phone with the staff app installed open
+that URL *in the app* instead of the browser — one fewer bounce for a driver
+holding two bags. Nothing breaks without it.
+
+### Android — `assetlinks.json` (we can finish this ourselves)
+
+`public/.well-known/assetlinks.json` is already in the repo with the right
+package name (`com.elvoria.ranglapunjab`) and a placeholder fingerprint. To
+activate it:
+
+1. Get the SHA-256 of the signing key the installed app is actually built
+   with. For an EAS-managed keystore:
+
+   ```
+   cd mobile && eas credentials
+   # → Android → production → Keystore → "Download"/"View" the
+   #   SHA-256 Certificate Fingerprint
+   ```
+
+   If the app ships through Google Play with Play App Signing, use the
+   fingerprint Play shows under **Release → Setup → App signing →
+   App signing key certificate** — that is the key users' devices verify,
+   and the upload key will NOT match.
+
+2. Paste it into `sha256_cert_fingerprints`, replacing
+   `REPLACE_WITH_EAS_UPLOAD_KEY_SHA256`. Format is upper-case hex pairs
+   separated by colons (`AB:CD:…`).
+
+3. Deploy, then confirm the file is served from the site root as
+   `application/json` over HTTPS with **no redirect**:
+
+   ```
+   curl -sSI https://<site>/.well-known/assetlinks.json
+   ```
+
+   Google's verifier follows no redirects and accepts no 3xx.
+
+4. Verify on a device: `adb shell pm verify-app-links --re-verify
+   com.elvoria.ranglapunjab`, then
+   `adb shell pm get-app-links com.elvoria.ranglapunjab` — the domain must
+   read `verified`.
+
+Until step 2 is done the file is inert: Android simply fails verification
+and opens the browser, which is the current behaviour anyway.
+
+### iOS — associated domains (needs the paid Apple account)
+
+Universal Links require an `apple-app-site-association` file AND the
+`applinks:<site>` entitlement, and the entitlement can only be issued
+through an Apple Developer Program membership ($99/yr) that this project
+does not have yet. Until it does, iOS opens the dispatch link in Safari —
+which is a complete, working flow.
+
+When the account exists:
+
+1. Add to `mobile/app.config.js`:
+   `ios.associatedDomains = ["applinks:<site>"]`.
+2. Serve `https://<site>/.well-known/apple-app-site-association` (no
+   extension, `application/json`, no redirect) with the `appID`
+   `<TEAM_ID>.com.elvoria.ranglapunjab` and the path `/dispatch/*`.
+3. Rebuild — the entitlement is baked into the binary, so this needs a new
+   build, not just a deploy.

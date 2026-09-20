@@ -63,12 +63,16 @@ export function NewOrderEmail({
   // "voucher" = a loyalty reward settled the bill at placement. The
   // kitchen needs the same "nothing to collect" line an online payment
   // gets, without being told a card was charged.
+  // "gift_card" = a gift card covered the whole bill: same "nothing to
+  // collect" as a voucher, different instrument on the line.
   const paymentLine = paid
-    ? order.paymentProvider === "voucher"
-      ? t.paidVoucher
-      : order.paymentProvider === "paypal"
-        ? t.paidPaypal
-        : t.paidCard
+    ? order.paymentProvider === "gift_card"
+      ? t.paidWithGiftCard
+      : order.paymentProvider === "voucher"
+        ? t.paidVoucher
+        : order.paymentProvider === "paypal"
+          ? t.paidPaypal
+          : t.paidCard
     : t.unpaid(money(order.totalCents));
   const when = order.requestedFor ? fmt.format(order.requestedFor) : t.asap;
   const addr = order.deliveryAddress;
@@ -162,6 +166,17 @@ export function NewOrderEmail({
                 {order.discountPoints > 0 ? t.rewardPoints(String(order.discountPoints)) : t.reward}
               </td>
               <td style={{ ...right, fontSize: 16 }}>−{money(order.discountCents)}</td>
+            </tr>
+          ) : null}
+          {order.giftCardDiscountCents > 0 ? (
+            <tr>
+              {/* A gift card is not a reward: no points were spent, and
+                  the masked last 4 are what let the counter match the
+                  line to the card the guest handed over. */}
+              <td style={{ ...styles.itemCell, fontSize: 16 }}>
+                {order.giftCardLast4 ? t.giftCardCode(order.giftCardLast4) : t.giftCard}
+              </td>
+              <td style={{ ...right, fontSize: 16 }}>−{money(order.giftCardDiscountCents)}</td>
             </tr>
           ) : null}
           <tr>

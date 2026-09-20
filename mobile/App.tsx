@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Animated, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import * as ExpoLinking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
 import {
   useFonts,
@@ -26,7 +27,7 @@ import type { PushTarget } from "./src/push";
 import { registerForStaffPush, usePushRouting } from "./src/push";
 import { fetchStaffSummary } from "./src/staff";
 import { useBumpOnChange } from "./src/motion";
-import { walletsFromAccepted } from "./src/payments";
+import { openInAppBrowser, walletsFromAccepted } from "./src/payments";
 import { colors, fonts } from "./src/theme";
 import { TAB_BAR_MAX } from "./src/layout";
 import { HomeScreen } from "./src/screens/HomeScreen";
@@ -41,6 +42,11 @@ import { IssuesScreen } from "./src/screens/IssuesScreen";
 import { RatingOwnerScreen } from "./src/screens/RatingOwnerScreen";
 import { HoursOwnerScreen } from "./src/screens/HoursOwnerScreen";
 import { ContactOwnerScreen } from "./src/screens/ContactOwnerScreen";
+import { GiftCardsScreen } from "./src/screens/GiftCardsScreen";
+import { MyGiftCardsScreen } from "./src/screens/MyGiftCardsScreen";
+import { RedeemGiftCardScreen } from "./src/screens/RedeemGiftCardScreen";
+import { GiftCardsOwnerScreen } from "./src/screens/GiftCardsOwnerScreen";
+import { DispatchScreen } from "./src/screens/DispatchScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { OwnerMenuSheet } from "./src/owner-menu";
 import { PasswordSheet } from "./src/password-sheet";
@@ -59,9 +65,10 @@ import { PasswordSheet } from "./src/password-sheet";
  * never both — `auth.staff` is the whole switch.
  */
 
-/** "loyalty", "issues", "rating", "hours" and "contact" have no tab button: they
- *  are reached from the owner's burger and carry their own back arrow,
- *  like the tracking view. */
+/** "loyalty", "issues", "rating", "hours", "contact" and the four
+ *  gift-card views have no tab button: the guest ones are reached from
+ *  Home and Account, the restaurant ones from the owner's burger, and
+ *  each carries its own back arrow like the tracking view. */
 type Tab =
   | "home"
   | "menu"
@@ -73,10 +80,30 @@ type Tab =
   | "rating"
   | "hours"
   | "contact"
+  /** Guest: the shop window. */
+  | "giftcards"
+  /** Guest: the cards this account has bought. */
+  | "mygiftcards"
+  /** Restaurant: take a card at the counter. */
+  | "redeemgift"
+  /** Restaurant: the venue's gift-card book. */
+  | "giftcardsowner"
+  /** Restaurant: "out for delivery", opened by a delivery ticket's QR. */
+  | "dispatch"
   | "info";
 
 /** The owner-only views, which a guest device must never be left on. */
-const OWNER_ONLY: readonly Tab[] = ["board", "loyalty", "issues", "rating", "hours", "contact"];
+const OWNER_ONLY: readonly Tab[] = [
+  "board",
+  "loyalty",
+  "issues",
+  "rating",
+  "hours",
+  "contact",
+  "redeemgift",
+  "giftcardsowner",
+  "dispatch",
+];
 
 /** How stale the menu may get while the app is in front. Five minutes is
  *  the edge payload's own stale-while-revalidate window — beyond that the
@@ -98,6 +125,9 @@ interface TrackTarget {
   /** The cart previewed a reward the server didn't end up applying (it
    *  expired, or was spent elsewhere) — said once, then dismissed. */
   rewardFailed?: boolean;
+  /** Same for a gift card the server refused: the order stands, the
+   *  discount didn't happen, and the guest is told once. */
+  giftCardFailed?: boolean;
   /** Open the order's problem thread with the screen: the guest asked
    *  for it from the orders list, not from the tracking view. */
   issue?: boolean;
@@ -134,6 +164,8 @@ function Shell(): React.ReactElement {
   /** The owner's "change my password" sheet. A sheet, not a tab: it is a
    *  one-off errand with no screen to return to. */
   const [passwordSheet, setPasswordSheet] = useState(false);
+  /** The order a scanned delivery ticket asked us to send out. */
+  const [dispatchOrderId, setDispatchOrderId] = useState<string | null>(null);
 
   /**
    * The menu, and everything clock-shaped riding on it (`openNow`,
@@ -293,6 +325,52 @@ function Shell(): React.ReactElement {
   const onPushReceived = useCallback(() => setBoardRefresh((n) => n + 1), []);
   usePushRouting({ enabled: restaurant, onTarget: onPushTarget, onReceived: onPushReceived });
 
+  /**
+   * The delivery ticket's QR — `https://<site>/dispatch/{orderId}?t=…`.
+   *
+   * On a phone with this app installed and verified for the site, the OS
+   * hands us that link instead of opening the browser. `useLinkingURL()`
+   * is expo-linking 57's recommended hook: it returns the URL that cold-
+   * started the app AND every one that arrives while it is running, so
+   * one effect covers both. It keeps returning the same value, hence the
+   * `handled` ref — re-running it on an unrelated state change would
+   * re-open the screen under the driver.
+   *
+   * Two forks, and NEITHER is an error:
+   *  - staff session ⇒ the in-app confirm screen;
+   *  - anyone else (a guest's phone that happens to have the app, or a
+   *    staff phone signed out) ⇒ the web dispatch page, which is a
+   *    complete flow for any phone and always has been. The token in the
+   *    URL is the authorisation there, so nothing is lost.
+   *
+   * The decision waits for `auth.ready`: a cold start via the link races
+   * the session restore, and deciding "not staff" on a token that has
+   * simply not been read yet would bounce a driver into the browser.
+   *
+   * Every other deep link this app receives — `payment-return`,
+   * `auth-return` — is consumed by the in-app browser that opened it, so
+   * anything that is not `/dispatch/{id}` is deliberately ignored here.
+   */
+  const linkUrl = ExpoLinking.useLinkingURL();
+  const handledLink = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linkUrl || !authReady || handledLink.current === linkUrl) return;
+    const { path } = ExpoLinking.parse(linkUrl);
+    const orderId = /^\/?dispatch\/([^/?#]+)/.exec(path ?? "")?.[1];
+    if (!orderId) return;
+    handledLink.current = linkUrl;
+    // A cold-start URL is cached by the native module; clearing it stops
+    // the same scan being replayed if this effect ever runs again.
+    ExpoLinking.clearInitialURL();
+    if (!staffToken) {
+      void openInAppBrowser(linkUrl);
+      return;
+    }
+    setTrack(null);
+    setDispatchOrderId(decodeURIComponent(orderId));
+    setTab("dispatch");
+  }, [linkUrl, authReady, staffToken]);
+
   const offerCount = menu?.offerCount ?? 0;
 
   const onAdd = useCallback((item: ApiItem) => cart.add(item), [cart]);
@@ -304,6 +382,7 @@ function Shell(): React.ReactElement {
         note?: "cancelled" | "failed";
         paid?: boolean;
         rewardFailed?: boolean;
+        giftCardFailed?: boolean;
       },
     ) => {
       setOrdersRefresh((n) => n + 1);
@@ -394,6 +473,7 @@ function Shell(): React.ReactElement {
         paidHint={track.paid}
         note={track.note}
         rewardFailed={track.rewardFailed}
+        giftCardFailed={track.giftCardFailed}
         openIssue={track.issue}
         onBack={() => setTrack(null)}
       />
@@ -428,6 +508,7 @@ function Shell(): React.ReactElement {
               setTab("menu");
             }}
             onOpenAccount={() => setTab("info")}
+            onOpenGiftCards={() => setTab("giftcards")}
             onComplain={onComplain}
           />
         ) : null}
@@ -495,10 +576,46 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
+        {tab === "giftcards" && !restaurant ? (
+          <GiftCardsScreen
+            menu={menu}
+            onBack={() => setTab("home")}
+            // Buying needs an account; the form for one lives on the
+            // Account tab, and this is the soft gate that points there.
+            onOpenAccount={() => setTab("info")}
+          />
+        ) : null}
+        {tab === "mygiftcards" && !restaurant ? (
+          <MyGiftCardsScreen venueName={menu.venue.name} onBack={() => setTab("info")} />
+        ) : null}
+        {tab === "redeemgift" && restaurant ? (
+          <RedeemGiftCardScreen
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
+        {tab === "giftcardsowner" && restaurant ? (
+          <GiftCardsOwnerScreen
+            currency={menu.venue.currency}
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
+        {tab === "dispatch" && restaurant && dispatchOrderId ? (
+          <DispatchScreen
+            orderId={dispatchOrderId}
+            onBack={() => {
+              setDispatchOrderId(null);
+              setTab("board");
+            }}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
         {tab === "info" ? (
           <AccountScreen
             menu={menu}
             onOpenOrder={(orderId, token) => setTrack({ orderId, token })}
+            onOpenGiftCards={() => setTab("mygiftcards")}
             onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
           />
         ) : null}
@@ -572,6 +689,8 @@ function Shell(): React.ReactElement {
             setTab("menu");
           }}
           onLoyalty={() => setTab("loyalty")}
+          onRedeemGiftCard={() => setTab("redeemgift")}
+          onGiftCards={() => setTab("giftcardsowner")}
           onIssues={() => {
             // Reached deliberately: the list, not whatever thread a push
             // happened to open earlier.

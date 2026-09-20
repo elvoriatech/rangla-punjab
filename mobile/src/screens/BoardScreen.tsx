@@ -38,6 +38,7 @@ import {
 import type { Chime } from "../sound";
 import { isNewOrderSoundOn, loadChime, setNewOrderSoundOn } from "../sound";
 import { useLayout } from "../layout";
+import { venueTimezone } from "../hours";
 import { colors, fonts, money, radius } from "../theme";
 import { fill, localeTag, useI18n } from "../i18n";
 
@@ -239,13 +240,29 @@ export function BoardScreen({
   const chimeRef = useRef<Chime | null>(null);
 
   const tag = localeTag(lang);
+  /**
+   * Every clock on this board, in the VENUE's zone.
+   *
+   * `hours.ts` makes the rule explicit: the device's own timezone is
+   * never the venue's, and a tablet that has travelled (or a phone with
+   * a stale zone) would otherwise put "placed 17:06" and "on the way
+   * since 17:06" on two different clocks from the printed ticket and the
+   * guest's tracker. `venueTimezone()` falls back to the zone baked into
+   * the build, and to `undefined` when even that is unset — which is
+   * exactly the device-local behaviour this had before.
+   */
+  const zone = venueTimezone() ?? undefined;
   const timeOf = useCallback(
     (iso: string): string => {
       const d = new Date(iso);
       if (!iso || Number.isNaN(d.getTime())) return "";
-      return d.toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleTimeString(tag, {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: zone,
+      });
     },
-    [tag],
+    [tag, zone],
   );
 
   const load = useCallback(
@@ -668,6 +685,20 @@ export function BoardScreen({
     const expanded = expandedIds.has(order.id);
     const number = `#${String(order.orderNumber).padStart(4, "0")}`;
     const placed = timeOf(order.createdAt);
+    /**
+     * When the food actually left, on a delivery that is still out.
+     *
+     * Only while the status IS `out_for_delivery`: a delivered order
+     * still carries the timestamp, and "on the way since 17:06" on an
+     * order that arrived at 17:20 would be a lie the counter has to
+     * re-read twice. Written by whichever route moved it — this board's
+     * own button, the ticket QR, or the staff app's dispatch screen —
+     * so the line appears the same way for all three.
+     */
+    const onTheWay =
+      order.status === "out_for_delivery" && order.outForDeliveryAt
+        ? timeOf(order.outForDeliveryAt)
+        : "";
     const planned = order.requestedFor ? timeOf(order.requestedFor) : "";
     // Due later, not now: a calmer card, re-judged on every poll.
     const scheduled = isScheduled(order.requestedFor);
@@ -700,6 +731,9 @@ export function BoardScreen({
     // guest in points — which is what the counter is asked about.
     const discountCents = order.discountCents;
     const discountPoints = order.discountPoints;
+    // A sibling of the reward line, not an alternative: an order can
+    // carry both, and the counter needs to see why the total is small.
+    const giftCardCents = order.giftCardDiscountCents;
     const address = order.deliveryAddress;
     // One line for the doorbell, and the thing the maps app is handed.
     const addressLine = address
@@ -806,6 +840,12 @@ export function BoardScreen({
               ) : null}
             </Text>
           </View>
+
+          {onTheWay ? (
+            <Text style={styles.onTheWay} numberOfLines={1}>
+              🛵 {fill(t.boardOnTheWaySince, { time: onTheWay })}
+            </Text>
+          ) : null}
         </Pressable>
 
         {expanded ? (
@@ -880,6 +920,13 @@ export function BoardScreen({
                   value: money(discountCents, order.currency),
                   points: discountPoints,
                 })}
+              </Text>
+            ) : null}
+
+            {giftCardCents > 0 ? (
+              <Text style={styles.rewardOff}>
+                {fill(t.ordersGiftCardOff, { value: money(giftCardCents, order.currency) })}
+                {order.giftCardLast4 ? ` · ····${order.giftCardLast4}` : ""}
               </Text>
             ) : null}
 
@@ -1145,6 +1192,9 @@ const styles = StyleSheet.create({
   /** The slot a pre-order is due in — the one fact that makes the card
    *  different, so it carries the card's own colour and weight. */
   metaPlanned: { color: colors.info, ...fonts.bodyBold },
+  /** "🛵 Unterwegs seit 17:06" — brand red, because on this board red
+   *  means live: this order is out there right now. */
+  onTheWay: { color: colors.red, ...fonts.bodyBold, fontSize: 12.5, marginTop: 4 },
   items: { gap: 3, borderTopWidth: 1, borderColor: colors.line, paddingTop: 8 },
   itemRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   itemQty: { color: colors.red, ...fonts.bodyHeavy, fontSize: 14, minWidth: 26 },

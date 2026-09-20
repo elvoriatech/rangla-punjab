@@ -12,6 +12,7 @@ import { currentOpenState, openState, todayLocalTimeToDate } from "./opening-hou
 import { parseOpeningHours } from "./opening-hours-schema";
 import { parseLoyaltyConfig } from "./loyalty-config";
 import { attachVoucherToOrder, claimArmedVoucher } from "./loyalty-service";
+import { attachGiftCardToOrder, claimGiftCardForOrder } from "./gift-card-service";
 import {
   deliveryQuote,
   DELIVERY_FEE_LINE_NAME,
@@ -38,6 +39,18 @@ import {
  * happened.
  */
 export const VOUCHER_PROVIDER = "voucher";
+
+/**
+ * The same, for an order a GIFT CARD settled in full.
+ *
+ * Kept distinct from `VOUCHER_PROVIDER` rather than folded into it,
+ * because the two are not the same event to anyone downstream: a reward
+ * costs the venue food it gave away, a gift card is food already paid
+ * for months ago. VAT falls due on the gift card at this moment and
+ * never falls due on the reward at all, so the accountant's report has
+ * to be able to tell the two apart from the order row alone.
+ */
+export const GIFT_CARD_PROVIDER = "gift_card";
 
 export const placeOrderSchema = z
   .object({
@@ -99,6 +112,25 @@ export const placeOrderSchema = z
      * comes from `/api/v1/me/loyalty`; the server is the authority.
      */
     redeemVoucher: z.boolean().optional(),
+    /**
+     * A gift card to spend on this order, as the guest typed or scanned
+     * it. Any of our accepted spellings — dashed, lower case, with the
+     * Crockford confusables, or a pasted share URL — because the cashier
+     * and the guest both retype these by hand
+     * (`normalizeGiftCardCode`).
+     *
+     * A gift card is a BEARER instrument, so this is deliberately NOT
+     * restricted to cards the signed-in guest bought: a code handed over
+     * at the table is exactly as valid as one in your own account, which
+     * is the entire point of a gift. The card is validated server-side
+     * against the same rules as counter redemption.
+     *
+     * Advisory like `redeemVoucher`: a card that turns out to be spent,
+     * expired or unknown leaves the order at full price rather than
+     * refusing it. The app compares `giftCardDiscountCents` in the reply
+     * with what it showed and says so if they differ.
+     */
+    giftCardCode: z.string().trim().min(4).max(200).optional(),
     address: z
       .object({
         street: z.string().trim().min(3).max(120),
@@ -143,6 +175,14 @@ export interface PlacedOrder {
    *  used, and on orders placed before the column existed — the line then
    *  shows the amount without the points. */
   discountPoints: number;
+  /** The gift card applied to this order, 0 when none was. Separate from
+   *  `discountCents` because a guest can spend a reward AND a gift card
+   *  on one basket, and each gets its own line on every receipt. */
+  giftCardDiscountCents: number;
+  /** Last four characters of the code spent, for the "Gift card ····1234"
+   *  line. Null when no card was used. Never the whole code — that is a
+   *  bearer instrument and has no business on a kitchen ticket. */
+  giftCardLast4: string | null;
   /** Explicit alias of `totalCents`: what Stripe / PayPal / the till
    *  collect. Named so the app never has to guess which of the two
    *  numbers the payment sheet should use. */
@@ -151,6 +191,9 @@ export interface PlacedOrder {
    *  (provider `voucher`), the kitchen has it, and no payment step is
    *  needed — the app must NOT open a payment sheet. */
   paidByVoucher: boolean;
+  /** Same, for a gift card that covered everything: provider
+   *  `gift_card`, nothing to collect, no payment sheet. */
+  paidByGiftCard: boolean;
   /**
    * True when this response replayed an order an earlier attempt with
    * the same `clientRequestId` had already created. Callers can treat it
@@ -353,6 +396,8 @@ export async function placeOrder(
           currency: true,
           discountCents: true,
           discountPoints: true,
+          giftCardDiscountCents: true,
+          giftCardLast4: true,
           paymentProvider: true,
         },
       });
@@ -371,8 +416,11 @@ export async function placeOrder(
             receiptToken: signReceiptToken(existing.id, context.tenantId),
             discountCents: existing.discountCents,
             discountPoints: existing.discountPoints,
+            giftCardDiscountCents: existing.giftCardDiscountCents,
+            giftCardLast4: existing.giftCardLast4,
             chargedCents: existing.totalCents,
             paidByVoucher: existing.paymentProvider === VOUCHER_PROVIDER,
+            paidByGiftCard: existing.paymentProvider === GIFT_CARD_PROVIDER,
             replayed: true as const,
           },
         };
@@ -388,16 +436,42 @@ export async function placeOrder(
         ? await claimArmedVoucher(tx, customerId, grossCents)
         : null;
     const discountCents = claim?.discountCents ?? 0;
+
+    // Gift card, claimed after the reward and capped by what is LEFT.
+    //
+    // Order matters and this is the deliberate choice: the reward is
+    // spent first, the card covers the remainder. The alternative burns
+    // more of a single-use card than it needs to on a basket a free
+    // reward could have covered — and unlike the reward, whatever the
+    // card does not spend is forfeited. Spending the perishable thing
+    // last is the one ordering that never costs the guest money they
+    // could have kept.
+    //
+    // The forfeit itself is real and stays: a €50 card on a €38 bill
+    // loses €12. That is what SINGLE USE, FULL VALUE means, it is stated
+    // on the card, and the cart makes the guest tick a box acknowledging
+    // the exact amount before this code ever runs.
+    const chargeableAfterVoucher = grossCents - discountCents;
+    const giftClaim = input.giftCardCode
+      ? await claimGiftCardForOrder(tx, input.giftCardCode, context.venueId, chargeableAfterVoucher)
+      : null;
+    const giftCardDiscountCents = giftClaim?.discountCents ?? 0;
+
     // The CHARGED total. Line items keep their own prices — the receipt
-    // shows the reward as its own row rather than quietly repricing the
-    // food, because the kitchen and the tax record both need the real
-    // menu prices.
-    const totalCents = grossCents - discountCents;
-    // A reward that covers the whole bill leaves nothing to collect, so
+    // shows each discount as its own row rather than quietly repricing
+    // the food, because the kitchen and the tax record both need the
+    // real menu prices.
+    const totalCents = grossCents - discountCents - giftCardDiscountCents;
+    // A discount that covers the whole bill leaves nothing to collect, so
     // the order is born settled: the kitchen ticket and the receipt go
     // out at once, exactly as they do for an order paid online, and no
-    // payment sheet is ever opened for €0.00.
-    const paidByVoucher = discountCents > 0 && totalCents === 0;
+    // payment sheet is ever opened for €0.00. When both were used, the
+    // provider names the gift card — it is the one the guest paid real
+    // money for, and the one the accountant's VAT-at-redemption record
+    // has to be able to find.
+    const fullyCovered = totalCents === 0 && discountCents + giftCardDiscountCents > 0;
+    const paidByGiftCard = fullyCovered && giftCardDiscountCents > 0;
+    const paidByVoucher = fullyCovered && !paidByGiftCard;
 
     const max = await tx.order.aggregate({
       where: { venueId: context.venueId },
@@ -425,7 +499,17 @@ export async function placeOrder(
         // line names the points on every surface, and none of them has a
         // relation to join through (`voucherId` is a plain reference).
         discountPoints: claim?.pointsSpent ?? 0,
-        ...(paidByVoucher ? { paymentStatus: "paid", paymentProvider: VOUCHER_PROVIDER } : {}),
+        giftCardDiscountCents,
+        giftCardId: giftClaim?.giftCardId ?? null,
+        // Denormalised for the same reason as `discountPoints` — see the
+        // column comment. Four characters, never the code.
+        giftCardLast4: giftClaim ? giftClaim.code.slice(-4) : null,
+        ...(fullyCovered
+          ? {
+              paymentStatus: "paid",
+              paymentProvider: paidByGiftCard ? GIFT_CARD_PROVIDER : VOUCHER_PROVIDER,
+            }
+          : {}),
         currency,
         items: {
           create: [
@@ -464,6 +548,11 @@ export async function placeOrder(
     if (claim && customerId) {
       await attachVoucherToOrder(tx, context.tenantId, customerId, claim, order.id);
     }
+    // Same for the gift card: claimed before the order existed, bound to
+    // it now, so "Redeemed on order #31" can be shown to the buyer.
+    if (giftClaim) {
+      await attachGiftCardToOrder(tx, giftClaim, order.id);
+    }
 
     // Back-fill the signed-in guest's profile from what they just typed,
     // so the next checkout prefills itself. "Last used" semantics: a
@@ -496,8 +585,11 @@ export async function placeOrder(
         receiptToken: signReceiptToken(order.id, context.tenantId),
         discountCents,
         discountPoints: claim?.pointsSpent ?? 0,
+        giftCardDiscountCents,
+        giftCardLast4: giftClaim ? giftClaim.code.slice(-4) : null,
         chargedCents: totalCents,
         paidByVoucher,
+        paidByGiftCard,
       },
     };
   });
@@ -535,6 +627,12 @@ export interface ReceiptOrder extends OrderFulfilment {
    *  used, and on orders placed before the column existed — the line then
    *  shows the amount without the points. */
   discountPoints: number;
+  /** Gift card spent on this order (0 = none), and the last four
+   *  characters of its code for the "Gift card ····1234" row. The item
+   *  lines keep their menu prices, so this is its own row beside the
+   *  reward rather than a reprice. */
+  giftCardDiscountCents: number;
+  giftCardLast4: string | null;
   /** The CHARGED total: already net of `discountCents`. */
   totalCents: number;
   currency: string;
@@ -574,6 +672,8 @@ export async function getOrderForReceipt(
         paymentProvider: true,
         discountCents: true,
         discountPoints: true,
+        giftCardDiscountCents: true,
+        giftCardLast4: true,
         totalCents: true,
         currency: true,
         createdAt: true,
@@ -629,12 +729,21 @@ export interface KitchenOrder extends OrderFulfilment {
    *  used, and on orders placed before the column existed — the line then
    *  shows the amount without the points. */
   discountPoints: number;
+  /** Gift card spent on this order (0 = none), and the last four
+   *  characters of its code for the "Gift card ····1234" row. The item
+   *  lines keep their menu prices, so this is its own row beside the
+   *  reward rather than a reprice. */
+  giftCardDiscountCents: number;
+  giftCardLast4: string | null;
   totalCents: number;
   currency: string;
   createdAt: Date;
   /** Last write to the row — what a polling client (the app's orders
    *  board) diffs on, since a status change never moves `createdAt`. */
   updatedAt: Date;
+  /** When a delivery order left the kitchen, so the board can say
+   *  "on the way since 19:42" rather than only "out for delivery". */
+  outForDeliveryAt: Date | null;
   items: { name: string; priceCents: number; quantity: number }[];
 }
 
@@ -694,10 +803,13 @@ export async function listRecentOrders(
         paymentProvider: true,
         discountCents: true,
         discountPoints: true,
+        giftCardDiscountCents: true,
+        giftCardLast4: true,
         totalCents: true,
         currency: true,
         createdAt: true,
         updatedAt: true,
+        outForDeliveryAt: true,
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
@@ -730,10 +842,13 @@ export async function getKitchenOrder(
         paymentProvider: true,
         discountCents: true,
         discountPoints: true,
+        giftCardDiscountCents: true,
+        giftCardLast4: true,
         totalCents: true,
         currency: true,
         createdAt: true,
         updatedAt: true,
+        outForDeliveryAt: true,
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
@@ -791,13 +906,30 @@ export async function advanceOrderStatus(
     if (!order || !canTransition(order.status, to, order.orderType)) return null;
     const updated = await tx.order.updateMany({
       where: { id: orderId, status: order.status },
-      data: { status: to },
+      data: {
+        status: to,
+        // Stamp the moment it left, once. Written in the SAME conditional
+        // update as the transition, so the guard that makes the move
+        // idempotent makes the timestamp idempotent too — whichever
+        // surface moved it (board, dashboard, or a driver's scan) is the
+        // one that dated it, and a later re-entry cannot overwrite it.
+        ...(to === "out_for_delivery" ? { outForDeliveryAt: new Date() } : {}),
+      },
     });
     return updated.count > 0
       ? { tenantId: order.tenantId, paymentStatus: order.paymentStatus }
       : null;
   });
   if (!moved) return { ok: false };
+
+  // "Your order is on the way" — fire-and-forget, on the same terms as
+  // every other guest mail here: a dead SMTP host must never block the
+  // kitchen board. Sent only on a REAL transition (we are past the
+  // `!moved` guard), so it goes out exactly once per order.
+  if (to === "out_for_delivery") {
+    const { sendOnTheWayEmail } = await import("./dispatch-service");
+    void sendOnTheWayEmail(moved.tenantId, orderId).catch(() => undefined);
+  }
 
   // Loyalty (round one). A CASH order has no settlement webhook, so the
   // kitchen ticking it "done" is the moment it is worth points; online
@@ -828,6 +960,12 @@ export interface OrderTracking {
    *  used, and on orders placed before the column existed — the line then
    *  shows the amount without the points. */
   discountPoints: number;
+  /** Gift card spent on this order (0 = none), and the last four
+   *  characters of its code for the "Gift card ····1234" row. The item
+   *  lines keep their menu prices, so this is its own row beside the
+   *  reward rather than a reprice. */
+  giftCardDiscountCents: number;
+  giftCardLast4: string | null;
   totalCents: number;
   currency: string;
   requestedFor: Date | null;
@@ -836,6 +974,10 @@ export interface OrderTracking {
   /** When this order's guest followed the "Rate us on Google" link. Null
    *  = never — which is what keeps the ask on screen. */
   reviewClickedAt: Date | null;
+  /** When a delivery order left the kitchen. Null on anything never
+   *  dispatched and on orders that predate the column — the tracker then
+   *  shows the step without a time rather than inventing one. */
+  outForDeliveryAt: Date | null;
   /** The account behind the order, when there is one, carrying its own
    *  copy of the same flag: a signed-in regular who already tapped the
    *  link on an earlier order must not be asked again on this one. Null
@@ -872,12 +1014,15 @@ export async function getOrderTracking(
         paymentProvider: true,
         discountCents: true,
         discountPoints: true,
+        giftCardDiscountCents: true,
+        giftCardLast4: true,
         totalCents: true,
         currency: true,
         requestedFor: true,
         createdAt: true,
         tableNumber: true,
         reviewClickedAt: true,
+        outForDeliveryAt: true,
         customer: { select: { reviewClickedAt: true } },
         items: {
           select: { name: true, quantity: true, priceCents: true, basePriceCents: true },

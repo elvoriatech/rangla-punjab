@@ -16,7 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
-import { usePressScale, usePulse } from "./motion";
+import { useBumpOnChange, usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
 
 /**
@@ -103,6 +103,8 @@ export function BrandHeader({
   onMenu,
   onBack,
   rating,
+  points,
+  onPoints,
 }: {
   title: string;
   subtitle?: string;
@@ -110,6 +112,21 @@ export function BrandHeader({
   onBack?: () => void;
   /** The venue's Google rating, on the screens that carry its name. */
   rating?: ApiRating | null;
+  /**
+   * The signed-in guest's points balance, shown as a small pill in the
+   * header's end corner. Null — signed out, no programme, restaurant
+   * mode — means no pill at all, which is the default.
+   *
+   * It lives here rather than on the Home hero (where it started)
+   * because the balance is about the GUEST, not about this screen: the
+   * header is the one strip that is on every screen, so the number
+   * follows them instead of being something they have to go back to
+   * Home to see.
+   */
+  points?: number | null;
+  /** Opens the Account screen's rewards card — the only place the
+   *  number means anything. */
+  onPoints?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
   return (
@@ -159,7 +176,15 @@ export function BrandHeader({
             area rather than centred on it. The slot itself is always
             there — an empty one on the screens without a burger — so the
             centred title keeps symmetric gutters either way. */}
-        <View style={styles.headerEnd}>
+        <View
+          style={[
+            styles.headerEnd,
+            points !== null && points !== undefined && styles.headerEndWide,
+          ]}
+        >
+          {points !== null && points !== undefined && onPoints ? (
+            <HeaderPointsPill points={points} onPress={onPoints} />
+          ) : null}
           {onMenu ? (
             <Pressable
               onPress={onMenu}
@@ -174,6 +199,53 @@ export function BrandHeader({
         </View>
       </View>
     </View>
+  );
+}
+
+/**
+ * "35 Pkt." in the header's end corner — what the guest has, on every
+ * screen they visit.
+ *
+ * No star and no icon: the venue's rating line, two rows away, already
+ * owns the star in this bar, and two of them would read as one thing.
+ * The number plus its unit is the whole message.
+ *
+ * Gold at 18% on the brand red, with a hairline gold edge so the pill
+ * still has a shape on a display that flattens the tint; the text is
+ * `cream`, which measures 8.2:1 against the red underneath — the same
+ * pairing the rest of this bar uses. It is a real button with a spoken
+ * label ("Your points: 35"), not a bare number a screen reader would
+ * read out of context, and a 32 pt pill plus hitSlop clears the 44 pt
+ * target.
+ *
+ * It pops when the BALANCE moves and only then: points are earned while
+ * the guest is elsewhere in the app, so without the pop the number
+ * simply reads differently the next time anyone happens to look.
+ * `useBumpOnChange` sits out a reduced-motion device entirely.
+ */
+function HeaderPointsPill({
+  points,
+  onPress,
+}: {
+  points: number;
+  onPress: () => void;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const bump = useBumpOnChange(points);
+  return (
+    <Animated.View style={bump}>
+      <Pressable
+        onPress={onPress}
+        hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel={fill(t.pointsBadgeLabel, { points })}
+        style={({ pressed }) => [styles.headerPoints, pressed && { opacity: 0.7 }]}
+      >
+        <Text style={styles.headerPointsText} numberOfLines={1}>
+          {fill(t.pointsBadge, { points })}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -643,6 +715,23 @@ const styles = StyleSheet.create({
   /** The burger rides the TOP of the content area (owner's ask), flush
    *  with the slab's own 16 pt inset on the end side. */
   headerEnd: { width: HEADER_SLOT, justifyContent: "flex-start", alignItems: "flex-end" },
+  /** The points pill needs more than the burger's 44 pt square. Capped
+   *  at 96 so a four-figure balance still cannot squeeze the venue
+   *  name out of the middle — the title truncates itself long before
+   *  that, and `adjustsFontSizeToFit` covers the rest. */
+  headerEndWide: { width: "auto", minWidth: HEADER_SLOT, maxWidth: 96 },
+  headerPoints: {
+    height: 32,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    // Gold at 18% over the brand red: present enough to read as a
+    // control, quiet enough not to compete with the venue's name.
+    backgroundColor: "rgba(232, 193, 92, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 193, 92, 0.55)",
+  },
+  headerPointsText: { color: colors.cream, ...fonts.bodyHeavy, fontSize: 12.5 },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
    *  never shifts the title off centre. */

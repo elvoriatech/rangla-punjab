@@ -21,6 +21,8 @@ const baseOrder: ReceiptOrder = {
   paymentStatus: "unpaid",
   discountCents: 0,
   discountPoints: 0,
+  giftCardDiscountCents: 0,
+  giftCardLast4: null,
   paymentProvider: null,
   totalCents: 1990,
   currency: "eur",
@@ -127,6 +129,58 @@ describe("buildReceiptPdf", () => {
       // with the amount.
       expect(withPoints.length).toBeLessThanOrEqual(26);
     }
+  });
+
+  it("prints the gift-card row under the reward, in every locale", async () => {
+    // Both instruments on one order: €24.90 of food, a €10 reward and a
+    // €10 gift card, €4.90 charged. Each has to be its own row — a guest
+    // who paid two ways is owed a receipt that says so — and the page is
+    // pre-measured, so two rows must make it taller than one.
+    const both: ReceiptOrder = {
+      ...baseOrder,
+      items: [{ name: "Shahi Tofu", priceCents: 1245, quantity: 2 }],
+      discountCents: 1000,
+      discountPoints: 100,
+      giftCardDiscountCents: 1000,
+      giftCardLast4: "EFGH",
+      totalCents: 490,
+    };
+    for (const locale of ["de", "en", "es", "it", "ar"]) {
+      const withCard = await buildReceiptPdf(both, locale);
+      const rewardOnly = await buildReceiptPdf(
+        { ...both, giftCardDiscountCents: 0, giftCardLast4: null, totalCents: 1490 },
+        locale,
+      );
+      expect(isPdf(withCard)).toBe(true);
+      expect(withCard.length).toBeGreaterThan(rewardOnly.length);
+      // Real copy in that language, and WinAnsi-safe — including the
+      // middle dots of the mask, which Courier can encode.
+      const masked = pdfCopy(locale).giftCardCode("EFGH");
+      expect(masked).toContain("EFGH");
+      expect(masked).toMatch(/^[\x20-\xFF]+$/);
+      expect(masked.length).toBeLessThanOrEqual(26);
+      expect(pdfCopy(locale).giftCard).not.toBe("");
+      expect(pdfCopy(locale).giftCard).toMatch(/^[\x20-\xFF]+$/);
+    }
+  });
+
+  it("says a gift card paid, not that a card did, when it covered the bill", async () => {
+    const free: ReceiptOrder = {
+      ...baseOrder,
+      items: [{ name: "Shahi Tofu", priceCents: 1245, quantity: 1 }],
+      giftCardDiscountCents: 1245,
+      giftCardLast4: "EFGH",
+      totalCents: 0,
+      paymentStatus: "paid",
+      paymentProvider: "gift_card",
+    };
+    const pdf = await buildReceiptPdf(free, "de");
+    expect(isPdf(pdf)).toBe(true);
+    expect(pdf.length).toBeGreaterThan(1000);
+    // The footer says gift card, not "paid online" and not "reward".
+    expect(pdfCopy("de").paidWithGiftCard).not.toBe(pdfCopy("de").paidOnline);
+    expect(pdfCopy("de").paidWithGiftCard).not.toBe(pdfCopy("de").paidReward);
+    expect(pdfCopy("de").paidWithGiftCard).toMatch(/^[\x20-\xFF]+$/);
   });
 
   it("says the reward paid, not that a card did, when it covered the bill", async () => {

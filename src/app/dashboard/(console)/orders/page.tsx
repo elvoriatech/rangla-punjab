@@ -4,7 +4,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { resolveActiveTenantId } from "@/lib/tenant";
 import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
 import { fulfilmentLines } from "@/lib/ordering-config";
-import { listRecentOrders, VOUCHER_PROVIDER } from "@/lib/order-service";
+import { GIFT_CARD_PROVIDER, listRecentOrders, VOUCHER_PROVIDER } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
 import { advanceOrderAction } from "./actions";
 import {
@@ -117,6 +117,9 @@ function needsManualRefund(order: {
   // A reward-settled order took no money, and `reverseOrderCredit` already
   // put the voucher back on the guest's account — nothing to refund.
   if (order.paymentProvider === VOUCHER_PROVIDER) return false;
+  // A gift card took no money either — the balance goes back on the card,
+  // so there is nothing for Stripe or PayPal to send anywhere.
+  if (order.paymentProvider === GIFT_CARD_PROVIDER) return false;
   return isCancelledStatus(order.status) && order.paymentStatus === "paid";
 }
 
@@ -133,7 +136,9 @@ function paymentBadge(order: { paymentStatus: string; paymentProvider: string | 
         ? "Card"
         : order.paymentProvider === "voucher"
           ? "Reward"
-          : null;
+          : order.paymentProvider === "gift_card"
+            ? "Gift card"
+            : null;
   if (order.paymentStatus === "paid") return rail ? `Paid · ${rail}` : "Paid";
   // An online attempt that never settled: the guest started Card/PayPal
   // but no webhook or return leg confirmed it. Surface it — it is the
@@ -318,6 +323,17 @@ export default async function OrdersPage({
                           : "reward"}
                       </span>
                     ) : null}
+                    {order.giftCardDiscountCents > 0 ? (
+                      // The masked last 4, not just the money off: it is
+                      // what tells the owner which card was burned, and
+                      // that this was a gift card and not a reward.
+                      <span className="mr-2 text-xs font-normal text-orange-dark">
+                        −{formatPrice(order.giftCardDiscountCents, order.currency, "de")}{" "}
+                        {order.giftCardLast4
+                          ? `gift card · ····${order.giftCardLast4}`
+                          : "gift card"}
+                      </span>
+                    ) : null}
                     {formatPrice(order.totalCents, order.currency, "de")}
                   </span>
                 </div>
@@ -415,6 +431,13 @@ export default async function OrdersPage({
                       {" "}
                       · −{formatPrice(order.discountCents, order.currency, "de")}{" "}
                       {order.discountPoints > 0 ? `reward · ${order.discountPoints} pts` : "reward"}
+                    </span>
+                  ) : null}
+                  {order.giftCardDiscountCents > 0 ? (
+                    <span className="text-orange-dark">
+                      {" "}
+                      · −{formatPrice(order.giftCardDiscountCents, order.currency, "de")}{" "}
+                      {order.giftCardLast4 ? `gift card · ····${order.giftCardLast4}` : "gift card"}
                     </span>
                   ) : null}
                 </span>

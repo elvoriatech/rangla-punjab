@@ -664,6 +664,101 @@ export async function updateVenueLoyalty(userId: string, input: unknown): Promis
 }
 
 /* ------------------------------------------------------------------ */
+/* Gift cards                                                          */
+/* ------------------------------------------------------------------ */
+
+import { giftCardConfigSchema, parseGiftCardConfig, type GiftCardConfig } from "./gift-card-config";
+
+/** The owner's gift-card switches, for the Settings page. Parsed on read
+ *  so a half-filled blob still renders a usable form (see
+ *  `gift-card-config.ts` — a throwing settings row would take a paid
+ *  product off sale). */
+export async function getGiftCardSettings(userId: string): Promise<ServiceResult<GiftCardConfig>> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { giftCards: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    return { ok: true as const, value: parseGiftCardConfig(venue.giftCards) };
+  });
+}
+
+/** Save the owner's gift-card switches. Same shape as the loyalty save:
+ *  the schema is the validator, so a garbage field never lands in JSONB. */
+export async function updateVenueGiftCards(userId: string, input: unknown): Promise<ServiceResult> {
+  const parsed = giftCardConfigSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    await tx.venue.update({ where: { id: venue.id }, data: { giftCards: parsed.data } });
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/**
+ * What the owner may change about one of the three gift-card designs.
+ *
+ * The list is the point: `sortIndex` is absent, so nothing reachable from
+ * a form can reorder the slots, and there is no create — a venue has
+ * exactly three designs at slots 0/1/2 (see `ensureGiftCardProducts`),
+ * and a fourth would have nowhere to render.
+ */
+export const giftCardProductPatchSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  // Integer cents, like every other price in this codebase. Zero is not a
+  // gift card, and the ceiling is there so a mis-typed "50000" (€500 typed
+  // as cents) is refused rather than sold.
+  priceCents: z.number().int().min(1).max(100_000).optional(),
+  active: z.boolean().optional(),
+  // A `media.storageKey` from an upload, or null to fall back to no image.
+  imageKey: z.string().trim().min(1).max(512).nullable().optional(),
+});
+
+/**
+ * Edit one design: rename it, re-price it, swap its picture, take it off
+ * sale.
+ *
+ * Scoped by `asUser`, so RLS already hides other tenants' rows — and the
+ * write is an `updateMany` naming this venue rather than an `update` by
+ * primary key, so a product id belonging to a SIBLING branch of the same
+ * tenant matches nothing instead of being edited from the wrong venue's
+ * settings page.
+ */
+export async function updateGiftCardProduct(
+  userId: string,
+  productId: string,
+  patch: { name?: string; priceCents?: number; active?: boolean; imageKey?: string | null },
+): Promise<ServiceResult> {
+  if (!productId) return { ok: false, error: "invalid" };
+  const parsed = giftCardProductPatchSchema.safeParse(patch);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const data = parsed.data;
+  if (Object.keys(data).length === 0) return { ok: false, error: "invalid" };
+
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    const updated = await tx.giftCardProduct.updateMany({
+      where: { id: productId, venueId: venue.id, deletedAt: null },
+      data,
+    });
+    // Nothing matched: an id from another venue, or one already deleted.
+    // "invalid" rather than a silent success — the owner pressed Save and
+    // deserves to be told it did not take.
+    if (updated.count === 0) return { ok: false, error: "invalid" as const };
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Contact numbers                                                     */
 /* ------------------------------------------------------------------ */
 

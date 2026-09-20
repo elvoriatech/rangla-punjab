@@ -147,6 +147,8 @@ model Tenant {
   orderIssues        OrderIssue[]
   orderIssueMessages OrderIssueMessage[]
   staffDevices       StaffDevice[]
+  giftCardProducts   GiftCardProduct[]
+  giftCards          GiftCard[]
 }
 
 model MenuTemplate {
@@ -257,6 +259,11 @@ model Venue {
   // Owner-side loyalty switches (src/lib/loyalty-config.ts); {} = defaults,
   // and the default is OFF, so an untouched venue shows guests nothing.
   loyalty             Json        @default("{}")
+  // Owner-side gift-card switches (src/lib/gift-card-config.ts); {} =
+  // defaults, and unlike loyalty the default is ON — a gift card is a
+  // product the owner asked for. The per-product `active` flag is the
+  // finer gate, so a venue with no active products still shows nothing.
+  giftCards           Json        @default("{}") @map("gift_cards")
   // The restaurant's own phone numbers (src/lib/contact-config.ts):
   // `{ landline, mobile, whatsapp }`, each an E.164 string or null, and
   // {} = none published. Stored normalised so the display string and the
@@ -287,12 +294,14 @@ model Venue {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  menus        Menu[]
-  redirects    SlugRedirect[]
-  orders       Order[]
-  reservations Reservation[]
-  orderIssues  OrderIssue[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menus            Menu[]
+  redirects        SlugRedirect[]
+  orders           Order[]
+  reservations     Reservation[]
+  orderIssues      OrderIssue[]
+  giftCardProducts GiftCardProduct[]
+  giftCardsSold    GiftCard[]
 
   @@index([tenantId])
   @@map("venues")
@@ -583,6 +592,32 @@ model Order {
   /// line without the points rather than printing "0 points".
   discountPoints Int    @default(0) @map("discount_points")
 
+  /// Gift card spent on this order, in cents, and the `gift_cards.id` it
+  /// came from. Kept SEPARATE from `discountCents`/`voucherId` rather
+  /// than folded into them: a guest can hold a loyalty reward and a gift
+  /// card at once, the two stack, and every receipt has to be able to
+  /// name each line on its own. Plain reference, no FK — the order is a
+  /// financial record and outlives the card.
+  giftCardDiscountCents Int     @default(0) @map("gift_card_discount_cents")
+  giftCardId            String? @map("gift_card_id")
+  /// Last four characters of the code, denormalised for the same reason
+  /// `discountPoints` is: eight surfaces render "Gift card ····1234"
+  /// straight off the order, and the full code is a bearer instrument
+  /// that has no business on a kitchen ticket or in an export.
+  giftCardLast4         String? @map("gift_card_last4")
+
+  /// When this delivery order left the kitchen — set once, by whichever
+  /// surface moved it to `out_for_delivery` (the board, the dashboard, or
+  /// a driver scanning the ticket's dispatch QR).
+  ///
+  /// A status says WHERE the order is; the guest's tracker and the board
+  /// both want to say WHEN ("on the way since 19:42"), and `updatedAt`
+  /// cannot answer that — it moves again on every later edit. NULL on
+  /// orders that predate the column, and on anything never dispatched;
+  /// both surfaces then show the step without a time rather than
+  /// inventing one.
+  outForDeliveryAt DateTime? @map("out_for_delivery_at")
+
   /// When the guest followed the "Rate us on Google" link for this order.
   /// A TAP, not a review — Google never tells us whether one was written —
   /// and the only signal we can honestly record. Set once by the tracked
@@ -733,6 +768,7 @@ model Customer {
   reservations    Reservation[]
   orderIssues     OrderIssue[]
   passwordResets  CustomerPasswordResetToken[]
+  giftCardsBought GiftCard[]
 
   @@unique([tenantId, provider, providerSub])
   @@index([tenantId, email])
@@ -810,6 +846,103 @@ model LoyaltyVoucher {
 
   @@index([tenantId, customerId])
   @@map("loyalty_vouchers")
+}
+
+/// One sellable gift-card design. Three are seeded per venue; the owner
+/// renames, re-prices, re-images and re-orders them in Settings.
+///
+/// The name is deliberately NOT translated. The owner writes it in their
+/// own words ("Genussabend") and every locale shows that string verbatim
+/// — a machine translation of a product name the owner chose would be a
+/// worse answer in all six languages than the name itself.
+model GiftCardProduct {
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  venueId    String    @map("venue_id")
+  name       String
+  priceCents Int       @map("price_cents")
+  /// Either a `media.storageKey` (owner upload, served by /img/[key]) or
+  /// one of the shipped defaults under /brand/gift-cards/ — told apart by
+  /// the leading slash. See `giftCardImageUrl()`.
+  imageKey   String?   @map("image_key")
+  active     Boolean   @default(true)
+  sortIndex  Int       @default(0) @map("sort_index")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? @map("deleted_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venue     Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  giftCards GiftCard[]
+
+  /// NOTE: the migration also creates a PARTIAL unique index on
+  /// (venue_id, sort_index) WHERE deleted_at IS NULL — a venue has
+  /// exactly three designs, at slots 0/1/2, and that constraint is what
+  /// makes seeding an idempotent `createMany(…, skipDuplicates)`. Prisma's
+  /// `@@unique` cannot express the WHERE clause, so declaring it here
+  /// would make the schema disagree with the database. Left SQL-only on
+  /// purpose; `skipDuplicates` emits an untargeted ON CONFLICT DO NOTHING
+  /// and honours it regardless.
+  @@index([tenantId, venueId])
+  @@map("gift_card_products")
+}
+
+/// One sold gift card.
+///
+/// A BEARER instrument: the `code` is the permission. That is why it is
+/// globally unique rather than unique-per-tenant (a cashier types a code,
+/// not a code plus a tenant), why it comes from a CSPRNG over an
+/// unambiguous alphabet (`src/lib/gift-card-code.ts`), and why
+/// `purchaserCustomerId` records provenance without conferring rights —
+/// the buyer's friend can spend it, which is the entire point.
+///
+/// Lifecycle: pending_payment → active → redeemed | expired | refunded.
+/// Expiry is applied LAZILY on read and redeem, never by a cron.
+model GiftCard {
+  id        String  @id @default(cuid())
+  tenantId  String  @map("tenant_id")
+  venueId   String  @map("venue_id")
+  /// Nullable so retiring a design never destroys the record of the
+  /// cards sold under it.
+  productId String? @map("product_id")
+  /// 12 Crockford-base32 characters, stored undashed and uppercase.
+  code      String  @unique
+
+  purchaserCustomerId String  @map("purchaser_customer_id")
+  recipientName       String? @map("recipient_name")
+  message             String?
+  valueCents          Int     @map("value_cents")
+  currency            String
+  status              String  @default("pending_payment")
+
+  paymentProvider String?   @map("payment_provider")
+  paymentRef      String?   @map("payment_ref")
+  paidAt          DateTime? @map("paid_at")
+  /// NULL until paid — an unpaid card has no clock running.
+  expiresAt       DateTime? @map("expires_at")
+  /// First time anyone opened the share link. Evidence the card reached
+  /// someone, for the timeline; never a permission.
+  sharedAt        DateTime? @map("shared_at")
+
+  redeemedAt DateTime? @map("redeemed_at")
+  /// Exactly one of these is set on redemption: a staff user (counter) or
+  /// an order (spent in the app cart). Plain references, no FK.
+  redeemedByUserId String? @map("redeemed_by_user_id")
+  redeemedOrderId  String? @map("redeemed_order_id")
+  redeemedNote     String? @map("redeemed_note")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venue     Venue            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  product   GiftCardProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  purchaser Customer         @relation(fields: [purchaserCustomerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, purchaserCustomerId])
+  @@index([tenantId, venueId, status])
+  @@index([paymentRef])
+  @@map("gift_cards")
 }
 
 model CustomerToken {

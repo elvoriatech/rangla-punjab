@@ -158,7 +158,17 @@ export interface StripeProvider {
    *  same way — `payment_intent.succeeded` rather than
    *  `checkout.session.completed`. */
   createDirectPaymentIntent(input: {
-    orderId: string;
+    /**
+     * What is being paid for. Exactly one of these is set: an ORDER (the
+     * original caller) or a GIFT CARD purchase, which is a sale of
+     * stored value with no order behind it. They are stamped as distinct
+     * metadata keys rather than one polymorphic id, so the webhook can
+     * never settle a gift card as if it were an order — the two have
+     * completely different side effects (a kitchen ticket vs. a card the
+     * guest can spend for three years).
+     */
+    orderId?: string;
+    giftCardId?: string;
     tenantId: string;
     amountCents: number;
     currency: string;

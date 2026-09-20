@@ -27,6 +27,8 @@ function order(over: Partial<TicketOrder> = {}): TicketOrder {
     paymentProvider: null,
     discountCents: 0,
     discountPoints: 0,
+    giftCardDiscountCents: 0,
+    giftCardLast4: null,
     totalCents: 2400,
     currency: "EUR",
     createdAt: new Date("2026-09-19T17:30:00Z"),
@@ -149,6 +151,40 @@ describe("renderTicketHtml", () => {
     expect(html).toContain("19,00");
   });
 
+  it("shows the gift-card line under the reward, with the masked code", () => {
+    const html = renderTicketHtml(
+      order({
+        discountCents: 500,
+        discountPoints: 100,
+        giftCardDiscountCents: 400,
+        giftCardLast4: "EFGH",
+        totalCents: 1500,
+      }),
+      VENUE,
+    );
+    expect(html).toContain("GESCHENKGUTSCHEIN / GIFT CARD &middot;&middot;&middot;&middot;EFGH");
+    expect(html).toContain("-4,00");
+    // The reward row is still above it — one order, two instruments.
+    expect(html).toContain("GUTSCHEIN / REWARD");
+    expect(html).toContain("15,00");
+  });
+
+  it("a gift card that covered the bill tells the counter to collect nothing", () => {
+    const html = renderTicketHtml(
+      order({
+        giftCardDiscountCents: 2400,
+        giftCardLast4: "EFGH",
+        totalCents: 0,
+        paymentStatus: "paid",
+        paymentProvider: "gift_card",
+      }),
+      VENUE,
+    );
+    expect(html).toContain("PAID WITH GIFT CARD");
+    expect(html).toContain("paid with a gift card — nothing to collect.");
+    expect(html).not.toContain("Paid online via");
+  });
+
   it("prints the delivery details, the planned time and the directions QR", () => {
     const html = renderTicketHtml(
       order({
@@ -173,14 +209,18 @@ describe("renderTicketHtml", () => {
     expect(html).toContain("Bornstraße 12, 44145 Dortmund");
     expect(html).toContain("2. OG, klingeln");
     expect(html).toContain("Geplant für");
-    expect(html).toContain("Scan für Navigation");
+    // The caption names BOTH things the scan now does — it dispatches the
+    // order as well as opening the route (see `dispatch-service.ts`). A
+    // driver who believes it is only navigation stops using it the day
+    // their phone remembers the address, and the guest stops being told.
+    expect(html).toContain("Scan: unterwegs + Route / out for delivery + route");
     expect(html).toContain('<svg viewBox="0 0 25 25">');
   });
 
   it("leaves the QR block out entirely when there is nothing to navigate to", () => {
     const html = renderTicketHtml(order({ orderType: "takeaway", tableNumber: null }), VENUE);
     expect(html).toContain("ABHOLUNG / PICKUP");
-    expect(html).not.toContain("Scan für Navigation");
+    expect(html).not.toContain("out for delivery + route");
   });
 
   it("formats money and times in the requested locale", () => {

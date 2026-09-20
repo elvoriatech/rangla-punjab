@@ -14,7 +14,9 @@ import { searchPlaces } from "@/lib/google-rating";
 import {
   refreshVenueGoogleRating,
   updateVenueAppLinks,
+  updateGiftCardProduct,
   updateVenueContact,
+  updateVenueGiftCards,
   updateVenueGoogleManualRating,
   updateVenueGooglePlaceId,
   updateVenueGoogleRatingEnabled,
@@ -220,6 +222,72 @@ export async function saveLoyaltyAction(form: FormData): Promise<void> {
     voucherExpiryMonths: whole(form.get("loyaltyExpiryMonths")),
   });
   return finish(userId, result.ok, "loyalty");
+}
+
+/**
+ * Gift cards: the master switch and how long a card stays valid.
+ *
+ * The expiry box is deliberately tolerant — `gift-card-config.ts` catches
+ * a blank or fat-fingered value and falls back to the recommended 36
+ * months rather than failing the save. An owner must never end up with a
+ * card term they did not choose BECAUSE the form refused to save.
+ */
+export async function saveGiftCardsAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateVenueGiftCards(userId, {
+    enabled: form.get("giftCardsEnabled") === "on",
+    expiryMonths: parseInt(String(form.get("giftCardExpiryMonths") ?? ""), 10),
+  });
+  return finish(userId, result.ok, "giftcards");
+}
+
+/**
+ * One gift-card design — name, price, picture, on/off sale.
+ *
+ * One row posts at a time: the three designs are independent products, and
+ * an owner re-pricing the €50 card should not have to re-pick the other
+ * two pictures to save it.
+ *
+ * The file input is OPTIONAL here, unlike the logo card's: an empty one
+ * means "keep the picture you have", so renaming a design never silently
+ * clears its artwork. A chosen file follows `saveLogoAction` exactly —
+ * ingest through `saveUploadedImage`, store the returned storage key.
+ */
+export async function saveGiftCardProductAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const productId = String(form.get("productId") ?? "");
+
+  // Euro input, integer cents in the DB — the same conversion the ordering
+  // and loyalty saves do. A blank or unparseable box becomes 0, which the
+  // service refuses: a €0 gift card is a mistake, not a price.
+  const cents = Math.round(parseFloat(String(form.get("price") ?? "").replace(",", ".")) * 100);
+
+  const image = form.get("image");
+  let imageKey: string | undefined;
+  if (image instanceof File && image.size > 0) {
+    const saved = await saveUploadedImage(userId, image, "Gift card design");
+    if (!saved.ok) return finish(userId, false, "giftcard-image");
+    imageKey = saved.storageKey;
+  }
+
+  const result = await updateGiftCardProduct(userId, productId, {
+    name: String(form.get("name") ?? "").trim(),
+    priceCents: Number.isFinite(cents) ? cents : 0,
+    active: form.get("active") === "on",
+    ...(imageKey ? { imageKey } : {}),
+  });
+  return finish(userId, result.ok, "giftcard-product");
+}
+
+/** Drop a design's picture back to none — the twin of `removeLogoAction`,
+ *  and the only way back once an owner has uploaded over a shipped
+ *  default. */
+export async function removeGiftCardImageAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const result = await updateGiftCardProduct(userId, String(form.get("productId") ?? ""), {
+    imageKey: null,
+  });
+  return finish(userId, result.ok, "giftcard-image-removed");
 }
 
 /**

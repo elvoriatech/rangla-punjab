@@ -25,6 +25,8 @@ const sample: ReceiptOrder = {
   paymentProvider: "stripe",
   discountCents: 0,
   discountPoints: 0,
+  giftCardDiscountCents: 0,
+  giftCardLast4: null,
   totalCents: 2380,
   currency: "EUR",
   createdAt: new Date("2026-09-18T18:00:00Z"),
@@ -104,6 +106,52 @@ describe("receipt email template", () => {
     // your reward" line AND the row saying what it cost.
     expect(free).toContain("Mit Ihrem Gutschein bezahlt");
     expect(free).toContain("Gutschein · 100 Punkte");
+    expect(free).not.toContain("Online bezahlt (Karte).");
+  });
+
+  it("shows the gift card as its own row, under the reward", () => {
+    // Both instruments on one order: a €10 reward and a €10 gift card off
+    // €24.90 of food. Two rows, not one merged "discount" — the guest is
+    // owed a receipt that says which was which, and the masked last 4 say
+    // WHICH card, since a guest may hold several.
+    const html = renderToStaticMarkup(
+      ReceiptEmail({
+        order: {
+          ...sample,
+          discountCents: 1000,
+          discountPoints: 100,
+          giftCardDiscountCents: 1000,
+          giftCardLast4: "EFGH",
+          totalCents: 490,
+        },
+        locale: "de",
+        receiptUrl: "https://x/r.pdf",
+        trackUrl: "https://x/t",
+      }),
+    );
+    expect(html).toContain("Geschenkgutschein ····EFGH");
+    expect(html).toMatch(/−.?10,00/);
+    // The reward row is still there, above it.
+    expect(html).toContain("Gutschein · 100 Punkte");
+
+    // A gift card that covered the WHOLE bill says so in the pill, rather
+    // than claiming a card was charged.
+    const free = renderToStaticMarkup(
+      ReceiptEmail({
+        order: {
+          ...sample,
+          giftCardDiscountCents: 2380,
+          giftCardLast4: "EFGH",
+          totalCents: 0,
+          paymentProvider: "gift_card",
+        },
+        locale: "de",
+        receiptUrl: "https://x/r.pdf",
+        trackUrl: "https://x/t",
+      }),
+    );
+    expect(free).toContain("Bezahlt · Geschenkgutschein");
+    expect(free).toContain("Geschenkgutschein ····EFGH");
     expect(free).not.toContain("Online bezahlt (Karte).");
   });
 

@@ -158,7 +158,15 @@ export async function buildReceiptPdf(
   // it always did rather than claiming the reward was free.
   const rewardLabel =
     order.discountPoints > 0 ? t.rewardPoints(String(order.discountPoints)) : t.reward;
+  // A gift card is its own row directly under the reward: a guest may pay
+  // with both on one order, and each has to be readable as the separate
+  // thing it is. The masked last 4 identify WHICH card — the guest may
+  // hold several, and "which one did I burn" is the question a receipt
+  // has to answer a week later.
+  const giftCardCents = Math.max(0, order.giftCardDiscountCents);
+  const giftCardLabel = order.giftCardLast4 ? t.giftCardCode(order.giftCardLast4) : t.giftCard;
   const paidByReward = order.paymentStatus === "paid" && order.paymentProvider === "voucher";
+  const paidByGiftCard = order.paymentStatus === "paid" && order.paymentProvider === "gift_card";
   const height =
     110 + // header block
     (logo ? LOGO_SIZE + 8 : 0) +
@@ -166,6 +174,7 @@ export async function buildReceiptPdf(
     (order.paymentStatus === "paid" ? LINE : 0) +
     bodyLines * LINE +
     (discountCents > 0 ? LINE : 0) + // the reward row
+    (giftCardCents > 0 ? LINE : 0) + // the gift-card row
     2 * LINE + // net + VAT rows above the total
     110; // total + footer block
 
@@ -237,7 +246,8 @@ export async function buildReceiptPdf(
     }).format(order.createdAt),
   );
   fRows.forEach(fulfilmentRow);
-  if (order.paymentStatus === "paid") left(paidByReward ? t.paidReward : t.paidOnline);
+  if (order.paymentStatus === "paid")
+    left(paidByGiftCard ? t.paidWithGiftCard : paidByReward ? t.paidReward : t.paidOnline);
   rule();
 
   // Lines: "NNx Name.....   price" — wrapped names indent under the first.
@@ -254,6 +264,7 @@ export async function buildReceiptPdf(
   // is already the charged amount, so the VAT below is the VAT on what the
   // guest actually paid.
   if (discountCents > 0) spread(rewardLabel, `-${price(discountCents)}`);
+  if (giftCardCents > 0) spread(giftCardLabel, `-${price(giftCardCents)}`);
   // German gross pricing: the total already includes 19 % VAT — show the
   // net/VAT split so the receipt doubles as a tax-transparent record.
   const vatCents = vatFromGross(order.totalCents);
@@ -264,11 +275,13 @@ export async function buildReceiptPdf(
   rule();
   y -= LINE / 2;
   center(t.vatNote);
-  for (const line of paidByReward
-    ? t.paidWithReward
-    : order.paymentStatus === "paid"
-      ? t.paid
-      : t.unpaid) {
+  for (const line of paidByGiftCard
+    ? [t.paidWithGiftCard]
+    : paidByReward
+      ? t.paidWithReward
+      : order.paymentStatus === "paid"
+        ? t.paid
+        : t.unpaid) {
     center(line);
   }
   y -= LINE / 2;

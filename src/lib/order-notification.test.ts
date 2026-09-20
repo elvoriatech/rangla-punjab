@@ -23,6 +23,8 @@ const sample: ReceiptOrder = {
   paymentStatus: "none",
   discountCents: 0,
   discountPoints: 0,
+  giftCardDiscountCents: 0,
+  giftCardLast4: null,
   paymentProvider: null,
   totalCents: 2380,
   currency: "EUR",
@@ -70,6 +72,36 @@ describe("new-order email template", () => {
     expect(html).toContain("Gutschein · 100 Punkte");
     expect(html).toMatch(/−.?20,00/);
     expect(html).toContain("Mit Treuegutschein bezahlt");
+    expect(html).not.toMatch(/Noch nicht bezahlt/);
+    expect(html).not.toContain("Online bezahlt (Karte)");
+  });
+
+  it("a gift-card-paid ticket shows its own row and nothing to collect", () => {
+    // A reward AND a gift card on one ticket: two rows, so the counter can
+    // see which instrument covered what, with the masked last 4 matching
+    // the card the guest handed over.
+    const html = renderToStaticMarkup(
+      NewOrderEmail({
+        order: {
+          ...sample,
+          discountCents: 1000,
+          discountPoints: 100,
+          giftCardDiscountCents: 1000,
+          giftCardLast4: "EFGH",
+          totalCents: 380,
+          paymentStatus: "paid",
+          paymentProvider: "gift_card",
+        },
+        locale: "de",
+        kitchenUrl: "https://x/kitchen",
+      }),
+    );
+    expect(html).toContain("Geschenkgutschein ····EFGH");
+    expect(html).toMatch(/−.?10,00/);
+    // The reward row survives above it.
+    expect(html).toContain("Gutschein · 100 Punkte");
+    // And the pill says gift card, not card and not reward.
+    expect(html).toContain("Bezahlt · Geschenkgutschein");
     expect(html).not.toMatch(/Noch nicht bezahlt/);
     expect(html).not.toContain("Online bezahlt (Karte)");
   });

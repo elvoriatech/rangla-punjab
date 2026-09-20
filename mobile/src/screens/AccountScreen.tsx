@@ -47,10 +47,14 @@ import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from
 export function AccountScreen({
   menu,
   onOpenOrder,
+  onOpenGiftCards,
   onOpenOwnerMenu,
 }: {
   menu: ApiMenu;
   onOpenOrder: (orderId: string, receiptToken: string) => void;
+  /** The cards this account has bought. Offered to signed-in guests
+   *  only: there is no list to show a device with no account. */
+  onOpenGiftCards: () => void;
   /** Restaurant mode only: opens the burger's sheet. */
   onOpenOwnerMenu?: () => void;
 }): React.ReactElement {
@@ -666,6 +670,13 @@ export function AccountScreen({
         {/* Links */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t.more}</Text>
+          {/* The guest's own cards, above the web links: it is the one
+              row here that is about THEM rather than about the venue.
+              Signed out there is nothing to list — the buy screen's own
+              soft gate is where that conversation belongs. */}
+          {!staff && auth.token ? (
+            <LinkRow label={t.giftCardsMine} onPress={onOpenGiftCards} />
+          ) : null}
           <LinkRow label={t.webMenu} onPress={() => void Linking.openURL(BASE_URL)} />
           <LinkRow
             label={t.imprint}

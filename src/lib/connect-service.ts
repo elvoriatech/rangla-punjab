@@ -122,7 +122,7 @@ interface OwnKeyColumns {
  * Shared by the hosted-checkout path and the native-payment-sheet path so
  * the two can never disagree about whose account the guest is paying.
  */
-async function selectDirectChargeProvider(
+export async function selectDirectChargeProvider(
   tenant: OwnKeyColumns,
   shared: StripeProvider,
 ): Promise<{ provider: StripeProvider; ownKeys: boolean } | null> {

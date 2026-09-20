@@ -1,0 +1,12 @@
+-- Driver dispatch: the moment an order left the kitchen.
+--
+-- `orders.status` already carries `out_for_delivery`, but a status is a
+-- state, not a time. The guest's tracker wants to say "on the way since
+-- 19:42" and the board wants "🛵 On the way since HH:MM", and neither can
+-- be derived from a status column that only knows where the order is now.
+--
+-- Additive and nullable on purpose: every order placed before this column
+-- existed keeps NULL, and both surfaces fall back to showing the step
+-- without a time rather than inventing one from `updatedAt` — which moves
+-- on every later edit and would quietly drift.
+ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "out_for_delivery_at" TIMESTAMP(3);

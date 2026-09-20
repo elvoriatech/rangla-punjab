@@ -90,7 +90,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   // there is no payment step to wait for, so the mails follow the "paid"
   // rule rather than the intended one — the guest said "card", but there
   // is nothing left to charge.
-  const settledNow = result.value.paidByVoucher;
+  //
+  // A GIFT-CARD-settled order is the same case and must be included: it
+  // is born `paid` too, so leaving it out here would put a fully paid
+  // order on nobody's screen — no receipt, no owner alert, no kitchen
+  // ticket — until someone happened to look at the dashboard.
+  const settledNow = result.value.paidByVoucher || result.value.paidByGiftCard;
   if (!result.value.replayed && (settledNow || (orderInput.intendedPayment ?? "cash") === "cash")) {
     const { sendReceiptEmailForOrder } = await import("@/lib/receipt-email");
     void sendReceiptEmailForOrder(context.tenantId, result.value.orderId);
@@ -118,7 +123,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     orderNumber: result.value.orderNumber,
     totalCents: result.value.totalCents,
     discountCents: result.value.discountCents,
+    giftCardDiscountCents: result.value.giftCardDiscountCents,
     paidByVoucher: result.value.paidByVoucher,
+    paidByGiftCard: result.value.paidByGiftCard,
   });
   return withCors(NextResponse.json(result.value, { status: result.value.replayed ? 200 : 201 }));
 }

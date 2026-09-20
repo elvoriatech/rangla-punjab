@@ -89,6 +89,14 @@ export async function GET(
           // What the reward cost in points, so the tracker's reward line
           // can say so. 0 on an order placed before the column existed.
           discountPoints: order.discountPoints,
+          // The gift card is a second, separate instrument on the same
+          // order — the tracker draws it on its own line, and the masked
+          // last 4 are what identify which card was spent.
+          giftCardDiscountCents: order.giftCardDiscountCents,
+          giftCardLast4: order.giftCardLast4,
+          // ISO, like every other timestamp in this payload: the app
+          // formats it in the guest's locale, we never pre-format.
+          outForDeliveryAt: order.outForDeliveryAt?.toISOString() ?? null,
           totalCents: order.totalCents,
           currency: order.currency,
           tableNumber: order.tableNumber,

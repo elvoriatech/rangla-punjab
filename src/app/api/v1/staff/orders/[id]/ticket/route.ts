@@ -3,7 +3,8 @@ import { corsPreflight, withCors } from "@/lib/cors";
 import { getKitchenOrder } from "@/lib/order-service";
 import { renderQrSvg } from "@/lib/qr";
 import { requireStaff } from "@/lib/staff-request";
-import { renderTicketHtml, ticketAddressLine, ticketDirectionsUrl } from "@/lib/ticket-html";
+import { renderTicketHtml, ticketAddressLine } from "@/lib/ticket-html";
+import { dispatchUrl } from "@/lib/dispatch-service";
 import { getVenueForUser } from "@/lib/venue-service";
 
 /**
@@ -39,8 +40,16 @@ export async function GET(
     return withCors(NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }));
   }
 
+  // The QR encodes our DISPATCH link, not the Maps URL: scanning it
+  // flips the order to "out for delivery" and forwards to the same
+  // route, so the guest's tracker learns the food left without anyone
+  // having to remember to tap the board. `ticketDirectionsUrl` is still
+  // the destination — it just lives on the other side of that redirect
+  // now (see `dispatch-service.ts`).
   const addressLine = ticketAddressLine(order);
-  const navQrSvg = addressLine ? await renderQrSvg(ticketDirectionsUrl(addressLine)) : null;
+  const navQrSvg = addressLine
+    ? await renderQrSvg(dispatchUrl(order.id, gate.staff.tenantId))
+    : null;
 
   const html = renderTicketHtml(order, { name: venue.value.name }, { navQrSvg });
   return withCors(

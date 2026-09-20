@@ -4,6 +4,7 @@ import { prisma } from "./db";
 import { signupUser } from "./auth-service";
 import { asTenant } from "./tenant";
 import {
+  GIFT_CARD_PROVIDER,
   advanceOrderStatus,
   placeOrder,
   getOrderForReceipt,
@@ -13,7 +14,13 @@ import {
   placeOrderSchema,
 } from "./order-service";
 import { signInCustomer } from "./customer-auth";
-import { creditOrderIfEligible, getLoyaltySummary, setVoucherArmed } from "./loyalty-service";
+import { generateGiftCardCode } from "./gift-card-code";
+import {
+  creditOrderIfEligible,
+  getLoyaltySummary,
+  reverseOrderCredit,
+  setVoucherArmed,
+} from "./loyalty-service";
 import { signReceiptToken, verifyReceiptToken } from "./receipt-token";
 import { buildReceiptPdf } from "./receipt-pdf";
 
@@ -963,5 +970,287 @@ describe("order-service (guest self-ordering)", () => {
     expect((await listRecentOrders(fx.userId, 50, { scope: "closed" })).map((o) => o.id)).toEqual([
       orderId,
     ]);
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* Spending a gift card on an order                                  */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * A paid, spendable card for this venue, written straight to the table
+   * the way `discountedOrder` in the pay-intent suite builds its voucher.
+   * How a card gets sold and settled is `gift-card-service.test.ts`'s
+   * problem; what this file cares about is what an ORDER does with one.
+   */
+  async function giftCard(
+    fx: { tenantId: string; venueId: string; customerId: string },
+    valueCents: number,
+    expiresAt = new Date(Date.now() + 86_400_000),
+  ): Promise<{ id: string; code: string }> {
+    const code = generateGiftCardCode();
+    const id = await asTenant(fx.tenantId, async (tx) => {
+      const card = await tx.giftCard.create({
+        data: {
+          tenantId: fx.tenantId,
+          venueId: fx.venueId,
+          code,
+          purchaserCustomerId: fx.customerId,
+          valueCents,
+          currency: "EUR",
+          status: "active",
+          paidAt: new Date(),
+          expiresAt,
+        },
+        select: { id: true },
+      });
+      return card.id;
+    });
+    return { id, code };
+  }
+
+  async function giftCardRow(tenantId: string, id: string) {
+    return asTenant(tenantId, (tx) =>
+      tx.giftCard.findFirstOrThrow({
+        where: { id },
+        select: {
+          status: true,
+          valueCents: true,
+          redeemedAt: true,
+          redeemedOrderId: true,
+          redeemedByUserId: true,
+        },
+      }),
+    );
+  }
+
+  async function orderRow(tenantId: string, orderId: string) {
+    return asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({
+        where: { id: orderId },
+        select: {
+          totalCents: true,
+          discountCents: true,
+          giftCardDiscountCents: true,
+          giftCardId: true,
+          giftCardLast4: true,
+          paymentStatus: true,
+          paymentProvider: true,
+        },
+      }),
+    );
+  }
+
+  /** The app's checkout: `quantity` × €12.45, optionally with a code
+   *  and/or the armed reward. */
+  async function placeWithCard(
+    fx: {
+      tenantId: string;
+      venueId: string;
+      publishedVersionId: string;
+      itemId: string;
+      customerId: string;
+    },
+    quantity: number,
+    opts: { code?: string; redeemVoucher?: boolean } = {},
+  ) {
+    const result = await placeOrder(
+      fx,
+      {
+        orderType: "dine_in",
+        tableNumber: "4",
+        items: [{ itemId: fx.itemId, quantity }],
+        ...(opts.code ? { giftCardCode: opts.code } : {}),
+        ...(opts.redeemVoucher ? { redeemVoucher: true } : {}),
+      },
+      { customerId: fx.customerId },
+    );
+    if (!result.ok) throw new Error(`order failed: ${result.error}`);
+    return result.value;
+  }
+
+  it("discounts the order by the card and marks the card redeemed on it", async () => {
+    const fx = await loyaltyFixture();
+    const card = await giftCard(fx, 1000);
+
+    // €24.90 of food against a €10 card: €14.90 left to collect.
+    const placed = await placeWithCard(fx, 2, { code: card.code });
+    expect(placed).toMatchObject({
+      discountCents: 0,
+      giftCardDiscountCents: 1000,
+      giftCardLast4: card.code.slice(-4),
+      totalCents: 1490,
+      chargedCents: 1490,
+      paidByGiftCard: false,
+    });
+
+    expect(await orderRow(fx.tenantId, placed.orderId)).toMatchObject({
+      totalCents: 1490,
+      giftCardDiscountCents: 1000,
+      giftCardId: card.id,
+      // Four characters, never the whole bearer code — that has no
+      // business on a kitchen ticket.
+      giftCardLast4: card.code.slice(-4),
+      paymentStatus: "none",
+    });
+
+    const row = await giftCardRow(fx.tenantId, card.id);
+    expect(row).toMatchObject({ status: "redeemed", redeemedOrderId: placed.orderId });
+    expect(row.redeemedAt).toBeInstanceOf(Date);
+    // Counter and order redemption are mutually exclusive: nobody took
+    // this one at a till.
+    expect(row.redeemedByUserId).toBeNull();
+  });
+
+  it("settles the order at placement when the card covers the whole bill", async () => {
+    const fx = await loyaltyFixture();
+    const card = await giftCard(fx, 2490);
+
+    // Nothing left to collect, so the order is born paid: the kitchen
+    // ticket goes out at once and the app must NEVER open a payment
+    // sheet for €0.00.
+    const placed = await placeWithCard(fx, 2, { code: card.code });
+    expect(placed).toMatchObject({
+      giftCardDiscountCents: 2490,
+      totalCents: 0,
+      chargedCents: 0,
+      paidByGiftCard: true,
+      paidByVoucher: false,
+    });
+    expect(await orderRow(fx.tenantId, placed.orderId)).toMatchObject({
+      totalCents: 0,
+      paymentStatus: "paid",
+      paymentProvider: GIFT_CARD_PROVIDER,
+    });
+  });
+
+  it("forfeits the balance of a card worth more than the bill", async () => {
+    // SINGLE USE, FULL VALUE. A €50 card on a €12.45 bill loses €37.55:
+    // the discount is capped at the bill (no change is ever given), the
+    // card is consumed anyway, and no residual balance is recorded
+    // anywhere — that absence is what keeps this honest without a ledger.
+    // The cart makes the guest tick a box naming the exact amount before
+    // this code ever runs.
+    const fx = await loyaltyFixture();
+    const card = await giftCard(fx, 5000);
+
+    const placed = await placeWithCard(fx, 1, { code: card.code });
+    expect(placed.giftCardDiscountCents).toBe(1245);
+    expect(placed.totalCents).toBe(0);
+
+    const row = await giftCardRow(fx.tenantId, card.id);
+    expect(row).toMatchObject({ status: "redeemed", redeemedOrderId: placed.orderId });
+    // The card still says what it was worth — nothing wrote €37.55 back.
+    expect(row.valueCents).toBe(5000);
+  });
+
+  it("spends the reward FIRST and lets the card cover only the remainder", async () => {
+    // The ordering is a deliberate choice, and this is the case that
+    // proves it: €24.90 of food, a €20 reward, a €50 card. Reward first
+    // leaves €4.90 for the card to eat. Card first would have burned €24.90
+    // of a single-use, forfeitable card on a basket the free reward could
+    // have carried — money the guest could have kept.
+    const fx = await loyaltyFixture();
+    await creditOrderIfEligible(fx.tenantId, (await placeWithCard(fx, 2)).orderId);
+    const earned = (await getLoyaltySummary(fx.tenantId, fx.customerId)).vouchers[0]!;
+    expect(await setVoucherArmed(fx.tenantId, fx.customerId, earned.id, true)).toMatchObject({
+      ok: true,
+    });
+    const card = await giftCard(fx, 5000);
+
+    const placed = await placeWithCard(fx, 2, { code: card.code, redeemVoucher: true });
+    expect(placed.discountCents).toBe(2000);
+    expect(placed.giftCardDiscountCents).toBe(490);
+    expect(placed.totalCents).toBe(0);
+    // Both paid, and the GIFT CARD names the provider: it is the one the
+    // guest paid real money for, and the one the accountant's
+    // VAT-at-redemption record has to be able to find.
+    expect(placed).toMatchObject({ paidByGiftCard: true, paidByVoucher: false });
+    expect(await orderRow(fx.tenantId, placed.orderId)).toMatchObject({
+      discountCents: 2000,
+      giftCardDiscountCents: 490,
+      paymentProvider: GIFT_CARD_PROVIDER,
+    });
+  });
+
+  it("places the order at FULL price when the code cannot be spent", async () => {
+    // Advisory, exactly like `redeemVoucher`: a card that turns out to be
+    // unknown, expired or already spent costs the guest a discount, never
+    // their dinner.
+    const fx = await loyaltyFixture();
+    const expired = await giftCard(fx, 2000, new Date(Date.now() - 60_000));
+    const spent = await giftCard(fx, 2000);
+    await placeWithCard(fx, 1, { code: spent.code });
+
+    for (const [name, code] of [
+      ["never issued", generateGiftCardCode()],
+      ["not even code-shaped", "NOPE"],
+      ["expired", expired.code],
+      ["already spent", spent.code],
+    ] as const) {
+      const placed = await placeWithCard(fx, 2, { code });
+      expect(placed.giftCardDiscountCents, name).toBe(0);
+      expect(placed.totalCents, name).toBe(2490);
+      expect(placed.giftCardLast4, name).toBeNull();
+      expect((await orderRow(fx.tenantId, placed.orderId)).giftCardId, name).toBeNull();
+    }
+  });
+
+  it("gives the card back when the order is cancelled", async () => {
+    const fx = await loyaltyFixture();
+    const card = await giftCard(fx, 1000);
+    const placed = await placeWithCard(fx, 2, { code: card.code });
+
+    await reverseOrderCredit(fx.tenantId, placed.orderId);
+
+    expect(await giftCardRow(fx.tenantId, card.id)).toMatchObject({
+      status: "active",
+      redeemedAt: null,
+      redeemedOrderId: null,
+    });
+    // The order lets go of it too — the card and the bill must not
+    // disagree about who is holding the €10.
+    expect(await orderRow(fx.tenantId, placed.orderId)).toMatchObject({
+      giftCardId: null,
+      giftCardDiscountCents: 0,
+    });
+  });
+
+  it("returns a card that expired while the order sat open as expired, not as a second chance", async () => {
+    // The guest lost the race with their own card's clock. Handing it
+    // back `active` would let an expired card be spent, which is exactly
+    // what every other path refuses.
+    const fx = await loyaltyFixture();
+    const card = await giftCard(fx, 1000);
+    const placed = await placeWithCard(fx, 2, { code: card.code });
+    await asTenant(fx.tenantId, (tx) =>
+      tx.giftCard.updateMany({
+        where: { id: card.id },
+        data: { expiresAt: new Date(Date.now() - 60_000) },
+      }),
+    );
+
+    await reverseOrderCredit(fx.tenantId, placed.orderId);
+
+    expect(await giftCardRow(fx.tenantId, card.id)).toMatchObject({
+      status: "expired",
+      redeemedOrderId: null,
+    });
+  });
+
+  it("earns no loyalty points on an order a gift card settled in full", async () => {
+    // The earning base is what the guest actually PAID, not what the menu
+    // said. €24.90 of food would clear the €20 minimum on its own, so an
+    // order fully covered by a card is the case that tells the two apart:
+    // a card bought at this venue must not also buy the next meal's points.
+    const fx = await loyaltyFixture();
+    const card = await giftCard(fx, 5000);
+    const placed = await placeWithCard(fx, 2, { code: card.code });
+    expect(placed.totalCents).toBe(0);
+
+    expect(await creditOrderIfEligible(fx.tenantId, placed.orderId)).toEqual({
+      credited: false,
+      points: 0,
+    });
+    expect((await getLoyaltySummary(fx.tenantId, fx.customerId)).balance).toBe(0);
   });
 });

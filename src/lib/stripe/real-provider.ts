@@ -260,7 +260,8 @@ export class RealStripeProvider implements StripeProvider {
   }
 
   async createDirectPaymentIntent(input: {
-    orderId: string;
+    orderId?: string;
+    giftCardId?: string;
     tenantId: string;
     amountCents: number;
     currency: string;
@@ -276,7 +277,12 @@ export class RealStripeProvider implements StripeProvider {
       currency: input.currency.toLowerCase(),
       automatic_payment_methods: { enabled: true },
       description: input.label,
-      metadata: { orderId: input.orderId, tenantId: input.tenantId },
+      // Exactly one of orderId / giftCardId, as distinct keys — the
+      // webhook branches on which is present, so a gift-card purchase can
+      // never be settled down the order path or the reverse.
+      metadata: input.giftCardId
+        ? { giftCardId: input.giftCardId, tenantId: input.tenantId }
+        : { orderId: input.orderId ?? "", tenantId: input.tenantId },
     });
     if (!intent.client_secret) {
       throw new Error("Stripe returned a PaymentIntent without a client secret");

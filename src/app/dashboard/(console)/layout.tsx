@@ -30,6 +30,7 @@ function buildNav(base: string, openIssues: number) {
     { href: `${base}/categories`, label: "Menu" },
     { href: `${base}/appearance`, label: "Appearance" },
     { href: `${base}/reports`, label: "Reports" },
+    { href: `${base}/gift-cards`, label: "Gift cards" },
     { href: `${base}/qr`, label: "QR codes" },
     { href: `${base}/settings`, label: "Settings" },
     { href: `${base}/billing`, label: "Billing" },

@@ -4,7 +4,8 @@ import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
 import { renderQrSvg } from "@/lib/qr";
-import { ticketAddressLine, ticketDirectionsUrl } from "@/lib/ticket-html";
+import { ticketAddressLine } from "@/lib/ticket-html";
+import { dispatchUrl } from "@/lib/dispatch-service";
 import { PrintControls } from "./print-controls";
 
 // Material icon paths (24×24) for the ticket's info rows.
@@ -26,8 +27,10 @@ const GLYPHS = {
  * nothing but the 80 mm ticket lands on paper. `?auto=1` opens the print
  * dialog immediately (Print buttons + the auto-print iframes use it).
  *
- * Delivery tickets carry a QR of a Google-Maps directions link: the
- * driver scans it with any phone camera and navigation opens — no app,
+ * Delivery tickets carry a QR of our DISPATCH link: the driver scans it
+ * with any phone camera, the order flips to "out for delivery" (so the
+ * guest's tracker updates without anyone remembering to tap the board),
+ * and the page forwards straight on to Google Maps navigation — no app,
  * no login, no typing the address.
  */
 
@@ -67,7 +70,11 @@ export default async function OrderTicketPage({
   // the address a driver navigates to is the address printed above the QR
   // on both surfaces.
   const addressLine = ticketAddressLine(order);
-  const navQr = addressLine ? await renderQrSvg(ticketDirectionsUrl(addressLine)) : null;
+  // Same dispatch link as the 80 mm ticket — see the note there. A
+  // driver handed either piece of paper gets the same one-scan flow.
+  const navQr = addressLine
+    ? await renderQrSvg(dispatchUrl(order.id, venueResult.value.tenantId))
+    : null;
 
   const typeBanner =
     order.orderType === "delivery"
@@ -118,7 +125,9 @@ export default async function OrderTicketPage({
           <p className="mt-0.5 font-bold">
             {order.paymentProvider === "voucher"
               ? "** MIT GUTSCHEIN BEZAHLT / PAID WITH REWARD **"
-              : `** PAID ONLINE${order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **`}
+              : order.paymentProvider === "gift_card"
+                ? "** MIT GESCHENKGUTSCHEIN BEZAHLT / PAID WITH GIFT CARD **"
+                : `** PAID ONLINE${order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **`}
           </p>
         ) : order.paymentStatus === "pending" ? (
           <p className="mt-0.5 font-bold">** ONLINE PAYMENT PENDING **</p>
@@ -193,6 +202,18 @@ export default async function OrderTicketPage({
             <span>-{formatPrice(order.discountCents, order.currency, "de")}</span>
           </div>
         ) : null}
+        {/* A gift card gets its own row under the reward — both can land on
+            one order — with the masked last 4 so the counter can tie the
+            line to the card it was handed. */}
+        {order.giftCardDiscountCents > 0 ? (
+          <div className="flex justify-between">
+            <span>
+              GESCHENKGUTSCHEIN / GIFT CARD
+              {order.giftCardLast4 ? ` ····${order.giftCardLast4}` : ""}
+            </span>
+            <span>-{formatPrice(order.giftCardDiscountCents, order.currency, "de")}</span>
+          </div>
+        ) : null}
         <div className="flex justify-between text-sm font-bold">
           <span>TOTAL</span>
           <span>{formatPrice(order.totalCents, order.currency, "de")}</span>
@@ -201,7 +222,9 @@ export default async function OrderTicketPage({
           {order.paymentStatus === "paid"
             ? order.paymentProvider === "voucher"
               ? "Mit Treuegutschein bezahlt / paid with a loyalty reward — nothing to collect."
-              : `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`
+              : order.paymentProvider === "gift_card"
+                ? "Mit Geschenkgutschein bezahlt / paid with a gift card — nothing to collect."
+                : `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`
             : order.paymentStatus === "pending"
               ? "Online payment NOT confirmed yet — do not hand out; wait for the paid ticket."
               : "Payment at the restaurant."}

@@ -7,6 +7,7 @@ import { env } from "./env";
 import { finalizePayPalReturn } from "./paypal-service";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
 import { markOrderPaid } from "./connect-service";
+import { finalizeGiftCardPayPalReturn, giftCardIdFromPayPalRef } from "./gift-card-payment";
 
 const log = createLogger();
 
@@ -107,28 +108,47 @@ export async function handlePayPalWebhook(input: {
     return { status: 400, kind: "invalid" };
   }
 
-  // Which order — and therefore which restaurant's PayPal app — is this
-  // about? The stamp names the tenant; the tenant-scoped lookup confirms
-  // the order really is ours and really is this PayPal order.
+  // WHAT was paid for — and therefore which restaurant's PayPal app is
+  // this about? The stamp names the tenant; the tenant-scoped lookup
+  // confirms the row really is ours and really is this PayPal order.
+  //
+  // Two kinds of subject share this endpoint: an ORDER and a GIFT CARD
+  // purchase. They are told apart by the `gc_` prefix the gift-card
+  // flow stamps into its custom id, so neither can ever be settled down
+  // the other's path.
   const ref = payPalOrderRefOf(event);
   const stamp = parsePayPalCustomId(payPalCustomIdOf(event));
-  const order =
-    ref && stamp
-      ? await asTenant(stamp.tenantId, (tx) =>
-          tx.order.findFirst({
-            where: { id: stamp.orderId, paymentRef: ref, paymentProvider: "paypal" },
-            select: { id: true, tenantId: true },
-          }),
-        )
-      : null;
-  if (!order) {
+  const giftCardId = stamp ? giftCardIdFromPayPalRef(stamp.orderId) : null;
+  const subject =
+    !ref || !stamp
+      ? null
+      : giftCardId
+        ? await asTenant(stamp.tenantId, async (tx) => {
+            const card = await tx.giftCard.findFirst({
+              where: { id: giftCardId, paymentRef: ref, paymentProvider: "paypal" },
+              select: { id: true, tenantId: true },
+            });
+            return card
+              ? { kind: "gift_card" as const, id: card.id, tenantId: card.tenantId }
+              : null;
+          })
+        : await asTenant(stamp.tenantId, async (tx) => {
+            const order = await tx.order.findFirst({
+              where: { id: stamp.orderId, paymentRef: ref, paymentProvider: "paypal" },
+              select: { id: true, tenantId: true },
+            });
+            return order
+              ? { kind: "order" as const, id: order.id, tenantId: order.tenantId }
+              : null;
+          });
+  if (!subject) {
     // Same status as a bad signature: an unknown PayPal order id must not
     // be distinguishable from a forged one to whoever is probing.
     log.info("paypal.webhook.unknown_order", { eventId: event.id, type: event.event_type });
     return { status: 400, kind: "invalid" };
   }
 
-  const keys = await getPayPalKeysForTenant(order.tenantId);
+  const keys = await getPayPalKeysForTenant(subject.tenantId);
   const webhookId = keys.webhookId ?? env.PAYPAL_WEBHOOK_ID ?? null;
   if (!webhookId) return { status: 400, kind: "not_configured" };
 
@@ -139,7 +159,7 @@ export async function handlePayPalWebhook(input: {
     webhookId,
   });
   if (!verified) {
-    log.warn("paypal.webhook.invalid_signature", { eventId: event.id, orderId: order.id });
+    log.warn("paypal.webhook.invalid_signature", { eventId: event.id, subjectId: subject.id });
     return { status: 400, kind: "invalid_signature" };
   }
 
@@ -159,21 +179,31 @@ export async function handlePayPalWebhook(input: {
     return { status: 200, kind: "ignored" };
   }
 
-  if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+  if (subject.kind === "gift_card") {
+    // One path for both event types: PayPal's capture is idempotent, so
+    // "already captured" (CAPTURE.COMPLETED) and "approved, maybe never
+    // captured" (ORDER.APPROVED) converge on the same call, and
+    // `activateGiftCard` behind it only ever flips pending → active.
+    const result = await finalizeGiftCardPayPalReturn(subject.tenantId, subject.id);
+    if (!result.paid) {
+      log.warn("paypal.webhook.capture_incomplete", { eventId: event.id, giftCardId: subject.id });
+    }
+  } else if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
     // PayPal already has the money; nothing to capture. Just settle.
-    await markOrderPaid(order.tenantId, order.id);
+    await markOrderPaid(subject.tenantId, subject.id);
   } else {
     // Approved but possibly never captured (guest never returned). The
     // capture is idempotent, so racing the return leg is harmless.
-    const result = await finalizePayPalReturn(order.tenantId, order.id);
+    const result = await finalizePayPalReturn(subject.tenantId, subject.id);
     if (!result.paid) {
-      log.warn("paypal.webhook.capture_incomplete", { eventId: event.id, orderId: order.id });
+      log.warn("paypal.webhook.capture_incomplete", { eventId: event.id, orderId: subject.id });
     }
   }
   log.info("paypal.webhook.processed", {
     eventId: event.id,
     type: event.event_type,
-    orderId: order.id,
+    kind: subject.kind,
+    subjectId: subject.id,
   });
   return { status: 200, kind: "processed" };
 }

@@ -129,15 +129,21 @@ export function OrdersScreen({
             // A reward covered the whole bill: that IS how it was paid,
             // so it replaces the method pill rather than sitting beside it.
             const byReward = s?.paymentProvider === "voucher";
+            // A gift card that swallowed the whole bill is HOW the order
+            // was paid, exactly like a reward — so it replaces the method
+            // pill rather than sitting beside it.
+            const byGiftCard = s?.paymentProvider === "gift_card";
             const pay = byReward
               ? { icon: "🎁", text: t.ordersRewardPill, settled: true }
-              : paid || done
-                ? { icon: paid ? methodIcon : "💶", text: payShort.paid, settled: true }
-                : order.payment === "cash"
-                  ? { icon: "💶", text: t.methodCash, settled: false }
-                  : order.payment
-                    ? { icon: methodIcon, text: payShort.unpaid, settled: false }
-                    : null;
+              : byGiftCard
+                ? { icon: "🎟️", text: t.ordersGiftCardPill, settled: true }
+                : paid || done
+                  ? { icon: paid ? methodIcon : "💶", text: payShort.paid, settled: true }
+                  : order.payment === "cash"
+                    ? { icon: "💶", text: t.methodCash, settled: false }
+                    : order.payment
+                      ? { icon: methodIcon, text: payShort.unpaid, settled: false }
+                      : null;
             // The reward line shows whatever a reward took off, INCLUDING
             // when it covered the whole bill. It used to be suppressed in
             // that case as a duplicate of the pill, but the pill only says
@@ -146,6 +152,10 @@ export function OrdersScreen({
             // about.
             const discountCents = s?.discountCents ?? 0;
             const discountPoints = s?.discountPoints ?? 0;
+            // A reward and a gift card can BOTH apply to one order (the
+            // server spends the reward first, the card covers the rest),
+            // so this is a sibling line, never an alternative to it.
+            const giftCardCents = s?.giftCardDiscountCents ?? 0;
             return (
               <Pressable
                 key={order.orderId}
@@ -246,6 +256,13 @@ export function OrdersScreen({
                         {fill(discountPoints > 0 ? t.ordersRewardOffPoints : t.ordersRewardOff, {
                           value: money(discountCents, order.currency),
                           points: discountPoints,
+                        })}
+                      </Text>
+                    ) : null}
+                    {giftCardCents > 0 ? (
+                      <Text style={styles.rewardOff}>
+                        {fill(t.ordersGiftCardOff, {
+                          value: money(giftCardCents, order.currency),
                         })}
                       </Text>
                     ) : null}

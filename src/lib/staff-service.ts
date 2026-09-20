@@ -51,6 +51,14 @@ export interface StaffOrder {
    *  before the column existed): the board then draws the line without
    *  the points rather than claiming it cost nothing. */
   discountPoints: number;
+  /** Cents a gift card paid on this order (0 = none), and the last four
+   *  characters of its code. The board draws them as their own line under
+   *  the reward — one order can carry both. */
+  giftCardDiscountCents: number;
+  giftCardLast4: string | null;
+  /** When a delivery order left the kitchen, so the board can say
+   *  "on the way since 19:42". ISO; null when never dispatched. */
+  outForDeliveryAt: string | null;
   currency: string;
   items: StaffOrderItem[];
   /** The complaint thread on this order, if there is one (P7-10). The
@@ -130,6 +138,9 @@ export function toStaffOrder(
     totalCents: order.totalCents,
     discountCents: order.discountCents,
     discountPoints: order.discountPoints,
+    giftCardDiscountCents: order.giftCardDiscountCents,
+    giftCardLast4: order.giftCardLast4,
+    outForDeliveryAt: order.outForDeliveryAt?.toISOString() ?? null,
     currency: order.currency,
     items: order.items.map((i) => ({
       name: i.name,

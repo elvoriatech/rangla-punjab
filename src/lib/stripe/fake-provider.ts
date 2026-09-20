@@ -35,7 +35,9 @@ export class FakeStripeProvider implements StripeProvider {
   private readonly orderCheckouts = new Map<
     string,
     {
+      /** "" for a gift-card purchase, which has no order behind it. */
       orderId: string;
+      giftCardId?: string;
       tenantId: string;
       amountCents: number;
       feeCents: number;
@@ -214,7 +216,8 @@ export class FakeStripeProvider implements StripeProvider {
   }
 
   async createDirectPaymentIntent(input: {
-    orderId: string;
+    orderId?: string;
+    giftCardId?: string;
     tenantId: string;
     amountCents: number;
     currency: string;
@@ -225,7 +228,8 @@ export class FakeStripeProvider implements StripeProvider {
     // the app's dev/demo "pay" button lands exactly where the web one does.
     const ref = `pi_fake_${randomUUID().replace(/-/g, "").slice(0, 14)}`;
     this.orderCheckouts.set(ref, {
-      orderId: input.orderId,
+      orderId: input.orderId ?? "",
+      giftCardId: input.giftCardId,
       tenantId: input.tenantId,
       amountCents: input.amountCents,
       feeCents: 0,
@@ -246,10 +250,18 @@ export class FakeStripeProvider implements StripeProvider {
   }
 
   /** Test/dev hook: settle a fake checkout, like Stripe's webhook would. */
-  settleOrderCheckout(ref: string): { orderId: string; tenantId: string } | null {
+  settleOrderCheckout(
+    ref: string,
+  ): { orderId: string; tenantId: string; giftCardId?: string } | null {
     const c = this.orderCheckouts.get(ref);
     if (!c || c.paid) return null;
     c.paid = true;
-    return { orderId: c.orderId, tenantId: c.tenantId };
+    // `giftCardId` is only spread in when set, so the order case keeps
+    // its exact historical shape and the existing assertions on it hold.
+    return {
+      orderId: c.orderId,
+      tenantId: c.tenantId,
+      ...(c.giftCardId ? { giftCardId: c.giftCardId } : {}),
+    };
   }
 }
