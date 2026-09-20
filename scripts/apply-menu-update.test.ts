@@ -131,20 +131,34 @@ describe("buildPlan", () => {
     expect(revived?.draft?.photoMediaId).toBe("photo-Fürstenberg Pils alkoholfrei 0,5l");
   });
 
-  it("union keeps an allergen the printed card omits, replace drops it", () => {
-    const draft = [
-      category("Bier alkoholfrei", [
-        item("Fürstenberg Pils alkoholfrei 0,5l", {
-          priceCents: 400,
-          allergens: ["gluten", "milk"],
-        }),
-      ]),
-    ];
+  // The printed card is the declaration of record: the owner reviewed the 25
+  // dishes whose footnotes are thinner than the old data and confirmed the
+  // card. So "replace" is the default and "union" is the deliberate opt-out.
+  const withExtraAllergen = (): Parameters<typeof buildPlan>[1] => [
+    category("Bier alkoholfrei", [
+      item("Fürstenberg Pils alkoholfrei 0,5l", {
+        priceCents: 400,
+        allergens: ["gluten", "milk"],
+      }),
+    ]),
+  ];
+
+  it("drops an allergen the printed card does not code", () => {
+    const planned = buildPlan(menu, withExtraAllergen()).items.find((i) => i.newItem.id === "i1");
+    expect(planned?.data.allergens).toEqual(["gluten"]);
+    expect(planned?.changes.join(" ")).toContain("allergens [gluten,milk] → [gluten]");
+  });
+
+  it("uses replace when no mode is passed", () => {
+    expect(buildPlan(menu, withExtraAllergen())).toEqual(
+      buildPlan(menu, withExtraAllergen(), "replace"),
+    );
+  });
+
+  it("--allergens=union keeps the extra allergen instead", () => {
     expect(
-      buildPlan(menu, draft, "union").items.find((i) => i.newItem.id === "i1"),
+      buildPlan(menu, withExtraAllergen(), "union").items.find((i) => i.newItem.id === "i1"),
     ).toBeUndefined();
-    const replaced = buildPlan(menu, draft, "replace").items.find((i) => i.newItem.id === "i1");
-    expect(replaced?.data.allergens).toEqual(["gluten"]);
   });
 
   it("warns when a running offer would no longer sit below the new price", () => {

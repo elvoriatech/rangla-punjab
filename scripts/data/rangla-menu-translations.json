@@ -775,28 +775,28 @@
       "categoryId": "thali",
       "source": {
         "name": "Thali mit Fleisch – Donnerstag",
-        "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Churry – Kichererbsen mit typisch indischen Gewürzen · Chicken Chana – Hähnchenfilet, saisonalem frischen Gemüse, Currysauce"
+        "description": "Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Churry – Hähnchenfilet, saisonalem frischen Gemüse, Currysauce · Chicken Chana – Kichererbsen mit typisch indischen Gewürzen"
       },
       "translations": {
         "en": {
           "name": "Thali with Meat – Thursday",
-          "description": "Dal Tarka – lentils “Indian style”, curry sauce · Chicken Churry – chickpeas with typical Indian spices · Chicken Chana – chicken fillet, fresh seasonal vegetables, curry sauce"
+          "description": "Dal Tarka – lentils “Indian style”, curry sauce · Chicken Churry – chicken fillet, fresh seasonal vegetables, curry sauce · Chicken Chana – chickpeas with typical Indian spices"
         },
         "fr": {
           "name": "Thali avec viande – jeudi",
-          "description": "Dal Tarka – lentilles « à l’indienne », sauce curry · Chicken Churry – pois chiches aux épices indiennes traditionnelles · Chicken Chana – filet de poulet, légumes frais de saison, sauce curry"
+          "description": "Dal Tarka – lentilles « à l’indienne », sauce curry · Chicken Churry – filet de poulet, légumes frais de saison, sauce curry · Chicken Chana – pois chiches aux épices indiennes traditionnelles"
         },
         "es": {
           "name": "Thali con carne – jueves",
-          "description": "Dal Tarka – lentejas «al estilo indio», salsa de curry · Chicken Churry – garbanzos con especias indias tradicionales · Chicken Chana – filete de pollo, verduras frescas de temporada, salsa de curry"
+          "description": "Dal Tarka – lentejas «al estilo indio», salsa de curry · Chicken Churry – filete de pollo, verduras frescas de temporada, salsa de curry · Chicken Chana – garbanzos con especias indias tradicionales"
         },
         "it": {
           "name": "Thali con carne – giovedì",
-          "description": "Dal Tarka – lenticchie «alla maniera indiana», salsa al curry · Chicken Churry – ceci con le tipiche spezie indiane · Chicken Chana – filetto di pollo, verdure fresche di stagione, salsa al curry"
+          "description": "Dal Tarka – lenticchie «alla maniera indiana», salsa al curry · Chicken Churry – filetto di pollo, verdure fresche di stagione, salsa al curry · Chicken Chana – ceci con le tipiche spezie indiane"
         },
         "ar": {
           "name": "ثالي باللحم – الخميس",
-          "description": "دال تاركا – عدس على الطريقة الهندية مع صلصة الكاري · تشيكن تشوري – حمّص مع البهارات الهندية التقليدية · تشيكن تشانا – فيليه دجاج مع خضار الموسم الطازجة وصلصة الكاري"
+          "description": "دال تاركا – عدس على الطريقة الهندية مع صلصة الكاري · تشيكن تشوري – فيليه دجاج مع خضار الموسم الطازجة وصلصة الكاري · تشيكن تشانا – حمّص مع البهارات الهندية التقليدية"
         }
       }
     },
@@ -5196,23 +5196,23 @@
       "translations": {
         "en": {
           "name": "Mango Mojito",
-          "description": "lemonade with grapefruit, lemon and mint leaves"
+          "description": "Lemonade of grapefruit and lemon with mint leaves"
         },
         "fr": {
           "name": "Mango Mojito",
-          "description": "limonade au pamplemousse, citron et feuilles de menthe"
+          "description": "Limonade au pamplemousse et citron, feuilles de menthe"
         },
         "es": {
           "name": "Mango Mojito",
-          "description": "limonada de pomelo, limón y hojas de menta"
+          "description": "Limonada de pomelo y limón con hojas de menta"
         },
         "it": {
           "name": "Mango Mojito",
-          "description": "limonata con pompelmo, limone e foglie di menta"
+          "description": "Limonata di pompelmo e limone con foglie di menta"
         },
         "ar": {
           "name": "مانغو موهيتو",
-          "description": "ليموناضة بالجريب فروت والليمون وأوراق النعناع"
+          "description": "ليمونادة الجريب فروت والليمون مع أوراق النعناع"
         }
       }
     },

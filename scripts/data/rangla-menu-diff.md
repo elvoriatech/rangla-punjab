@@ -17,7 +17,7 @@ Zuordnung: Kategorien und Gerichte werden über den normalisierten Namen gematch
 | davon Beschreibung geändert | 101 |
 | davon Allergene geändert | 43 |
 | davon Schärfegrad geändert | 25 |
-| davon Ernährungs-Tags geändert | 83 |
+| davon Ernährungs-Tags geändert | 85 |
 | neu angelegt (ohne Foto) | 32 |
 | entfällt (soft-delete) | 7 |
 | neue Kategorien | 6 |
@@ -102,9 +102,11 @@ Legende von Seite 11. `src/lib/allergens.ts` kennt nur die 14 Annex-II-Allergene
 
 ## Allergene: zwei Dinge, die der Inhaber prüfen sollte
 
-**1. Die Druckkarte codiert weniger als der bisherige Datensatz.** Bei den folgenden Gerichten trägt der aktuelle Datenbestand ein Allergen, das die neue Karte nicht mit einer Fußnote ausweist. `apply-menu-update.ts` läuft deshalb standardmäßig mit `--allergens=union`: es *ergänzt* nur und löscht nie eine bestehende Angabe. Wer die Karte 1:1 übernehmen will, nimmt `--allergens=replace` — das ist eine bewusste Entscheidung des Inhabers, keine technische.
+**1. Die Druckkarte codiert weniger als der bisherige Datensatz — und die Karte gilt.** Der Inhaber hat die folgenden Gerichte durchgesehen und bestätigt, dass die neue Karte maßgeblich ist. `apply-menu-update.ts` läuft deshalb standardmäßig mit `--allergens=replace`: ein Gericht trägt danach genau die Allergene, die seine Fußnoten codieren, alles andere entfällt. `--allergens=union` bleibt als Schalter erhalten (ergänzt nur, löscht nie) — für eine Karte, die noch niemand Gericht für Gericht geprüft hat.
 
-| Kategorie | Gericht | bisher | Druckkarte | entfiele mit `replace` |
+Betroffen sind 25 Gerichte:
+
+| Kategorie | Gericht | bisher | Druckkarte = neu | entfällt |
 |---|---|---|---|---|
 | Warme Vorspeisen | Mix Pakora Groß (für 2–3 Personen) | milk | — | **milk** |
 | Warme Vorspeisen | Jhinga Pakora | crustaceans, milk | gluten, crustaceans | **milk** |
@@ -155,17 +157,17 @@ Legende von Seite 11. `src/lib/allergens.ts` kennt nur die 14 Annex-II-Allergene
 
 ## Unklarheiten / mutmaßliche Fehler in der Druckkarte
 
-Alles unten steht so in der PDF und wurde so übernommen; keine Stelle war unleserlich.
+Keine Stelle der PDF war unleserlich. Wo der Inhaber entschieden hat, steht die Entscheidung in der letzten Spalte; alles übrige ist wortgetreu übernommen.
 
 | Seite | Stelle | Was auffällt | Wie übernommen |
 |---|---|---|---|
-| 3 | Thali mit Fleisch, Donnerstag | „Chicken Churry – Kichererbsen mit typisch indischen Gewürzen“ und „Chicken Chana – Hähnchenfilet, saisonalem frischen Gemüse, Currysauce“: die beiden Beschreibungen wirken vertauscht (Chana = Kichererbsen) | wortgetreu wie gedruckt |
+| 3 | Thali mit Fleisch, Donnerstag | „Chicken Churry“ und „Chicken Chana“ tragen auf der Karte vertauschte Beschreibungen (Chana = Kichererbsen) | **vom Inhaber bestätigt und getauscht**: Chicken Churry = Hähnchenfilet, saisonalem frischen Gemüse, Currysauce · Chicken Chana = Kichererbsen mit typisch indischen Gewürzen. Die gedruckten Namen bleiben |
 | 3 | Thali-Kopfzeile | „11.30 – 14-30 Uhr“ (Bindestrich statt Punkt) | als „11.30 – 14.30 Uhr“ in die Kategorie-Notiz übernommen |
-| 4 | Nr. 28 und Nr. 29 | beide heißen „KEEMA NAAN“, unterscheiden sich nur in der Füllung | „Keema Naan (Lamm)“ / „Keema Naan (Hähnchen)“ — zwei identische Namen in einer Kategorie sind für Gast und Bestellsystem nicht unterscheidbar |
-| 11 vs. 12 | Bier alkoholfrei | Seite 11 (Speisekarte): alle drei € 4,00. Seite 12 (Getränkekarte): Fürstenberg € 5,10, Radler € 4,90, Rothaus € 4,90 | **Seite 11 übernommen (€ 4,00)** = unverändert zum bisherigen Stand; Seite 12 nur für die *alkoholischen* Biere ausgewertet. Bitte klären, welcher Preis gilt |
+| 4 | Nr. 28 und Nr. 29 | beide heißen „KEEMA NAAN“, unterscheiden sich nur in der Füllung | **vom Inhaber bestätigt**: „Keema Naan (Lamm)“ / „Keema Naan (Hähnchen)“ — zwei identische Namen in einer Kategorie sind für Gast und Bestellsystem nicht unterscheidbar |
+| 11 vs. 12 | Bier alkoholfrei | Seite 11 (Speisekarte): alle drei € 4,00. Seite 12 (Getränkekarte): Fürstenberg € 5,10, Radler € 4,90, Rothaus € 4,90 | **vom Inhaber bestätigt: € 4,00 (Seite 11)** = unverändert zum bisherigen Stand; Seite 12 nur für die *alkoholischen* Biere ausgewertet |
 | 12 | Sekt | Mengenangabe gedruckt als „0,11l“ | als 0,1 l gelesen (Sektausschank); Preis € 4,10 unverändert übernommen |
 | 5 | Nr. 42 / 44 / 46 / 47 usw. | Süß-/Schärfehinweise stehen als Kursivzusatz am Namen | Schärfe → `spice` (0–3), Süße → an die deutsche Beschreibung angehängt („– süß“, „– leicht süß“) und in alle fünf Sprachen übersetzt |
-| 6 | Nr. 54 Palak Tofu / Nr. 55 Shahi Tofu | vegan ausgewiesen, tragen aber die Fußnote g1 (enthält Milch) | Fußnote wie gedruckt übernommen **und** `vegan` gesetzt — bitte prüfen, was stimmt |
+| 6 | Nr. 54 Palak Tofu / Nr. 55 Shahi Tofu | stehen unter „Vegane Gerichte“, tragen aber die Fußnote g1 (enthält Milch) | **vom Inhaber entschieden: die Fußnote gilt.** `milk` bleibt, `vegan` entfällt, `vegetarian` gesetzt. Die übrigen fünf Tofu-Gerichte bleiben vegan |
 | 10 | Mango Mojito | Beschreibung identisch mit Grapefruit-Limo („Limonade aus Grapefruit, Zitronen mit Minzblätter“) | wortgetreu wie gedruckt |
 
 ---
@@ -190,7 +192,7 @@ Alles unten steht so in der PDF und wurde so übernommen; keine Stelle war unles
 - **NEU** Thali mit Fleisch – Mittwoch — 12,50 €  
   _Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Saag – Hähnchenfilet, Spinat, frischer Ingwer, Knoblauch · Lamm Curry – Lamm in Currysauce, frischer Ingwer, Knoblauch, Zwiebeln_
 - **NEU** Thali mit Fleisch – Donnerstag — 12,50 €  
-  _Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Churry – Kichererbsen mit typisch indischen Gewürzen · Chicken Chana – Hähnchenfilet, saisonalem frischen Gemüse, Currysauce_
+  _Dal Tarka – Linsengericht „Indische Art“, Currysauce · Chicken Churry – Hähnchenfilet, saisonalem frischen Gemüse, Currysauce · Chicken Chana – Kichererbsen mit typisch indischen Gewürzen_
 - **NEU** Thali mit Fleisch – Freitag — 12,50 €  
   _Dal Tarka – Linsengericht „Indische Art“, Currysauce · Fisch Masala – Seelachslion in einer Zubereitung aus Zwiebeln, frischer Ingwer, Knoblauch, Tomaten, Mandeln, Cashewnüssen · Chicken Tikka Masala – Gegrilltes Hähnchenfleisch mit Zwiebeln, Tomaten, roter Currysauce, Koriander, frischer Ingwer_
 
@@ -258,8 +260,8 @@ Alles unten steht so in der PDF und wurde so übernommen; keine Stelle war unles
 - 52. **Dal Makhni** — Beschreibung: „schwarze Linsen mit Sahne, Butter, Tomaten und Knoblauch“ → „Schwarze Linsen mit Sahne, Butter, Tomaten und Knoblauch“; Allergene: milk → —  ⚠ entfällt: milk
 
 ## Vegane Gerichte mit Bio-Tofu — *umbenannt von* „Vegane Spezialitäten“
-- 54. **Palak Tofu** — Beschreibung: „mit Spinat und Kokosmilch“ → „Bio-Tofu mit Spinat und Kokosmilch“
-- 55. **Shahi Tofu** — umbenannt: „Shahi Tofu (leicht süß)“ → „Shahi Tofu“; Beschreibung: „mit Cashewnüssen und Kokosmilch“ → „Tofu mit Cashewnüssen, in Kokosmilch – leicht süß“
+- 54. **Palak Tofu** — Beschreibung: „mit Spinat und Kokosmilch“ → „Bio-Tofu mit Spinat und Kokosmilch“; Ernährung: vegan → vegetarian
+- 55. **Shahi Tofu** — umbenannt: „Shahi Tofu (leicht süß)“ → „Shahi Tofu“; Beschreibung: „mit Cashewnüssen und Kokosmilch“ → „Tofu mit Cashewnüssen, in Kokosmilch – leicht süß“; Ernährung: vegan → vegetarian
 - 56. **Mango Tofu** — Beschreibung: „mit Mango, Cashewnüssen, Kokosmilch und indischen Gewürzen“ → „Bio-Tofu mit Mango, Cashewnüsse, Kokosmilch, indische Gewürze“
 - 57. **Karahi Tofu** — Beschreibung: „mit Currysauce, Paprika, Tomaten und Zwiebeln“ → „Bio-Tofu, in Currysauce mit Paprika, Tomaten und Zwiebeln“
 - 58. **Tikka Masala Tofu** — Beschreibung: „mit Zwiebeln, Tomaten, roter Currysauce, Koriander und frischem Ingwer“ → „Bio-Tofu mit Zwiebeln, Tomaten, roter Currysauce, Koriander, frischer Ingwer“

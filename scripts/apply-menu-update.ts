@@ -23,14 +23,16 @@ import { purgeMenuForTenant } from "../src/lib/cdn-purge";
  *                        (the script warns when it detects drift) — a stale draft
  *                        is how dish PHOTOS get lost, because matching happens
  *                        against the draft rows.
- *   --allergens=union    (default) never drop an allergen the venue already
- *                        declares; only add the ones the printed card carries.
- *                        The printed card omits footnote codes on a number of
- *                        dishes whose current record declares them (see
- *                        rangla-menu-diff.md), and silently *removing* a
- *                        declaration is the one direction that can hurt a guest.
- *   --allergens=replace  follow the printed card exactly, dropping anything it
- *                        does not code. Only with the owner's say-so.
+ *   --allergens=replace  (default) the printed card is the declaration of
+ *                        record: an item ends up with exactly the allergens its
+ *                        footnotes code, and anything the card does not code is
+ *                        dropped. The card omits codes that the previous record
+ *                        carried on 25 dishes — the owner reviewed that list
+ *                        (rangla-menu-diff.md) and confirmed the card is right.
+ *   --allergens=union    opt-in: add what the card codes but never drop an
+ *                        existing declaration. Use when applying a card that has
+ *                        NOT been reviewed dish by dish, so a missing footnote
+ *                        cannot quietly remove a warning a guest relies on.
  *   --prune-categories   hard-delete draft categories the new menu no longer has
  *                        (off by default; they are reported instead).
  *
@@ -222,7 +224,11 @@ function sameSet(a: readonly string[], b: readonly string[]): boolean {
   return [...a].sort().every((x, i) => x === sorted[i]);
 }
 
-export function buildPlan(menu: NewMenu, draft: DraftCategory[], mode: AllergenMode): Plan {
+export function buildPlan(
+  menu: NewMenu,
+  draft: DraftCategory[],
+  mode: AllergenMode = "replace",
+): Plan {
   const plan: Plan = {
     categories: [],
     items: [],
@@ -270,6 +276,9 @@ export function buildPlan(menu: NewMenu, draft: DraftCategory[], mode: AllergenM
     cat.items.forEach((item, ii) => {
       const row = liveMatch.get(item.id) ?? deadMatch.get(item.id);
       const kind: ItemPlan["kind"] = !row ? "create" : liveMatch.has(item.id) ? "update" : "revive";
+      // "replace" (the default) makes the printed card the declaration of
+      // record — what it does not code, the dish does not carry. "union" only
+      // ever adds, for a card nobody has reviewed dish by dish yet.
       const allergens =
         mode === "replace" || !row
           ? (item.allergens as Allergen[])
@@ -434,9 +443,9 @@ async function main(): Promise<void> {
   const doPublish = args.includes("--publish");
   const refreshDraft = args.includes("--refresh-draft");
   const pruneCategories = args.includes("--prune-categories");
-  const modeArg = args.find((a) => a.startsWith("--allergens="))?.split("=")[1] ?? "union";
+  const modeArg = args.find((a) => a.startsWith("--allergens="))?.split("=")[1] ?? "replace";
   if (modeArg !== "union" && modeArg !== "replace") {
-    throw new Error(`--allergens must be "union" or "replace", got "${modeArg}"`);
+    throw new Error(`--allergens must be "replace" or "union", got "${modeArg}"`);
   }
   const mode: AllergenMode = modeArg;
 
@@ -446,7 +455,7 @@ async function main(): Promise<void> {
   if (!slug) {
     throw new Error(
       "usage: apply-menu-update.ts <venue-slug> [menu.json] [--dry-run] [--publish] " +
-        "[--refresh-draft] [--allergens=union|replace] [--prune-categories]",
+        "[--refresh-draft] [--allergens=replace|union] [--prune-categories]",
     );
   }
 
