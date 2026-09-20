@@ -467,10 +467,11 @@ export function HomeScreen({
  * special — an emoji here, a bespoke SVG there — made the block read as
  * four unrelated features rather than a set of four choices.
  *
- * Equal heights inside a row come from the flexed wrapper plus the
- * row's default `stretch`, not from a hard height: "Tisch reservieren"
- * wraps to two lines at 360 pt while "Abholung" does not, and a fixed
- * height would either clip one or pad the other.
+ * Equal heights inside a row come from the row's `stretch` plus a card
+ * that only ever GROWS into it, never from a stated height: "Tisch
+ * reservieren" wraps to two lines at 360 pt while "Abholung" does not,
+ * and a fixed height would either clip one or pad the other. A
+ * percentage height is worse than either — see `styles.actionCard`.
  *
  * The press-back is the app's shared `usePressScale`, which returns a
  * still style and no-op handlers on a device with Reduce Motion on — the
@@ -490,8 +491,9 @@ function ActionCard({
 }): React.ReactElement {
   const press = usePressScale(0.97);
   return (
-    // The wrapper carries both the flex and the transform: a scale on
-    // the card itself cannot make its sibling the same height.
+    // The wrapper carries the row's horizontal flex and the press
+    // transform; it states no height of its own, so the row's `stretch`
+    // is the single thing that decides how tall the pair is.
     <Animated.View style={[styles.actionWrap, press.style]}>
       <Pressable
         onPress={onPress}
@@ -504,19 +506,23 @@ function ActionCard({
         <View style={styles.actionIcon}>
           <Ionicons name={icon} size={22} color={colors.red} />
         </View>
-        {/* Two lines allowed on every card, so a title that wraps in one
-            language cannot make its neighbour a different height — and
-            `adjustsFontSizeToFit` for the one word that still does not
-            fit at 360 pt ("Geschenkgutscheine"), which would otherwise
-            break mid-word and leave a line with one letter on it. */}
-        <Text
-          style={styles.actionTitle}
-          numberOfLines={2}
-          adjustsFontSizeToFit
-          minimumFontScale={0.82}
-        >
-          {title}
-        </Text>
+        {/* A slot two lines tall on every card, with the title centred
+            inside it: "Abholung" is one line and "Tisch reservieren" two,
+            and without the slot the one-line card would sit its icon 19 pt
+            higher than its neighbour's. `adjustsFontSizeToFit` covers the
+            one word that still does not fit at 360 pt
+            ("Geschenkgutscheine"), which would otherwise break mid-word
+            and leave a line with a single letter on it. */}
+        <View style={styles.actionTitleSlot}>
+          <Text
+            style={styles.actionTitle}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+          >
+            {title}
+          </Text>
+        </View>
         <Text style={styles.actionSub} numberOfLines={1}>
           {subtitle}
         </Text>
@@ -716,21 +722,48 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
     flex: 1,
   },
-  /** `stretch` (the default) is what makes the two cards in a row the
-   *  same height whichever of them wraps. */
-  modeRow: { flexDirection: "row", gap: 12, marginTop: 14 },
-  /** The flexed, animated wrapper — see `ActionCard`. */
-  actionWrap: { flex: 1 },
+  /** `alignItems: "stretch"` — written out rather than left to the
+   *  default — is what makes the two cards in a row the same height
+   *  whichever of them wraps. It is the ONLY vertical coupling in this
+   *  row: nothing here may set a height, least of all a percentage one
+   *  (see `actionCard`). */
+  modeRow: { flexDirection: "row", alignItems: "stretch", gap: 12, marginTop: 14 },
+  /**
+   * The flexed, animated wrapper — see `ActionCard`.
+   *
+   * `flexBasis: 0 / flexGrow: 1 / flexShrink: 1` rather than the `flex: 1`
+   * shorthand, to say explicitly that the flexing is HORIZONTAL: this is a
+   * child of a `row`, so the basis is a width. The wrapper never states a
+   * height — it inherits one from the row's `stretch`, and the card inside
+   * grows into it.
+   */
+  actionWrap: { flexBasis: 0, flexGrow: 1, flexShrink: 1 },
   /**
    * The one plate all four entry points share: 16 pt radius, hairline
    * border, and a shadow soft enough to lift the card off the cream
-   * without turning the row into a set of floating tiles. `height:
-   * "100%"` is what makes the shorter card fill its stretched wrapper,
-   * so the two borders line up exactly.
+   * without turning the row into a set of floating tiles.
+   *
+   * `flexGrow: 1` with the DEFAULT `flexBasis: auto` is what makes the
+   * shorter card fill its stretched wrapper so the two borders line up:
+   * the card measures itself from its content first and only then grows
+   * into whatever slack the row's `stretch` handed the wrapper. It can
+   * therefore never be taller than its row-mate, and never shorter.
+   *
+   * What must NOT come back is `height: "100%"`. On the web build that
+   * resolves against a flex item the browser has already stretched, so it
+   * is a no-op; under Yoga the wrapper's height is still indefinite when
+   * the percentage is resolved, and the card inflated to the height of the
+   * whole scroll content — two ~900 pt blanks with their contents centred
+   * somewhere off the bottom of the screen. Same for `flex: 1` here: its
+   * implied `flexBasis: 0` throws the content measurement away and leaves
+   * the height to whatever slack happens to exist.
    */
   actionCard: {
-    height: "100%",
-    minHeight: 104,
+    flexGrow: 1,
+    /** Icon 44 + 4 + two title lines 38 + 4 + one subtitle line + 2×12
+     *  padding ≈ 130. A floor, not a fixed height, so a guest running
+     *  larger system text gets a taller card rather than a clipped one. */
+    minHeight: 130,
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
@@ -758,6 +791,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  /** Two lines' worth of box whether or not the title uses both, with the
+   *  title centred in it — so the icon circles and the subtitles line up
+   *  across a row regardless of which title wraps. `alignSelf: "stretch"`
+   *  keeps it the card's full inner width (the card centres its children),
+   *  which is the width the title gets to wrap in. A floor rather than a
+   *  fixed height, so larger system text grows the slot instead of
+   *  clipping it. */
+  actionTitleSlot: { alignSelf: "stretch", minHeight: 38, justifyContent: "center" },
   actionTitle: {
     color: colors.ink,
     ...fonts.display,
