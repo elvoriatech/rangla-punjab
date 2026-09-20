@@ -4,8 +4,9 @@ import path from "node:path";
 /**
  * Gate for the hand-written menu translation bundle.
  *
- * Reads the published menu payload we translated FROM
- * (`data/rangla-menu-source.json` — the live `/api/v1/menu` response) and
+ * Reads the menu we translated FROM (`data/rangla-menu-2026-09.json` — the
+ * printed card transcribed for the 2026-09 update; before that it was
+ * `data/rangla-menu-source.json`, the live `/api/v1/menu` response) and
  * the bundle we translated INTO (`data/rangla-menu-translations.json`),
  * and fails loudly if the two ever drift apart. Every category and every
  * item of the source must be present, in every declared locale, with a
@@ -57,7 +58,7 @@ export interface TranslationBundle {
   items: TranslatedItem[];
 }
 
-const DEFAULT_SOURCE = path.join(import.meta.dirname, "data", "rangla-menu-source.json");
+const DEFAULT_SOURCE = path.join(import.meta.dirname, "data", "rangla-menu-2026-09.json");
 const DEFAULT_BUNDLE = path.join(import.meta.dirname, "data", "rangla-menu-translations.json");
 
 export function validate(source: SourceMenu, bundle: TranslationBundle): string[] {
