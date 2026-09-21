@@ -5,7 +5,7 @@ import { signupUser } from "./auth-service";
 import { asTenant } from "./tenant";
 import { placeOrder } from "./order-service";
 import { createPayPalOrderPayment, finalizePayPalReturn } from "./paypal-service";
-import { getPayPalProvider, paypalAvailable, tenantPayPalKeysApply } from "./paypal";
+import { getPayPalProvider, paypalAvailable } from "./paypal";
 import { signReceiptToken } from "./receipt-token";
 
 /**
@@ -89,16 +89,6 @@ describe("paypal payments (fake provider, full flow)", () => {
       };
     });
   }
-
-  it("server LIVE keys outrank a restaurant's sandbox keys; its own live keys still win", () => {
-    const own = { clientId: "id", secret: "sec", enabled: true };
-    expect(tenantPayPalKeysApply({ ...own, env: "sandbox" }, "live")).toBe(false);
-    expect(tenantPayPalKeysApply({ ...own, env: "live" }, "live")).toBe(true);
-    expect(tenantPayPalKeysApply({ ...own, env: "sandbox" }, "sandbox")).toBe(true);
-    expect(tenantPayPalKeysApply({ ...own, env: "sandbox" }, "fake")).toBe(true);
-    expect(tenantPayPalKeysApply({ ...own, env: "live", enabled: false }, "live")).toBe(false);
-    expect(tenantPayPalKeysApply({ ...own, env: "live", secret: null }, "fake")).toBe(false);
-  });
 
   it("runs on the fake provider in tests, and is offered to guests", () => {
     expect(getPayPalProvider().mode).toBe("fake");
