@@ -225,10 +225,20 @@ export async function getStaffSummary(userId: string): Promise<StaffSummary> {
     // connection, and serialising them keeps that explicit.
     // "Still owes work" — a cancelled order owes none, so it drops out of
     // the badge exactly like a finished one.
+    // An online order still awaiting its payment owes the kitchen nothing
+    // yet — it is not on the board, so it is not in the badge either.
     const openOrders = await tx.order.count({
-      where: { status: { notIn: [...TERMINAL_STATUSES] } },
+      where: {
+        status: { notIn: [...TERMINAL_STATUSES] },
+        paymentStatus: { notIn: ["pending", "failed"] },
+      },
     });
-    const unpaidOnline = await tx.order.count({ where: { paymentStatus: "pending" } });
+    const unpaidOnline = await tx.order.count({
+      where: {
+        paymentStatus: { in: ["pending", "failed"] },
+        status: { notIn: [...TERMINAL_STATUSES] },
+      },
+    });
     const pendingReservations = await tx.reservation.count({
       where: { deletedAt: null, status: "requested" },
     });

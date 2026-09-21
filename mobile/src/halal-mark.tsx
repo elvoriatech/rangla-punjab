@@ -22,14 +22,14 @@ import { colors, fonts } from "./theme";
  *
  * TWO sizes, because those are the two jobs:
  *
- *  - `"badge"` — the welcome screen's corner mark from the owner's photo:
- *    ~30 pt of calligraphy with the Latin caption under it (so a guest who
- *    cannot read Arabic still gets the word), set on a DIAGONAL like a
- *    stamp pressed into the corner.
+ *  - `"badge"` — the welcome screen's corner mark: the calligraphy with
+ *    the Latin "Halal" under it (so a guest who cannot read Arabic still
+ *    gets the word). Set STRAIGHT, and the two words at the SAME visual
+ *    size (owner, 2026-09-21) — it used to be a small caption under a
+ *    large word, tilted like a stamp.
  *  - `"chip"` — inline in a dish's diet chip. No caption, because the chip
  *    already prints "Halal" next to it in the guest's own language, and
- *    NO ROTATION: 14 pt of naskh tilted inside a 22 pt badge box would
- *    lose its tail to the clip rather than read as a stamp.
+ *    no rotation either.
  *
  * `writingDirection: "rtl"` is stated rather than left to the layout: the
  * app runs LTR on five of its six locales, and an Arabic string in an LTR
@@ -82,6 +82,7 @@ export function HalalMark({
       {badge ? (
         <Text
           style={[styles.caption, shaded && styles.shadow, { color }]}
+          allowFontScaling={false}
           accessibilityElementsHidden
           importantForAccessibility="no"
         >
@@ -93,21 +94,8 @@ export function HalalMark({
 }
 
 const styles = StyleSheet.create({
-  /**
-   * The badge sits on a DIAGONAL — the owner's photo has the mark pressed
-   * into the corner at an angle, not set square with the page.
-   *
-   * The rotation is on the BLOCK, not on the two Texts, so the word and
-   * its caption tilt together and stay parallel; rotating each line
-   * separately would fan them. -18° is the photo's angle, and it is
-   * applied here rather than at the call site so the chip variant can
-   * never inherit it.
-   *
-   * RN rotates about the box's CENTRE, which grows the mark's footprint
-   * by ~7 pt on each side (a 60×57 box becomes ~75×73). `WelcomeScreen`
-   * pays for that in its `top`/`left` — see `styles.halal` there.
-   */
-  badge: { alignItems: "center", gap: 1, transform: [{ rotate: "-18deg" }] },
+  /** Straight, word over word. */
+  badge: { alignItems: "center", gap: 0 },
   /** No caption and no gap: the chip's own label follows it on the line. */
   chip: { alignItems: "center", justifyContent: "center" },
   /**
@@ -118,8 +106,8 @@ const styles = StyleSheet.create({
    */
   wordBadge: {
     ...fonts.arabicDisplay,
-    fontSize: 30,
-    lineHeight: 42,
+    fontSize: 26,
+    lineHeight: 36,
     writingDirection: "rtl",
   },
   wordChip: {
@@ -128,9 +116,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     writingDirection: "rtl",
   },
-  /** The Latin gloss under the calligraphy — the mock's small caps look,
-   *  tracked out so it reads as a mark rather than as a word of copy. */
-  caption: { ...fonts.bodyBold, fontSize: 11, letterSpacing: 1.5 },
+  /** The Latin word under the calligraphy, sized to MATCH it: Amiri's
+   *  naskh at 26 pt and Nunito bold at 18 pt read as the same size (the
+   *  Arabic's letters sit small in a tall line box). */
+  caption: { ...fonts.bodyBold, fontSize: 18, lineHeight: 22, letterSpacing: 0.5 },
   /** What keeps white art off a bright photograph — the same soft shadow
    *  the welcome screen's own headings and the dish badges wear. */
   shadow: {

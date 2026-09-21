@@ -180,6 +180,13 @@ export interface StripeProvider {
    *  late webhook never leaves a charged guest looking unpaid. Null when
    *  the ref is unknown. */
   retrievePaymentIntent(ref: string): Promise<PaymentIntentState | null>;
+
+  /** Stop an unfinished payment so it can no longer take money: a
+   *  PaymentIntent (`pi_…`) is cancelled, a hosted Checkout Session
+   *  (`cs_…`) is expired. False when Stripe refuses — typically because
+   *  the payment already succeeded or is processing; the caller must then
+   *  NOT cancel the order. True for an unknown/already-cancelled ref. */
+  cancelPayment(ref: string): Promise<boolean>;
 }
 
 export interface PaymentIntentState {

@@ -43,6 +43,8 @@ async function fixture(): Promise<{
   createdTenantIds.push(s.tenantId);
 
   return asTenant(s.tenantId, async (tx) => {
+    // Card payments switched on (Billing "Enable"), no own keys saved.
+    await tx.tenant.updateMany({ data: { stripeOwnEnabled: true } });
     const venue = await tx.venue.create({
       data: {
         tenantId: s.tenantId,

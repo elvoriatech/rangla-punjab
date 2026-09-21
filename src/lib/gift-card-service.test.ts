@@ -691,3 +691,35 @@ describe("claiming a gift card for an order", () => {
     expect((await cardRow(fx.tenantId, stale.id)).status).toBe("expired");
   });
 });
+
+describe("cancelPendingGiftCard (guest backs out of a stuck payment)", () => {
+  it("deletes the buyer's own unpaid card, refuses anyone else's, and never touches a paid one", async () => {
+    const { cancelPendingGiftCard } = await import("./gift-card-payment");
+    const fx = await fixture();
+
+    // Unpaid (no payment started): gone, and no trace left behind.
+    const pending = await buy(fx);
+    expect(await cancelPendingGiftCard(fx.tenantId, "someone-else", pending.id)).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+    expect(await cancelPendingGiftCard(fx.tenantId, fx.customerId, pending.id)).toEqual({
+      ok: true,
+    });
+    expect(
+      await asTenant(fx.tenantId, (tx) => tx.giftCard.count({ where: { id: pending.id } })),
+    ).toBe(0);
+
+    // Paid: the guest keeps their card.
+    const paid = await activeCard(fx);
+    expect(await cancelPendingGiftCard(fx.tenantId, fx.customerId, paid.id)).toEqual({
+      ok: false,
+      error: "already_paid",
+    });
+    expect(
+      await asTenant(fx.tenantId, (tx) =>
+        tx.giftCard.findFirstOrThrow({ where: { id: paid.id }, select: { status: true } }),
+      ),
+    ).toEqual({ status: "active" });
+  });
+});

@@ -1,9 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  AppState,
+  Linking,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import * as ExpoLinking from "expo-linking";
 import type { ApiTracking } from "../api";
 import {
+  cancelOrder,
   fetchOrderStatus,
+  payCashInstead,
   payPageUrl,
   receiptUrl,
   startHostedPayment,
@@ -116,6 +127,19 @@ export function TrackScreen({
    * own write cannot make the CTA flicker back into view.
    */
   const [reviewTapped, setReviewTapped] = useState(false);
+  /**
+   * "Payment not completed" popup: try again / pay cash at the restaurant
+   * / cancel. Opens by itself when a payment has just failed or been
+   * abandoned; "Other options" reopens it. Cancelling asks once more,
+   * inside the popup (not a native alert, so it reads the same on
+   * Android, iOS and the web preview).
+   */
+  const [exitOpen, setExitOpen] = useState(false);
+  const [exitAsk, setExitAsk] = useState(false);
+  const [exitBusy, setExitBusy] = useState(false);
+  const [exitError, setExitError] = useState<string | null>(null);
+  /** Which failure already opened the popup, so it opens once per event. */
+  const exitShownFor = useRef<string | null>(null);
   const confirmedRef = useRef(confirmed);
   confirmedRef.current = confirmed;
   const reloadRef = useRef<() => void>(() => {});
@@ -175,6 +199,38 @@ export function TrackScreen({
   // not a state of the order — it goes away as soon as they try again.
   const [banner, setBanner] = useState<"cancelled" | "failed" | null>(note ?? null);
 
+  // The server's verdict on whether the guest may still leave this order.
+  const canExit = tracking?.paymentOptions?.canExit === true && !confirmed;
+  useEffect(() => {
+    if (!canExit) return;
+    const trigger = banner ?? (tracking?.paymentStatus === "failed" ? "failed" : null);
+    if (!trigger || exitShownFor.current === trigger) return;
+    exitShownFor.current = trigger;
+    setExitOpen(true);
+  }, [canExit, banner, tracking?.paymentStatus]);
+
+  async function exitWith(choice: "cash" | "cancel"): Promise<void> {
+    setExitBusy(true);
+    setExitError(null);
+    const res =
+      choice === "cash" ? await payCashInstead(orderId, token) : await cancelOrder(orderId, token);
+    setExitBusy(false);
+    setExitAsk(false);
+    if (res.ok) {
+      setExitOpen(false);
+      setBanner(null);
+    } else {
+      setExitError(
+        res.error === "already_paid"
+          ? t.cancelOrderPaid
+          : res.error === "processing"
+            ? t.cancelOrderProcessing
+            : t.cancelOrderFailed,
+      );
+    }
+    reloadRef.current();
+  }
+
   const deepLink = ExpoLinking.createURL("payment-return");
 
   async function startCard(): Promise<void> {
@@ -231,6 +287,11 @@ export function TrackScreen({
   // Terminal statuses: the guest has eaten (or the order was cancelled), so
   // an unpaid online record means it was settled at the counter.
   const closed = isTerminal(tracking?.status);
+  // An online order is stored as `pending` from the moment it is placed;
+  // `none` means the guest switched it to "pay cash at the restaurant"
+  // (or chose cash to begin with) — treat it as cash from here on.
+  const effectivePayment =
+    tracking?.paymentStatus === "none" && tracking?.paymentProvider == null ? "cash" : payment;
   const cancelled = isCancelled(tracking?.status);
   // A reward covered this order outright: there is nothing to pay, ever,
   // so the pay buttons stay away even before the status poll catches up.
@@ -434,8 +495,8 @@ export function TrackScreen({
                         ? t.payConfirming
                         : closed
                           ? t.paidAtRest
-                          : payment === "cash" ||
-                              (payment === undefined && !canPayCard && !canPayPaypal)
+                          : effectivePayment === "cash" ||
+                              (effectivePayment === undefined && !canPayCard && !canPayPaypal)
                             ? t.payAtRest
                             : t.payNotYet}
               </Text>
@@ -449,7 +510,7 @@ export function TrackScreen({
             !confirmed &&
             !paidByReward &&
             !paidByGiftCard &&
-            payment !== "cash" &&
+            effectivePayment !== "cash" &&
             !closed ? (
               <>
                 {banner ? (
@@ -489,6 +550,14 @@ export function TrackScreen({
                 )}
               </>
             ) : null}
+            {/* An unpaid online order the guest may still leave: the
+                popup's choices, reachable again after it was closed. */}
+            {canExit ? (
+              <Pressable onPress={() => setExitOpen(true)} style={styles.cancelLink}>
+                <Text style={styles.cancelLinkText}>{t.payExitOptions}</Text>
+              </Pressable>
+            ) : null}
+            {exitError && !exitOpen ? <Text style={styles.payBanner}>{exitError}</Text> : null}
             <Pressable
               onPress={() => void openInAppBrowser(receiptUrl(orderId, token, lang))}
               style={styles.receiptBtn}
@@ -556,6 +625,81 @@ export function TrackScreen({
         onClose={() => setIssueOpen(false)}
         onChanged={setIssueStatus}
       />
+
+      {/* "Payment not completed" — the online payment failed or was left
+          unfinished, so the kitchen does not have this order. Every choice
+          is re-checked by the server. */}
+      <Modal
+        visible={exitOpen && canExit}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExitOpen(false)}
+      >
+        <View style={styles.exitScrim}>
+          <View style={styles.exitCard} accessibilityViewIsModal>
+            <Text style={styles.exitTitle}>{t.payExitTitle}</Text>
+            <Text style={styles.exitBody}>{t.payExitBody}</Text>
+            {exitAsk ? (
+              <>
+                <Text style={styles.cancelAskText}>{t.cancelOrderAsk}</Text>
+                <Pressable
+                  onPress={() => void exitWith("cancel")}
+                  disabled={exitBusy}
+                  style={[styles.cancelYesBtn, exitBusy && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.cancelYesText}>{t.cancelOrderYes}</Text>
+                </Pressable>
+                <Pressable onPress={() => setExitAsk(false)} style={styles.receiptBtn}>
+                  <Text style={styles.receiptBtnText}>{t.cancelOrderKeep}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                {canPayCard ? (
+                  <Pressable
+                    onPress={() => {
+                      setExitOpen(false);
+                      void startCard();
+                    }}
+                    disabled={busy || exitBusy}
+                    style={styles.payBtn}
+                  >
+                    <Text style={styles.payBtnText}>{t.payExitTryCard}</Text>
+                  </Pressable>
+                ) : null}
+                {canPayPaypal ? (
+                  <Pressable
+                    onPress={() => {
+                      setExitOpen(false);
+                      void startPaypal();
+                    }}
+                    disabled={busy || exitBusy}
+                    style={styles.payBtn}
+                  >
+                    <Text style={styles.payBtnText}>{t.payExitTryPaypal}</Text>
+                  </Pressable>
+                ) : null}
+                {tracking?.paymentOptions?.acceptsCash ? (
+                  <Pressable
+                    onPress={() => void exitWith("cash")}
+                    disabled={exitBusy}
+                    style={[styles.receiptBtn, exitBusy && { opacity: 0.6 }]}
+                  >
+                    <Text style={styles.receiptBtnText}>{t.payExitCash}</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable onPress={() => setExitAsk(true)} style={styles.cancelLink}>
+                  <Text style={styles.cancelLinkText}>{t.cancelOrder}</Text>
+                </Pressable>
+              </>
+            )}
+            {exitError ? <Text style={styles.payBanner}>{exitError}</Text> : null}
+            <Pressable onPress={() => setExitOpen(false)} style={styles.exitClose}>
+              <Text style={styles.exitCloseText}>{t.payExitClose}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -681,6 +825,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   receiptBtnText: { color: colors.red, ...fonts.bodyBold, fontSize: 13 },
+  cancelLink: { marginTop: 14, alignItems: "center", paddingVertical: 8 },
+  cancelLinkText: {
+    color: colors.danger,
+    ...fonts.bodyBold,
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  cancelAskBox: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: 12,
+  },
+  cancelAskText: { color: colors.ink, ...fonts.bodySemi, fontSize: 13, textAlign: "center" },
+  cancelYesBtn: {
+    marginTop: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.danger,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  cancelYesText: { color: colors.creamCard, ...fonts.bodyHeavy, fontSize: 13 },
+  exitScrim: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  exitCard: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.lg,
+    padding: 20,
+    maxWidth: 420,
+    width: "100%",
+    alignSelf: "center",
+  },
+  exitTitle: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 18 },
+  exitBody: { color: colors.inkSoft, ...fonts.body, fontSize: 14, marginTop: 6 },
+  exitClose: { marginTop: 10, alignItems: "center", paddingVertical: 8 },
+  exitCloseText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13 },
   // Quieter than the receipt button on purpose: reporting a problem must
   // be findable, not the thing the screen pushes you toward.
   /** Gold, because this is the one thing on a finished order the venue

@@ -47,7 +47,9 @@ describe("connect payments (fake provider, full flow)", () => {
     createdTenantIds.push(s.tenantId);
 
     return asTenant(s.tenantId, async (tx) => {
-      await tx.tenant.updateMany({ data: { plan } });
+      // Card payments switched ON (Billing "Enable") — the master switch
+      // these flows need; with no own keys saved the shared keys are used.
+      await tx.tenant.updateMany({ data: { plan, stripeOwnEnabled: true } });
       const venue = await tx.venue.create({
         data: {
           tenantId: s.tenantId,
@@ -209,6 +211,31 @@ describe("connect payments (fake provider, full flow)", () => {
     expect(order.paymentProvider).toBe("stripe");
     expect(order.paymentRef?.startsWith("pi_own_")).toBe(true);
     expect(order.applicationFeeCents).toBe(0);
+  });
+
+  it("Billing's Enable tick is the master switch: off → no card option and no card charge", async () => {
+    const { getPublicVenueAccess } = await import("./order-service");
+    const fx = await fixture("growth");
+    await asTenant(fx.tenantId, (tx) =>
+      tx.tenant.updateMany({ data: { stripeOwnEnabled: false } }),
+    );
+    // Hidden on the website and in the app (both read this flag)…
+    expect((await getPublicVenueAccess(fx.tenantId, fx.venueId)).onlinePayment).toBe(false);
+    // …and refused if anything asks for a card charge anyway.
+    const placed = await placeOrder(fx, {
+      orderType: "dine_in",
+      items: [{ itemId: fx.itemId, quantity: 1 }],
+    });
+    if (!placed.ok) throw new Error("order failed");
+    const pay = await createOrderPayment(
+      fx.tenantId,
+      placed.value.orderId,
+      placed.value.receiptToken,
+    );
+    expect(pay.ok).toBe(false);
+    // Switched back on: offered again, on the shared keys.
+    await asTenant(fx.tenantId, (tx) => tx.tenant.updateMany({ data: { stripeOwnEnabled: true } }));
+    expect((await getPublicVenueAccess(fx.tenantId, fx.venueId)).onlinePayment).toBe(true);
   });
 
   it("rejects forged or mismatched receipt tokens", async () => {

@@ -380,9 +380,12 @@ describe("/api/v1/staff/*", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
     const body = (await res.json()) as OrdersBody;
+    // Every open order was just made an unpaid ONLINE order: those are
+    // held off the kitchen (owner rule 2026-09-21), so the kitchen badge
+    // drops to 0 and they are counted as awaiting payment instead.
     expect(body).toEqual({
       ok: true,
-      openOrders: open,
+      openOrders: 0,
       unpaidOnline: open,
       pendingReservations: 1,
       openIssues: 0,

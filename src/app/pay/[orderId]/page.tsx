@@ -7,6 +7,9 @@ import { formatPrice } from "@/lib/public-menu";
 import { PayButton } from "./pay-button";
 import { AutoReceipt } from "./auto-receipt";
 import { PayPalButton } from "./paypal-button";
+import { PaymentExit } from "./payment-exit";
+import { getGuestPaymentOptions } from "@/lib/connect-service";
+import { getPublicVenueAccess } from "@/lib/order-service";
 import { paypalAvailable } from "@/lib/paypal";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 import { postOrderCopy } from "@/lib/i18n/post-order";
@@ -37,7 +40,7 @@ export default async function PayPage({
   }>;
 }): Promise<React.ReactElement> {
   const { orderId } = await params;
-  const { token, ref, app, locale: localeParam } = await searchParams;
+  const { token, ref, app, status: statusParam, locale: localeParam } = await searchParams;
   // Opened from the mobile app? Then the settled state leads back there.
   const appReturnUrl = sanitizeAppReturnUrl(app);
   if (!token) notFound();
@@ -56,6 +59,15 @@ export default async function PayPage({
   // P2-4: site kill switch — no new payments while paused (a settled order
   // still shows its paid state below).
   const { siteActive } = await getOperatorSettings();
+  // "Payment not completed": try again / pay cash / cancel. The server
+  // decides which apply (still placed, unpaid, online); opened on its own
+  // when the guest has just come back from a failed or cancelled payment.
+  const exit = await getGuestPaymentOptions(verified.tenantId, orderId);
+  const cardAvailable = order.venueId
+    ? (await getPublicVenueAccess(verified.tenantId, order.venueId)).onlinePayment
+    : false;
+  const cancelled = exit?.status === "cancelled";
+  const switchedToCash = !paid && !cancelled && order.paymentStatus === "none";
 
   return (
     <main
@@ -120,6 +132,30 @@ export default async function PayPage({
             </a>
           )}
         </div>
+      ) : cancelled ? (
+        <div className="mt-6 border border-ink/15 bg-card px-4 py-4 text-center">
+          <p className="font-serif text-2xl">{t.exitCancelledTitle}</p>
+          <p className="mt-1 text-sm text-muted">{t.exitCancelledBody}</p>
+          <a
+            href={`/`}
+            className="mt-4 inline-block text-sm text-orange-dark underline underline-offset-2"
+          >
+            {t.backToMenu}
+          </a>
+        </div>
+      ) : switchedToCash ? (
+        <div className="mt-6 border border-[#3f7030]/40 bg-[#3f7030]/10 px-4 py-4 text-center">
+          <p className="font-serif text-2xl text-[#3f7030]">{t.exitCashDoneTitle}</p>
+          <p className="mt-1 text-sm text-muted">{t.exitCashDoneBody}</p>
+          {appReturnUrl ? (
+            <a
+              href={appReturnUrl}
+              className="mt-4 block w-full bg-orange px-4 py-3.5 text-center text-sm font-semibold uppercase tracking-[0.18em] rtl:normal-case rtl:tracking-normal text-card transition hover:bg-orange-dark"
+            >
+              {t.backToApp}
+            </a>
+          ) : null}
+        </div>
       ) : !siteActive ? (
         <div className="mt-6 border border-ink/15 bg-card px-4 py-4 text-center">
           <p className="font-serif text-2xl">{t.paused}</p>
@@ -154,8 +190,35 @@ export default async function PayPage({
               }}
             />
           ) : null}
-          {!ref && !paypalAvailable() ? (
+          {!ref && !paypalAvailable() && !exit?.canExit ? (
             <p className="mt-6 text-sm text-muted">{t.incompleteLink}</p>
+          ) : null}
+          {exit?.canExit ? (
+            <PaymentExit
+              orderId={orderId}
+              token={token}
+              acceptsCash={exit.acceptsCash}
+              cardAvailable={cardAvailable}
+              autoOpen={
+                statusParam === "cancelled" ||
+                statusParam === "failed" ||
+                order.paymentStatus === "failed"
+              }
+              labels={{
+                title: t.exitTitle,
+                body: t.exitBody,
+                tryCard: t.exitTryCard,
+                payCash: t.exitPayCash,
+                cancel: t.exitCancel,
+                cancelConfirm: t.exitCancelConfirm,
+                working: t.exitWorking,
+                stillProcessing: t.exitStillProcessing,
+                alreadyPaid: t.exitAlreadyPaid,
+                failed: t.exitFailed,
+                close: t.exitClose,
+                otherOptions: t.exitOtherOptions,
+              }}
+            />
           ) : null}
         </>
       )}

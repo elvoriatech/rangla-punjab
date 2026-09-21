@@ -84,11 +84,18 @@ export async function finalizePayPalReturn(
   const order = await asTenant(tenantId, (tx) =>
     tx.order.findFirst({
       where: { id: orderId },
-      select: { paymentStatus: true, paymentRef: true, paymentProvider: true },
+      select: { status: true, paymentStatus: true, paymentRef: true, paymentProvider: true },
     }),
   );
   if (!order || order.paymentProvider !== "paypal" || !order.paymentRef) return { paid: false };
   if (order.paymentStatus === "paid") return { paid: true };
+  // The guest (or the kitchen) called the order off while PayPal was
+  // open. PayPal only moves money at capture, so NOT capturing is what
+  // keeps a cancelled order from being charged.
+  if (order.status === "cancelled") {
+    log.info("payment.paypal_capture_skipped_cancelled", { orderId, tenantId });
+    return { paid: false };
+  }
 
   const capture = await payPalProviderFor(await getPayPalKeysForTenant(tenantId)).captureOrder(
     order.paymentRef,

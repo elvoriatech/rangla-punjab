@@ -62,14 +62,22 @@ export async function handleStripeEvent(event: StripeEvent): Promise<WebhookOutc
       // orderId/tenantId metadata is identical, so settlement is too.
       await handleOrderSettlement(event, event.data.object as HasMetadata);
       return { status: 200, kind: "processed" };
-    case "payment_intent.payment_failed":
-      // Deliberately NOT a state change: the order stays `pending` so the
-      // guest can retry in the sheet with another card. Only logged.
+    case "payment_intent.payment_failed": {
+      // `pending → failed`: the guest is shown "Payment failed" with try
+      // again / pay cash / cancel, and the order stays off the kitchen.
+      // A later retry that succeeds still settles it (markOrderPaid takes
+      // `failed` too).
+      const meta = (event.data.object as HasMetadata).metadata;
       logger.info("stripe.order.payment_failed", {
         eventId: event.id,
-        orderId: (event.data.object as HasMetadata).metadata?.orderId ?? null,
+        orderId: meta?.orderId ?? null,
       });
+      if (meta?.orderId && meta?.tenantId) {
+        const { markOrderPaymentFailed } = await import("../connect-service");
+        await markOrderPaymentFailed(meta.tenantId, meta.orderId);
+      }
       return { status: 200, kind: "processed" };
+    }
     case "account.updated":
       await handleAccountUpdated(event);
       return { status: 200, kind: "processed" };

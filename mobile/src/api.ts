@@ -581,6 +581,9 @@ export interface ApiTracking {
   /** How the order was (or is to be) paid. "voucher" means a reward
    *  covered it outright. Absent on older servers. */
   paymentProvider?: string | null;
+  /** "Payment not completed" choices for an unpaid online order. Null on
+   *  older servers (no choices shown). */
+  paymentOptions?: { canExit: boolean; acceptsCash: boolean } | null;
   /** Optional: older servers don't send the lines. */
   items?: ApiTrackItem[];
   /** What a redeemed reward took off this order; absent/0 = none. */
@@ -650,6 +653,7 @@ interface ApiOrderStatusBody {
   issue?: unknown;
   canReport?: unknown;
   review?: unknown;
+  paymentOptions?: unknown;
 }
 
 export async function fetchOrderStatus(orderId: string, token: string): Promise<ApiTracking> {
@@ -670,7 +674,35 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
     issue: asIssueSummary(rawIssue),
     canReport: rawCanReport === true,
     review: asReview(rawReview),
+    paymentOptions: asPaymentOptions(body.paymentOptions),
   };
+}
+
+function asPaymentOptions(raw: unknown): { canExit: boolean; acceptsCash: boolean } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  return { canExit: o.canExit === true, acceptsCash: o.acceptsCash === true };
+}
+
+/** Switch an unpaid online order to "pay cash at the restaurant" — which
+ *  is what sends it to the kitchen. Same guards as `cancelOrder`. */
+export async function payCashInstead(
+  orderId: string,
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}/pay-cash`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    return res.ok
+      ? { ok: true }
+      : { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+  } catch {
+    return { ok: false, error: "network" };
+  }
 }
 
 /**
@@ -1171,6 +1203,31 @@ export async function verifyPayment(orderId: string, token: string): Promise<boo
     return res.ok && body?.paid === true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * The guest calls off their own order while its online payment is stuck.
+ * The server allows it only while the order is still `placed`, unpaid and
+ * on card/PayPal — and checks Stripe first, answering `already_paid` when
+ * the money went through after all.
+ */
+export async function cancelOrder(
+  orderId: string,
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    return res.ok
+      ? { ok: true }
+      : { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+  } catch {
+    return { ok: false, error: "network" };
   }
 }
 

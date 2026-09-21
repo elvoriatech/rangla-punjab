@@ -126,7 +126,11 @@ export async function selectDirectChargeProvider(
   tenant: OwnKeyColumns,
   shared: StripeProvider,
 ): Promise<{ provider: StripeProvider; ownKeys: boolean } | null> {
-  const ownSecret = tenant.stripeOwnEnabled ? decryptSecret(tenant.stripeOwnSecretEnc) : null;
+  // The owner's master switch (Dashboard → Billing → Stripe "Enable",
+  // 2026-09-21): OFF means no card payments at all — not even with the
+  // deployment's STRIPE_* keys from prod.env behind it.
+  if (!tenant.stripeOwnEnabled) return null;
+  const ownSecret = decryptSecret(tenant.stripeOwnSecretEnc);
   if (ownSecret) {
     return {
       provider: await stripeProviderForKey(ownSecret, decryptSecret(tenant.stripeOwnWebhookEnc)),
@@ -177,7 +181,6 @@ export async function createOrderPayment(
     if (order.paymentStatus === "paid") return { ok: false, error: "already_paid" as const };
 
     const settings = await getOperatorSettings();
-    const menuUrl = `${siteUrl()}/`;
     const payPage = `${siteUrl()}/pay/${order.id}?token=${encodeURIComponent(token)}`;
     const label = `${order.venue.name} — order #${String(order.orderNumber).padStart(4, "0")}`;
 
@@ -199,7 +202,9 @@ export async function createOrderPayment(
           currency: order.currency,
           label,
           successUrl: `${payPage}&status=success`,
-          cancelUrl: menuUrl,
+          // Back to the pay page, not the menu: that is where the guest
+          // is offered try again / pay cash / cancel.
+          cancelUrl: `${payPage}&status=cancelled`,
           payPageUrl: payPage,
         });
         await tx.order.update({
@@ -240,7 +245,9 @@ export async function createOrderPayment(
       currency: order.currency,
       label: `${order.venue.name} — order #${String(order.orderNumber).padStart(4, "0")}`,
       successUrl: `${payPage}&status=success`,
-      cancelUrl: menuUrl,
+      // Back to the pay page, not the menu: that is where the guest
+      // is offered try again / pay cash / cancel.
+      cancelUrl: `${payPage}&status=cancelled`,
       payPageUrl: payPage,
     });
     await tx.order.update({
@@ -391,7 +398,9 @@ export async function createOrderPaymentIntent(
 export async function markOrderPaid(tenantId: string, orderId: string): Promise<boolean> {
   return asTenant(tenantId, async (tx) => {
     const updated = await tx.order.updateMany({
-      where: { id: orderId, paymentStatus: "pending" },
+      // `failed` too: a guest whose first card was declined may pay with
+      // another, and that success must settle the order like any other.
+      where: { id: orderId, paymentStatus: { in: ["pending", "failed"] } },
       data: { paymentStatus: "paid" },
     });
     if (updated.count > 0) log.info("payment.settled", { orderId, tenantId });
@@ -551,4 +560,209 @@ export async function reconcilePendingPayments(userId: string): Promise<number> 
   }
   if (settled > 0) log.info("payment.reconciled", { tenantId: found.tenantId, settled });
   return settled;
+}
+
+/**
+ * The gateway says the payment did NOT go through (card declined, PayPal
+ * capture denied). The order moves `pending → failed` so the guest sees
+ * "Payment failed — try again / pay cash / cancel" instead of an endless
+ * "pending"; it stays off the kitchen board. Only from `pending`: a paid
+ * order is never downgraded by a late failure event for an older attempt,
+ * and a retry that later succeeds settles it through `markOrderPaid`.
+ */
+export async function markOrderPaymentFailed(tenantId: string, orderId: string): Promise<boolean> {
+  const updated = await asTenant(tenantId, (tx) =>
+    tx.order.updateMany({
+      where: { id: orderId, paymentStatus: "pending" },
+      data: { paymentStatus: "failed" },
+    }),
+  );
+  if (updated.count > 0) log.info("payment.failed", { orderId, tenantId });
+  return updated.count > 0;
+}
+
+export type GuestPaymentExitError =
+  | "invalid_token"
+  | "not_found"
+  | "not_cancellable"
+  | "already_paid"
+  | "processing"
+  | "cash_not_accepted";
+export type GuestCancelResult = { ok: true } | { ok: false; error: GuestPaymentExitError };
+
+/**
+ * The ONLY way a guest can leave an online order: it must still be
+ * `placed` (the kitchen has not started), its payment `pending` or
+ * `failed`, on Stripe or PayPal. Cash orders never qualify — cash goes
+ * straight to the kitchen and is the restaurant's to cancel.
+ *
+ * Money first. For Stripe we (1) ask Stripe whether it already
+ * succeeded — then the order is settled and the guest is told it is paid,
+ * and (2) cancel the PaymentIntent / expire the Checkout Session, so no
+ * late payment can land on an order we are about to change. If Stripe
+ * will not stop it (it is processing), we refuse. PayPal needs no call:
+ * money moves only at capture, and neither capture path captures an order
+ * that is cancelled or no longer on PayPal.
+ */
+async function releaseOnlinePayment(
+  tenantId: string,
+  orderId: string,
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: GuestPaymentExitError }> {
+  const verified = verifyReceiptToken(token);
+  if (!verified || verified.orderId !== orderId || verified.tenantId !== tenantId) {
+    return { ok: false, error: "invalid_token" };
+  }
+  const shared = await getStripeProvider();
+  const looked = await asTenant(tenantId, async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { status: true, paymentStatus: true, paymentProvider: true, paymentRef: true },
+    });
+    if (!order) return null;
+    const tenant = await tx.tenant.findFirstOrThrow({
+      select: { stripeOwnSecretEnc: true, stripeOwnWebhookEnc: true },
+    });
+    return { order, tenant };
+  });
+  if (!looked) return { ok: false, error: "not_found" };
+  const { order, tenant } = looked;
+  if (order.paymentStatus === "paid") return { ok: false, error: "already_paid" };
+  const online =
+    (order.paymentProvider === "stripe" || order.paymentProvider === "paypal") &&
+    (order.paymentStatus === "pending" || order.paymentStatus === "failed");
+  if (order.status !== "placed" || !online) return { ok: false, error: "not_cancellable" };
+
+  if (order.paymentProvider === "stripe" && order.paymentRef) {
+    const check = await verifyOrderPayment(tenantId, orderId, token);
+    if (check.ok && check.paid) return { ok: false, error: "already_paid" };
+    // Stopping the payment must work even with card payments switched
+    // off in Billing — so the provider is chosen here from the keys alone,
+    // not through selectDirectChargeProvider's on/off gate.
+    const ownSecret = decryptSecret(tenant.stripeOwnSecretEnc);
+    const provider = ownSecret
+      ? await stripeProviderForKey(ownSecret, decryptSecret(tenant.stripeOwnWebhookEnc))
+      : shared;
+    if (!(await provider.cancelPayment(order.paymentRef))) {
+      return { ok: false, error: "processing" };
+    }
+  }
+  return { ok: true };
+}
+
+/** The guest calls off their unpaid online order. */
+export async function cancelUnpaidOrderByGuest(
+  tenantId: string,
+  orderId: string,
+  token: string,
+): Promise<GuestCancelResult> {
+  const released = await releaseOnlinePayment(tenantId, orderId, token);
+  if (!released.ok) return released;
+
+  const cancelled = await asTenant(tenantId, (tx) =>
+    tx.order.updateMany({
+      // Same guards again, inside the write: a webhook that settled the
+      // order a moment ago wins, and so does a kitchen that just started it.
+      where: {
+        id: orderId,
+        status: "placed",
+        paymentStatus: { in: ["pending", "failed"] },
+      },
+      data: { status: "cancelled" },
+    }),
+  );
+  if (cancelled.count === 0) return { ok: false, error: "not_cancellable" };
+  log.info("order.cancelled_by_guest", { orderId, tenantId });
+
+  // Undo whatever placing it moved (a redeemed loyalty voucher), exactly
+  // as a kitchen cancel does. Idempotent; never blocks the answer.
+  const { reverseOrderCredit } = await import("./loyalty-service");
+  void reverseOrderCredit(tenantId, orderId).catch(() => undefined);
+  return { ok: true };
+}
+
+/**
+ * "Pay cash at the restaurant instead": the online payment is released
+ * (see `releaseOnlinePayment`) and the order becomes a plain cash order —
+ * which is what sends it to the kitchen. Offered only when the restaurant
+ * lists cash among its accepted payments.
+ *
+ * Everything a cash order gets at placement happens now: the receipt,
+ * the owner's e-mail and push alert (the kitchen's cue), exactly once.
+ */
+export async function switchUnpaidOrderToCash(
+  tenantId: string,
+  orderId: string,
+  token: string,
+): Promise<GuestCancelResult> {
+  const accepts = await asTenant(tenantId, async (tx) => {
+    const order = await tx.order.findFirst({ where: { id: orderId }, select: { venueId: true } });
+    if (!order) return null;
+    const venue = await tx.venue.findFirst({
+      where: { id: order.venueId },
+      select: { ordering: true },
+    });
+    const { parseOrderingConfig } = await import("./ordering-config");
+    return parseOrderingConfig(venue?.ordering).acceptedPayments.includes("cash");
+  });
+  if (accepts === null) return { ok: false, error: "not_found" };
+  if (!accepts) return { ok: false, error: "cash_not_accepted" };
+
+  const released = await releaseOnlinePayment(tenantId, orderId, token);
+  if (!released.ok) return released;
+
+  const switched = await asTenant(tenantId, (tx) =>
+    tx.order.updateMany({
+      where: {
+        id: orderId,
+        status: "placed",
+        paymentStatus: { in: ["pending", "failed"] },
+      },
+      data: { paymentStatus: "none", paymentProvider: null, paymentRef: null },
+    }),
+  );
+  if (switched.count === 0) return { ok: false, error: "not_cancellable" };
+  log.info("order.switched_to_cash", { orderId, tenantId });
+
+  // Now it is a real order for the kitchen — same alerts a cash order
+  // gets at placement. Fire-and-forget: a mail hiccup must not undo it.
+  const { sendReceiptEmailForOrder } = await import("./receipt-email");
+  void sendReceiptEmailForOrder(tenantId, orderId);
+  const { sendNewOrderNotification } = await import("./order-notification");
+  void sendNewOrderNotification(tenantId, orderId);
+  const { sendNewOrderPush } = await import("./push-service");
+  void sendNewOrderPush(tenantId, orderId);
+  return { ok: true };
+}
+
+/**
+ * What the guest's pay page may offer for this order: whether the
+ * "payment not completed" choices apply at all (same conditions the two
+ * actions enforce), and whether "pay cash instead" is one of them.
+ */
+export async function getGuestPaymentOptions(
+  tenantId: string,
+  orderId: string,
+): Promise<{ status: string; canExit: boolean; acceptsCash: boolean } | null> {
+  return asTenant(tenantId, async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { status: true, paymentStatus: true, paymentProvider: true, venueId: true },
+    });
+    if (!order) return null;
+    const venue = await tx.venue.findFirst({
+      where: { id: order.venueId },
+      select: { ordering: true },
+    });
+    const { parseOrderingConfig } = await import("./ordering-config");
+    const canExit =
+      order.status === "placed" &&
+      (order.paymentProvider === "stripe" || order.paymentProvider === "paypal") &&
+      (order.paymentStatus === "pending" || order.paymentStatus === "failed");
+    return {
+      status: order.status,
+      canExit,
+      acceptsCash: parseOrderingConfig(venue?.ordering).acceptedPayments.includes("cash"),
+    };
+  });
 }

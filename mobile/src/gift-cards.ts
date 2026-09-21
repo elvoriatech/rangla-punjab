@@ -357,6 +357,30 @@ export async function confirmFakeGiftCardPayment(
 }
 
 /**
+ * Back out of a purchase whose payment is stuck. The server deletes the
+ * guest's own UNPAID card — after asking Stripe, so a payment that did go
+ * through answers `already_paid` (and the card is activated) instead.
+ */
+export async function cancelGiftCardPurchase(
+  token: string | null,
+  cardId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!token) return { ok: false, error: "unauthorized" };
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/gift-cards/${encodeURIComponent(cardId)}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Customer-Token": token },
+    });
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    return res.ok
+      ? { ok: true }
+      : { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+/**
  * Every card this account has bought, newest first.
  *
  * Empty for every "nothing to show" case — signed out, 401, offline, a

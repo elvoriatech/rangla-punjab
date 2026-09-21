@@ -68,7 +68,9 @@ export async function GET(): Promise<NextResponse> {
   // deployment's shared Stripe keys ARE the restaurant's account. Either
   // way a wallet button only makes sense against a REAL account: the fake
   // provider has no PaymentIntent for Stripe.js to confirm.
-  const ownSecret = tenant.stripeOwnEnabled ? decryptSecret(tenant.stripeOwnSecretEnc) : null;
+  // Card payments switched off in Billing → no wallet buttons either.
+  if (!tenant.stripeOwnEnabled) return withCors(NextResponse.json(off));
+  const ownSecret = decryptSecret(tenant.stripeOwnSecretEnc);
   const real = ownSecret
     ? ownSecret.startsWith("sk_")
     : (await getStripeProvider()).mode === "real";

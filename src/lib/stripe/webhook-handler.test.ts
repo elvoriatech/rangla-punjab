@@ -184,7 +184,7 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
     expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
   });
 
-  it("payment_intent.payment_failed leaves the order pending so the guest can retry", async () => {
+  it("payment_intent.payment_failed marks the order failed — and a retry that succeeds still settles it", async () => {
     const { tenantId, userId } = await seedTenant();
     createdTenantIds.push(tenantId);
     createdUserIds.push(userId);
@@ -219,7 +219,21 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
     const order = await asTenant(tenantId, (tx) =>
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
     );
-    expect(order.paymentStatus).toBe("pending");
+    // The guest is shown "Payment failed" (retry / pay cash / cancel) and
+    // the order stays off the kitchen board.
+    expect(order.paymentStatus).toBe("failed");
+
+    // Another card, this time accepted: the order settles as usual.
+    const retried: StripeEvent = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.succeeded",
+      data: { object: { id: "pi_retry", metadata: { orderId, tenantId } } },
+    };
+    expect((await handleStripeEvent(retried)).status).toBe(200);
+    const settled = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
+    );
+    expect(settled.paymentStatus).toBe("paid");
   });
 
   /**

@@ -174,6 +174,19 @@ export async function handlePayPalWebhook(input: {
     return { status: 200, kind: "replayed" };
   }
 
+  // PayPal refused the money: the order is marked `failed` (guest sees
+  // retry / pay cash / cancel). Gift cards need nothing — an unpaid card
+  // is never shown or counted.
+  if (
+    subject.kind === "order" &&
+    (event.event_type === "PAYMENT.CAPTURE.DENIED" ||
+      event.event_type === "PAYMENT.CAPTURE.DECLINED")
+  ) {
+    const { markOrderPaymentFailed } = await import("./connect-service");
+    await markOrderPaymentFailed(subject.tenantId, subject.id);
+    return { status: 200, kind: "processed" };
+  }
+
   if (!SETTLING_EVENTS.has(event.event_type)) {
     log.info("paypal.webhook.ignored", { eventId: event.id, type: event.event_type });
     return { status: 200, kind: "ignored" };

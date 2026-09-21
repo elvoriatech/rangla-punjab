@@ -87,6 +87,8 @@ describe("/api/v1/gift-cards", () => {
     if (!s.ok) throw new Error("signup failed");
     tenantId = s.tenantId;
     userId = s.userId;
+    // Card payments switched on (Billing "Enable"), no own keys saved.
+    await asTenant(tenantId, (tx) => tx.tenant.updateMany({ data: { stripeOwnEnabled: true } }));
 
     const slug = `gc-api-${randomUUID().slice(0, 8)}`;
     process.env.RESTAURANT_SLUG = slug;

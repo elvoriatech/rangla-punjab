@@ -240,7 +240,7 @@ describe("handlePayPalWebhook (server-to-server settlement)", () => {
     expect(await paymentStatus(fx.tenantId, orderId)).toBe("pending");
   });
 
-  it("non-settling events are 200-ignored and leave the order alone", async () => {
+  it("a denied capture marks the order failed (guest: retry / pay cash / cancel)", async () => {
     const fx = await fixture();
     const stamped = await pendingPayPalOrder(fx);
     const { orderId, ref } = stamped;
@@ -253,8 +253,8 @@ describe("handlePayPalWebhook (server-to-server settlement)", () => {
         supplementary_data: { related_ids: { order_id: ref } },
       },
     };
-    expect(await deliver(denied)).toEqual({ status: 200, kind: "ignored" });
-    expect(await paymentStatus(fx.tenantId, orderId)).toBe("pending");
+    expect(await deliver(denied)).toEqual({ status: 200, kind: "processed" });
+    expect(await paymentStatus(fx.tenantId, orderId)).toBe("failed");
   });
 
   it("malformed bodies are 400 invalid", async () => {

@@ -157,6 +157,154 @@ describe("paypal payments (fake provider, full flow)", () => {
     expect(again).toEqual({ ok: false, error: "already_paid" });
   });
 
+  it("lets the guest cancel an unpaid online order — and PayPal then never captures it", async () => {
+    const { cancelUnpaidOrderByGuest } = await import("./connect-service");
+    const fx = await fixture();
+    const place = async () => {
+      const placed = await placeOrder(fx, {
+        orderType: "dine_in",
+        tableNumber: "5",
+        items: [{ itemId: fx.itemId, quantity: 1 }],
+      });
+      if (!placed.ok) throw new Error("order failed");
+      return placed.value;
+    };
+    const statusOf = async (id: string) =>
+      asTenant(fx.tenantId, (tx) =>
+        tx.order.findFirstOrThrow({
+          where: { id },
+          select: { status: true, paymentStatus: true },
+        }),
+      );
+
+    // PayPal started, guest gives up → cancelled; the late return leg
+    // must not capture money for it.
+    const a = await place();
+    expect((await createPayPalOrderPayment(fx.tenantId, a.orderId, a.receiptToken)).ok).toBe(true);
+    expect(
+      await cancelUnpaidOrderByGuest(fx.tenantId, a.orderId, signReceiptToken("x", fx.tenantId)),
+    ).toEqual({ ok: false, error: "invalid_token" });
+    expect(await cancelUnpaidOrderByGuest(fx.tenantId, a.orderId, a.receiptToken)).toEqual({
+      ok: true,
+    });
+    expect(await finalizePayPalReturn(fx.tenantId, a.orderId)).toEqual({ paid: false });
+    expect(await statusOf(a.orderId)).toEqual({ status: "cancelled", paymentStatus: "pending" });
+
+    // No online payment chosen (cash at the till) → not the guest's to cancel.
+    const b = await place();
+    expect(await cancelUnpaidOrderByGuest(fx.tenantId, b.orderId, b.receiptToken)).toEqual({
+      ok: false,
+      error: "not_cancellable",
+    });
+
+    // The kitchen already started it → too late.
+    const c = await place();
+    await createPayPalOrderPayment(fx.tenantId, c.orderId, c.receiptToken);
+    await asTenant(fx.tenantId, (tx) =>
+      tx.order.update({ where: { id: c.orderId }, data: { status: "preparing" } }),
+    );
+    expect(await cancelUnpaidOrderByGuest(fx.tenantId, c.orderId, c.receiptToken)).toEqual({
+      ok: false,
+      error: "not_cancellable",
+    });
+
+    // Paid → never cancelled by the guest.
+    const d = await place();
+    await createPayPalOrderPayment(fx.tenantId, d.orderId, d.receiptToken);
+    await finalizePayPalReturn(fx.tenantId, d.orderId);
+    expect(await cancelUnpaidOrderByGuest(fx.tenantId, d.orderId, d.receiptToken)).toEqual({
+      ok: false,
+      error: "already_paid",
+    });
+  });
+
+  it("online orders reach the kitchen only once paid; cash goes straight there", async () => {
+    const { listRecentOrders } = await import("./order-service");
+    const fx = await fixture();
+    const userId = createdUserIds[createdUserIds.length - 1]!;
+    const place = async (intendedPayment: "cash" | "card" | "paypal") => {
+      const placed = await placeOrder(fx, {
+        orderType: "dine_in",
+        items: [{ itemId: fx.itemId, quantity: 1 }],
+        intendedPayment,
+      });
+      if (!placed.ok) throw new Error("order failed");
+      return placed.value;
+    };
+    const kitchenIds = async () =>
+      (await listRecentOrders(userId, 50, { scope: "open" })).map((o) => o.id);
+    const awaitingIds = async () =>
+      (await listRecentOrders(userId, 50, { scope: "awaiting_payment" })).map((o) => o.id);
+
+    const cash = await place("cash");
+    const card = await place("card");
+    const pp = await place("paypal");
+    expect(await kitchenIds()).toContain(cash.orderId);
+    expect(await kitchenIds()).not.toContain(card.orderId);
+    expect(await kitchenIds()).not.toContain(pp.orderId);
+    expect(await awaitingIds()).toEqual(expect.arrayContaining([card.orderId, pp.orderId]));
+
+    // PayPal paid → on the board, off the awaiting list.
+    await createPayPalOrderPayment(fx.tenantId, pp.orderId, pp.receiptToken);
+    await finalizePayPalReturn(fx.tenantId, pp.orderId);
+    expect(await kitchenIds()).toContain(pp.orderId);
+    expect(await awaitingIds()).not.toContain(pp.orderId);
+  });
+
+  it("'pay cash instead' sends an unpaid online order to the kitchen — only where cash is accepted", async () => {
+    const { switchUnpaidOrderToCash } = await import("./connect-service");
+    const { listRecentOrders } = await import("./order-service");
+    const fx = await fixture();
+    const userId = createdUserIds[createdUserIds.length - 1]!;
+    const placed = await placeOrder(fx, {
+      orderType: "dine_in",
+      items: [{ itemId: fx.itemId, quantity: 1 }],
+      intendedPayment: "paypal",
+    });
+    if (!placed.ok) throw new Error("order failed");
+    const { orderId, receiptToken } = placed.value;
+    await createPayPalOrderPayment(fx.tenantId, orderId, receiptToken);
+
+    // A venue that does not list cash never offers the switch.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({ data: { ordering: { acceptedPayments: ["paypal"] } } }),
+    );
+    expect(await switchUnpaidOrderToCash(fx.tenantId, orderId, receiptToken)).toEqual({
+      ok: false,
+      error: "cash_not_accepted",
+    });
+
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({ data: { ordering: { acceptedPayments: ["cash", "paypal"] } } }),
+    );
+    expect(await switchUnpaidOrderToCash(fx.tenantId, orderId, receiptToken)).toEqual({
+      ok: true,
+    });
+    const row = await asTenant(fx.tenantId, (tx) =>
+      tx.order.findFirstOrThrow({
+        where: { id: orderId },
+        select: { status: true, paymentStatus: true, paymentProvider: true, paymentRef: true },
+      }),
+    );
+    expect(row).toEqual({
+      status: "placed",
+      paymentStatus: "none",
+      paymentProvider: null,
+      paymentRef: null,
+    });
+    // Now it is a cash order: on the kitchen board, and PayPal's late
+    // return leg does not capture anything for it.
+    expect((await listRecentOrders(userId, 50, { scope: "open" })).map((o) => o.id)).toContain(
+      orderId,
+    );
+    expect(await finalizePayPalReturn(fx.tenantId, orderId)).toEqual({ paid: false });
+    // And a second switch is refused — it is no longer an online order.
+    expect(await switchUnpaidOrderToCash(fx.tenantId, orderId, receiptToken)).toEqual({
+      ok: false,
+      error: "not_cancellable",
+    });
+  });
+
   it("finalize on an order that never started PayPal is a safe no-op", async () => {
     const fx = await fixture();
     const placed = await placeOrder(fx, {

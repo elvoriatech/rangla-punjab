@@ -166,6 +166,10 @@ export default async function OrdersPage({
   // Failure here must not take the page down.
   await reconcilePendingPayments(userId).catch(() => 0);
   const orders = await listRecentOrders(userId, 100);
+  // Online orders whose payment has not gone through (yet). They are NOT
+  // on the board or printed — the kitchen only ever sees paid online
+  // orders — but the owner can see them here and call them off.
+  const awaiting = await listRecentOrders(userId, 50, { scope: "awaiting_payment" });
   const open = orders.filter((o) => isOpenStatus(o.status));
   const done = orders.filter((o) => !isOpenStatus(o.status));
 
@@ -385,6 +389,51 @@ export default async function OrdersPage({
           </ul>
         )}
       </section>
+
+      {awaiting.length > 0 ? (
+        <section aria-label="Awaiting payment" className="mt-10">
+          <h2 className="text-xs uppercase tracking-[0.28em] text-gold-dark">
+            Awaiting online payment ({awaiting.length})
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Card / PayPal orders whose payment has not gone through. They reach the kitchen (and the
+            printer) only once paid; the guest can retry, switch to cash, or cancel.
+          </p>
+          <ul className="mt-3 divide-y divide-ink/10 border border-ink/15 bg-card">
+            {awaiting.map((order) => (
+              <li
+                key={order.id}
+                className="flex flex-wrap items-baseline justify-between gap-3 px-5 py-3 text-sm"
+              >
+                <span className="font-serif text-lg">
+                  #{String(order.orderNumber).padStart(4, "0")}
+                </span>
+                <span className="text-muted">
+                  {order.paymentProvider === "paypal" ? "PayPal" : "Card"} ·{" "}
+                  {order.paymentStatus === "failed" ? "payment failed" : "not paid yet"} ·{" "}
+                  {new Intl.DateTimeFormat("de-DE", {
+                    timeStyle: "short",
+                    timeZone: "Europe/Berlin",
+                  }).format(order.createdAt)}{" "}
+                  · {formatPrice(order.totalCents, order.currency, "de")}
+                </span>
+                <form action={advanceOrderAction} className="inline">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <input type="hidden" name="to" value="cancelled" />
+                  <ConfirmSubmit
+                    message={`Cancel unpaid order #${String(order.orderNumber).padStart(4, "0")}?`}
+                    pendingLabel="Cancelling…"
+                    title="Cancel this unpaid order"
+                    className="text-xs text-muted underline-offset-2 hover:text-[#b3261e] hover:underline"
+                  >
+                    Cancel order
+                  </ConfirmSubmit>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {done.length > 0 ? (
         <section aria-label="Completed orders" className="mt-12">

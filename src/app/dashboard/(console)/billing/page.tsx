@@ -77,9 +77,9 @@ export default async function BillingPage({
           <h2 className="font-serif text-2xl">Card payments via Stripe</h2>
           <span
             className={`text-xs font-semibold uppercase tracking-wider ${
-              (ownKeysMode ? ownActive || (!ownKeys?.hasSecret && envStripe) : active)
+              (ownKeysMode ? ownActive || (Boolean(ownKeys?.enabled) && envStripe) : active)
                 ? "text-[#3f7030]"
-                : (ownKeysMode ? ownKeys?.hasSecret : connected)
+                : (ownKeysMode ? false : connected)
                   ? "text-amber-700"
                   : "text-brand-green/40"
             }`}
@@ -87,8 +87,8 @@ export default async function BillingPage({
             {ownKeysMode
               ? ownActive
                 ? "● On"
-                : ownKeys?.hasSecret
-                  ? "◐ Keys saved · off"
+                : !ownKeys?.enabled
+                  ? "○ Off"
                   : envStripe
                     ? "● On · server keys"
                     : "○ Not set up"
@@ -181,9 +181,14 @@ export default async function BillingPage({
                   defaultChecked={ownKeys?.enabled}
                   className="h-4 w-4"
                 />
-                Enable — accept online payments with these keys
+                Enable — offer card payment to guests
               </label>
-              {envStripe && !ownKeys?.hasSecret ? (
+              <p className="text-xs text-brand-green/60">
+                This is the on/off switch for card payments. Off hides card payment everywhere — on
+                the website and in the app — even if Stripe keys are saved here or on the server. On
+                uses the keys above, or the server&apos;s keys when none are saved here.
+              </p>
+              {envStripe && !ownKeys?.hasSecret && ownKeys?.enabled ? (
                 <p className="border-l-4 border-[#3f7030] bg-[#f0f6ec] px-4 py-2 text-xs text-[#2f5a24]">
                   Card payments are live using the Stripe keys from the server&apos;s prod.env (
                   <code>STRIPE_SECRET_KEY</code> / <code>STRIPE_WEBHOOK_SECRET</code>). Register the

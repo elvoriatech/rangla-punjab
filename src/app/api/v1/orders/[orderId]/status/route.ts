@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getOrderTracking } from "@/lib/order-service";
+import { getGuestPaymentOptions } from "@/lib/connect-service";
 import { guestSteps, isCancelledStatus, statusChain, stepIndex } from "@/lib/order-status";
 import { getGuestIssueState } from "@/lib/issue-service";
 import { reviewPromptFor, trackedReviewUrl } from "@/lib/google-rating";
@@ -27,9 +28,10 @@ export async function GET(
     return withCors(NextResponse.json({ ok: false, error: "invalid_token" }, { status: 401 }));
   }
 
-  const [order, issueState] = await Promise.all([
+  const [order, issueState, paymentOptions] = await Promise.all([
     getOrderTracking(claim.tenantId, orderId),
     getGuestIssueState(claim.tenantId, orderId),
+    getGuestPaymentOptions(claim.tenantId, orderId),
   ]);
   if (!order)
     return withCors(NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }));
@@ -132,6 +134,13 @@ export async function GET(
         // land on the review form rather than a dead link.
         review: review
           ? { url: trackedReviewUrl(order.id, token), prompted: review.prompted }
+          : null,
+        // "Payment not completed" choices for an unpaid online order:
+        // `canExit` = the guest may still cancel / switch (the server
+        // re-checks on the action itself), `acceptsCash` = offer "pay
+        // cash at the restaurant". Top level, like `review`.
+        paymentOptions: paymentOptions
+          ? { canExit: paymentOptions.canExit, acceptsCash: paymentOptions.acceptsCash }
           : null,
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },

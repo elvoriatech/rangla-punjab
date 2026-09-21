@@ -253,3 +253,65 @@ export async function settleFakeGiftCardPayment(
 ): Promise<boolean> {
   return activateGiftCard(tenantId, cardId, { provider: STRIPE, ref });
 }
+
+export type GiftCardCancelResult =
+  { ok: true } | { ok: false; error: "not_found" | "already_paid" | "processing" };
+
+/**
+ * The guest backs out of a voucher purchase whose payment is stuck.
+ *
+ * Only the buyer's own `pending_payment` card, and it is DELETED rather
+ * than marked: an unpaid card was never sold, never counted and never
+ * shown, so there is nothing to keep a record of.
+ *
+ * Money first, as for orders: a Stripe intent is checked before the row
+ * goes. Already succeeded → the card is activated instead (the guest
+ * paid; they get their card). Still processing → refused, so the money
+ * cannot land on a card that no longer exists. PayPal needs no check:
+ * money only moves at capture, and both capture paths (return leg,
+ * webhook) find no card and capture nothing.
+ */
+export async function cancelPendingGiftCard(
+  tenantId: string,
+  customerId: string,
+  cardId: string,
+): Promise<GiftCardCancelResult> {
+  const shared = await getStripeProvider();
+  const looked = await asTenant(tenantId, async (tx) => {
+    const card = await tx.giftCard.findFirst({
+      where: { id: cardId, purchaserCustomerId: customerId },
+      select: { status: true, paymentProvider: true, paymentRef: true },
+    });
+    if (!card) return { kind: "not_found" as const };
+    if (card.status !== "pending_payment") return { kind: "paid" as const };
+    if (card.paymentProvider !== STRIPE || !card.paymentRef) return { kind: "unpaid" as const };
+    const tenant = await tx.tenant.findFirstOrThrow({
+      select: { stripeOwnEnabled: true, stripeOwnSecretEnc: true, stripeOwnWebhookEnc: true },
+    });
+    const direct = await selectDirectChargeProvider(tenant, shared);
+    const state = direct ? await direct.provider.retrievePaymentIntent(card.paymentRef) : null;
+    return { kind: "stripe" as const, ref: card.paymentRef, status: state?.status ?? null };
+  });
+
+  if (looked.kind === "not_found") return { ok: false, error: "not_found" };
+  if (looked.kind === "paid") return { ok: false, error: "already_paid" };
+  if (looked.kind === "stripe") {
+    if (looked.status === "succeeded") {
+      await activateGiftCard(tenantId, cardId, { provider: STRIPE, ref: looked.ref });
+      return { ok: false, error: "already_paid" };
+    }
+    if (looked.status === "processing" || looked.status === "requires_capture") {
+      return { ok: false, error: "processing" };
+    }
+  }
+
+  const removed = await asTenant(tenantId, (tx) =>
+    tx.giftCard.deleteMany({
+      // Re-checked in the write: a webhook that activated it a moment ago wins.
+      where: { id: cardId, purchaserCustomerId: customerId, status: "pending_payment" },
+    }),
+  );
+  if (removed.count === 0) return { ok: false, error: "already_paid" };
+  log.info("giftcard.cancelled_by_guest", { tenantId, cardId });
+  return { ok: true };
+}

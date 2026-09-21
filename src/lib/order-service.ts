@@ -4,6 +4,7 @@ import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer
 import { TERMINAL_STATUSES, canTransition, isOrderStatus } from "./order-status";
 import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
 import { paypalAvailable } from "./paypal";
+import { getOperatorSettings } from "./operator-settings";
 import { stripeDirectChargeAvailable } from "./stripe";
 import { asTenant, asUser } from "./tenant";
 import { signReceiptToken } from "./receipt-token";
@@ -92,10 +93,10 @@ export const placeOrderSchema = z
       z.string().trim().email().max(120).optional(),
     ),
     /**
-     * How the guest said they will pay, so the server knows whether the
-     * receipt email goes out now (cash) or once the online payment
-     * settles (card / paypal — sent from markOrderPaid). Not stored; an
-     * absent value means cash.
+     * How the guest said they will pay. Cash (or absent) goes straight to
+     * the kitchen and the receipt is mailed now; card / paypal is stored
+     * as `paymentStatus: "pending"` with the chosen rail, held off the
+     * kitchen, and mailed from markOrderPaid once the payment settles.
      */
     intendedPayment: z.enum(["cash", "card", "paypal"]).optional(),
     /**
@@ -509,7 +510,17 @@ export async function placeOrder(
               paymentStatus: "paid",
               paymentProvider: paidByGiftCard ? GIFT_CARD_PROVIDER : VOUCHER_PROVIDER,
             }
-          : {}),
+          : input.intendedPayment === "card" || input.intendedPayment === "paypal"
+            ? {
+                // An ONLINE order is born awaiting payment and stays off the
+                // kitchen board until the money is confirmed (owner rule,
+                // 2026-09-21). The chosen rail is recorded now so the order
+                // can never be mistaken for a cash order in the meantime;
+                // starting the payment later overwrites it with the real ref.
+                paymentStatus: "pending",
+                paymentProvider: input.intendedPayment === "card" ? "stripe" : "paypal",
+              }
+            : {}),
         currency,
         items: {
           create: [
@@ -760,7 +771,14 @@ function withAddress<T extends { deliveryAddress: unknown }>(
  * The mobile orders board asks for the two separately so a long tail of
  * finished orders can never push a live one out of the window.
  */
-export type OrderScope = "all" | "open" | "closed";
+export type OrderScope = "all" | "open" | "closed" | "awaiting_payment";
+
+/**
+ * Payment states of an ONLINE order that is not (yet) paid: `pending`
+ * (waiting for the guest or the gateway) and `failed` (declined, the
+ * guest may retry). Orders in these states are held off the kitchen.
+ */
+export const AWAITING_PAYMENT = ["pending", "failed"] as const;
 
 export interface RecentOrdersOptions {
   /** Default "all" — the dashboard/kitchen behaviour this has always had. */
@@ -779,7 +797,17 @@ export async function listRecentOrders(
   // Both terminals close an order: a cancelled one belongs to the
   // archive, not to the board the kitchen is cooking from.
   const closed = [...TERMINAL_STATUSES];
-  const where: Prisma.OrderWhereInput = {};
+  // Online orders reach the kitchen only once paid: an order still
+  // awaiting (or having failed) its card / PayPal payment is not on the
+  // board, not printed and not counted (owner rule, 2026-09-21). The
+  // dashboard reads those separately via `scope: "awaiting_payment"`.
+  const unpaidOnline: Prisma.OrderWhereInput = { paymentStatus: { in: [...AWAITING_PAYMENT] } };
+  const where: Prisma.OrderWhereInput =
+    options.scope === "awaiting_payment"
+      ? { ...unpaidOnline, status: { notIn: closed } }
+      : // Only OPEN unpaid-online orders are held back: once cancelled (or
+        // otherwise closed) they belong in the archive like any other.
+        { NOT: { ...unpaidOnline, status: { notIn: closed } } };
   if (options.scope === "open") where.status = { notIn: closed };
   else if (options.scope === "closed") where.status = { in: closed };
   if (options.updatedSince) where.updatedAt = { gte: options.updatedSince };
@@ -1159,13 +1187,20 @@ export async function getPublicVenueAccess(
     // account with charges enabled. Same for PayPal with its own keys or
     // the PAYPAL_* env pair. Only a fake provider in production is hidden.
     const ownStripe = tenant.stripeOwnEnabled && Boolean(tenant.stripeOwnSecretEnc);
+    // The Billing "Enable" tick is the master switch for card payments in
+    // own-keys mode: off hides the card option on the website and in the
+    // app even when prod.env carries STRIPE_* keys (owner, 2026-09-21).
+    // Connect mode has no such tick, so it is not gated by it.
+    const { feeMode } = await getOperatorSettings();
+    const cardSwitchOff = feeMode === "upfront" && !tenant.stripeOwnEnabled;
     const ownPayPal =
       tenant.paypalOwnEnabled && Boolean(tenant.paypalClientIdEnc && tenant.paypalSecretEnc);
     return {
       menuVisible: access.menuVisible,
       modes: effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering)),
       onlinePayment:
-        tenant.stripeChargesEnabled || ownStripe || (await stripeDirectChargeAvailable(false)),
+        !cardSwitchOff &&
+        (tenant.stripeChargesEnabled || ownStripe || (await stripeDirectChargeAvailable(false))),
       paypalPayment: paypalAvailable(ownPayPal),
       loyalty: parseLoyaltyConfig(venue.loyalty),
     };

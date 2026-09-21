@@ -249,6 +249,13 @@ export class FakeStripeProvider implements StripeProvider {
     };
   }
 
+  async cancelPayment(ref: string): Promise<boolean> {
+    const c = this.orderCheckouts.get(ref);
+    if (c?.paid) return false;
+    this.orderCheckouts.delete(ref);
+    return true;
+  }
+
   /** Test/dev hook: settle a fake checkout, like Stripe's webhook would. */
   settleOrderCheckout(
     ref: string,

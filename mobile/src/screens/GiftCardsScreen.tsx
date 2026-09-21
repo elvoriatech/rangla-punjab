@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -19,6 +19,7 @@ import { useAuth } from "../auth";
 import type { GiftCardProduct, GiftCardShop, GiftCardView } from "../gift-cards";
 import {
   buyGiftCard,
+  cancelGiftCardPurchase,
   giftCardChargeCents,
   confirmFakeGiftCardPayment,
   fetchGiftCardShop,
@@ -29,7 +30,13 @@ import {
 } from "../gift-cards";
 import { GiftCardCard } from "../gift-card-card";
 import { openPayPage, payIntentWithCard, walletsFromAccepted } from "../payments";
-import { BrandHeader, FieldLabel, PrimaryButton, RequiredLegend } from "../components";
+import {
+  BrandHeader,
+  FieldLabel,
+  OutlineButton,
+  PrimaryButton,
+  RequiredLegend,
+} from "../components";
 import { fill, useI18n } from "../i18n";
 import { useLayout, TOUCH_MIN } from "../layout";
 import { usePressScale } from "../motion";
@@ -105,6 +112,12 @@ export function GiftCardsScreen({
   const [method, setMethod] = useState<BuyMethod>("card");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** A calm, non-error line — "Cancelled, nothing was charged". */
+  const [notice, setNotice] = useState<string | null>(null);
+  /** Bumped by every purchase attempt AND by Cancel: a payment step that
+   *  finishes after the guest cancelled sees a newer number and does
+   *  nothing, so a late sheet result cannot pull the screen back. */
+  const attemptRef = useRef(0);
   const [stage, setStage] = useState<Stage>({ step: "form" });
 
   useEffect(() => {
@@ -209,6 +222,7 @@ export function GiftCardsScreen({
     }
     setBusy(true);
     setError(null);
+    setNotice(null);
     const deepLink = ExpoLinking.createURL("payment-return");
     const result = await buyGiftCard(auth.token, {
       productId: product.id,
@@ -240,6 +254,7 @@ export function GiftCardsScreen({
       return;
     }
     const card = result.purchase.card;
+    const attempt = ++attemptRef.current;
     setStage({ step: "paying", card });
 
     // PayPal: the server has already started the payment, so the browser
@@ -247,6 +262,7 @@ export function GiftCardsScreen({
     // leg bounces back to the deep link.
     if (result.purchase.paypalUrl) {
       await openPayPage(result.purchase.paypalUrl, deepLink);
+      if (attempt !== attemptRef.current) return;
       await settle(card);
       return;
     }
@@ -262,6 +278,7 @@ export function GiftCardsScreen({
       merchantDisplayName: menu.venue.name,
       wallets: walletsFromAccepted(menu.ordering.acceptedPayments),
     });
+    if (attempt !== attemptRef.current) return;
     if (typeof outcome === "object") {
       // Dev/CI provider: there is no sheet, so the test button settles it.
       setBusy(false);
@@ -277,6 +294,29 @@ export function GiftCardsScreen({
     setBusy(false);
     setStage({ step: "form" });
     if (outcome !== "cancelled") setError(t.giftCardBuyFailed);
+  }
+
+  /**
+   * The guest gives up on a stuck payment. The server deletes the unpaid
+   * card — unless Stripe says the money DID go through, in which case the
+   * card was activated and we show it, like any finished purchase.
+   */
+  async function cancelPurchase(card: GiftCardView): Promise<void> {
+    attemptRef.current += 1;
+    setBusy(true);
+    const res = await cancelGiftCardPurchase(auth.token, card.id);
+    if (!res.ok && res.error === "already_paid") {
+      await settle(card);
+      return;
+    }
+    setBusy(false);
+    setStage({ step: "form" });
+    if (res.ok) {
+      setError(null);
+      setNotice(t.giftCardCancelled);
+    } else {
+      setError(res.error === "processing" ? t.cancelOrderProcessing : t.giftCardBuyFailed);
+    }
   }
 
   /** Money has moved: re-read the card and show it. */
@@ -357,6 +397,12 @@ export function GiftCardsScreen({
             <View style={styles.payingBox}>
               <ActivityIndicator color={colors.red} />
               <Text style={styles.payingText}>{t.placingCard}</Text>
+              {/* The way out when the payment hangs (a sheet that never
+                  answered, a PayPal tab left open). */}
+              <OutlineButton
+                label={t.giftCardCancelPay}
+                onPress={() => void cancelPurchase(stage.card)}
+              />
             </View>
           ) : stage.step === "fake" ? (
             <View style={styles.payingBox}>
@@ -368,10 +414,15 @@ export function GiftCardsScreen({
                 busy={busy}
                 onPress={() => void settleFake()}
               />
+              <OutlineButton
+                label={t.giftCardCancelPay}
+                onPress={() => void cancelPurchase(stage.card)}
+              />
             </View>
           ) : (
             <>
               <Text style={styles.lead}>{t.giftCardsLead}</Text>
+              {notice ? <Text style={styles.discount}>{notice}</Text> : null}
 
               {/* The designs, as a swipeable row of tiles. A radio group
                   rather than a list: exactly one is bought. */}

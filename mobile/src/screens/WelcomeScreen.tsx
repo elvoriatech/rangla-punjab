@@ -325,11 +325,8 @@ const styles = StyleSheet.create({
   /** Top-left corner, clear of the notch (`top` is set inline from the
    *  safe-area inset).
    *
-   *  The mark is ROTATED -18° about its own centre, which pushes its
-   *  painted corners ~8 pt further out than the layout box on every
-   *  side. `left: 20` and the +14 on the inset are what keep those
-   *  corners inside the screen and off the status bar; the un-rotated
-   *  box therefore sits a little in from where a square mark would.
+   *  The mark is set straight (owner, 2026-09-21); `left: 20` and the
+   *  +14 on the inset keep it inside the screen and off the status bar.
    *  See the mark itself in `halal-mark.tsx`. */
   halal: { position: "absolute", left: 20 },
   ornamentSmall: { width: 150, height: 28, marginTop: 10, opacity: 0.95 },

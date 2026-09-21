@@ -57,8 +57,17 @@ export async function POST(request: Request): Promise<NextResponse> {
         (await prisma.tenant.findFirst({ select: { id: true } }))?.id;
       if (orderId && tenantId) await markOrderPaid(tenantId, orderId);
     }
-    // payment_intent.payment_failed is deliberately ignored: the order
-    // stays pending so the guest can retry with another card.
+    // A declined card: `pending → failed`, so the guest sees "Payment
+    // failed" (retry / pay cash / cancel). A later success still settles.
+    if (event.type === "payment_intent.payment_failed") {
+      const object = event.data.object as { metadata?: Record<string, string | null> };
+      const orderId = object.metadata?.orderId;
+      const tenantId = object.metadata?.tenantId ?? tenant?.id;
+      if (orderId && tenantId) {
+        const { markOrderPaymentFailed } = await import("@/lib/connect-service");
+        await markOrderPaymentFailed(tenantId, orderId);
+      }
+    }
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {
     captureException(err, { eventId: event.id, eventType: event.type });

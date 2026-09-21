@@ -300,4 +300,25 @@ export class RealStripeProvider implements StripeProvider {
       return null;
     }
   }
+
+  async cancelPayment(ref: string): Promise<boolean> {
+    try {
+      if (ref.startsWith("cs_")) {
+        const session = await this.stripe.checkout.sessions.retrieve(ref);
+        if (session.status === "complete") return false;
+        if (session.status === "open") await this.stripe.checkout.sessions.expire(ref);
+        return true;
+      }
+      const pi = await this.stripe.paymentIntents.retrieve(ref);
+      if (pi.status === "canceled") return true;
+      if (pi.status === "succeeded" || pi.status === "processing") return false;
+      await this.stripe.paymentIntents.cancel(ref);
+      return true;
+    } catch {
+      // Stripe refused (e.g. it moved to processing a moment ago) or the
+      // ref is unreadable: report "not stopped" so nothing is cancelled
+      // on our side on a guess.
+      return false;
+    }
+  }
 }
