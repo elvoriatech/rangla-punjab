@@ -624,6 +624,24 @@ const CONTACTED: PublicMenu = {
         display: "+49 1701 234567",
         href: "https://wa.me/491701234567",
       },
+      email: null,
+    },
+  },
+};
+
+/** The same card with the fourth slot filled — deliberately a long
+ *  address, because the row has to survive one. */
+const CONTACTED_EMAIL: PublicMenu = {
+  ...CONTACTED,
+  venue: {
+    ...CONTACTED.venue,
+    contact: {
+      ...CONTACTED.venue.contact!,
+      email: {
+        number: "reservierung@ristorante-volpe-konstanz.example",
+        display: "reservierung@ristorante-volpe-konstanz.example",
+        href: "mailto:reservierung@ristorante-volpe-konstanz.example",
+      },
     },
   },
 };
@@ -687,6 +705,41 @@ describe("MenuView footer", () => {
     expect(html).toContain('<span class="font-medium tabular-nums">+49 7531 123456</span>');
     // WhatsApp leaves the site; the two tel: links do not.
     expect(html).toMatch(/wa\.me[^>]*rel="noopener noreferrer"/);
+  });
+
+  it("links the e-mail address with mailto:, on its own red disc", () => {
+    const html = footerOf(renderToStaticMarkup(<MenuView menu={CONTACTED_EMAIL} />));
+    const address = "reservierung@ristorante-volpe-konstanz.example";
+    // A plain `mailto:` anchor — no target, because a compose window is
+    // the guest's own mail app, not another tab of ours.
+    expect(html).toContain(`<li><a href="mailto:${address}"`);
+    expect(html).not.toMatch(new RegExp(`<a href="mailto:[^>]*target=`));
+    // The accessible name is the verb + the address, so a screen reader
+    // hears an action rather than a bare string of characters.
+    expect(html).toContain(`aria-label="E-mail ${address}"`);
+    // Red disc, white glyph, out of the a11y tree like its three siblings.
+    const disc =
+      html.match(new RegExp(`<a href="mailto:[^"]*"[^>]*>\\s*<span[^>]*class="([^"]*)"`))?.[1] ??
+      "";
+    expect(disc, "e-mail red").toContain("bg-[#DC2626]");
+    expect(disc, "white glyph").toContain("text-white");
+    expect(html).toMatch(/<span aria-hidden="true" class="[^"]*bg-\[#DC2626\]/);
+    // A 45-character address cannot push the one-line row sideways.
+    expect(html).toMatch(new RegExp(`class="[^"]*break-all[^"]*">${address}</span>`));
+    // The other three rows are untouched by it.
+    expect(html).toContain('aria-label="Call landline +49 7531 123456"');
+    expect(html).toContain('aria-label="Message +49 1701 234567 on WhatsApp (opens WhatsApp)"');
+    // Four rows, no empty list item — the guarantee that holds with the
+    // slot filled as well as with it null.
+    expect(html.match(/<li><a href="(tel:|https:\/\/wa\.me|mailto:)/g) ?? []).toHaveLength(4);
+    expect(emptyListItems(html), "footer with an e-mail row").toEqual([]);
+  });
+
+  it("renders no e-mail row, and no empty one, when the address is null", () => {
+    const html = footerOf(renderToStaticMarkup(<MenuView menu={CONTACTED} />));
+    expect(html).not.toContain("mailto:");
+    expect(html).not.toContain("bg-[#DC2626]");
+    expect(emptyListItems(html), "footer with the e-mail slot empty").toEqual([]);
   });
 
   it("drops the contact block entirely when the owner published no number", () => {

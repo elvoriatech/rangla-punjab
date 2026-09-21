@@ -351,12 +351,13 @@ export function MenuView({
     onlinePayment: Boolean(onlinePayment),
     paypalPayment: Boolean(paypalPayment),
   });
-  // The restaurant's own numbers for the footer row. Already projected by
-  // the loader — number, display string and `tel:` / `wa.me` href — so the
-  // page renders links rather than deriving them a second time.
+  // The restaurant's own ways in, for the footer row. Already projected by
+  // the loader — value, display string and `tel:` / `wa.me` / `mailto:`
+  // href — so the page renders links rather than deriving them a second
+  // time.
   const contact = menu.venue.contact ?? null;
-  // One row per number the owner actually published, in call order.
-  // Deriving the list here (rather than three conditional <li>s) is what
+  // One row per slot the owner actually published, in call order.
+  // Deriving the list here (rather than four conditional <li>s) is what
   // guarantees the footer can never render an empty list item.
   const contactRows: ContactRow[] = contact
     ? (
@@ -364,6 +365,7 @@ export function MenuView({
           ["landline", contact.landline, t.contact.landline],
           ["mobile", contact.mobile, t.contact.mobile],
           ["whatsapp", contact.whatsapp, t.contact.whatsapp],
+          ["email", contact.email, t.contact.email],
         ] as const
       ).flatMap(([key, entry, label]) =>
         entry
@@ -374,12 +376,15 @@ export function MenuView({
                 display: entry.display,
                 href: entry.href,
                 // WhatsApp leaves the site, so its name says so out loud;
+                // e-mail opens a compose window, so its name is a verb;
                 // the two `tel:` links keep the "Call <slot> <number>" name
                 // they have always had.
                 aria:
                   key === "whatsapp"
                     ? t.contact.whatsappAria(entry.display)
-                    : t.contact.callAria(label, entry.display),
+                    : key === "email"
+                      ? t.contact.emailAria(entry.display)
+                      : t.contact.callAria(label, entry.display),
               },
             ]
           : [],
@@ -763,7 +768,21 @@ export function MenuView({
                         className="inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
                       >
                         <ContactIcon kind={row.key} />
-                        <span className="font-medium tabular-nums">{row.display}</span>
+                        {/* An address is one long unbreakable token, and a
+                            `flex-wrap` row cannot wrap inside a word: bound
+                            it and let it break, or a
+                            reservations@very-long-name.example pushes the
+                            whole footer sideways on a phone. Numbers keep
+                            the tabular figures they have always had. */}
+                        <span
+                          className={
+                            row.key === "email"
+                              ? "min-w-0 max-w-[16rem] break-all font-medium"
+                              : "font-medium tabular-nums"
+                          }
+                        >
+                          {row.display}
+                        </span>
                       </a>
                     </li>
                   ))}
@@ -2663,24 +2682,25 @@ function localeMeta(code: string): { flag: string; label: string } {
 }
 
 interface ContactRow {
-  key: "landline" | "mobile" | "whatsapp";
+  key: "landline" | "mobile" | "whatsapp" | "email";
   label: string;
   display: string;
   href: string;
   aria: string;
 }
 
-/** One filled circle per contact kind, so the three rows are told apart
- *  at a glance rather than by reading the number: WhatsApp's own green,
- *  a blue for the landline, an amber for the mobile. Solid fills with a
- *  white glyph, which clears 4.5:1 on both the dark-red surface and the
- *  light one — the colour is decoration, never the only cue, since the
- *  anchor's `aria-label` still names the line. A kind we do not know
- *  keeps the neutral translucent disc. */
+/** One filled circle per contact kind, so the four rows are told apart
+ *  at a glance rather than by reading the value: WhatsApp's own green,
+ *  a blue for the landline, an amber for the mobile, a red for e-mail.
+ *  Solid fills with a white glyph, which clears 4.5:1 on both the
+ *  dark-red surface and the light one — the colour is decoration, never
+ *  the only cue, since the anchor's `aria-label` still names the line. A
+ *  kind we do not know keeps the neutral translucent disc. */
 const CONTACT_ICON_SKIN: Record<ContactRow["key"], string> = {
   landline: "bg-[#2563EB] text-white",
   mobile: "bg-[#F59E0B] text-white",
   whatsapp: "bg-[#25D366] text-white",
+  email: "bg-[#DC2626] text-white",
 };
 
 const CONTACT_ICON_NEUTRAL = "bg-[var(--menu-surface-text,var(--menu-text))]/10";
@@ -2713,6 +2733,11 @@ function ContactIcon({ kind }: { kind: ContactRow["key"] }): React.ReactElement 
           <>
             <rect x="7" y="2.6" width="10" height="18.8" rx="2.4" />
             <path d="M10.6 18.4h2.8" />
+          </>
+        ) : kind === "email" ? (
+          <>
+            <rect x="2.8" y="5.2" width="18.4" height="13.6" rx="2.2" />
+            <path d="m3.4 7 7.4 5.4a2 2 0 0 0 2.4 0L20.6 7" />
           </>
         ) : (
           <>

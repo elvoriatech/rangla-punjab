@@ -291,14 +291,15 @@ export async function removeGiftCardImageAction(form: FormData): Promise<void> {
 }
 
 /**
- * The restaurant's own numbers — landline, mobile, WhatsApp.
+ * The restaurant's own ways in — landline, mobile, WhatsApp, e-mail.
  *
- * All three post together because they are one card, and an empty box is
+ * All four post together because they are one card, and an empty box is
  * the clear: deleting the text and pressing save is what an owner means by
- * "take that number off the menu". A box that holds something which is not
- * a phone number is refused BY NAME (`contact_mobile`), so the banner can
- * say which of the three to look at — silently dropping it would leave the
- * owner believing a number is published when it is not.
+ * "take that off the menu". A box that holds something which is not a
+ * phone number (or, for e-mail, not an address) is refused BY NAME
+ * (`contact_mobile`, `contact_email`), so the banner can say which of the
+ * four to look at — silently dropping it would leave the owner believing
+ * something is published when it is not.
  *
  * `finish(ok: true)` purges the CDN: these numbers are on every cached copy
  * of the public menu.
@@ -309,6 +310,7 @@ export async function saveContactAction(form: FormData): Promise<void> {
     landline: String(form.get("landline") ?? ""),
     mobile: String(form.get("mobile") ?? ""),
     whatsapp: String(form.get("whatsapp") ?? ""),
+    email: String(form.get("email") ?? ""),
   });
   return finish(userId, result.ok, result.ok ? "contact" : `contact_${result.field ?? "invalid"}`);
 }

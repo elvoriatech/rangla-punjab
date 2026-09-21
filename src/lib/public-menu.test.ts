@@ -164,7 +164,13 @@ describe("public menu loader", () => {
 
     await asUser(userId, (tx) =>
       tx.venue.updateMany({
-        data: { contact: { landline: "+497531123456", whatsapp: "+491701234567" } },
+        data: {
+          contact: {
+            landline: "+497531123456",
+            whatsapp: "+491701234567",
+            email: "info@restaurant.de",
+          },
+        },
       }),
     );
     // Number, display string and href all come off the loader, so no
@@ -180,6 +186,11 @@ describe("public menu loader", () => {
         number: "+491701234567",
         display: "+49 1701 234567",
         href: "https://wa.me/491701234567",
+      },
+      email: {
+        number: "info@restaurant.de",
+        display: "info@restaurant.de",
+        href: "mailto:info@restaurant.de",
       },
     });
 

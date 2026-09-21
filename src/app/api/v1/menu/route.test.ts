@@ -105,6 +105,7 @@ interface MenuPayload {
       landline: Entry | null;
       mobile: Entry | null;
       whatsapp: Entry | null;
+      email: Entry | null;
     } | null;
     appLinks: { ios?: string; android?: string; apk?: string } | null;
   };
@@ -193,7 +194,13 @@ describe("GET /api/v1/menu — ?locale", () => {
 
     await asTenant(fx.tenantId, (tx) =>
       tx.venue.updateMany({
-        data: { contact: { mobile: "+491701234567", whatsapp: "+491701234567" } },
+        data: {
+          contact: {
+            mobile: "+491701234567",
+            whatsapp: "+491701234567",
+            email: "info@restaurant.de",
+          },
+        },
       }),
     );
     // `tel:` keeps the plus, `wa.me` drops it — both built here so the
@@ -209,6 +216,12 @@ describe("GET /api/v1/menu — ?locale", () => {
         number: "+491701234567",
         display: "+49 1701 234567",
         href: "https://wa.me/491701234567",
+      },
+      // An address is its own display string, behind a `mailto:`.
+      email: {
+        number: "info@restaurant.de",
+        display: "info@restaurant.de",
+        href: "mailto:info@restaurant.de",
       },
     });
   });

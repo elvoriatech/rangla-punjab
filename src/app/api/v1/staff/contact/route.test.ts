@@ -22,7 +22,12 @@ interface Body {
   ok: boolean;
   error?: string;
   field?: string;
-  contact?: { landline: string | null; mobile: string | null; whatsapp: string | null };
+  contact?: {
+    landline: string | null;
+    mobile: string | null;
+    whatsapp: string | null;
+    email: string | null;
+  };
 }
 
 describe("/api/v1/staff/contact", () => {
@@ -117,27 +122,30 @@ describe("/api/v1/staff/contact", () => {
     expect(res.headers.get("access-control-allow-headers")).toContain("X-Staff-Token");
   });
 
-  it("reads a fresh card: three empty slots, never cached", async () => {
+  it("reads a fresh card: four empty slots, never cached", async () => {
     const res = await GET(request("GET", staffToken));
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
     expect(((await res.json()) as Body).contact).toEqual({
       landline: null,
       mobile: null,
       whatsapp: null,
+      email: null,
     });
   });
 
-  it("saves the three numbers in E.164, whatever spelling arrives", async () => {
+  it("saves the three numbers in E.164 and the address lower-cased", async () => {
     const saved = await patch({
       landline: "07531 123456",
       mobile: "+49 170 / 1234567",
       whatsapp: "0049 170 1234567",
+      email: " Info@Restaurant.DE ",
     });
     expect(saved.status).toBe(200);
     expect(saved.body.contact).toEqual({
       landline: "+497531123456",
       mobile: "+491701234567",
       whatsapp: "+491701234567",
+      email: "info@restaurant.de",
     });
     // The read is the editor's read: raw numbers, no display string and no
     // href — the app posts these values straight back.
@@ -145,14 +153,22 @@ describe("/api/v1/staff/contact", () => {
   });
 
   it("patches one slot at a time and clears with null or an empty string", async () => {
-    await patch({ landline: "07531 123456", mobile: "0170 1234567", whatsapp: "0170 1234567" });
+    await patch({
+      landline: "07531 123456",
+      mobile: "0170 1234567",
+      whatsapp: "0170 1234567",
+      email: "info@restaurant.de",
+    });
 
     const one = await patch({ mobile: "0170 7654321" });
     expect(one.body.contact).toEqual({
       landline: "+497531123456",
       mobile: "+491707654321",
       whatsapp: "+491701234567",
+      // Untouched by a patch that never named it.
+      email: "info@restaurant.de",
     });
+    expect((await patch({ email: "" })).body.contact?.email).toBeNull();
 
     expect((await patch({ whatsapp: null })).body.contact?.whatsapp).toBeNull();
     expect((await patch({ landline: "" })).body.contact?.landline).toBeNull();
@@ -174,6 +190,9 @@ describe("/api/v1/staff/contact", () => {
       [{ whatsapp: { number: "+491701234567" } }, "whatsapp"],
       // Validation runs over the whole patch before any of it is written.
       [{ landline: "0170 1234567", whatsapp: "nope" }, "whatsapp"],
+      // The address slot refuses by name too, on the same rule.
+      [{ email: "info@" }, "email"],
+      [{ email: "ring the bell" }, "email"],
     ];
     for (const [input, field] of cases) {
       const res = await patch(input);

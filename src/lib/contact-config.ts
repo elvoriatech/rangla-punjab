@@ -1,14 +1,16 @@
 import { z } from "zod";
 
 /**
- * The restaurant's own phone numbers — the "Contact" card in Dashboard →
- * Settings (and its twin in the app), stored in `venues.contact` JSONB.
+ * The restaurant's own ways of being reached — the "Contact" card in
+ * Dashboard → Settings (and its twin in the app), stored in `venues.contact`
+ * JSONB.
  *
- * Three slots, no more: a LANDLINE (the number on the door), a MOBILE (the
- * one someone actually carries during service) and a WHATSAPP number. Three
- * because that is what a guest can act on from a menu — ring the restaurant,
- * ring the manager, message them — and because a list of arbitrary length
- * turns a settings card into an editor nobody asked for.
+ * Four slots, no more: a LANDLINE (the number on the door), a MOBILE (the
+ * one someone actually carries during service), a WHATSAPP number and an
+ * E-MAIL address. Four because that is what a guest can act on from a menu —
+ * ring the restaurant, ring the manager, message them, write to them — and
+ * because a list of arbitrary length turns a settings card into an editor
+ * nobody asked for.
  *
  * Numbers are stored NORMALISED, in E.164 (`+497531123456`). That is the one
  * spelling every surface can build from: `tel:` wants the plus, `wa.me` wants
@@ -24,9 +26,19 @@ import { z } from "zod";
  * published" — which every surface already renders as nothing at all.
  */
 
-/** The three slots, in the order every surface renders them. */
-export const CONTACT_FIELDS = ["landline", "mobile", "whatsapp"] as const;
+/** The four slots, in the order every surface renders them. */
+export const CONTACT_FIELDS = ["landline", "mobile", "whatsapp", "email"] as const;
 export type ContactField = (typeof CONTACT_FIELDS)[number];
+
+/** The slots that hold a phone number — everything `normalizePhone` owns.
+ *  `email` is the one slot that does not, so anything walking the fields to
+ *  validate a number asks here rather than assuming all of them. */
+export const CONTACT_PHONE_FIELDS = ["landline", "mobile", "whatsapp"] as const;
+export type ContactPhoneField = (typeof CONTACT_PHONE_FIELDS)[number];
+
+export function isContactPhoneField(field: ContactField): field is ContactPhoneField {
+  return field !== "email";
+}
 
 /**
  * Country dial codes for the trunk-prefix rule below. Deliberately small:
@@ -121,6 +133,38 @@ export function normalizePhone(raw: unknown, defaultCountry = "DE"): string | nu
   return e164.length <= MAX_PHONE_LENGTH ? e164 : null;
 }
 
+/**
+ * Longest address the e-mail slot will store. 120 is the same ceiling the
+ * guest-facing order form uses, comfortably over every real mailbox and
+ * short enough that the footer row cannot become a paragraph.
+ */
+export const MAX_EMAIL_LENGTH = 120;
+
+/** One address, validated the same way everywhere. Trimmed and lower-cased
+ *  first, because `Info@Restaurant.DE ` and `info@restaurant.de` are the
+ *  same mailbox and only one of them should ever reach the JSONB. */
+const emailSchema = z.string().trim().toLowerCase().email().max(MAX_EMAIL_LENGTH);
+
+/**
+ * Whatever the owner typed → a stored address, or null when it is not one.
+ *
+ * Same contract as `normalizePhone`: an empty (or whitespace-only) box is
+ * "not published", and anything that is not an address is refused outright
+ * rather than stored as a `mailto:` link that bounces.
+ */
+export function normalizeEmail(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const parsed = emailSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/** `mailto:` link for a stored address. Nothing is escaped because the
+ *  address has already been through `normalizeEmail`, which admits no
+ *  character that would need it. */
+export function emailHref(address: string): string {
+  return `mailto:${address}`;
+}
+
 /** `tel:` link for an E.164 number. The plus stays: it is what makes the
  *  number dialable from a phone roaming in another country. */
 export function telHref(e164: string): string {
@@ -160,10 +204,15 @@ export function displayPhone(e164: string): string {
  *  whole config, and a hand-edited `0 7531 …` in the JSONB still reads. */
 const phoneField = z.preprocess((v) => normalizePhone(v), z.string().nullable().catch(null));
 
+/** The e-mail slot, with the same tolerance: an empty box, a half-typed
+ *  address or a hand-edited number all read back as "not published". */
+const emailField = z.preprocess((v) => normalizeEmail(v), z.string().nullable().catch(null));
+
 export const contactConfigSchema = z.object({
   landline: phoneField.default(null),
   mobile: phoneField.default(null),
   whatsapp: phoneField.default(null),
+  email: emailField.default(null),
 });
 
 export type ContactConfig = z.infer<typeof contactConfigSchema>;
@@ -172,7 +221,9 @@ export type ContactConfig = z.infer<typeof contactConfigSchema>;
  *  parse to "no numbers published". */
 export function parseContactConfig(raw: unknown): ContactConfig {
   const parsed = contactConfigSchema.safeParse(raw ?? {});
-  return parsed.success ? parsed.data : { landline: null, mobile: null, whatsapp: null };
+  return parsed.success
+    ? parsed.data
+    : { landline: null, mobile: null, whatsapp: null, email: null };
 }
 
 /** True when nothing is published — the whole feature renders nowhere. */
@@ -180,13 +231,17 @@ export function contactEmpty(config: ContactConfig): boolean {
   return CONTACT_FIELDS.every((f) => config[f] === null);
 }
 
-/** One number, ready to render: what to dial, what to show, where to link. */
+/** One way in, ready to render: what to dial or write to, what to show,
+ *  where to link. */
 export interface ContactEntry {
-  /** E.164, exactly as stored (`+497531123456`). */
+  /** The stored value: E.164 for a phone slot (`+497531123456`), the
+   *  address itself for e-mail (`info@restaurant.de`). */
   number: string;
-  /** Grouped for reading aloud (`+49 7531 123456`). */
+  /** Grouped for reading aloud (`+49 7531 123456`); for e-mail, the
+   *  address unchanged — there is nothing to group. */
   display: string;
-  /** `tel:+49…` for the two phone slots, `https://wa.me/49…` for WhatsApp. */
+  /** `tel:+49…` for the two phone slots, `https://wa.me/49…` for WhatsApp,
+   *  `mailto:…` for e-mail. */
   href: string;
 }
 
@@ -202,6 +257,7 @@ export interface PublicContact {
   landline: ContactEntry | null;
   mobile: ContactEntry | null;
   whatsapp: ContactEntry | null;
+  email: ContactEntry | null;
 }
 
 export function publicContact(config: ContactConfig): PublicContact | null {
@@ -218,5 +274,11 @@ export function publicContact(config: ContactConfig): PublicContact | null {
     landline: entry(config.landline),
     mobile: entry(config.mobile),
     whatsapp: entry(config.whatsapp, true),
+    // An address needs no grouping and no derivation — it IS its own
+    // display string, which is why it does not go through `entry`.
+    email:
+      config.email === null
+        ? null
+        : { number: config.email, display: config.email, href: emailHref(config.email) },
   };
 }

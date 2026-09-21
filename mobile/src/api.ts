@@ -280,12 +280,14 @@ export interface ApiContactEntry {
   href: string;
 }
 
-/** The venue's phone book. Any of the three may be absent — an owner who
- *  fills in only a mobile gets exactly one row on the Account screen. */
+/** The venue's phone book, plus its e-mail address. Any of the four may
+ *  be absent — an owner who fills in only a mobile gets exactly one row on
+ *  the Account screen. */
 export interface ApiVenueContact {
   landline: ApiContactEntry | null;
   mobile: ApiContactEntry | null;
   whatsapp: ApiContactEntry | null;
+  email: ApiContactEntry | null;
 }
 
 /** The digits of a phone number, which is what `wa.me` wants. */
@@ -303,14 +305,27 @@ function digitsOf(value: string): string {
  * What is never honoured is an arbitrary scheme: this string goes
  * straight to `Linking.openURL`, so only `tel:` and http(s) survive.
  */
-function asContactEntry(raw: unknown, kind: "phone" | "whatsapp"): ApiContactEntry | null {
+function asContactEntry(
+  raw: unknown,
+  kind: "phone" | "whatsapp" | "email",
+): ApiContactEntry | null {
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Record<string, unknown>;
   const number = typeof c.number === "string" ? c.number.trim() : "";
-  if (!digitsOf(number)) return null;
+  // A phone row is nothing without digits; an address is nothing without
+  // an `@` and a dot after it — the same "is this a row at all?" test,
+  // asked of the thing the slot actually holds.
+  if (kind === "email" ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(number) : !digitsOf(number)) {
+    return null;
+  }
   const display = typeof c.display === "string" && c.display.trim() ? c.display.trim() : number;
   const href = typeof c.href === "string" ? c.href.trim() : "";
-  const usable = kind === "whatsapp" ? /^https?:\/\//i.test(href) : /^tel:/i.test(href);
+  const usable =
+    kind === "whatsapp"
+      ? /^https?:\/\//i.test(href)
+      : kind === "email"
+        ? /^mailto:/i.test(href)
+        : /^tel:/i.test(href);
   return {
     number,
     display,
@@ -318,11 +333,13 @@ function asContactEntry(raw: unknown, kind: "phone" | "whatsapp"): ApiContactEnt
       ? href
       : kind === "whatsapp"
         ? `https://wa.me/${digitsOf(number)}`
-        : `tel:${number}`,
+        : kind === "email"
+          ? `mailto:${number}`
+          : `tel:${number}`,
   };
 }
 
-/** The whole phone book, or null when not one of the three is usable —
+/** The whole card, or null when not one of the four slots is usable —
  *  which is the single test every contact surface makes. */
 export function asVenueContact(raw: unknown): ApiVenueContact | null {
   if (!raw || typeof raw !== "object") return null;
@@ -331,8 +348,9 @@ export function asVenueContact(raw: unknown): ApiVenueContact | null {
     landline: asContactEntry(c.landline, "phone"),
     mobile: asContactEntry(c.mobile, "phone"),
     whatsapp: asContactEntry(c.whatsapp, "whatsapp"),
+    email: asContactEntry(c.email, "email"),
   };
-  return contact.landline || contact.mobile || contact.whatsapp ? contact : null;
+  return contact.landline || contact.mobile || contact.whatsapp || contact.email ? contact : null;
 }
 
 /** Every entry the venue actually published, in the order a guest reads
@@ -341,7 +359,7 @@ export function contactEntries(
   contact: ApiVenueContact | null | undefined,
 ): { key: keyof ApiVenueContact; entry: ApiContactEntry }[] {
   if (!contact) return [];
-  const order: (keyof ApiVenueContact)[] = ["landline", "mobile", "whatsapp"];
+  const order: (keyof ApiVenueContact)[] = ["landline", "mobile", "whatsapp", "email"];
   return order
     .map((key) => ({ key, entry: contact[key] }))
     .filter(

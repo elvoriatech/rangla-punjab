@@ -731,6 +731,7 @@ const en = {
   contactCallLandline: "Call landline",
   contactCallMobile: "Call mobile",
   contactWhatsapp: "WhatsApp",
+  contactEmail: "E-mail",
 
   /* Required fields, marked the same way on every form. */
   fieldRequired: "required",
@@ -1422,6 +1423,7 @@ const de: Strings = {
   contactCallLandline: "Festnetz anrufen",
   contactCallMobile: "Handy anrufen",
   contactWhatsapp: "WhatsApp",
+  contactEmail: "E-Mail",
 
   /* Pflichtfelder, auf jedem Formular gleich gekennzeichnet. */
   fieldRequired: "Pflichtfeld",
@@ -2111,6 +2113,7 @@ const fr: Strings = {
   contactCallLandline: "Appeler le fixe",
   contactCallMobile: "Appeler le mobile",
   contactWhatsapp: "WhatsApp",
+  contactEmail: "E-mail",
 
   /* Champs obligatoires, signalés de la même façon sur chaque formulaire. */
   fieldRequired: "obligatoire",
@@ -2800,6 +2803,7 @@ const it: Strings = {
   contactCallLandline: "Chiama il fisso",
   contactCallMobile: "Chiama il cellulare",
   contactWhatsapp: "WhatsApp",
+  contactEmail: "E-mail",
 
   /* Campi obbligatori, segnati allo stesso modo su ogni modulo. */
   fieldRequired: "obbligatorio",
@@ -3487,6 +3491,7 @@ const es: Strings = {
   contactCallLandline: "Llamar al fijo",
   contactCallMobile: "Llamar al móvil",
   contactWhatsapp: "WhatsApp",
+  contactEmail: "Correo",
 
   /* Campos obligatorios, marcados igual en todos los formularios. */
   fieldRequired: "obligatorio",
@@ -4165,6 +4170,7 @@ const ar: Strings = {
   contactCallLandline: "اتصل بالهاتف الأرضي",
   contactCallMobile: "اتصل بالجوّال",
   contactWhatsapp: "واتساب",
+  contactEmail: "البريد الإلكتروني",
 
   /* الحقول المطلوبة، بعلامة واحدة في كل النماذج. */
   fieldRequired: "مطلوب",

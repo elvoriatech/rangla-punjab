@@ -136,8 +136,12 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
     error:
       "That WhatsApp number doesn't look like a phone number. Use the number as it is registered with WhatsApp, or empty the box to hide it.",
   },
+  contact_email: {
+    error:
+      "That doesn't look like an e-mail address. Write it in full — info@your-restaurant.de — or empty the box to hide it.",
+  },
   contact_invalid: {
-    error: "Couldn't save your contact details — check the three numbers and try again.",
+    error: "Couldn't save your contact details — check the four boxes and try again.",
   },
   // "Get the app". Same shape as the contact card: one success line, and a
   // refusal per box that names the link that was refused — pasting the Play
@@ -528,15 +532,15 @@ export default async function SettingsPage({
         </div>
       </section>
 
-      {/* Contact numbers. One form, three boxes: they are one decision
-          ("how can a guest reach us?") and posting them together means an
-          owner who fixes a typo in one never has to re-enter the others. */}
+      {/* Contact. One form, four boxes: they are one decision ("how can a
+          guest reach us?") and posting them together means an owner who
+          fixes a typo in one never has to re-enter the others. */}
       <form action={saveContactAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
         <p className="text-sm font-medium">Contact</p>
         <p className="mt-1 text-xs text-muted">
           Guests see these on their account page and in the app; leave a field empty to hide it.
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block text-sm">
             <span className="font-medium">Landline</span>
             <input
@@ -573,6 +577,19 @@ export default async function SettingsPage({
               maxLength={32}
               defaultValue={contact?.whatsapp ?? ""}
               placeholder="0170 1234567"
+              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">E-Mail</span>
+            <input
+              type="email"
+              name="email"
+              inputMode="email"
+              autoComplete="email"
+              maxLength={120}
+              defaultValue={contact?.email ?? ""}
+              placeholder="info@your-restaurant.de"
               className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
             />
           </label>

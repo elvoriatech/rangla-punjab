@@ -123,9 +123,11 @@ export function AccountScreen({
     landline: t.contactCallLandline,
     mobile: t.contactCallMobile,
     whatsapp: t.contactWhatsapp,
+    email: t.contactEmail,
   };
-  // `href` is the SERVER's (`tel:+49…`), never one the app assembled.
-  const openTel = (entry: ApiContactEntry): Promise<void> =>
+  // `href` is the SERVER's (`tel:+49…`, `mailto:info@…`), never one the
+  // app assembled.
+  const openHref = (entry: ApiContactEntry): Promise<void> =>
     Linking.openURL(entry.href).catch(() => {});
   /**
    * WhatsApp, with the one fallback that matters: a device without the
@@ -670,17 +672,23 @@ export function AccountScreen({
         {/* Contact — the one card that is about the RESTAURANT rather
             than about this device, so it shows whether or not anybody is
             signed in. It renders itself away when the owner has filled
-            in none of the three numbers. */}
+            in none of the four slots. */}
         {contacts.length > 0 ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t.contactTitle}</Text>
             {contacts.map(({ key, entry }) => (
               <ContactRow
                 key={key}
-                icon={key === "whatsapp" ? "logo-whatsapp" : "call-outline"}
+                icon={
+                  key === "whatsapp"
+                    ? "logo-whatsapp"
+                    : key === "email"
+                      ? "mail-outline"
+                      : "call-outline"
+                }
                 label={contactLabel[key]}
                 entry={entry}
-                onPress={() => void (key === "whatsapp" ? openWhatsapp(entry) : openTel(entry))}
+                onPress={() => void (key === "whatsapp" ? openWhatsapp(entry) : openHref(entry))}
               />
             ))}
           </View>

@@ -175,10 +175,14 @@ const en = {
     landline: "Call landline",
     mobile: "Call mobile",
     whatsapp: "WhatsApp",
+    email: "E-mail",
     /** Accessible name of a call link: "Call landline +49 7531 123456". */
     callAria: (label: string, number: string): string => `${label} ${number}`,
     /** WhatsApp leaves the site, so its link says so out loud. */
     whatsappAria: (number: string): string => `Message ${number} on WhatsApp (opens WhatsApp)`,
+    /** Accessible name of the `mailto:` link — a verb, because "E-mail
+     *  info@…" alone reads as a label rather than an action. */
+    emailAria: (address: string): string => `E-mail ${address}`,
   },
   /** "Get the app" — the footer section and the compact header link that
    *  jumps to it. Store names ("App Store", "Google Play") are brand names
@@ -352,8 +356,10 @@ const de: MenuCopy = {
     landline: "Festnetz anrufen",
     mobile: "Mobil anrufen",
     whatsapp: "WhatsApp",
+    email: "E-Mail",
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `${number} über WhatsApp anschreiben (öffnet WhatsApp)`,
+    emailAria: (address) => `E-Mail schreiben an ${address}`,
   },
   app: {
     navLabel: "App",
@@ -513,8 +519,10 @@ const fr: MenuCopy = {
     landline: "Appeler le fixe",
     mobile: "Appeler le mobile",
     whatsapp: "WhatsApp",
+    email: "E-mail",
     callAria: (label, number) => `${label} : ${number}`,
     whatsappAria: (number) => `Écrire au ${number} sur WhatsApp (ouvre WhatsApp)`,
+    emailAria: (address) => `Envoyer un e-mail à ${address}`,
   },
   app: {
     navLabel: "Appli",
@@ -672,8 +680,10 @@ const es: MenuCopy = {
     landline: "Llamar al fijo",
     mobile: "Llamar al móvil",
     whatsapp: "WhatsApp",
+    email: "Correo",
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `Escribir al ${number} por WhatsApp (abre WhatsApp)`,
+    emailAria: (address) => `Escribir un correo a ${address}`,
   },
   app: {
     navLabel: "App",
@@ -831,8 +841,10 @@ const it: MenuCopy = {
     landline: "Chiama il fisso",
     mobile: "Chiama il cellulare",
     whatsapp: "WhatsApp",
+    email: "E-mail",
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `Scrivi al ${number} su WhatsApp (apre WhatsApp)`,
+    emailAria: (address) => `Scrivi un'e-mail a ${address}`,
   },
   app: {
     navLabel: "App",
@@ -1002,8 +1014,10 @@ const ar: MenuCopy = {
     landline: "اتصال بالهاتف الأرضي",
     mobile: "اتصال بالجوال",
     whatsapp: "واتساب",
+    email: "البريد الإلكتروني",
     callAria: (label, number) => `${label}: ${number}`,
     whatsappAria: (number) => `مراسلة ${number} عبر واتساب (يفتح واتساب)`,
+    emailAria: (address) => `مراسلة ${address} بالبريد الإلكتروني`,
   },
   app: {
     navLabel: "التطبيق",

@@ -3,6 +3,8 @@ import {
   contactConfigSchema,
   contactEmpty,
   displayPhone,
+  emailHref,
+  normalizeEmail,
   normalizePhone,
   parseContactConfig,
   publicContact,
@@ -11,9 +13,10 @@ import {
 } from "./contact-config";
 
 /**
- * The contact card is three phone numbers, and every bug it can have is a
- * normalisation bug: a number that dials nowhere, a `wa.me` link that opens
- * an empty chat, or an owner's typo silently stored as "no number".
+ * The contact card is three phone numbers and an address, and every bug it
+ * can have is a normalisation bug: a number that dials nowhere, a `wa.me`
+ * link that opens an empty chat, a `mailto:` that bounces, or an owner's
+ * typo silently stored as "nothing published".
  */
 
 describe("normalizePhone", () => {
@@ -80,7 +83,42 @@ describe("normalizePhone", () => {
   });
 });
 
+describe("normalizeEmail", () => {
+  it("stores the address trimmed and lower-cased", () => {
+    expect(normalizeEmail("  Info@Restaurant.DE  ")).toBe("info@restaurant.de");
+    expect(normalizeEmail("hallo+tisch@ristorante-volpe.example")).toBe(
+      "hallo+tisch@ristorante-volpe.example",
+    );
+    expect(normalizeEmail("a@b.co")).toBe("a@b.co");
+  });
+
+  it("refuses anything that is not an address", () => {
+    for (const raw of [
+      "",
+      "   ",
+      "info",
+      "info@",
+      "@restaurant.de",
+      "info restaurant.de",
+      "info@restaurant",
+      "info@@restaurant.de",
+      // Past the 120-character ceiling.
+      `${"a".repeat(115)}@restaurant.de`,
+      null,
+      undefined,
+      7,
+      ["info@restaurant.de"],
+    ]) {
+      expect(normalizeEmail(raw), String(raw)).toBeNull();
+    }
+  });
+});
+
 describe("link builders", () => {
+  it("mailto: is the address, exactly as stored", () => {
+    expect(emailHref("info@restaurant.de")).toBe("mailto:info@restaurant.de");
+  });
+
   it("tel: keeps the plus and wa.me drops it", () => {
     expect(telHref("+497531123456")).toBe("tel:+497531123456");
     expect(whatsappHref("+497531123456")).toBe("https://wa.me/497531123456");
@@ -102,35 +140,50 @@ describe("parseContactConfig", () => {
         landline: "+497531123456",
         mobile: "+491701234567",
         whatsapp: "+491701234567",
+        email: "info@restaurant.de",
       }),
     ).toEqual({
       landline: "+497531123456",
       mobile: "+491701234567",
       whatsapp: "+491701234567",
+      email: "info@restaurant.de",
     });
   });
 
-  it("treats an empty, missing or unreadable blob as no numbers at all", () => {
-    for (const raw of [undefined, null, {}, "", 7, [], { landline: "hello" }]) {
+  it("treats an empty, missing or unreadable blob as nothing published at all", () => {
+    for (const raw of [undefined, null, {}, "", 7, [], { landline: "hello" }, { email: "  " }]) {
       const parsed = parseContactConfig(raw);
       expect(parsed, JSON.stringify(raw)).toEqual({
         landline: null,
         mobile: null,
         whatsapp: null,
+        email: null,
       });
       expect(contactEmpty(parsed)).toBe(true);
     }
   });
 
+  it("an address alone is a published card", () => {
+    const parsed = parseContactConfig({ email: " Info@Restaurant.DE " });
+    expect(parsed.email).toBe("info@restaurant.de");
+    expect(contactEmpty(parsed)).toBe(false);
+  });
+
   it("survives a hand-edited row: one bad slot never costs the others", () => {
     expect(
-      parseContactConfig({ landline: "0 7531 123456", mobile: "n/a", whatsapp: 49_1701234567 }),
-    ).toEqual({ landline: "+497531123456", mobile: null, whatsapp: null });
+      parseContactConfig({
+        landline: "0 7531 123456",
+        mobile: "n/a",
+        whatsapp: 49_1701234567,
+        email: "info@",
+      }),
+    ).toEqual({ landline: "+497531123456", mobile: null, whatsapp: null, email: null });
   });
 
   it("the schema itself never throws on garbage", () => {
     expect(
-      contactConfigSchema.safeParse({ landline: {}, mobile: [], whatsapp: false }).success,
+      contactConfigSchema.safeParse({ landline: {}, mobile: [], whatsapp: false, email: 7 })
+        .success,
     ).toBe(true);
   });
 });
@@ -138,7 +191,21 @@ describe("parseContactConfig", () => {
 describe("publicContact", () => {
   it("is null when the owner has published nothing", () => {
     expect(publicContact(parseContactConfig({}))).toBeNull();
-    expect(publicContact({ landline: null, mobile: null, whatsapp: null })).toBeNull();
+    expect(publicContact({ landline: null, mobile: null, whatsapp: null, email: null })).toBeNull();
+  });
+
+  it("projects an address as its own display string, behind a mailto:", () => {
+    const projected = publicContact(parseContactConfig({ email: "Info@Restaurant.DE" }));
+    expect(projected?.email).toEqual({
+      number: "info@restaurant.de",
+      display: "info@restaurant.de",
+      href: "mailto:info@restaurant.de",
+    });
+    // The three phone slots stay explicitly null — never a half-built
+    // entry with an empty href.
+    expect(projected?.landline).toBeNull();
+    expect(projected?.mobile).toBeNull();
+    expect(projected?.whatsapp).toBeNull();
   });
 
   it("projects each filled slot with its number, display and link", () => {
@@ -159,6 +226,7 @@ describe("publicContact", () => {
         display: "+49 1701 234567",
         href: "https://wa.me/491701234567",
       },
+      email: null,
     });
   });
 });

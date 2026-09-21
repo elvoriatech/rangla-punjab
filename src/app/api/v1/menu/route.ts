@@ -143,12 +143,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // of the payload, so it can lag opening time by about a minute;
           // the app's own refresh sends `no-cache` and skips the edge.
           openNow: menu.venue.openNow,
-          // The restaurant's own numbers: `{ landline, mobile, whatsapp }`,
-          // each `{ number, display, href }` or null, and the whole object
-          // explicitly null — never absent — when the owner has published
-          // none. The hrefs are built server-side (`tel:` keeps the plus,
-          // `wa.me` drops it) so the app links out with one `Linking.openURL`
-          // and never re-derives a rule it could get subtly wrong.
+          // How the restaurant is reached: `{ landline, mobile, whatsapp,
+          // email }`, each `{ number, display, href }` or null, and the
+          // whole object explicitly null — never absent — when the owner
+          // has published none. The hrefs are built server-side (`tel:`
+          // keeps the plus, `wa.me` drops it, `mailto:` takes the address)
+          // so the app links out with one `Linking.openURL` and never
+          // re-derives a rule it could get subtly wrong.
           contact: menu.venue.contact ?? null,
           // Where a guest gets the app: `{ ios?, android?, apk? }` of https
           // URLs, or null — never absent — when the owner has published

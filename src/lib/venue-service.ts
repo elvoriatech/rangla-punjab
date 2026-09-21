@@ -764,6 +764,8 @@ export async function updateGiftCardProduct(
 
 import {
   CONTACT_FIELDS,
+  isContactPhoneField,
+  normalizeEmail,
   normalizePhone,
   parseContactConfig,
   type ContactConfig,
@@ -795,13 +797,14 @@ export async function getVenueContact(userId: string): Promise<ContactResult<Con
  *
  * PARTIAL by design: a key that is absent from `input` leaves that number
  * exactly as it was, which is what lets the app's card patch one field and
- * the dashboard's form post all three through the same call.
+ * the dashboard's form post all four through the same call.
  *
  * An empty (or whitespace-only) string is the CLEAR — that is how an owner
  * removes a number from a form: they delete the text in the box and press
- * save. A non-empty value that is not a phone number is a refusal naming
- * the field, never a silently dropped number: an owner who mistypes their
- * mobile must not find the slot quietly empty a week later.
+ * save. A non-empty value that is not a phone number (or, for `email`, not
+ * an address) is a refusal naming the field, never a silently dropped
+ * value: an owner who mistypes their mobile must not find the slot quietly
+ * empty a week later.
  *
  * Nothing is written until every field validates, so a form carrying a good
  * landline and a broken mobile changes neither.
@@ -818,9 +821,10 @@ export async function updateVenueContact(
       patch[field] = null;
       continue;
     }
-    const e164 = normalizePhone(raw);
-    if (e164 === null) return { ok: false, error: "invalid", field };
-    patch[field] = e164;
+    // Three phone slots and one address: same refusal, different rule.
+    const value = isContactPhoneField(field) ? normalizePhone(raw) : normalizeEmail(raw);
+    if (value === null) return { ok: false, error: "invalid", field };
+    patch[field] = value;
   }
 
   return asUser(userId, async (tx) => {
