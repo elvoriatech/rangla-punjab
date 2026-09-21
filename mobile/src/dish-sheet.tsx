@@ -68,8 +68,12 @@ export function DishSheet({
                   <Text style={styles.description}>{item.description}</Text>
                 ) : null}
 
-                {item.dietary.length > 0 ? (
-                  <View style={styles.tagRow}>
+                {/* Diet chips and the allergens share ONE line (owner,
+                    2026-09-21): chips on the left, "Allergens: …" to their
+                    right, wrapping inside the space that is left rather
+                    than dropping to a block of its own. */}
+                {item.dietary.length > 0 || item.allergens.length > 0 ? (
+                  <View style={[styles.tagRow, styles.tagLine]}>
                     {item.dietary.map((d) =>
                       // Halal wears the venue's own حلال mark instead of an
                       // emoji — the same art the photo badges and the
@@ -90,15 +94,14 @@ export function DishSheet({
                         </View>
                       ),
                     )}
-                  </View>
-                ) : null}
-
-                {item.allergens.length > 0 ? (
-                  <View style={{ gap: 3 }}>
-                    <Text style={styles.metaLabel}>{t.dishAllergens}</Text>
-                    <Text style={styles.metaValue}>
-                      {item.allergens.map((a) => label(t.allergens, a)).join(", ")}
-                    </Text>
+                    {item.allergens.length > 0 ? (
+                      <Text style={styles.allergenInline}>
+                        <Text style={styles.metaLabel}>{t.dishAllergens}: </Text>
+                        <Text style={styles.metaValue}>
+                          {item.allergens.map((a) => label(t.allergens, a)).join(", ")}
+                        </Text>
+                      </Text>
+                    ) : null}
                   </View>
                 ) : null}
 
@@ -180,6 +183,10 @@ const styles = StyleSheet.create({
   /** Only the halal chip needs it: the mark is a View, so it and the
    *  label sit side by side rather than inside one Text run. */
   tagRowInner: { flexDirection: "row", alignItems: "center", gap: 6 },
+  tagLine: { alignItems: "center", columnGap: 10 },
+  /** Takes whatever width the chips leave and wraps inside it, so the
+   *  allergens sit to the chips' right instead of on a line below. */
+  allergenInline: { flexShrink: 1, flexGrow: 1, flexBasis: 140 },
   tagText: { color: colors.ink, ...fonts.bodySemi, fontSize: 12 },
   metaLabel: {
     color: colors.inkSoft,
