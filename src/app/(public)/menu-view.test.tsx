@@ -242,10 +242,33 @@ describe("MenuView", () => {
       // width/height guess, and CLS stays 0 (the Lighthouse CI budget).
       expect(html).toContain("--hero-ratio:2.5");
       expect(html).toMatch(/aspect-ratio:\s*var\(--hero-ratio\)/);
-      // Whole image, never a crop.
-      expect(html).toContain("object-contain");
+      // Height follows that ratio, so below the 78vh cap the whole
+      // image shows — `cover` on a box of the image's own ratio.
+      expect(html).toContain("max-h-[78vh]");
       // And none of the fixed heights that did the cropping.
       expect(html).not.toContain("relative h-40 w-full sm:h-48 lg:h-60");
+    });
+
+    it("runs the hero full-bleed, not in a centred max-width box", () => {
+      const banner = structuredClone(fixture);
+      banner.venue.branding.bannerKey = "tenant-1/uploads/banner";
+      banner.venue.branding.bannerAspect = 2.5;
+      const html = renderToStaticMarkup(<MenuView menu={banner} />);
+
+      // The hero wrapper: full page width, height from the ratio.
+      const hero = html.match(/<div class="([^"]*max-h-\[78vh\][^"]*)"[^>]*>/);
+      expect(hero, "hero wrapper").not.toBeNull();
+      expect(hero![1]).toContain("w-full");
+      expect(hero![1]).not.toMatch(/mx-auto|max-w-/);
+      expect(html).toMatch(/aspect-ratio:\s*var\(--hero-ratio\)/);
+
+      // The image fills it edge to edge; `cover` only ever trims once
+      // the 78vh cap bites, never letterboxes.
+      expect(html).toMatch(
+        /<img[^>]*sizes="100vw"[^>]*class="absolute inset-0 h-full w-full object-cover object-center"/,
+      );
+      // The old per-breakpoint box is gone for good.
+      expect(html).not.toContain("max-w-[calc(var(--hero-ratio)*230px)]");
     });
 
     it("falls back to 16:7 for a banner whose proportions we do not know", () => {

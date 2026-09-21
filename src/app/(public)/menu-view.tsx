@@ -1872,70 +1872,71 @@ function HeroBanner({
   locale: string;
 }): React.ReactElement {
   return (
-    /* The banner is sized by the PHOTO, not by a fixed height. Owners
-       upload artwork with their own headline baked in (Rangla's says
-       "Indian & Pakistani Restaurant" across the top); the old
-       `h-40 sm:h-48 lg:h-60` + `object-cover` box cropped that off at
-       every width. `aspect-ratio` from the upload's real dimensions
-       reserves the exact box before a byte arrives, so CLS stays 0 with
-       no width/height guess, and `object-contain` means nothing is ever
-       cut — a banner whose ratio we do not know falls back to 16:7.
+    /* The banner spans the FULL page width at every breakpoint — no
+       centred max-width box, no page background showing down either
+       side. Its HEIGHT comes from the upload's own proportions:
+       `aspect-ratio` set from the media row's width/height (16:7 when we
+       do not know them) reserves the exact box before a byte arrives, so
+       CLS stays 0 with no width/height guess.
 
-       The max-height guard is expressed as a max-WIDTH (height × ratio),
-       so a tall upload is bounded without letterboxing a wide one: the
-       hero stops growing and centres on a full-bleed surface band
-       instead of stretching two black bars across the top of the page. */
-    <div className="w-full bg-[var(--menu-surface)]">
+       `max-h-[78vh]` is the only cap, so a tall or square upload cannot
+       eat a whole 1900px-wide screen. Below the cap the box matches the
+       photo's ratio exactly and `object-cover` therefore shows the whole
+       image — identical to `contain`, which is what keeps a headline
+       baked into the artwork (Rangla's reads "Indian & Pakistani
+       Restaurant" across the top) uncropped. Only once the cap bites
+       does `object-cover object-center` trim — evenly off the top and
+       bottom, the banner staying full width — which is still better
+       than two letterbox bars across the top of the page. */
+    <div
+      className="relative max-h-[78vh] w-full bg-[var(--menu-surface)]"
+      style={
+        {
+          "--hero-ratio": heroRatio(venue.branding.bannerAspect),
+          aspectRatio: "var(--hero-ratio)",
+        } as React.CSSProperties
+      }
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={uploadedImageUrl(venue.branding.bannerKey!, 1920)}
+        // Full-bleed at every breakpoint, so width descriptors — a phone
+        // takes the 640px render instead of the 1920px desktop one.
+        srcSet={bannerSrcSet(venue.branding.bannerKey!)}
+        sizes="100vw"
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover object-center"
+      />
       <div
-        className="relative mx-auto w-full max-w-[calc(var(--hero-ratio)*230px)] bg-[var(--menu-bg)] sm:max-w-[calc(var(--hero-ratio)*300px)] lg:max-w-[calc(var(--hero-ratio)*380px)]"
-        style={
-          {
-            "--hero-ratio": heroRatio(venue.branding.bannerAspect),
-            aspectRatio: "var(--hero-ratio)",
-          } as React.CSSProperties
-        }
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={uploadedImageUrl(venue.branding.bannerKey!, 1920)}
-          // Full-bleed at every breakpoint, so width descriptors — a phone
-          // takes the 640px render instead of the 1920px desktop one.
-          srcSet={bannerSrcSet(venue.branding.bannerKey!)}
-          sizes="100vw"
-          alt=""
-          className="absolute inset-0 h-full w-full object-contain"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
-        />
-        {/* Badge stack, top corner: open/closed, then reserve, then the
-            rating, then the app jump. P7-14 — the rating pill hangs off the
-            reserve button rather than the identity, which keeps the
-            bottom-left to one job (who this restaurant is) and puts the
-            social proof where a guest is already deciding whether to book. */}
-        <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
-          <OpenBadge state={openNow} t={t} locale={locale} />
-          {reserve ? (
-            <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
-          ) : null}
-          {/* Directly after Reserve, before the rating: the two are the
-              same kind of thing — something the guest DOES about this
-              restaurant — and the app's home screen already pairs them. */}
-          <ComplaintLink slug={venue.slug} labels={t.complaint} onDark />
-          {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
-          {hasApp ? <AppJumpLink t={t} onDark /> : null}
-        </div>
-        <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
-          {/* `showName={false}`: the big white serif below IS the name here,
-              so the mark contributes the logo only and the venue is not
-              written twice on the same scrim. */}
-          <VenueMark venue={venue} showName={false} />
-          <div className="min-w-0">
-            <span className="block font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
-              {venue.name}
-            </span>
-          </div>
+        aria-hidden="true"
+        className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
+      />
+      {/* Badge stack, top corner: open/closed, then reserve, then the
+          rating, then the app jump. P7-14 — the rating pill hangs off the
+          reserve button rather than the identity, which keeps the
+          bottom-left to one job (who this restaurant is) and puts the
+          social proof where a guest is already deciding whether to book. */}
+      <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
+        <OpenBadge state={openNow} t={t} locale={locale} />
+        {reserve ? (
+          <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
+        ) : null}
+        {/* Directly after Reserve, before the rating: the two are the
+            same kind of thing — something the guest DOES about this
+            restaurant — and the app's home screen already pairs them. */}
+        <ComplaintLink slug={venue.slug} labels={t.complaint} onDark />
+        {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
+        {hasApp ? <AppJumpLink t={t} onDark /> : null}
+      </div>
+      <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
+        {/* `showName={false}`: the big white serif below IS the name here,
+            so the mark contributes the logo only and the venue is not
+            written twice on the same scrim. */}
+        <VenueMark venue={venue} showName={false} />
+        <div className="min-w-0">
+          <span className="block font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
+            {venue.name}
+          </span>
         </div>
       </div>
     </div>
