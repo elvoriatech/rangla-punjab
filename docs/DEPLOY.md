@@ -119,6 +119,16 @@ dashboard), password reset, and order notifications all depend on it.
 
 ## 5. Stripe (live mode)
 
+> ⚠️ **Out of date — this section describes the old multi-tenant subscription
+> setup** (Guesto-billed plans + Connect onboarding), not what the code does
+> today. The current handler `src/lib/stripe/webhook-handler.ts` only handles
+> `checkout.session.completed`, `payment_intent.succeeded`,
+> `payment_intent.payment_failed` and `account.updated` — the subscription and
+> invoice events listed below are never processed, and the price-setup script
+> is no longer part of the deploy. For the payment configuration that actually
+> applies, follow §4 of `deploy/prod.env.template` and the "Payments" section
+> of the README instead. The text below is kept only for reference.
+
 ### 5.1 One-time Dashboard setup
 1. Activate the live account (business details + bank account).
 2. Complete the **Connect** questionnaire in live mode — the answers that
