@@ -28,24 +28,25 @@ export async function register(): Promise<void> {
       process.on("SIGTERM", () => void otel.shutdown());
     }
     startPartitionMaintenance();
-    syncPayPalKeysOnBoot();
+    clearSavedPaymentKeysOnBoot();
   }
 }
 
 /**
- * prod.env's PAYPAL_* keys → the restaurant's saved PayPal settings
- * (see `paypal-env-sync.ts`). Once per boot; never fatal.
+ * prod.env payment keys are the only ones: saved Stripe/PayPal keys in the
+ * DB are removed for every provider prod.env configures (see
+ * `payment-keys-env.ts`). Once per boot; never fatal.
  */
-function syncPayPalKeysOnBoot(): void {
+function clearSavedPaymentKeysOnBoot(): void {
   if (process.env.NEXT_PHASE === "phase-production-build") return;
-  if (process.env.PAYPAL_SYNC_FROM_ENV === "0") return;
+  if (process.env.PAYMENT_KEYS_FROM_ENV === "0") return;
   void (async () => {
     try {
-      const { syncPayPalKeysFromEnv } = await import("./src/lib/paypal-env-sync");
-      const { updated } = await syncPayPalKeysFromEnv();
-      logger.info("paypal.keys_synced_from_env", { updated, env: process.env.PAYPAL_ENV });
+      const { clearSavedPaymentKeys } = await import("./src/lib/payment-keys-env");
+      const cleared = await clearSavedPaymentKeys();
+      logger.info("payment_keys.saved_keys_cleared", cleared);
     } catch (err) {
-      logger.warn("paypal.keys_sync_failed", {
+      logger.warn("payment_keys.clear_failed", {
         error: err instanceof Error ? err.message : "unknown",
       });
     }

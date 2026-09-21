@@ -34,6 +34,9 @@ export async function saveOwnKeysAction(form: FormData): Promise<void> {
   const userId = await requireUser();
   const { updateOwnKeys } = await import("@/lib/tenant-payment-keys");
   const base = (await venueAdminBase(userId)) ?? "/dashboard";
+  // prod.env owns the Stripe keys — nothing may be saved over them.
+  const { stripeKeysInEnv } = await import("@/lib/payment-keys-env");
+  if (stripeKeysInEnv()) redirect(`${base}/billing`);
 
   // The publishable key is public, so it is stored (and echoed) in the
   // clear — but pasting the SECRET key into this field would leak it into
@@ -57,6 +60,9 @@ export async function saveOwnKeysAction(form: FormData): Promise<void> {
 export async function savePayPalKeysAction(form: FormData): Promise<void> {
   const userId = await requireUser();
   const { updatePayPalKeys } = await import("@/lib/tenant-payment-keys");
+  // prod.env owns the PayPal keys — nothing may be saved over them.
+  const { payPalKeysInEnv } = await import("@/lib/payment-keys-env");
+  if (payPalKeysInEnv()) redirect(`${(await venueAdminBase(userId)) ?? "/dashboard"}/billing`);
   await updatePayPalKeys(userId, {
     clientId: String(form.get("paypalClientId") ?? ""),
     secret: String(form.get("paypalSecret") ?? ""),
