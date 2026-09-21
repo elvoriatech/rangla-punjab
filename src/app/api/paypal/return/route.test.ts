@@ -52,6 +52,8 @@ describe("GET /api/paypal/return", () => {
     createdTenantIds.push(s.tenantId);
 
     return asTenant(s.tenantId, async (tx) => {
+      // PayPal switched on (Billing "Enable"); no own keys → the (fake) env provider.
+      await tx.tenant.updateMany({ data: { paypalOwnEnabled: true } });
       const venue = await tx.venue.create({
         data: {
           tenantId: s.tenantId,

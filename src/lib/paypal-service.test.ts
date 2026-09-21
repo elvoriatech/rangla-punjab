@@ -44,6 +44,8 @@ describe("paypal payments (fake provider, full flow)", () => {
     createdTenantIds.push(s.tenantId);
 
     return asTenant(s.tenantId, async (tx) => {
+      // PayPal switched on (Billing "Enable"); no own keys → the (fake) env provider.
+      await tx.tenant.updateMany({ data: { paypalOwnEnabled: true } });
       const venue = await tx.venue.create({
         data: {
           tenantId: s.tenantId,
@@ -303,6 +305,32 @@ describe("paypal payments (fake provider, full flow)", () => {
       ok: false,
       error: "not_cancellable",
     });
+  });
+
+  it("Billing's PayPal Enable is the master switch: off → not offered and no new payment", async () => {
+    const { getPublicVenueAccess } = await import("./order-service");
+    const fx = await fixture();
+    const placed = await placeOrder(fx, {
+      orderType: "dine_in",
+      items: [{ itemId: fx.itemId, quantity: 1 }],
+      intendedPayment: "paypal",
+    });
+    if (!placed.ok) throw new Error("order failed");
+
+    await asTenant(fx.tenantId, (tx) =>
+      tx.tenant.updateMany({ data: { paypalOwnEnabled: false } }),
+    );
+    expect((await getPublicVenueAccess(fx.tenantId, fx.venueId)).paypalPayment).toBe(false);
+    expect(
+      await createPayPalOrderPayment(fx.tenantId, placed.value.orderId, placed.value.receiptToken),
+    ).toEqual({ ok: false, error: "not_available" });
+
+    await asTenant(fx.tenantId, (tx) => tx.tenant.updateMany({ data: { paypalOwnEnabled: true } }));
+    expect((await getPublicVenueAccess(fx.tenantId, fx.venueId)).paypalPayment).toBe(true);
+    expect(
+      (await createPayPalOrderPayment(fx.tenantId, placed.value.orderId, placed.value.receiptToken))
+        .ok,
+    ).toBe(true);
   });
 
   it("finalize on an order that never started PayPal is a safe no-op", async () => {

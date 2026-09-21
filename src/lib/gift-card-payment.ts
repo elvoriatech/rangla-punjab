@@ -2,7 +2,7 @@ import { selectDirectChargeProvider } from "./connect-service";
 import { activateGiftCard, stampGiftCardPayment } from "./gift-card-service";
 import { createLogger } from "./logger";
 import { getOperatorSettings } from "./operator-settings";
-import { payPalProviderFor } from "./paypal";
+import { payPalOnFor, payPalProviderFor } from "./paypal";
 import { siteUrl } from "./site-url";
 import { getStripeProvider } from "./stripe";
 import { resolvePublishableKey } from "./stripe/publishable-key";
@@ -161,7 +161,7 @@ export async function createGiftCardPaymentIntent(
 }
 
 export type GiftCardPayPalResult =
-  { ok: true; url: string } | { ok: false; error: "not_found" | "already_paid" };
+  { ok: true; url: string } | { ok: false; error: "not_found" | "already_paid" | "not_available" };
 
 /**
  * Start a PayPal purchase. The approve URL goes to the guest; PayPal
@@ -174,7 +174,10 @@ export async function createGiftCardPayPalPayment(
   cardId: string,
   appReturnUrl?: string | null,
 ): Promise<GiftCardPayPalResult> {
-  const provider = payPalProviderFor(await getPayPalKeysForTenant(tenantId));
+  const keys = await getPayPalKeysForTenant(tenantId);
+  // PayPal switched off in Billing: no new PayPal payment may start.
+  if (!payPalOnFor(keys)) return { ok: false, error: "not_available" };
+  const provider = payPalProviderFor(keys);
   const result = await asTenant(tenantId, async (tx) => {
     const card = await tx.giftCard.findFirst({
       where: { id: cardId },

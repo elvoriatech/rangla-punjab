@@ -13,6 +13,7 @@ import {
   setupPaymentsAction,
 } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
+import { paypalAvailable } from "@/lib/paypal";
 import { SaveChangesButton } from "@/components/save-changes-button";
 
 /**
@@ -51,6 +52,8 @@ export default async function BillingPage({
   const envStripe = await sharedStripeConfigured();
   const ownActive = Boolean(ownKeys?.enabled && ownKeys.hasSecret);
   const payPal = await getPayPalKeysStatus(userId);
+  // PAYPAL_* in prod.env: what "On" falls back to when no keys are saved.
+  const payPalServerKeys = paypalAvailable();
   // Bounce-back from onboarding: refresh the charges-enabled mirror
   // before rendering (real Stripe also pushes account.updated webhooks).
   if (connect === "done") await refreshConnectStatus(userId);
@@ -309,18 +312,18 @@ export default async function BillingPage({
           <h2 className="font-serif text-2xl">PayPal</h2>
           <span
             className={`text-xs font-semibold uppercase tracking-wider ${
-              payPal.enabled && payPal.hasCredentials
+              payPal.enabled && (payPal.hasCredentials || payPalServerKeys)
                 ? "text-[#3f7030]"
-                : payPal.hasCredentials
-                  ? "text-amber-700"
-                  : "text-brand-green/40"
+                : "text-brand-green/40"
             }`}
           >
-            {payPal.enabled && payPal.hasCredentials
-              ? `● On · ${payPal.env}`
+            {!payPal.enabled
+              ? "○ Off"
               : payPal.hasCredentials
-                ? "◐ Keys saved · off"
-                : "○ Not set up"}
+                ? `● On · ${payPal.env}`
+                : payPalServerKeys
+                  ? "● On · server keys"
+                  : "○ Not set up"}
           </span>
         </div>
 
@@ -407,8 +410,13 @@ export default async function BillingPage({
               defaultChecked={payPal.enabled}
               className="h-4 w-4"
             />
-            Enable — offer PayPal to guests at checkout
+            Enable — offer PayPal to guests
           </label>
+          <p className="text-xs text-brand-green/60">
+            This is the on/off switch for PayPal. Off hides PayPal everywhere — on the website and
+            in the app — even if PayPal keys are saved here or on the server. On uses the keys
+            above, or the server&apos;s keys when none are saved here.
+          </p>
           <p className="text-xs text-brand-green/60">
             In your PayPal app, under <span className="font-medium">Webhooks</span>, add{" "}
             <code className="text-brand-green">{`${siteUrl()}/api/paypal/webhook`}</code> with the

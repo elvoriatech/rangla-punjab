@@ -1,7 +1,7 @@
 import { asTenant } from "./tenant";
 import { verifyReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
-import { payPalProviderFor } from "./paypal";
+import { payPalOnFor, payPalProviderFor } from "./paypal";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
 import { markOrderPaid } from "./connect-service";
 import { createLogger } from "./logger";
@@ -9,7 +9,8 @@ import { createLogger } from "./logger";
 const log = createLogger();
 
 export type PayPalPayResult =
-  { ok: true; url: string } | { ok: false; error: "invalid_token" | "not_found" | "already_paid" };
+  | { ok: true; url: string }
+  | { ok: false; error: "invalid_token" | "not_found" | "already_paid" | "not_available" };
 
 /**
  * Start a PayPal payment for one order — the PayPal sibling of
@@ -30,7 +31,10 @@ export async function createPayPalOrderPayment(
     return { ok: false, error: "invalid_token" };
   }
   // The restaurant's own PayPal app wins over the deployment-wide keys.
-  const provider = payPalProviderFor(await getPayPalKeysForTenant(tenantId));
+  const keys = await getPayPalKeysForTenant(tenantId);
+  // PayPal switched off in Billing: no new PayPal payment may start.
+  if (!payPalOnFor(keys)) return { ok: false, error: "not_available" };
+  const provider = payPalProviderFor(keys);
   return asTenant(tenantId, async (tx) => {
     const order = await tx.order.findFirst({
       where: { id: orderId },

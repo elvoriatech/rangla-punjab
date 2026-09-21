@@ -3,7 +3,6 @@ import { z } from "zod";
 import { sanitizeAppReturnUrl } from "@/lib/app-return";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { createPayPalOrderPayment } from "@/lib/paypal-service";
-import { paypalAvailable } from "@/lib/paypal";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { checkRateLimit, ORDER_IP } from "@/lib/rate-limit";
@@ -33,9 +32,8 @@ export async function POST(
   if (!settings.siteActive) {
     return withCors(NextResponse.json({ error: "ordering_paused" }, { status: 503 }));
   }
-  if (!paypalAvailable()) {
-    return withCors(NextResponse.json({ error: "not_available" }, { status: 409 }));
-  }
+  // Availability (the Billing on/off switch + keys) is decided by
+  // createPayPalOrderPayment, which answers `not_available` → 409.
 
   const { id } = await params;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

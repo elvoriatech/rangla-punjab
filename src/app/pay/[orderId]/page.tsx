@@ -10,7 +10,6 @@ import { PayPalButton } from "./paypal-button";
 import { PaymentExit } from "./payment-exit";
 import { getGuestPaymentOptions } from "@/lib/connect-service";
 import { getPublicVenueAccess } from "@/lib/order-service";
-import { paypalAvailable } from "@/lib/paypal";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 import { postOrderCopy } from "@/lib/i18n/post-order";
 import { dirFor, isLocaleCode, uiLocale } from "@/lib/locales";
@@ -63,9 +62,12 @@ export default async function PayPage({
   // decides which apply (still placed, unpaid, online); opened on its own
   // when the guest has just come back from a failed or cancelled payment.
   const exit = await getGuestPaymentOptions(verified.tenantId, orderId);
-  const cardAvailable = order.venueId
-    ? (await getPublicVenueAccess(verified.tenantId, order.venueId)).onlinePayment
-    : false;
+  // Card and PayPal follow the owner's on/off switches in Billing.
+  const access = order.venueId
+    ? await getPublicVenueAccess(verified.tenantId, order.venueId)
+    : null;
+  const cardAvailable = access?.onlinePayment ?? false;
+  const paypalOn = access?.paypalPayment ?? false;
   const cancelled = exit?.status === "cancelled";
   const switchedToCash = !paid && !cancelled && order.paymentStatus === "none";
 
@@ -178,7 +180,7 @@ export default async function PayPage({
               }}
             />
           ) : null}
-          {paypalAvailable() ? (
+          {paypalOn ? (
             <PayPalButton
               orderId={orderId}
               token={token}
@@ -190,7 +192,7 @@ export default async function PayPage({
               }}
             />
           ) : null}
-          {!ref && !paypalAvailable() && !exit?.canExit ? (
+          {!ref && !paypalOn && !exit?.canExit ? (
             <p className="mt-6 text-sm text-muted">{t.incompleteLink}</p>
           ) : null}
           {exit?.canExit ? (

@@ -1193,15 +1193,17 @@ export async function getPublicVenueAccess(
     // Connect mode has no such tick, so it is not gated by it.
     const { feeMode } = await getOperatorSettings();
     const cardSwitchOff = feeMode === "upfront" && !tenant.stripeOwnEnabled;
-    const ownPayPal =
-      tenant.paypalOwnEnabled && Boolean(tenant.paypalClientIdEnc && tenant.paypalSecretEnc);
     return {
       menuVisible: access.menuVisible,
       modes: effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering)),
       onlinePayment:
         !cardSwitchOff &&
         (tenant.stripeChargesEnabled || ownStripe || (await stripeDirectChargeAvailable(false))),
-      paypalPayment: paypalAvailable(ownPayPal),
+      // Billing's PayPal "Enable" is the master switch (2026-09-21): off
+      // hides PayPal everywhere, even with PAYPAL_* keys in prod.env.
+      paypalPayment:
+        tenant.paypalOwnEnabled &&
+        paypalAvailable(Boolean(tenant.paypalClientIdEnc && tenant.paypalSecretEnc)),
       loyalty: parseLoyaltyConfig(venue.loyalty),
     };
   });

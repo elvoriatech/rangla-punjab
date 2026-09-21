@@ -273,6 +273,12 @@ export function getPayPalProvider(): PayPalProvider {
  * Provider for ONE restaurant: its own dashboard-entered credentials win,
  * the deployment-wide PAYPAL_* env vars are the fallback. Not cached —
  * credentials are per tenant and can change from the dashboard at any time.
+ *
+ * `enabled` is NOT consulted here any more: it is the on/off switch for
+ * OFFERING PayPal (`payPalOnFor`), checked where a payment starts. Once a
+ * payment exists, capturing or verifying it must use the same account
+ * that created it — the saved keys whenever they exist — even if the
+ * owner switched PayPal off in between.
  */
 export function payPalProviderFor(credentials: {
   clientId: string | null;
@@ -280,10 +286,25 @@ export function payPalProviderFor(credentials: {
   env: "sandbox" | "live";
   enabled: boolean;
 }): PayPalProvider {
-  if (credentials.enabled && credentials.clientId && credentials.secret) {
+  if (credentials.clientId && credentials.secret) {
     return new RealPayPalProvider(credentials.clientId, credentials.secret, credentials.env);
   }
   return getPayPalProvider();
+}
+
+/**
+ * The owner's master switch (Dashboard → Billing → PayPal "Enable",
+ * 2026-09-21): PayPal is offered — and a PayPal payment may START — only
+ * when it is ticked AND some account can take the money (saved keys, or
+ * the PAYPAL_* env pair). Off hides PayPal on the website and in the app
+ * even when prod.env carries keys.
+ */
+export function payPalOnFor(keys: {
+  clientId: string | null;
+  secret: string | null;
+  enabled: boolean;
+}): boolean {
+  return keys.enabled && paypalAvailable(Boolean(keys.clientId && keys.secret));
 }
 
 /** Guests may be offered PayPal: real credentials, or the fake outside prod. */

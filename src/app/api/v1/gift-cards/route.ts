@@ -10,7 +10,7 @@ import {
 } from "@/lib/gift-card-config";
 import { createGiftCardPayPalPayment, createGiftCardPaymentIntent } from "@/lib/gift-card-payment";
 import { createGiftCardPurchase, listActiveGiftCardProducts } from "@/lib/gift-card-service";
-import { paypalAvailable } from "@/lib/paypal";
+import { payPalOnFor } from "@/lib/paypal";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { resolvePreviewContext } from "@/lib/preview-context";
 import { checkRateLimit, type RateLimitConfig } from "@/lib/rate-limit";
@@ -193,10 +193,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const input = parsed.data;
 
-  if (
-    input.method === "paypal" &&
-    !paypalAvailable((await getPayPalKeysForTenant(auth.tenantId)).enabled)
-  ) {
+  if (input.method === "paypal" && !payPalOnFor(await getPayPalKeysForTenant(auth.tenantId))) {
     return withCors(NextResponse.json({ ok: false, error: "not_available" }, { status: 409 }));
   }
 

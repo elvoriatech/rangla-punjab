@@ -47,6 +47,8 @@ describe("handlePayPalWebhook (server-to-server settlement)", () => {
     createdTenantIds.push(s.tenantId);
 
     return asTenant(s.tenantId, async (tx) => {
+      // PayPal switched on (Billing "Enable"); no own keys → the (fake) env provider.
+      await tx.tenant.updateMany({ data: { paypalOwnEnabled: true } });
       const webhookId = opts.webhookId === undefined ? WEBHOOK_ID : opts.webhookId;
       if (webhookId) {
         await tx.tenant.updateMany({ data: { paypalWebhookIdEnc: encryptSecret(webhookId) } });
