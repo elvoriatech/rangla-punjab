@@ -34,6 +34,41 @@ export const GIFT_CARD_DEFAULTS = {
   expiryMonths: 36,
 } as const;
 
+/**
+ * What a guest is allowed to load onto a card.
+ *
+ * The buyer names the amount, not the design: `GiftCardProduct.priceCents`
+ * is now a SUGGESTION (the placeholder the app shows for that artwork),
+ * and the card's `valueCents` is whatever the guest asked for. The
+ * bounds below are the only thing standing between that and an absurd
+ * card, so they live here, once, and are enforced BOTH at the route
+ * (zod, so the app gets a precise error) and inside
+ * `createGiftCardPurchase` (so no other caller can skip them).
+ *
+ * - `minCents` €5 — below a coffee the card costs more to process than
+ *   it is worth, and payment providers charge a floor per transaction.
+ * - `maxCents` €500 — a paid voucher is stored value we owe for three
+ *   years (§ 195 BGB); a five-figure card is a money-laundering shape,
+ *   not a birthday present, and the owner should sell it by hand.
+ * - `stepCents` 100 — whole euros only. Nobody gifts €47.63, and a
+ *   round number keeps the printed card legible.
+ */
+export const GIFT_CARD_AMOUNT = {
+  minCents: 500,
+  maxCents: 50_000,
+  stepCents: 100,
+} as const;
+
+/** True when `cents` is an amount a guest may actually buy. */
+export function isValidGiftCardAmount(cents: number): boolean {
+  return (
+    Number.isInteger(cents) &&
+    cents >= GIFT_CARD_AMOUNT.minCents &&
+    cents <= GIFT_CARD_AMOUNT.maxCents &&
+    cents % GIFT_CARD_AMOUNT.stepCents === 0
+  );
+}
+
 /** The value the settings form marks as "recommended". */
 export const GIFT_CARD_RECOMMENDED_EXPIRY_MONTHS = GIFT_CARD_DEFAULTS.expiryMonths;
 

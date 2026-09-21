@@ -3,7 +3,7 @@ import { z } from "zod";
 import { clientIp } from "@/lib/client-ip";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { authenticateCustomer } from "@/lib/customer-request";
-import { parseGiftCardConfig } from "@/lib/gift-card-config";
+import { GIFT_CARD_AMOUNT, parseGiftCardConfig } from "@/lib/gift-card-config";
 import { createGiftCardPayPalPayment, createGiftCardPaymentIntent } from "@/lib/gift-card-payment";
 import { createGiftCardPurchase, listActiveGiftCardProducts } from "@/lib/gift-card-service";
 import { paypalAvailable } from "@/lib/paypal";
@@ -25,10 +25,20 @@ import { getPayPalKeysForTenant } from "@/lib/tenant-payment-keys";
  *          account the buyer can come back to; the card itself is a
  *          bearer instrument they can then give away.
  *
- * Money never comes from the request. The POST names a product; the
- * price is read from that product's row, the card is minted
- * `pending_payment`, and only the payment provider's confirmation
- * activates it.
+ * THE GUEST CHOOSES THE AMOUNT. The POST names a design AND an
+ * `amountCents`; the design contributes artwork and a name, the amount
+ * becomes the card's `valueCents`, and the product's own `priceCents` is
+ * only the SUGGESTION the app shows as a placeholder. A client-named
+ * price is safe here in a way it never is for goods: a gift card is
+ * stored value, so the guest is charged exactly what they are issued,
+ * and the charge is built downstream from the stored `valueCents` rather
+ * than from anything the client sends twice. The bounds in
+ * `GIFT_CARD_AMOUNT` are the whole of the protection, and they are
+ * enforced twice — here for a precise error, and again inside
+ * `createGiftCardPurchase` so no other caller can skip them.
+ *
+ * The card is still minted `pending_payment`, and only the payment
+ * provider's confirmation activates it.
  */
 
 /** Buying is a write that starts a payment — tighter than a read, and
@@ -40,8 +50,34 @@ const BUY_IP: RateLimitConfig = {
   failOpen: true,
 };
 
+/** The refusal the app renders as "pick an amount between €5 and €500". */
+function invalidAmount(): NextResponse {
+  return withCors(
+    NextResponse.json(
+      {
+        ok: false,
+        error: "invalid_amount",
+        minAmountCents: GIFT_CARD_AMOUNT.minCents,
+        maxAmountCents: GIFT_CARD_AMOUNT.maxCents,
+      },
+      { status: 400 },
+    ),
+  );
+}
+
 const buySchema = z.object({
   productId: z.string().min(1).max(64),
+  /**
+   * What the guest wants on the card, in cents. REQUIRED — there is no
+   * default, because falling back to the design's suggested price would
+   * silently charge a guest whose amount field failed to send.
+   */
+  amountCents: z
+    .number()
+    .int()
+    .min(GIFT_CARD_AMOUNT.minCents)
+    .max(GIFT_CARD_AMOUNT.maxCents)
+    .refine((v) => v % GIFT_CARD_AMOUNT.stepCents === 0),
   /** Whose name goes on the card. The buyer's words, shown verbatim. */
   recipientName: z.string().trim().max(80).optional(),
   message: z.string().trim().max(500).optional(),
@@ -77,6 +113,13 @@ export async function GET(): Promise<NextResponse> {
         enabled: config.enabled && products.length > 0,
         expiryMonths: config.expiryMonths,
         currency: venue?.currency ?? "EUR",
+        // The amount picker's bounds, so the app never has to hard-code
+        // them and a change here reaches every installed build at once.
+        // Each product's `priceCents` is the SUGGESTED amount for that
+        // design — the app shows it as the field's placeholder.
+        minAmountCents: GIFT_CARD_AMOUNT.minCents,
+        maxAmountCents: GIFT_CARD_AMOUNT.maxCents,
+        amountStepCents: GIFT_CARD_AMOUNT.stepCents,
         products,
       },
       // Short public cache: the shop window changes when the owner edits
@@ -117,6 +160,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const parsed = buySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
+    // A body whose ONLY fault is the amount gets the specific code and
+    // the bounds, because that is the one field a guest typed and the
+    // app has to explain. Anything else is a client bug, not a guest
+    // mistake, and keeps the generic refusal it has always returned.
+    const amountOnly = parsed.error.issues.every((i) => i.path[0] === "amountCents");
+    if (amountOnly) return invalidAmount();
     return withCors(NextResponse.json({ ok: false, error: "invalid" }, { status: 400 }));
   }
   const input = parsed.data;
@@ -133,9 +182,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ctx.venueId,
     auth.customer.id,
     input.productId,
-    { recipientName: input.recipientName, message: input.message },
+    {
+      amountCents: input.amountCents,
+      recipientName: input.recipientName,
+      message: input.message,
+    },
   );
   if (!created.ok) {
+    // The service re-checks the bounds; if it is the one to refuse, the
+    // guest still gets the same shape they would have got from zod.
+    if (created.error === "invalid_amount") return invalidAmount();
     const status = created.error === "unknown_product" ? 404 : 409;
     return withCors(NextResponse.json({ ok: false, error: created.error }, { status }));
   }

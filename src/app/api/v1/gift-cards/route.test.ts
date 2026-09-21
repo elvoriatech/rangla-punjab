@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { signupUser } from "@/lib/auth-service";
 import { signInCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/db";
+import { GIFT_CARD_AMOUNT } from "@/lib/gift-card-config";
 import { DEFAULT_GIFT_CARD_PRODUCTS, listGiftCardProducts } from "@/lib/gift-card-service";
 import { asTenant } from "@/lib/tenant";
 import { GET, OPTIONS, POST } from "./route";
@@ -12,12 +13,15 @@ import { GET, OPTIONS, POST } from "./route";
  * The guest side of gift cards, asserted at the wire level because the
  * mobile app codes against these exact keys.
  *
- * The claim worth defending here is that MONEY NEVER COMES FROM THE
- * REQUEST: the POST names a product, the price is read from that
- * product's row, and the card is minted `pending_payment` — unspendable
- * until a payment provider says otherwise. Runs on the fake Stripe
- * provider (vitest.setup strips the real keys), so the `payment` block
- * is the dev-sheet shape the app falls back to.
+ * The claim worth defending here is that THE GUEST'S AMOUNT IS THE
+ * CARD'S VALUE, and that it is bounded: the POST names a design and an
+ * `amountCents`, the card is minted at that amount, the design's own
+ * `priceCents` is only a suggestion, and anything outside
+ * €5–€500-in-whole-euros is refused with a code the app can act on. The
+ * card is still born `pending_payment` — unspendable until a payment
+ * provider says otherwise. Runs on the fake Stripe provider
+ * (vitest.setup strips the real keys), so the `payment` block is the
+ * dev-sheet shape the app falls back to.
  */
 
 interface ProductBody {
@@ -25,12 +29,17 @@ interface ProductBody {
   enabled?: boolean;
   expiryMonths?: number;
   currency?: string;
+  minAmountCents?: number;
+  maxAmountCents?: number;
+  amountStepCents?: number;
   products?: { id: string; name: string; priceCents: number; active: boolean }[];
 }
 
 interface BuyBody {
   ok: boolean;
   error?: string;
+  minAmountCents?: number;
+  maxAmountCents?: number;
   card?: {
     id: string;
     code: string;
@@ -142,13 +151,27 @@ describe("/api/v1/gift-cards", () => {
 
     const body = (await res.json()) as ProductBody;
     expect(body).toMatchObject({ ok: true, enabled: true, expiryMonths: 36, currency: "EUR" });
+    // The amount picker's bounds travel with the shop window, so the app
+    // never hard-codes them.
+    expect(body).toMatchObject({
+      minAmountCents: 500,
+      maxAmountCents: 50000,
+      amountStepCents: 100,
+    });
+    expect([body.minAmountCents, body.maxAmountCents, body.amountStepCents]).toEqual([
+      GIFT_CARD_AMOUNT.minCents,
+      GIFT_CARD_AMOUNT.maxCents,
+      GIFT_CARD_AMOUNT.stepCents,
+    ]);
+    // Products keep `priceCents` — it is the SUGGESTED amount for that
+    // design now, which the app shows as the field's placeholder.
     expect(body.products?.map((p) => [p.name, p.priceCents])).toEqual(
       DEFAULT_GIFT_CARD_PRODUCTS.map((p) => [p.name, p.priceCents]),
     );
   });
 
   it("401s a buy with no customer token", async () => {
-    const res = await POST(buyRequest({ productId }));
+    const res = await POST(buyRequest({ productId, amountCents: 4000 }));
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ ok: false, error: "unauthorized" });
     // The Expo web surface has to be able to READ the refusal.
@@ -158,20 +181,79 @@ describe("/api/v1/gift-cards", () => {
   });
 
   it("404s a product this venue does not sell", async () => {
-    const res = await POST(buyRequest({ productId: "no-such-product" }, guestToken));
+    const res = await POST(
+      buyRequest({ productId: "no-such-product", amountCents: 4000 }, guestToken),
+    );
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ ok: false, error: "unknown_product" });
   });
 
   it("400s a body with no product at all", async () => {
+    // Two fields missing, one of them the product: that is a client bug,
+    // not a guest typo, so it keeps the generic refusal.
     const res = await POST(buyRequest({ recipientName: "Simran" }, guestToken));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ ok: false, error: "invalid" });
   });
 
-  it("mints an unpaid card priced from the product, with a payment sheet to open", async () => {
+  it("400s invalid_amount, with the bounds, when the amount is the only thing wrong", async () => {
+    // Eight buys in one test would eat most of the 12/minute budget the
+    // other cases share, so this one gets its own address.
+    const from = freshIp();
+    // Missing entirely — there is deliberately NO default, because
+    // falling back to the design's suggestion would charge a guest whose
+    // amount field failed to send.
+    const missing = await POST(buyRequest({ productId }, guestToken, from));
+    expect(missing.status).toBe(400);
+    expect(await missing.json()).toEqual({
+      ok: false,
+      error: "invalid_amount",
+      minAmountCents: 500,
+      maxAmountCents: 50000,
+    });
+
+    for (const amountCents of [
+      400, // below €5
+      0,
+      -4000,
+      50100, // above €500
+      4763, // not a whole euro
+      40.5, // not an integer number of cents
+      "4000", // not a number at all
+    ]) {
+      const res = await POST(buyRequest({ productId, amountCents }, guestToken, from));
+      expect(res.status, `amountCents=${String(amountCents)}`).toBe(400);
+      const body = (await res.json()) as BuyBody;
+      expect(body.error, `amountCents=${String(amountCents)}`).toBe("invalid_amount");
+      expect([body.minAmountCents, body.maxAmountCents]).toEqual([500, 50000]);
+      // The Expo web surface has to be able to READ the refusal.
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    }
+
+    // Nothing was minted on the way to any of those refusals.
+    expect(await asTenant(tenantId, (tx) => tx.giftCard.count())).toBe(0);
+  });
+
+  it("accepts the bounds themselves — €5 and €500 are inside the range", async () => {
+    const from = freshIp();
+    for (const amountCents of [500, 50000]) {
+      const res = await POST(buyRequest({ productId, amountCents }, guestToken, from));
+      expect(res.status, `amountCents=${amountCents}`).toBe(201);
+      const body = (await res.json()) as BuyBody;
+      expect(body.card?.valueCents).toBe(amountCents);
+      expect(body.payment?.amountCents).toBe(amountCents);
+    }
+    await asTenant(tenantId, (tx) => tx.giftCard.deleteMany({}));
+  });
+
+  it("mints an unpaid card at the GUEST'S amount, with a payment sheet to open", async () => {
     const res = await POST(
-      buyRequest({ productId, recipientName: "Simran", message: "Alles Gute!" }, guestToken),
+      buyRequest(
+        // The €100 "Festmahl" design, bought for €40. The design's price
+        // is a suggestion; this number is the card.
+        { productId, amountCents: 4000, recipientName: "Simran", message: "Alles Gute!" },
+        guestToken,
+      ),
     );
     expect(res.status).toBe(201);
     // A card carries a bearer code: never cacheable, anywhere.
@@ -181,9 +263,9 @@ describe("/api/v1/gift-cards", () => {
     expect(body.ok).toBe(true);
     expect(body.card).toMatchObject({
       status: "pending_payment",
-      // €100 from the PRODUCT row — the request never named a price, and
-      // a client that invents one cannot be believed.
-      valueCents: 10000,
+      // €40, what the guest asked for — NOT the €10000 the Festmahl
+      // design suggests.
+      valueCents: 4000,
       recipientName: "Simran",
       paidAt: null,
       expiresAt: null,
@@ -194,10 +276,13 @@ describe("/api/v1/gift-cards", () => {
 
     // No real Stripe here, so there is no publishable key to hand over —
     // the app reads this as "show the dev pay button, not Stripe's sheet".
+    // Stripe is charged from the CARD's value, so the guest's amount
+    // flows all the way to the payment sheet with no second source of
+    // truth in between.
     expect(body.payment).toMatchObject({
       mode: "fake",
       publishableKey: null,
-      amountCents: 10000,
+      amountCents: 4000,
       currency: "EUR",
       merchantName: "Rangla Punjab",
     });
@@ -214,7 +299,7 @@ describe("/api/v1/gift-cards", () => {
     );
     expect(row).toMatchObject({
       status: "pending_payment",
-      valueCents: 10000,
+      valueCents: 4000,
       expiresAt: null,
       paymentRef: body.payment!.ref,
     });
@@ -227,11 +312,13 @@ describe("/api/v1/gift-cards", () => {
     const from = freshIp();
     const statuses: number[] = [];
     for (let i = 0; i < 13; i += 1) {
-      statuses.push((await POST(buyRequest({ productId }, undefined, from))).status);
+      statuses.push(
+        (await POST(buyRequest({ productId, amountCents: 4000 }, undefined, from))).status,
+      );
     }
     expect(statuses.slice(0, 12).every((s) => s === 401)).toBe(true);
 
-    const limited = await POST(buyRequest({ productId }, guestToken, from));
+    const limited = await POST(buyRequest({ productId, amountCents: 4000 }, guestToken, from));
     expect(limited.status).toBe(429);
     expect(await limited.json()).toEqual({ ok: false, error: "rate_limited" });
     expect(Number(limited.headers.get("Retry-After"))).toBeGreaterThan(0);

@@ -1544,8 +1544,10 @@ export default async function SettingsPage({
           <div className="mt-6 border-t border-ink/10 pt-5">
             <p className="text-sm font-medium">Your three designs</p>
             <p className="mt-1 text-xs text-muted">
-              Three cards, three price points — rename them, set your own prices, and give each one
-              a picture. Untick a design to take it off sale without losing it.
+              Three cards, three suggested amounts — rename them, set what each one suggests, and
+              give it a picture. Guests choose their own amount when they buy, so these are a
+              starting point, not a price list. Untick a design to take it off sale without losing
+              it.
             </p>
             <ul className="mt-4 space-y-4">
               {giftCardProducts.map((product) => (
@@ -1586,7 +1588,7 @@ export default async function SettingsPage({
                           </label>
                           <label className="block text-sm">
                             <span className="font-medium">
-                              Card value (€)
+                              Suggested amount (€)
                               <RequiredMark />
                             </span>
                             <input
@@ -1599,7 +1601,9 @@ export default async function SettingsPage({
                               className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
                             />
                             <span className="mt-1 block text-xs text-muted">
-                              What the guest pays, and what the card is worth at your counter.
+                              What this design suggests. The guest can change it before paying —
+                              anything from €5 to €500, in whole euros — and the card is worth
+                              whatever they chose.
                             </span>
                           </label>
                         </div>

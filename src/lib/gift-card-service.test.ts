@@ -17,7 +17,7 @@ import {
   redeemGiftCardAtCounter,
   type GiftCardView,
 } from "./gift-card-service";
-import { parseGiftCardConfig } from "./gift-card-config";
+import { GIFT_CARD_AMOUNT, parseGiftCardConfig } from "./gift-card-config";
 import { asTenant } from "./tenant";
 
 /**
@@ -107,10 +107,23 @@ async function productAt(fx: Fixture, index = 0, venueId = fx.venueId) {
   return product;
 }
 
-/** Buy a card and leave it `pending_payment`, the way the route does. */
-async function buy(fx: Fixture, index = 0, venueId = fx.venueId): Promise<GiftCardView> {
+/**
+ * Buy a card and leave it `pending_payment`, the way the route does.
+ *
+ * `amountCents` defaults to the design's SUGGESTED price only so the
+ * tests that are about something else (activation, redemption, expiry)
+ * stay readable — the route has no such default, and the tests below
+ * that are about the amount pass it explicitly.
+ */
+async function buy(
+  fx: Fixture,
+  index = 0,
+  venueId = fx.venueId,
+  amountCents?: number,
+): Promise<GiftCardView> {
   const product = await productAt(fx, index, venueId);
   const created = await createGiftCardPurchase(fx.tenantId, venueId, fx.customerId, product.id, {
+    amountCents: amountCents ?? product.priceCents,
     recipientName: "Simran",
     message: "Happy birthday",
   });
@@ -302,12 +315,16 @@ describe("gift card products", () => {
 /* ------------------------------------------------------------------ */
 
 describe("buying a gift card", () => {
-  it("prices the card from the PRODUCT and is born unpaid", async () => {
+  it("prices the card from the GUEST'S amount, not the design, and is born unpaid", async () => {
     const fx = await fixture();
-    const product = await productAt(fx, 2); // Festmahl, €100
-    const card = await buy(fx, 2);
+    const product = await productAt(fx, 2); // Festmahl, suggested €100
+    // The guest picked €40 on a design that suggests €100 — the card is
+    // worth €40, and the suggestion is just the placeholder they typed
+    // over.
+    const card = await buy(fx, 2, fx.venueId, 4000);
 
-    expect(card.valueCents).toBe(product.priceCents);
+    expect(card.valueCents).toBe(4000);
+    expect(card.valueCents).not.toBe(product.priceCents);
     expect(card.status).toBe("pending_payment");
     expect(card.recipientName).toBe("Simran");
     // No clock runs on a card nobody has paid for, and there is nothing
@@ -319,10 +336,56 @@ describe("buying a gift card", () => {
 
     expect(await cardRow(fx.tenantId, card.id)).toMatchObject({
       status: "pending_payment",
-      valueCents: product.priceCents,
+      valueCents: 4000,
       paidAt: null,
       expiresAt: null,
     });
+  });
+
+  it("still accepts the design's suggested amount — it is a default, not a ceiling", async () => {
+    const fx = await fixture();
+    const product = await productAt(fx, 0); // Kleine Freude, suggested €25
+    const card = await buy(fx, 0, fx.venueId, product.priceCents);
+    expect(card.valueCents).toBe(product.priceCents);
+  });
+
+  it("refuses an amount outside the bounds, and mints nothing on the way", async () => {
+    const fx = await fixture();
+    const product = await productAt(fx, 0);
+
+    const refuse = async (amountCents: number): Promise<unknown> =>
+      createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, { amountCents });
+
+    // Below €5: costs more to process than it is worth.
+    expect(await refuse(GIFT_CARD_AMOUNT.minCents - 100)).toEqual({
+      ok: false,
+      error: "invalid_amount",
+    });
+    expect(await refuse(0)).toEqual({ ok: false, error: "invalid_amount" });
+    expect(await refuse(-5000)).toEqual({ ok: false, error: "invalid_amount" });
+    // Above €500: stored value we owe for three years.
+    expect(await refuse(GIFT_CARD_AMOUNT.maxCents + 100)).toEqual({
+      ok: false,
+      error: "invalid_amount",
+    });
+    // Not a whole euro.
+    expect(await refuse(4763)).toEqual({ ok: false, error: "invalid_amount" });
+    // Not an integer number of cents at all.
+    expect(await refuse(2500.5)).toEqual({ ok: false, error: "invalid_amount" });
+
+    // The bounds themselves are INSIDE the range.
+    const low = await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {
+      amountCents: GIFT_CARD_AMOUNT.minCents,
+    });
+    expect(low.ok && low.card.valueCents).toBe(GIFT_CARD_AMOUNT.minCents);
+    const high = await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {
+      amountCents: GIFT_CARD_AMOUNT.maxCents,
+    });
+    expect(high.ok && high.card.valueCents).toBe(GIFT_CARD_AMOUNT.maxCents);
+
+    // Exactly the two that were allowed, and not one refusal, reached
+    // the table — the bounds check runs before anything is written.
+    expect(await asTenant(fx.tenantId, (tx) => tx.giftCard.count({ where: {} }))).toBe(2);
   });
 
   it("refuses an unknown product, a retired one, and a venue with gift cards switched off", async () => {
@@ -330,7 +393,9 @@ describe("buying a gift card", () => {
     const product = await productAt(fx, 0);
 
     expect(
-      await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, "no-such-product", {}),
+      await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, "no-such-product", {
+        amountCents: 2500,
+      }),
     ).toEqual({ ok: false, error: "unknown_product" });
 
     await asTenant(fx.tenantId, (tx) =>
@@ -339,7 +404,9 @@ describe("buying a gift card", () => {
     // A design the owner pulled this morning must not still be sellable
     // from a screen the guest opened before that.
     expect(
-      await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {}),
+      await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {
+        amountCents: 2500,
+      }),
     ).toEqual({ ok: false, error: "unknown_product" });
 
     const disabled = await fixture({ enabled: false });
@@ -350,7 +417,7 @@ describe("buying a gift card", () => {
         disabled.venueId,
         disabled.customerId,
         theirProduct.id,
-        {},
+        { amountCents: 2500 },
       ),
     ).toEqual({ ok: false, error: "disabled" });
     // …and nothing was minted on the way to that refusal.

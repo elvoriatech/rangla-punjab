@@ -1,6 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { formatGiftCardCode, generateGiftCardCode, normalizeGiftCardCode } from "./gift-card-code";
-import { parseGiftCardConfig, type GiftCardConfig } from "./gift-card-config";
+import {
+  isValidGiftCardAmount,
+  parseGiftCardConfig,
+  type GiftCardConfig,
+} from "./gift-card-config";
 import { signGiftCardToken } from "./gift-card-token";
 import { createLogger } from "./logger";
 import { uploadedImageUrl } from "./menu-images";
@@ -358,23 +362,34 @@ const cardSelect = {
 
 export type CreateGiftCardResult =
   | { ok: true; card: GiftCardView }
-  | { ok: false; error: "disabled" | "unknown_product" | "code_exhausted" };
+  | { ok: false; error: "disabled" | "unknown_product" | "code_exhausted" | "invalid_amount" };
 
 /**
  * Mint a `pending_payment` card for a guest. The payment is started by
  * the caller (the route) exactly the way an order's is; the card only
  * becomes spendable when the webhook says the money arrived.
  *
- * Price is read from the PRODUCT, never from the request — a client that
- * posts its own `valueCents` would be buying a €100 card for €25.
+ * THE GUEST NAMES THE AMOUNT. The product row is now the DESIGN (its
+ * artwork and its name) plus a suggested value; `input.amountCents` is
+ * what actually goes on the card. That is a client-supplied price, which
+ * would be alarming if it were a price for GOODS — but a gift card is
+ * stored value, so "pay €40, get €40 of credit" is self-balancing: the
+ * same number is charged and issued, and the charge is built from
+ * `valueCents` downstream (`gift-card-payment.ts`), never from anything
+ * the client sends a second time. The only real risk is an absurd
+ * amount, which is what `GIFT_CARD_AMOUNT` is for — re-checked here, not
+ * only at the route, so no other caller can mint a €1,000,000 card.
  */
 export async function createGiftCardPurchase(
   tenantId: string,
   venueId: string,
   customerId: string,
   productId: string,
-  input: { recipientName?: string | null; message?: string | null },
+  input: { amountCents: number; recipientName?: string | null; message?: string | null },
 ): Promise<CreateGiftCardResult> {
+  if (!isValidGiftCardAmount(input.amountCents)) {
+    return { ok: false as const, error: "invalid_amount" as const };
+  }
   return asTenant(tenantId, async (tx) => {
     const venue = await tx.venue.findFirst({
       where: { id: venueId, deletedAt: null },
@@ -388,7 +403,7 @@ export async function createGiftCardPurchase(
     await ensureGiftCardProducts(tx, tenantId, venueId);
     const product = await tx.giftCardProduct.findFirst({
       where: { id: productId, venueId, deletedAt: null, active: true },
-      select: { id: true, priceCents: true },
+      select: { id: true },
     });
     if (!product) return { ok: false as const, error: "unknown_product" as const };
 
@@ -404,7 +419,9 @@ export async function createGiftCardPurchase(
             purchaserCustomerId: customerId,
             recipientName: input.recipientName?.trim() || null,
             message: input.message?.trim() || null,
-            valueCents: product.priceCents,
+            // The guest's amount, already bounds-checked above. The
+            // product contributes its ARTWORK and its name, not its price.
+            valueCents: input.amountCents,
             currency: venue.currency,
             status: "pending_payment",
           },
