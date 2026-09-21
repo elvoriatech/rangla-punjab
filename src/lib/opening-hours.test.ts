@@ -39,6 +39,50 @@ describe("compileWeekly", () => {
   });
 });
 
+describe("empty 00:00–00:00 slots (the live Monday bug, 2026-09-21)", () => {
+  // What was stored: a blank lunch slot saved as 00:00–00:00 plus dinner.
+  const stored = {
+    configured: true,
+    days: {
+      mon: {
+        closed: false,
+        slots: [
+          { open: "00:00", close: "00:00" },
+          { open: "17:00", close: "21:30" },
+        ],
+      },
+    },
+  };
+
+  it("reads the same-minute slot as empty, not as open 24 hours", () => {
+    const hours = parseOpeningHours(stored);
+    expect(hours.days.mon?.slots).toEqual([{ open: "17:00", close: "21:30" }]);
+    // Mon 22:00 Berlin (20:00 UTC in September) — after dinner: CLOSED.
+    expect(openState(hours, TZ, new Date("2026-09-21T20:00:00Z"))).toMatchObject({
+      open: false,
+    });
+    // Mon 18:00 Berlin — during dinner: open.
+    expect(openState(hours, TZ, new Date("2026-09-21T16:00:00Z"))).toMatchObject({
+      open: true,
+      until: "21:30",
+    });
+  });
+
+  it("is never stored in the first place", () => {
+    const compiled = compileWeekly({
+      slots: [],
+      closedDays: [],
+      perDay: {
+        mon: stored.days.mon,
+        tue: { closed: false, slots: [{ open: "00:00", close: "00:00" }] },
+      },
+    });
+    expect(compiled.days.mon?.slots).toEqual([{ open: "17:00", close: "21:30" }]);
+    // A day whose only slot was empty is simply closed.
+    expect(compiled.days.tue).toEqual({ closed: true, slots: [] });
+  });
+});
+
 describe("formatDay", () => {
   it("renders split hours and closed days", () => {
     expect(formatDay(monSat.days.mon!)).toBe("11:00–14:30, 17:30–22:00");

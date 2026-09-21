@@ -260,13 +260,18 @@ export function compileWeekly(input: {
   perDay?: Partial<Record<Weekday, DayHours>>;
 }): OpeningHours {
   const days: Record<string, DayHours> = {};
+  // Same-minute slots (e.g. 00:00–00:00) are empty, never "open 24 h" —
+  // see the schema. Dropped here too so they are never even stored.
+  const real = (slots: Slot[]): Slot[] => slots.filter((s) => s.open !== s.close);
   for (const wd of WEEKDAYS) {
-    if (input.perDay?.[wd]) {
-      days[wd] = input.perDay[wd]!;
+    const given = input.perDay?.[wd];
+    if (given) {
+      const slots = real(given.slots);
+      days[wd] = { closed: given.closed || slots.length === 0, slots: given.closed ? [] : slots };
     } else if (input.closedDays.includes(wd)) {
       days[wd] = { closed: true, slots: [] };
     } else {
-      days[wd] = { closed: false, slots: input.slots };
+      days[wd] = { closed: false, slots: real(input.slots) };
     }
   }
   return { configured: true, days };

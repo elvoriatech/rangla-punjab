@@ -25,7 +25,16 @@ const slotSchema = z.object({
 
 const daySchema = z.object({
   closed: z.boolean().default(false),
-  slots: z.array(slotSchema).max(4).default([]),
+  // A slot that opens and closes at the same minute ("00:00–00:00") is an
+  // EMPTY slot the owner left blank, not a 24-hour window — read as
+  // overnight it made the venue "open" all day and took orders while
+  // closed (2026-09-21). Dropped on every read, so the badge, ordering,
+  // the menu API and the editors all see no slot there.
+  slots: z
+    .array(slotSchema)
+    .max(4)
+    .default([])
+    .transform((slots) => slots.filter((s) => s.open !== s.close)),
 });
 
 export const openingHoursSchema = z.object({
