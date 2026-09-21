@@ -61,9 +61,6 @@ export async function saveOperatorSettingsAction(form: FormData): Promise<void> 
  */
 export async function savePlatformStripeKeysAction(form: FormData): Promise<void> {
   await requireAdmin();
-  // prod.env owns the Stripe keys — nothing may be saved over them.
-  const { stripeKeysInEnv } = await import("@/lib/payment-keys-env");
-  if (stripeKeysInEnv()) redirect("/admin/settings");
   await updatePlatformStripeKeys({
     secret: String(form.get("stripeSecret") ?? ""),
     webhook: String(form.get("stripeWebhook") ?? ""),

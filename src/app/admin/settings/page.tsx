@@ -5,7 +5,6 @@ import { isPlatformAdmin } from "@/lib/platform-admin";
 import { getOperatorSettings, EMAIL_TRANSPORTS, APP_THEMES } from "@/lib/operator-settings";
 import { env } from "@/lib/env";
 import { SubmitButton } from "@/components/submit-button";
-import { stripeKeysInEnv } from "@/lib/payment-keys-env";
 import { saveOperatorSettingsAction, savePlatformStripeKeysAction } from "./actions";
 
 /**
@@ -171,63 +170,50 @@ export default async function AdminSettingsPage({
         <h2 className="text-xs uppercase tracking-[0.2em] text-neutral-500">
           Payment keys (Stripe)
         </h2>
-        {stripeKeysInEnv() ? (
-          <p className="mt-2 text-xs leading-relaxed text-neutral-400">
-            Set on the server (<code>prod.env</code>) and used for every payment. To change them,
-            edit <code>prod.env</code> and restart the app.
-          </p>
-        ) : (
-          <>
-            <p className="mt-2 text-xs leading-relaxed text-neutral-400">
-              The platform Stripe keys that charge guests and take your fee. Stored{" "}
-              <span className="text-neutral-300">encrypted</span> — change them here any time, no
-              redeploy. Enter a value to set or replace it; leave a field blank to keep the current
-              one. Keys are never shown again — only a masked hint.
-            </p>
-            <form action={savePlatformStripeKeysAction} className="mt-4 space-y-4">
-              {[
-                {
-                  name: "stripeSecret",
-                  label: "Secret key (sk_…)",
-                  mask: settings.stripeSecretMask,
-                },
-                {
-                  name: "stripeWebhook",
-                  label: "Webhook signing secret (whsec_…)",
-                  mask: settings.stripeWebhookMask,
-                },
-                {
-                  name: "stripeConnectWebhook",
-                  label: "Connect webhook secret (whsec_…)",
-                  mask: settings.stripeConnectWebhookMask,
-                },
-              ].map((f) => (
-                <label
-                  key={f.name}
-                  className="block text-xs uppercase tracking-[0.14em] text-neutral-500"
-                >
-                  {f.label}
-                  <span className="ml-2 normal-case tracking-normal text-neutral-400">
-                    {f.mask ? `— current: ${f.mask}` : "— not set (using env)"}
-                  </span>
-                  <input
-                    type="password"
-                    name={f.name}
-                    autoComplete="off"
-                    placeholder="Leave blank to keep current"
-                    className={`mt-1 w-full ${field}`}
-                  />
-                </label>
-              ))}
-              <SubmitButton
-                pendingLabel="Saving…"
-                className="border border-admin-accent/40 bg-admin-accent/10 px-5 py-2 text-sm font-medium text-admin-accent hover:bg-admin-accent/20 disabled:opacity-70"
-              >
-                Save payment keys
-              </SubmitButton>
-            </form>
-          </>
-        )}
+        <p className="mt-2 text-xs leading-relaxed text-neutral-400">
+          The platform Stripe keys that charge guests and take your fee. Stored{" "}
+          <span className="text-neutral-300">encrypted</span> — change them here any time, no
+          redeploy. Enter a value to set or replace it; leave a field blank to keep the current one.
+          Keys are never shown again — only a masked hint.
+        </p>
+        <form action={savePlatformStripeKeysAction} className="mt-4 space-y-4">
+          {[
+            { name: "stripeSecret", label: "Secret key (sk_…)", mask: settings.stripeSecretMask },
+            {
+              name: "stripeWebhook",
+              label: "Webhook signing secret (whsec_…)",
+              mask: settings.stripeWebhookMask,
+            },
+            {
+              name: "stripeConnectWebhook",
+              label: "Connect webhook secret (whsec_…)",
+              mask: settings.stripeConnectWebhookMask,
+            },
+          ].map((f) => (
+            <label
+              key={f.name}
+              className="block text-xs uppercase tracking-[0.14em] text-neutral-500"
+            >
+              {f.label}
+              <span className="ml-2 normal-case tracking-normal text-neutral-400">
+                {f.mask ? `— current: ${f.mask}` : "— not set (using env)"}
+              </span>
+              <input
+                type="password"
+                name={f.name}
+                autoComplete="off"
+                placeholder="Leave blank to keep current"
+                className={`mt-1 w-full ${field}`}
+              />
+            </label>
+          ))}
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="border border-admin-accent/40 bg-admin-accent/10 px-5 py-2 text-sm font-medium text-admin-accent hover:bg-admin-accent/20 disabled:opacity-70"
+          >
+            Save payment keys
+          </SubmitButton>
+        </form>
       </section>
     </main>
   );

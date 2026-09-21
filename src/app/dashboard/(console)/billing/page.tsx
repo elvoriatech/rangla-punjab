@@ -6,8 +6,6 @@ import { siteUrl } from "@/lib/site-url";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { getOwnKeysStatus, getPayPalKeysStatus } from "@/lib/tenant-payment-keys";
 import { sharedStripeConfigured } from "@/lib/stripe";
-import { env } from "@/lib/env";
-import { payPalKeysInEnv, stripeKeysInEnv } from "@/lib/payment-keys-env";
 import {
   checkPaymentsAction,
   saveOwnKeysAction,
@@ -53,10 +51,6 @@ export default async function BillingPage({
   const envStripe = await sharedStripeConfigured();
   const ownActive = Boolean(ownKeys?.enabled && ownKeys.hasSecret);
   const payPal = await getPayPalKeysStatus(userId);
-  // prod.env owns a provider's keys when it carries them: the forms give
-  // way to a note, and saved keys are cleared at boot (payment-keys-env).
-  const stripeFromEnv = stripeKeysInEnv();
-  const payPalFromEnv = payPalKeysInEnv();
   // Bounce-back from onboarding: refresh the charges-enabled mirror
   // before rendering (real Stripe also pushes account.updated webhooks).
   if (connect === "done") await refreshConnectStatus(userId);
@@ -125,9 +119,7 @@ export default async function BillingPage({
           </p>
         ) : null}
 
-        {ownKeysMode && stripeFromEnv ? <ServerKeysNote provider="Stripe" /> : null}
-
-        {ownKeysMode && !stripeFromEnv ? (
+        {ownKeysMode ? (
           <>
             <p className="mt-3 text-sm text-brand-green/70">
               You collect payments with <span className="font-medium">your own</span> Stripe account
@@ -312,24 +304,20 @@ export default async function BillingPage({
           <h2 className="font-serif text-2xl">PayPal</h2>
           <span
             className={`text-xs font-semibold uppercase tracking-wider ${
-              payPalFromEnv || (payPal.enabled && payPal.hasCredentials)
+              payPal.enabled && payPal.hasCredentials
                 ? "text-[#3f7030]"
                 : payPal.hasCredentials
                   ? "text-amber-700"
                   : "text-brand-green/40"
             }`}
           >
-            {payPalFromEnv
-              ? `● On · server keys · ${env.PAYPAL_ENV}`
-              : payPal.enabled && payPal.hasCredentials
-                ? `● On · ${payPal.env}`
-                : payPal.hasCredentials
-                  ? "◐ Keys saved · off"
-                  : "○ Not set up"}
+            {payPal.enabled && payPal.hasCredentials
+              ? `● On · ${payPal.env}`
+              : payPal.hasCredentials
+                ? "◐ Keys saved · off"
+                : "○ Not set up"}
           </span>
         </div>
-
-        {payPalFromEnv ? <ServerKeysNote provider="PayPal" /> : null}
 
         {paypal === "saved" ? (
           <p
@@ -340,114 +328,98 @@ export default async function BillingPage({
           </p>
         ) : null}
 
-        {payPalFromEnv ? null : (
-          <>
-            <p className="mt-3 text-sm text-brand-green/70">
-              Guests pay with their PayPal balance or card, straight into{" "}
-              <span className="font-medium">your</span> PayPal business account. Create a REST app
-              at <span className="font-medium">developer.paypal.com → Apps &amp; Credentials</span>{" "}
-              and paste its Client ID and Secret. Start in{" "}
-              <span className="font-medium">Sandbox</span> to test, then switch to Live. Credentials
-              are stored encrypted and shown only masked.
-            </p>
+        <p className="mt-3 text-sm text-brand-green/70">
+          Guests pay with their PayPal balance or card, straight into{" "}
+          <span className="font-medium">your</span> PayPal business account. Create a REST app at{" "}
+          <span className="font-medium">developer.paypal.com → Apps &amp; Credentials</span> and
+          paste its Client ID and Secret. Start in <span className="font-medium">Sandbox</span> to
+          test, then switch to Live. Credentials are stored encrypted and shown only masked.
+        </p>
 
-            <form action={savePayPalKeysAction} className="mt-4 space-y-4">
-              <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
-                Client ID
-                <span className="ml-2 normal-case tracking-normal text-brand-green/50">
-                  {payPal.clientIdMask ? `— current: ${payPal.clientIdMask}` : "— not set"}
-                </span>
-                <input
-                  type="password"
-                  name="paypalClientId"
-                  autoComplete="off"
-                  placeholder="Leave blank to keep current"
-                  className={
-                    "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
-                  }
-                />
-              </label>
-              <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
-                Secret
-                <span className="ml-2 normal-case tracking-normal text-brand-green/50">
-                  {payPal.secretMask ? `— current: ${payPal.secretMask}` : "— not set"}
-                </span>
-                <input
-                  type="password"
-                  name="paypalSecret"
-                  autoComplete="off"
-                  placeholder="Leave blank to keep current"
-                  className={
-                    "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
-                  }
-                />
-              </label>
-              <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
-                Webhook ID
-                <span className="ml-2 normal-case tracking-normal text-brand-green/50">
-                  {payPal.webhookIdMask ? `— current: ${payPal.webhookIdMask}` : "— not set"}
-                </span>
-                <input
-                  type="password"
-                  name="paypalWebhookId"
-                  autoComplete="off"
-                  placeholder="Leave blank to keep current"
-                  className={
-                    "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
-                  }
-                />
-              </label>
-              <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
-                Environment
-                <select
-                  name="paypalEnv"
-                  defaultValue={payPal.env}
-                  className={
-                    "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
-                  }
-                >
-                  <option value="sandbox">Sandbox (testing — no real money)</option>
-                  <option value="live">Live (real payments)</option>
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-sm text-brand-green">
-                <input
-                  type="checkbox"
-                  name="paypalEnabled"
-                  defaultChecked={payPal.enabled}
-                  className="h-4 w-4"
-                />
-                Enable — offer PayPal to guests at checkout
-              </label>
-              <p className="text-xs text-brand-green/60">
-                In your PayPal app, under <span className="font-medium">Webhooks</span>, add{" "}
-                <code className="text-brand-green">{`${siteUrl()}/api/paypal/webhook`}</code> with
-                the events <span className="font-medium">Checkout order approved</span> and{" "}
-                <span className="font-medium">Payment capture completed</span>, then paste the
-                Webhook ID PayPal shows above. Without it, an order only settles when the guest
-                comes back to this site after paying; with it, PayPal confirms the payment even if
-                they close the tab.
-              </p>
-              <SaveChangesButton
-                pendingLabel="Saving…"
-                className="bg-brand-green px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark disabled:opacity-70"
-              >
-                Save PayPal settings
-              </SaveChangesButton>
-            </form>
-          </>
-        )}
+        <form action={savePayPalKeysAction} className="mt-4 space-y-4">
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Client ID
+            <span className="ml-2 normal-case tracking-normal text-brand-green/50">
+              {payPal.clientIdMask ? `— current: ${payPal.clientIdMask}` : "— not set"}
+            </span>
+            <input
+              type="password"
+              name="paypalClientId"
+              autoComplete="off"
+              placeholder="Leave blank to keep current"
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            />
+          </label>
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Secret
+            <span className="ml-2 normal-case tracking-normal text-brand-green/50">
+              {payPal.secretMask ? `— current: ${payPal.secretMask}` : "— not set"}
+            </span>
+            <input
+              type="password"
+              name="paypalSecret"
+              autoComplete="off"
+              placeholder="Leave blank to keep current"
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            />
+          </label>
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Webhook ID
+            <span className="ml-2 normal-case tracking-normal text-brand-green/50">
+              {payPal.webhookIdMask ? `— current: ${payPal.webhookIdMask}` : "— not set"}
+            </span>
+            <input
+              type="password"
+              name="paypalWebhookId"
+              autoComplete="off"
+              placeholder="Leave blank to keep current"
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            />
+          </label>
+          <label className="block text-xs uppercase tracking-[0.14em] text-brand-green/60">
+            Environment
+            <select
+              name="paypalEnv"
+              defaultValue={payPal.env}
+              className={
+                "mt-1 block w-full border border-brand-green/25 bg-white px-3 py-2 text-sm text-brand-green outline-none focus:border-brand-green"
+              }
+            >
+              <option value="sandbox">Sandbox (testing — no real money)</option>
+              <option value="live">Live (real payments)</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-brand-green">
+            <input
+              type="checkbox"
+              name="paypalEnabled"
+              defaultChecked={payPal.enabled}
+              className="h-4 w-4"
+            />
+            Enable — offer PayPal to guests at checkout
+          </label>
+          <p className="text-xs text-brand-green/60">
+            In your PayPal app, under <span className="font-medium">Webhooks</span>, add{" "}
+            <code className="text-brand-green">{`${siteUrl()}/api/paypal/webhook`}</code> with the
+            events <span className="font-medium">Checkout order approved</span> and{" "}
+            <span className="font-medium">Payment capture completed</span>, then paste the Webhook
+            ID PayPal shows above. Without it, an order only settles when the guest comes back to
+            this site after paying; with it, PayPal confirms the payment even if they close the tab.
+          </p>
+          <SaveChangesButton
+            pendingLabel="Saving…"
+            className="bg-brand-green px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark disabled:opacity-70"
+          >
+            Save PayPal settings
+          </SaveChangesButton>
+        </form>
       </section>
     </main>
-  );
-}
-
-/** Stands in for a key form when prod.env supplies that provider's keys. */
-function ServerKeysNote({ provider }: { provider: "Stripe" | "PayPal" }): React.ReactElement {
-  return (
-    <p className="mt-3 text-sm text-brand-green/70">
-      {provider} keys and webhook are set on the server (<code>prod.env</code>) and used for every
-      payment. To change them, edit <code>prod.env</code> and restart the app.
-    </p>
   );
 }
