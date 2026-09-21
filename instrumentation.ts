@@ -28,7 +28,28 @@ export async function register(): Promise<void> {
       process.on("SIGTERM", () => void otel.shutdown());
     }
     startPartitionMaintenance();
+    syncPayPalKeysOnBoot();
   }
+}
+
+/**
+ * prod.env's PAYPAL_* keys → the restaurant's saved PayPal settings
+ * (see `paypal-env-sync.ts`). Once per boot; never fatal.
+ */
+function syncPayPalKeysOnBoot(): void {
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+  if (process.env.PAYPAL_SYNC_FROM_ENV === "0") return;
+  void (async () => {
+    try {
+      const { syncPayPalKeysFromEnv } = await import("./src/lib/paypal-env-sync");
+      const { updated } = await syncPayPalKeysFromEnv();
+      logger.info("paypal.keys_synced_from_env", { updated, env: process.env.PAYPAL_ENV });
+    } catch (err) {
+      logger.warn("paypal.keys_sync_failed", {
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    }
+  })();
 }
 
 /** Once a day; `aheadMonths` (3) is the real safety margin. */
