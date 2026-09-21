@@ -30,6 +30,8 @@ function card(over: Partial<GiftCardReportRow> = {}): GiftCardReportRow {
     shareUrl: null,
     buyerName: "Anna Weber",
     buyerEmail: "anna@example.com",
+    buyerPhone: "+497531123456",
+    paidCents: 4750,
     ...over,
   };
 }

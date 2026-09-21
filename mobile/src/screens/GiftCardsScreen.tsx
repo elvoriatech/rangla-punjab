@@ -19,6 +19,7 @@ import { useAuth } from "../auth";
 import type { GiftCardProduct, GiftCardShop, GiftCardView } from "../gift-cards";
 import {
   buyGiftCard,
+  giftCardChargeCents,
   confirmFakeGiftCardPayment,
   fetchGiftCardShop,
   fetchMyGiftCards,
@@ -94,6 +95,11 @@ export function GiftCardsScreen({
   /** Set on the first failed submit, so the range message does not
    *  scold a guest who is still typing the first digit. */
   const [amountTouched, setAmountTouched] = useState(false);
+  /** The buyer's contact number — REQUIRED (the restaurant must be able
+   *  to reach whoever paid). Prefilled from the account's profile when it
+   *  has one; the server normalises whatever spelling is typed. */
+  const [phone, setPhone] = useState(auth.customer?.phone ?? "");
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");
   const [method, setMethod] = useState<BuyMethod>("card");
@@ -163,6 +169,20 @@ export function GiftCardsScreen({
             max: money(maxCents, currency),
           });
 
+  /** Loose client check only — enough digits to be a number at all. The
+   *  server's `normalizePhone` is the real judge and answers
+   *  `invalid_phone` when it disagrees. */
+  const phoneOk = phone.replace(/\D/g, "").length >= 6;
+  const phoneError =
+    !phoneTouched || phoneOk
+      ? null
+      : phone.trim() === ""
+        ? t.giftCardPhoneMissing
+        : t.giftCardPhoneInvalid;
+  /** Buying is discounted: the guest pays less than the card is worth. */
+  const discount = shop?.purchaseDiscountPercent ?? 0;
+  const chargeCents = amountCents === null ? null : giftCardChargeCents(amountCents, discount);
+
   /** Re-read this card from the account, so the screen shows the SERVER's
    *  verdict (status, expiry, share link) rather than the optimistic row
    *  the purchase call answered with. */
@@ -183,12 +203,17 @@ export function GiftCardsScreen({
       setAmountTouched(true);
       return;
     }
+    if (!phoneOk) {
+      setPhoneTouched(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     const deepLink = ExpoLinking.createURL("payment-return");
     const result = await buyGiftCard(auth.token, {
       productId: product.id,
       amountCents,
+      phone: phone.trim(),
       recipientName: recipient.trim() || undefined,
       message: message.trim() || undefined,
       method,
@@ -207,8 +232,10 @@ export function GiftCardsScreen({
           min: money(minCents, currency),
           max: money(maxCents, currency),
         }),
+        invalid_phone: t.giftCardPhoneInvalid,
       };
       if (result.error === "invalid_amount") setAmountTouched(true);
+      if (result.error === "invalid_phone") setPhoneTouched(true);
       setError(messages[result.error] ?? t.giftCardBuyFailed);
       return;
     }
@@ -405,9 +432,46 @@ export function GiftCardsScreen({
                   <Text style={styles.amountUnit}>{currency === "EUR" ? "€" : currency}</Text>
                 </View>
                 <Text style={styles.hint}>{rangeHint}</Text>
+                {/* The purchase discount, once there is a valid amount:
+                    the card keeps the full value, the guest pays less. */}
+                {chargeCents !== null && discount > 0 ? (
+                  <Text style={styles.discount}>
+                    {fill(t.giftCardYouPay, {
+                      price: money(chargeCents, currency),
+                      percent: String(discount),
+                    })}
+                  </Text>
+                ) : null}
                 {amountError ? (
                   <Text style={styles.error} accessibilityRole="alert">
                     {amountError}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* The buyer's contact number — required. */}
+              <View style={{ gap: 6 }}>
+                <FieldLabel label={t.giftCardPhone} required style={styles.label} />
+                <TextInput
+                  value={phone}
+                  onChangeText={(next) => {
+                    setPhone(next);
+                    setError(null);
+                  }}
+                  onBlur={() => setPhoneTouched(true)}
+                  keyboardType="phone-pad"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  textContentType="telephoneNumber"
+                  maxLength={32}
+                  placeholder="+49 170 1234567"
+                  placeholderTextColor={colors.inkSoft}
+                  style={[styles.input, phoneError ? styles.amountBoxError : null]}
+                  accessibilityLabel={`${t.giftCardPhone}, ${t.fieldRequired}`}
+                />
+                {phoneError ? (
+                  <Text style={styles.error} accessibilityRole="alert">
+                    {phoneError}
                   </Text>
                 ) : null}
               </View>
@@ -468,7 +532,9 @@ export function GiftCardsScreen({
 
               {/* The field's own message already sits under the field;
                   don't print it a second time down here. */}
-              {error && error !== amountError ? <Text style={styles.error}>{error}</Text> : null}
+              {error && error !== amountError && error !== phoneError ? (
+                <Text style={styles.error}>{error}</Text>
+              ) : null}
 
               {auth.token ? (
                 <PrimaryButton
@@ -477,11 +543,12 @@ export function GiftCardsScreen({
                   // valid, at which point the button also stops being
                   // disabled, so the two always agree.
                   label={fill(t.giftCardBuy, {
-                    price: money(amountCents ?? 0, currency),
+                    // What the guest is CHARGED — the discounted price.
+                    price: money(chargeCents ?? 0, currency),
                   })}
                   tone="red"
                   busy={busy}
-                  disabled={!product || amountCents === null}
+                  disabled={!product || amountCents === null || !phoneOk}
                   onPress={() => void buy()}
                 />
               ) : (
@@ -589,6 +656,7 @@ const styles = StyleSheet.create({
   /** Colour is never the only signal here: the sentence under the field
    *  says what is wrong, and the field's own label says it is required. */
   amountBoxError: { borderColor: colors.danger },
+  discount: { color: colors.positive, ...fonts.bodySemi, fontSize: 13 },
   amountInput: {
     flex: 1,
     paddingVertical: 10,

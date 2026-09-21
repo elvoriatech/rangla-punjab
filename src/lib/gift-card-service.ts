@@ -1,10 +1,12 @@
 import type { Prisma } from "@prisma/client";
 import { formatGiftCardCode, generateGiftCardCode, normalizeGiftCardCode } from "./gift-card-code";
 import {
+  giftCardChargeCents,
   isValidGiftCardAmount,
   parseGiftCardConfig,
   type GiftCardConfig,
 } from "./gift-card-config";
+import { normalizePhone } from "./contact-config";
 import { signGiftCardToken } from "./gift-card-token";
 import { createLogger } from "./logger";
 import { uploadedImageUrl } from "./menu-images";
@@ -362,7 +364,10 @@ const cardSelect = {
 
 export type CreateGiftCardResult =
   | { ok: true; card: GiftCardView }
-  | { ok: false; error: "disabled" | "unknown_product" | "code_exhausted" | "invalid_amount" };
+  | {
+      ok: false;
+      error: "disabled" | "unknown_product" | "code_exhausted" | "invalid_amount" | "invalid_phone";
+    };
 
 /**
  * Mint a `pending_payment` card for a guest. The payment is started by
@@ -385,11 +390,19 @@ export async function createGiftCardPurchase(
   venueId: string,
   customerId: string,
   productId: string,
-  input: { amountCents: number; recipientName?: string | null; message?: string | null },
+  input: {
+    amountCents: number;
+    /** The buyer's contact number — required; stored normalised (E.164). */
+    phone: string;
+    recipientName?: string | null;
+    message?: string | null;
+  },
 ): Promise<CreateGiftCardResult> {
   if (!isValidGiftCardAmount(input.amountCents)) {
     return { ok: false as const, error: "invalid_amount" as const };
   }
+  const phone = normalizePhone(input.phone);
+  if (!phone) return { ok: false as const, error: "invalid_phone" as const };
   return asTenant(tenantId, async (tx) => {
     const venue = await tx.venue.findFirst({
       where: { id: venueId, deletedAt: null },
@@ -422,6 +435,11 @@ export async function createGiftCardPurchase(
             // The guest's amount, already bounds-checked above. The
             // product contributes its ARTWORK and its name, not its price.
             valueCents: input.amountCents,
+            // The buyer pays the discounted price; the card keeps its
+            // full value. Every payment path charges THIS, never a
+            // client-sent figure.
+            paidCents: giftCardChargeCents(input.amountCents),
+            purchaserPhone: phone,
             currency: venue.currency,
             status: "pending_payment",
           },
@@ -840,6 +858,10 @@ export async function releaseGiftCardFromOrder(tenantId: string, orderId: string
 export interface GiftCardReportRow extends GiftCardView {
   buyerName: string | null;
   buyerEmail: string | null;
+  /** E.164; null on cards sold before the number was asked. */
+  buyerPhone: string | null;
+  /** What the buyer actually paid (value less the purchase discount). */
+  paidCents: number;
 }
 
 export interface GiftCardReport {
@@ -889,7 +911,12 @@ export async function getGiftCardReport(
     const rows = await tx.giftCard.findMany({
       where: { venueId, ...sold, ...(filter === "all" ? {} : { status: filter }) },
       orderBy: { paidAt: "desc" },
-      select: { ...cardSelect, purchaser: { select: { name: true, email: true } } },
+      select: {
+        ...cardSelect,
+        purchaserPhone: true,
+        paidCents: true,
+        purchaser: { select: { name: true, email: true } },
+      },
     });
 
     const all =
@@ -928,6 +955,8 @@ export async function getGiftCardReport(
         ...v,
         buyerName: rows[i]?.purchaser?.name ?? null,
         buyerEmail: rows[i]?.purchaser?.email ?? null,
+        buyerPhone: rows[i]?.purchaserPhone ?? null,
+        paidCents: rows[i]?.paidCents ?? v.valueCents,
       })),
       totals,
     };

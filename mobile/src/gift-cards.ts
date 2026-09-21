@@ -88,6 +88,16 @@ export interface GiftCardShop {
   minAmountCents: number;
   maxAmountCents: number;
   amountStepCents: number;
+  /** The guest pays this much less than the card's value (e.g. 5 → a
+   *  €25 card costs €23.75). 0 on a server that predates the discount. */
+  purchaseDiscountPercent: number;
+}
+
+/** What the guest pays for a card worth `valueCents` — the server's own
+ *  rounding (`giftCardChargeCents`), so the price shown is the price
+ *  charged. */
+export function giftCardChargeCents(valueCents: number, discountPercent: number): number {
+  return Math.round((valueCents * (100 - discountPercent)) / 100);
 }
 
 /** What the shop falls back to when the server omits the bounds. */
@@ -132,6 +142,8 @@ export type GiftCardBuyError =
   /** The typed amount is outside the venue's bounds, or not a whole
    *  step. The screen re-states its own range message for this. */
   | "invalid_amount"
+  /** The contact number is missing or not a phone number. */
+  | "invalid_phone"
   | "rate_limited"
   | "network"
   | (string & {});
@@ -244,6 +256,8 @@ export async function fetchGiftCardShop(): Promise<GiftCardShop | null> {
       minAmountCents: Math.max(1, num(body.minAmountCents, GIFT_CARD_MIN_CENTS)),
       maxAmountCents: Math.max(1, num(body.maxAmountCents, GIFT_CARD_MAX_CENTS)),
       amountStepCents: Math.max(1, num(body.amountStepCents, GIFT_CARD_STEP_CENTS)),
+      // Bounded so a bad answer can never show a negative or free price.
+      purchaseDiscountPercent: Math.min(50, Math.max(0, num(body.purchaseDiscountPercent, 0))),
     };
   } catch {
     return null;
@@ -259,6 +273,8 @@ export interface BuyGiftCardInput {
    * disagrees, so this is a convenience for the guest, not a guarantee.
    */
   amountCents: number;
+  /** The buyer's contact number — required by the server. */
+  phone: string;
   recipientName?: string;
   message?: string;
   method: "card" | "paypal";

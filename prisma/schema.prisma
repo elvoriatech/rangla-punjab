@@ -912,6 +912,13 @@ model GiftCard {
   recipientName       String? @map("recipient_name")
   message             String?
   valueCents          Int     @map("value_cents")
+  /// What the buyer was actually charged: `valueCents` less the purchase
+  /// discount (`giftCardChargeCents`). NULL on cards sold before the
+  /// discount existed — those were charged the full value.
+  paidCents           Int?    @map("paid_cents")
+  /// The buyer's contact number (E.164), required at purchase. NULL only
+  /// on cards sold before it was asked.
+  purchaserPhone      String? @map("purchaser_phone")
   currency            String
   status              String  @default("pending_payment")
 

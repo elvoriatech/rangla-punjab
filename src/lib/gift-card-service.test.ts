@@ -123,6 +123,7 @@ async function buy(
 ): Promise<GiftCardView> {
   const product = await productAt(fx, index, venueId);
   const created = await createGiftCardPurchase(fx.tenantId, venueId, fx.customerId, product.id, {
+    phone: "07531 123456",
     amountCents: amountCents ?? product.priceCents,
     recipientName: "Simran",
     message: "Happy birthday",
@@ -354,7 +355,10 @@ describe("buying a gift card", () => {
     const product = await productAt(fx, 0);
 
     const refuse = async (amountCents: number): Promise<unknown> =>
-      createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, { amountCents });
+      createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {
+        amountCents,
+        phone: "07531 123456",
+      });
 
     // Below €5: costs more to process than it is worth.
     expect(await refuse(GIFT_CARD_AMOUNT.minCents - 100)).toEqual({
@@ -375,10 +379,12 @@ describe("buying a gift card", () => {
 
     // The bounds themselves are INSIDE the range.
     const low = await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {
+      phone: "07531 123456",
       amountCents: GIFT_CARD_AMOUNT.minCents,
     });
     expect(low.ok && low.card.valueCents).toBe(GIFT_CARD_AMOUNT.minCents);
     const high = await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {
+      phone: "07531 123456",
       amountCents: GIFT_CARD_AMOUNT.maxCents,
     });
     expect(high.ok && high.card.valueCents).toBe(GIFT_CARD_AMOUNT.maxCents);
@@ -394,6 +400,7 @@ describe("buying a gift card", () => {
 
     expect(
       await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, "no-such-product", {
+        phone: "07531 123456",
         amountCents: 2500,
       }),
     ).toEqual({ ok: false, error: "unknown_product" });
@@ -405,6 +412,7 @@ describe("buying a gift card", () => {
     // from a screen the guest opened before that.
     expect(
       await createGiftCardPurchase(fx.tenantId, fx.venueId, fx.customerId, product.id, {
+        phone: "07531 123456",
         amountCents: 2500,
       }),
     ).toEqual({ ok: false, error: "unknown_product" });
@@ -417,7 +425,7 @@ describe("buying a gift card", () => {
         disabled.venueId,
         disabled.customerId,
         theirProduct.id,
-        { amountCents: 2500 },
+        { phone: "07531 123456", amountCents: 2500 },
       ),
     ).toEqual({ ok: false, error: "disabled" });
     // …and nothing was minted on the way to that refusal.

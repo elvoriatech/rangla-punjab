@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { signupUser } from "@/lib/auth-service";
 import { signInCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/db";
-import { GIFT_CARD_AMOUNT } from "@/lib/gift-card-config";
+import { GIFT_CARD_AMOUNT, giftCardChargeCents } from "@/lib/gift-card-config";
 import { DEFAULT_GIFT_CARD_PRODUCTS, listGiftCardProducts } from "@/lib/gift-card-service";
 import { asTenant } from "@/lib/tenant";
 import { GET, OPTIONS, POST } from "./route";
@@ -136,7 +136,13 @@ describe("/api/v1/gift-cards", () => {
         "x-forwarded-for": from,
         ...(token ? { "x-customer-token": token } : {}),
       },
-      body: JSON.stringify(body),
+      // The contact number is required; tests that are not about it get
+      // a valid one by default.
+      body: JSON.stringify(
+        body && typeof body === "object" && !("phone" in body)
+          ? { phone: "07531 123456", ...body }
+          : body,
+      ),
     });
   }
 
@@ -234,6 +240,35 @@ describe("/api/v1/gift-cards", () => {
     expect(await asTenant(tenantId, (tx) => tx.giftCard.count())).toBe(0);
   });
 
+  it("requires the buyer's contact number and stores it normalised", async () => {
+    const from = freshIp();
+    for (const phone of ["", "   ", "not a number", "12"]) {
+      const res = await POST(buyRequest({ productId, amountCents: 2500, phone }, guestToken, from));
+      expect(res.status, `phone=${JSON.stringify(phone)}`).toBe(400);
+      expect(((await res.json()) as { error?: string }).error).toBe("invalid_phone");
+    }
+    // Absent altogether — same refusal, not a generic "invalid".
+    const missing = new NextRequest("http://localhost:3000/api/v1/gift-cards", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": from,
+        "x-customer-token": guestToken,
+      },
+      body: JSON.stringify({ productId, amountCents: 2500 }),
+    });
+    const res = await POST(missing);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error?: string }).error).toBe("invalid_phone");
+    // Nothing was minted by any of the refusals.
+    expect(await asTenant(tenantId, (tx) => tx.giftCard.count())).toBe(0);
+  });
+
+  it("advertises the 5% purchase discount to the app", async () => {
+    const body = (await (await GET()).json()) as { purchaseDiscountPercent?: number };
+    expect(body.purchaseDiscountPercent).toBe(5);
+  });
+
   it("accepts the bounds themselves — €5 and €500 are inside the range", async () => {
     const from = freshIp();
     for (const amountCents of [500, 50000]) {
@@ -241,7 +276,8 @@ describe("/api/v1/gift-cards", () => {
       expect(res.status, `amountCents=${amountCents}`).toBe(201);
       const body = (await res.json()) as BuyBody;
       expect(body.card?.valueCents).toBe(amountCents);
-      expect(body.payment?.amountCents).toBe(amountCents);
+      // Charged 5% less than the card is worth.
+      expect(body.payment?.amountCents).toBe(giftCardChargeCents(amountCents));
     }
     await asTenant(tenantId, (tx) => tx.giftCard.deleteMany({}));
   });
@@ -279,10 +315,11 @@ describe("/api/v1/gift-cards", () => {
     // Stripe is charged from the CARD's value, so the guest's amount
     // flows all the way to the payment sheet with no second source of
     // truth in between.
+    // The purchase is discounted 5%: a €40 card costs €38.
     expect(body.payment).toMatchObject({
       mode: "fake",
       publishableKey: null,
-      amountCents: 4000,
+      amountCents: 3800,
       currency: "EUR",
       merchantName: "Rangla Punjab",
     });
@@ -294,9 +331,20 @@ describe("/api/v1/gift-cards", () => {
     const row = await asTenant(tenantId, (tx) =>
       tx.giftCard.findFirstOrThrow({
         where: { id: body.card!.id },
-        select: { status: true, valueCents: true, expiresAt: true, paymentRef: true },
+        select: {
+          status: true,
+          valueCents: true,
+          expiresAt: true,
+          paymentRef: true,
+          paidCents: true,
+          purchaserPhone: true,
+        },
       }),
     );
+    // Full value on the card, the discounted price as what was charged,
+    // and the buyer's number in international form.
+    expect(row.paidCents).toBe(3800);
+    expect(row.purchaserPhone).toBe("+497531123456");
     expect(row).toMatchObject({
       status: "pending_payment",
       valueCents: 4000,

@@ -252,7 +252,8 @@ export default async function GiftCardsPage({
           <div className="overflow-x-auto border border-ink/15 bg-card">
             <table className="w-full min-w-[900px] text-sm">
               <caption className="sr-only">
-                Gift cards sold, newest first — code, value, buyer, status and redemption
+                Gift cards sold, newest first — code, value (and amount paid), buyer with e-mail and
+                phone, status and redemption
               </caption>
               <thead>
                 <tr className="border-b border-ink/20 text-left text-xs uppercase tracking-wider text-muted">
@@ -291,6 +292,11 @@ export default async function GiftCardsPage({
                     <td className="px-4 py-3">{card.productName ?? "—"}</td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">
                       {money(card.valueCents)}
+                      {card.paidCents !== card.valueCents ? (
+                        <span className="block text-xs font-normal text-muted">
+                          paid {money(card.paidCents)}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       {card.buyerName ?? "—"}
@@ -301,6 +307,16 @@ export default async function GiftCardsPage({
                             className="underline underline-offset-2"
                           >
                             {card.buyerEmail}
+                          </a>
+                        </span>
+                      ) : null}
+                      {card.buyerPhone ? (
+                        <span className="block text-xs text-muted">
+                          <a
+                            href={`tel:${card.buyerPhone}`}
+                            className="underline underline-offset-2"
+                          >
+                            {card.buyerPhone}
                           </a>
                         </span>
                       ) : null}

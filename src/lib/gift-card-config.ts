@@ -59,6 +59,20 @@ export const GIFT_CARD_AMOUNT = {
   stepCents: 100,
 } as const;
 
+/**
+ * Buying a gift card is discounted: the guest pays this much less than the
+ * card is worth (owner decision 2026-09-21). A €25 card costs €23.75 and
+ * still spends as €25 — the discount is on the purchase, never on the
+ * card's value.
+ */
+export const GIFT_CARD_PURCHASE_DISCOUNT_PERCENT = 5;
+
+/** What the buyer is charged for a card worth `valueCents`. Rounded to
+ *  the cent; whole-euro values make every result exact to 5 cents. */
+export function giftCardChargeCents(valueCents: number): number {
+  return Math.round((valueCents * (100 - GIFT_CARD_PURCHASE_DISCOUNT_PERCENT)) / 100);
+}
+
 /** True when `cents` is an amount a guest may actually buy. */
 export function isValidGiftCardAmount(cents: number): boolean {
   return (

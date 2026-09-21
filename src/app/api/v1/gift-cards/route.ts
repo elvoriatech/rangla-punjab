@@ -3,7 +3,11 @@ import { z } from "zod";
 import { clientIp } from "@/lib/client-ip";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { authenticateCustomer } from "@/lib/customer-request";
-import { GIFT_CARD_AMOUNT, parseGiftCardConfig } from "@/lib/gift-card-config";
+import {
+  GIFT_CARD_AMOUNT,
+  GIFT_CARD_PURCHASE_DISCOUNT_PERCENT,
+  parseGiftCardConfig,
+} from "@/lib/gift-card-config";
 import { createGiftCardPayPalPayment, createGiftCardPaymentIntent } from "@/lib/gift-card-payment";
 import { createGiftCardPurchase, listActiveGiftCardProducts } from "@/lib/gift-card-service";
 import { paypalAvailable } from "@/lib/paypal";
@@ -50,6 +54,11 @@ const BUY_IP: RateLimitConfig = {
   failOpen: true,
 };
 
+/** The refusal the app puts under the contact-number box. */
+function invalidPhone(): NextResponse {
+  return withCors(NextResponse.json({ ok: false, error: "invalid_phone" }, { status: 400 }));
+}
+
 /** The refusal the app renders as "pick an amount between €5 and €500". */
 function invalidAmount(): NextResponse {
   return withCors(
@@ -78,6 +87,13 @@ const buySchema = z.object({
     .min(GIFT_CARD_AMOUNT.minCents)
     .max(GIFT_CARD_AMOUNT.maxCents)
     .refine((v) => v % GIFT_CARD_AMOUNT.stepCents === 0),
+  /**
+   * The buyer's contact number — REQUIRED (owner decision 2026-09-21), so
+   * the restaurant can reach whoever paid. Any spelling a guest types
+   * ("0 7531 …", "+49 …"); the service normalises it to E.164 and refuses
+   * anything that is not a phone number.
+   */
+  phone: z.string().trim().min(1).max(40),
   /** Whose name goes on the card. The buyer's words, shown verbatim. */
   recipientName: z.string().trim().max(80).optional(),
   message: z.string().trim().max(500).optional(),
@@ -120,6 +136,9 @@ export async function GET(): Promise<NextResponse> {
         minAmountCents: GIFT_CARD_AMOUNT.minCents,
         maxAmountCents: GIFT_CARD_AMOUNT.maxCents,
         amountStepCents: GIFT_CARD_AMOUNT.stepCents,
+        // The guest pays this much less than the card's value; the app
+        // shows the discounted price next to the amount they type.
+        purchaseDiscountPercent: GIFT_CARD_PURCHASE_DISCOUNT_PERCENT,
         products,
       },
       // Short public cache: the shop window changes when the owner edits
@@ -166,6 +185,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // mistake, and keeps the generic refusal it has always returned.
     const amountOnly = parsed.error.issues.every((i) => i.path[0] === "amountCents");
     if (amountOnly) return invalidAmount();
+    // Same for the contact number — a missing or empty one is the guest's
+    // to fix, so it gets its own code.
+    const phoneOnly = parsed.error.issues.every((i) => i.path[0] === "phone");
+    if (phoneOnly) return invalidPhone();
     return withCors(NextResponse.json({ ok: false, error: "invalid" }, { status: 400 }));
   }
   const input = parsed.data;
@@ -184,6 +207,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     input.productId,
     {
       amountCents: input.amountCents,
+      phone: input.phone,
       recipientName: input.recipientName,
       message: input.message,
     },
@@ -192,6 +216,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // The service re-checks the bounds; if it is the one to refuse, the
     // guest still gets the same shape they would have got from zod.
     if (created.error === "invalid_amount") return invalidAmount();
+    if (created.error === "invalid_phone") return invalidPhone();
     const status = created.error === "unknown_product" ? 404 : 409;
     return withCors(NextResponse.json({ ok: false, error: created.error }, { status }));
   }

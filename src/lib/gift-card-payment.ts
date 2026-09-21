@@ -101,6 +101,7 @@ export async function createGiftCardPaymentIntent(
         select: {
           id: true,
           valueCents: true,
+          paidCents: true,
           currency: true,
           status: true,
           venue: { select: { name: true } },
@@ -126,10 +127,13 @@ export async function createGiftCardPaymentIntent(
       return { ok: false as const, error: "publishable_key_missing" as const };
     }
 
+    // The discounted purchase price (NULL on pre-discount cards = full
+    // value). The card itself keeps `valueCents`.
+    const chargeCents = card.paidCents ?? card.valueCents;
     const intent = await direct.provider.createDirectPaymentIntent({
       giftCardId: card.id,
       tenantId,
-      amountCents: card.valueCents,
+      amountCents: chargeCents,
       currency: card.currency,
       label: `${card.venue.name} — gift card`,
     });
@@ -139,7 +143,7 @@ export async function createGiftCardPaymentIntent(
       ref: intent.ref,
       clientSecret: intent.clientSecret,
       publishableKey,
-      amountCents: card.valueCents,
+      amountCents: chargeCents,
       currency: card.currency,
       merchantName: card.venue.name,
     };
@@ -177,6 +181,7 @@ export async function createGiftCardPayPalPayment(
       select: {
         id: true,
         valueCents: true,
+        paidCents: true,
         currency: true,
         status: true,
         venue: { select: { name: true } },
@@ -193,7 +198,8 @@ export async function createGiftCardPayPalPayment(
       tenantId,
       // Prefixed: see PAYPAL_GIFT_CARD_PREFIX.
       orderId: payPalGiftCardRef(card.id),
-      amountCents: card.valueCents,
+      // Discounted purchase price; see createGiftCardPaymentIntent.
+      amountCents: card.paidCents ?? card.valueCents,
       currency: card.currency,
       label: `${card.venue.name} — Geschenkgutschein`,
       returnUrl: `${base}${appParam}`,

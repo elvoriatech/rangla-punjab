@@ -47,6 +47,11 @@ const HEADERS = [
   "Expires At",
   "Buyer",
   "Buyer Email",
+  "Buyer Phone",
+  // What the buyer actually paid — Value less the purchase discount.
+  // Appended rather than placed beside Value so existing column
+  // positions (and any sheet built on them) stay put.
+  "Paid",
 ] as const;
 
 /** One card, in the column order of `HEADERS`. */
@@ -66,6 +71,8 @@ function cells(card: GiftCardReportRow): string[] {
     card.expiresAt ?? "",
     card.buyerName ?? "",
     card.buyerEmail ?? "",
+    card.buyerPhone ?? "",
+    amount(card.paidCents),
   ];
 }
 
