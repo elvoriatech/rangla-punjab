@@ -38,6 +38,7 @@ import { fetchStaffSummary } from "./src/staff";
 import { useBumpOnChange } from "./src/motion";
 import { openInAppBrowser, walletsFromAccepted } from "./src/payments";
 import { colors, fonts } from "./src/theme";
+import { displayVenueName } from "./src/venue-name";
 import { TAB_BAR_MAX } from "./src/layout";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { MenuScreen } from "./src/screens/MenuScreen";
@@ -625,7 +626,7 @@ function Shell(): React.ReactElement {
         ) : null}
         {menuCurrent && tab === "rating" && restaurant ? (
           <RatingOwnerScreen
-            venueName={menu.venue.name}
+            venueName={displayVenueName(menu.venue.name)}
             // The rating rides on the menu payload — a saved (or
             // refreshed) rating has to reach the header's stars.
             onMenuChanged={refresh}
@@ -660,7 +661,10 @@ function Shell(): React.ReactElement {
           />
         ) : null}
         {menuCurrent && tab === "mygiftcards" && !restaurant ? (
-          <MyGiftCardsScreen venueName={menu.venue.name} onBack={() => setTab("info")} />
+          <MyGiftCardsScreen
+            venueName={displayVenueName(menu.venue.name)}
+            onBack={() => setTab("info")}
+          />
         ) : null}
         {menuCurrent && tab === "redeemgift" && restaurant ? (
           <RedeemGiftCardScreen

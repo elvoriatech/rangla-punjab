@@ -25,10 +25,11 @@
  * because two lines is the whole feature — a third line is a different
  * design, not a longer version of this one.
  *
- * INLINE surfaces keep the whole string: share messages, Stripe's
- * `merchantDisplayName`, alt texts, printed receipts. Splitting is for
- * headings only.
+ * INLINE surfaces keep the whole string: Stripe's `merchantDisplayName`,
+ * alt texts, printed receipts. Splitting is for headings only.
  */
+
+import { brand } from "./brand.generated";
 
 /** Space, U+00B7 MIDDLE DOT, space. */
 export const VENUE_NAME_SEPARATOR = " · ";
@@ -57,4 +58,33 @@ export function venueNameLines(name: string): VenueNameLines {
   // An empty first line is a typo, not a design: promote the remainder.
   if (line1 === "") return { line1: line2, line2: null };
   return { line1, line2 };
+}
+
+/**
+ * WHICH name to display.
+ *
+ * Two names exist and they can disagree. `brand.name` is baked into the
+ * binary by `pnpm brand:mobile` from the venue row at BUILD time;
+ * `menu.venue.name` arrives from the API at RUN time. Right now they do
+ * disagree — production still serves "Rangla Punjab · Konstanz" while
+ * this build carries "Rangla Punjab Restaurant · Konstanz" — and the
+ * owner's answer is that the app must read the longer one. Taking the
+ * API's would also mean the name changes shape mid-session, the first
+ * time a menu refresh lands.
+ *
+ * So the baked name wins wherever the app DISPLAYS the venue, and the
+ * API's is the fallback for the build that somehow shipped without one.
+ * The argument is what keeps the multi-tenant seam visible: this is a
+ * choice between two sources, not a hard-coded string, and flipping the
+ * precedence is a one-line change here rather than a sweep.
+ *
+ * NOT for functional uses. Stripe's `merchantDisplayName`, the Places
+ * search seed and anything sent back to the server stay on the API name,
+ * because those have to match what the server and the payment processor
+ * already know the venue as.
+ */
+export function displayVenueName(apiName?: string | null): string {
+  const baked = brand.name.trim();
+  if (baked) return baked;
+  return typeof apiName === "string" ? apiName.trim() : "";
 }

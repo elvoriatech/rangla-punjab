@@ -24,7 +24,7 @@ import { headlineVoucher, useLoyalty } from "../loyalty";
 import type { GiftCardShop } from "../gift-cards";
 import { fetchGiftCardShop } from "../gift-cards";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
-import { venueNameLines } from "../venue-name";
+import { displayVenueName, venueNameLines } from "../venue-name";
 import { DishSheet } from "../dish-sheet";
 
 /**
@@ -261,10 +261,13 @@ export function HomeScreen({
     .map((i) => i.name)
     .join(" · ");
   // "Rangla Punjab Restaurant" in the header's title, "Konstanz" on the
-  // line under it. When the venue's name has no " · " in it, line 2 is
-  // null and the header falls back to the all-caps "RESTAURANT" it has
-  // always shown (see `venue-name.ts`).
-  const venueLines = venueNameLines(menu.venue.name);
+  // line under it. The name comes from `displayVenueName`, not straight
+  // off the payload: production still serves the shorter "Rangla Punjab
+  // · Konstanz" and the owner's name for this restaurant is the longer
+  // one. When the resolved name has no " · " in it, line 2 is null and
+  // the header falls back to the all-caps "RESTAURANT" it has always
+  // shown (see `venue-name.ts`).
+  const venueLines = venueNameLines(displayVenueName(menu.venue.name));
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader

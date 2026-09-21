@@ -33,6 +33,7 @@ import { fill, useI18n } from "../i18n";
 import { useLayout, TOUCH_MIN } from "../layout";
 import { usePressScale } from "../motion";
 import { colors, fonts, money, radius } from "../theme";
+import { displayVenueName } from "../venue-name";
 
 /**
  * Buying a gift card.
@@ -303,7 +304,7 @@ export function GiftCardsScreen({
           {stage.step === "paid" ? (
             <>
               <Text style={styles.boughtTitle}>{t.giftCardBought}</Text>
-              <GiftCardCard card={stage.card} venueName={menu.venue.name} />
+              <GiftCardCard card={stage.card} venueName={displayVenueName(menu.venue.name)} />
               <PrimaryButton
                 label={t.giftCardsHeading}
                 tone="gold"

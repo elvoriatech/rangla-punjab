@@ -80,26 +80,34 @@ export function RequiredLegend({ style }: { style?: StyleProp<TextStyle> }): Rea
  * and costs no vertical space at all (see `VenueStatePill`, exported for
  * exactly that). The header is back to a single row.
  *
- * `rating` and `subtitle` SHARE the second line: "Konstanz · ★ 4,7 (440)
- * · Bewertung schreiben". The subtitle is no longer the all-caps
- * "RESTAURANT" it started as — Home now passes the venue's TOWN, the
- * second half of a name like "Rangla Punjab Restaurant · Konstanz" (see
- * `venue-name.ts`) — and a town is worth keeping next to the rating
- * rather than losing to it. They run in ONE row inside the rating's own
- * press box, which is why the bar's height is unchanged: it is still a
- * title line plus one line under it, and `HEADER_CONTENT_HEIGHT` still
- * measures that. Only the rating is tappable; the town is a plain label
- * in front of it. No rating (no Place ID, rating switched off, an older
- * server) ⇒ the subtitle renders on its own exactly as it always did.
+ * THREE STACKED LINES, all centred on one axis: the venue's name, its
+ * town, and its Google rating. They were briefly two — the town and the
+ * rating sharing a row — and the owner asked for them apart, which is
+ * also the better reading: "Konstanz" is part of the NAME (the second
+ * half of "Rangla Punjab Restaurant · Konstanz", see `venue-name.ts`),
+ * and hanging it off the front of a tappable rating made it look like
+ * part of the link. Now the name owns lines 1–2 and the rating owns
+ * line 3, which is the only tappable one of the three.
+ *
+ * The subtitle is no longer the all-caps "RESTAURANT" it started as,
+ * though a venue whose name has no " · " in it still falls back to that
+ * word; either way it renders on its own line whether or not a rating is
+ * there.
+ *
+ * The side slots are NOT in that column: the logo stays pinned to the
+ * start edge and the owner's burger to the end edge, as they always
+ * were, so the centred text keeps symmetric gutters no matter which of
+ * them is present.
  *
  * EVERY screen's bar is the SAME height. The content area is pinned to
- * `HEADER_CONTENT_HEIGHT` (safe-area padding sits above it, in `App.tsx`),
- * measured off the tallest case there is — a 20 pt title plus the rating
- * line under it. A screen that passes only a title gets the same slab
- * with more air in it, so moving between Home, Menu, Cart and Orders no
- * longer makes the red jump. The title is deliberately single-line
- * (`numberOfLines={1}` + `adjustsFontSizeToFit`): letting a long venue
- * name wrap is the other way the height used to drift.
+ * `HEADER_CONTENT_HEIGHT` (safe-area padding sits above it, in
+ * `App.tsx`), measured off the tallest case there is — all three lines.
+ * A screen that passes only a title gets the same slab with more air in
+ * it, so moving between Home, Menu, Cart and Orders never makes the red
+ * jump. That rule predates the third line and survives it. The title is
+ * deliberately single-line (`numberOfLines={1}` + `adjustsFontSizeToFit`):
+ * letting a long venue name wrap is the other way the height used to
+ * drift.
  */
 export function BrandHeader({
   title,
@@ -168,13 +176,12 @@ export function BrandHeader({
           >
             {title}
           </Text>
-          {rating ? (
-            <HeaderRatingLine rating={rating} prefix={subtitle} />
-          ) : subtitle ? (
+          {subtitle ? (
             <Text style={styles.headerSubtitle} numberOfLines={1}>
               {subtitle}
             </Text>
           ) : null}
+          {rating ? <HeaderRatingLine rating={rating} /> : null}
         </View>
         {/* End slot: the burger, pinned to the TOP corner of the content
             area rather than centred on it. The slot itself is always
@@ -274,22 +281,7 @@ function HeaderPointsPill({
  * AA for the size, and the link keeps its underline so it is not colour
  * alone that says "tap me".
  */
-function HeaderRatingLine({
-  rating,
-  prefix,
-}: {
-  rating: ApiRating;
-  /**
-   * The subtitle this line absorbed — the venue's town, on the screens
-   * that carry its name. It rides INSIDE the press box rather than on a
-   * row of its own, so adding it costs the header no height; it is
-   * `accessibilityElementsHidden` because the press box speaks for
-   * itself ("4.7 out of 5, 440 reviews — write a review") and a town
-   * read into the middle of that sentence would only muddle it. The
-   * town is announced by the header TITLE's own two lines instead.
-   */
-  prefix?: string;
-}): React.ReactElement {
+function HeaderRatingLine({ rating }: { rating: ApiRating }): React.ReactElement {
   const { t, lang } = useI18n();
   // "4.7" in English, "4,7" in German — the venue's score is a number
   // the guest reads, so it follows their language like every price does.
@@ -308,21 +300,6 @@ function HeaderRatingLine({
     >
       {/* `row` mirrors itself in an RTL build, so the star leads the
           line in whichever direction the guest reads. */}
-      {prefix ? (
-        <>
-          {/* `shrink` on the town and not on the star/score: a long town
-              gives way before the number does. */}
-          <Text
-            style={styles.headerPlace}
-            numberOfLines={1}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          >
-            {prefix}
-          </Text>
-          <Text style={styles.headerRatingCount}>·</Text>
-        </>
-      ) : null}
       <Text style={styles.headerRatingStar}>★</Text>
       <Text style={styles.headerRatingValue}>{value}</Text>
       <Text style={styles.headerRatingCount}>({count})</Text>
@@ -694,11 +671,18 @@ export function QtyStepper({
 
 /**
  * The one height every screen's red bar agrees on, safe-area padding
- * excluded. It is the tallest case measured: a 26 pt title line plus the
- * rating line under it (2 pt of air + a 24 pt press box). A title-only
- * screen renders the same 52 and simply centres its one line in it.
+ * excluded. It is the tallest case there is, added up rather than
+ * guessed at: the title's 22 pt line box, 1 pt of air, the town's 16 pt
+ * line box, then the rating's own row (2 pt of air + a 24 pt press box)
+ * — 65, rounded up to 66 so the stack is never the exact height of its
+ * container.
+ *
+ * A screen with no rating, or no subtitle, renders the SAME 66 and
+ * simply centres what it has in it. That is the point: the red slab must
+ * not change height when the guest moves between Home, Menu, Cart and
+ * Orders.
  */
-const HEADER_CONTENT_HEIGHT = 52;
+const HEADER_CONTENT_HEIGHT = 66;
 /** Both side slots, reserved whether or not anything is in them, so the
  *  centred title always has the same gutter left and right. 44 is the
  *  minimum touch target, which the burger now fills exactly. */
@@ -831,23 +815,36 @@ const styles = StyleSheet.create({
    * ~212 and restores the margin. `adjustsFontSizeToFit` stays as the net
    * for venues with longer names than this one.
    *
-   * `lineHeight` deliberately STAYS at 26, so `HEADER_CONTENT_HEIGHT` is
-   * untouched and no screen's red bar changes height.
+   * `lineHeight` is stated (22, a hair over the 17 pt size) so
+   * `HEADER_CONTENT_HEIGHT` is arithmetic rather than a guess about the
+   * face's ascenders on each platform.
    */
-  headerTitle: { color: colors.onRed, fontSize: 17, lineHeight: 26, ...fonts.display },
+  headerTitle: {
+    color: colors.onRed,
+    fontSize: 17,
+    lineHeight: 22,
+    textAlign: "center",
+    ...fonts.display,
+  },
+  /** Line 2 — the venue's town (or the fallback "RESTAURANT"). Bold and
+   *  tracked out so it reads as part of the name's setting rather than as
+   *  a caption, and `lineHeight` stated for the same arithmetic reason
+   *  the title's is. */
   headerSubtitle: {
     color: colors.goldSoft,
-    ...fonts.body,
-    fontSize: 11,
-    letterSpacing: 3,
+    ...fonts.bodyBold,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 2,
     marginTop: 1,
+    textAlign: "center",
   },
   /** One baseline under the name. `minHeight` + `paddingVertical` give
    *  the press a ~28 pt box of its own, and the 10 pt hitSlop above and
    *  below takes the real target past 44 pt without pushing the header
    *  taller than the subtitle it replaces by more than a few points.
-   *  It must NOT wrap: the bar's height is now fixed, so a second line
-   *  would be clipped rather than accommodated — the link shrinks and
+   *  It must NOT wrap: the bar's height is fixed, so a second line would
+   *  be clipped rather than accommodated — the link shrinks and
    *  ellipsises instead (`numberOfLines={1}` on it). */
   headerRating: {
     flexDirection: "row",
@@ -860,10 +857,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 2,
   },
-  /** The town, sharing the rating's row. Gold like the subtitle it came
-   *  from, but at the rating line's size and without the 3 pt tracking —
-   *  it is a word on a crowded line now, not a standalone caption. */
-  headerPlace: { color: colors.goldSoft, ...fonts.bodyBold, fontSize: 12, flexShrink: 1 },
   headerRatingStar: { color: colors.goldSoft, ...fonts.body, fontSize: 13 },
   headerRatingValue: { color: colors.onRed, ...fonts.bodyBold, fontSize: 12.5 },
   headerRatingCount: { color: colors.goldSoft, ...fonts.body, fontSize: 12 },

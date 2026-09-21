@@ -28,7 +28,7 @@ import {
   useLoyalty,
 } from "../loyalty";
 import { ReservationsCard } from "../reservations";
-import { venueNameLines } from "../venue-name";
+import { displayVenueName, venueNameLines } from "../venue-name";
 import { FieldLabel, OutlineButton, PrimaryButton, RequiredLegend } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
@@ -90,7 +90,7 @@ export function AccountScreen({
   const [rewardOpen, setRewardOpen] = useState(false);
 
   const staff = auth.staff;
-  const venueLines = venueNameLines(menu.venue.name);
+  const venueLines = venueNameLines(displayVenueName(menu.venue.name));
   useEffect(() => {
     // Not in restaurant mode: the endpoint mints a device code, and the
     // owner is never offered a provider button.

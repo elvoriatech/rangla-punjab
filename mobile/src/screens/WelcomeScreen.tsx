@@ -15,7 +15,7 @@ import { useI18n } from "../i18n";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { GoogleButton } from "../google-button";
 import { HalalMark } from "../halal-mark";
-import { venueNameLines } from "../venue-name";
+import { displayVenueName, venueNameLines } from "../venue-name";
 import { brand, colors, fonts, hero, logo, radius, scrim } from "../theme";
 
 /**
@@ -81,7 +81,7 @@ export function WelcomeScreen({
   const loading = variant === "loading";
   // "Rangla Punjab Restaurant" over "Konstanz" — one `venues.name` with
   // the " · " separator in it, set as a letterhead (see `venue-name.ts`).
-  const { line1, line2 } = venueNameLines(brand.name);
+  const { line1, line2 } = venueNameLines(displayVenueName());
 
   // One tap to an account, right on the launch screen — native Google
   // where the build supports it, the browser device flow otherwise.
