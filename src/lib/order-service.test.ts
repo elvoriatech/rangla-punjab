@@ -756,9 +756,9 @@ describe("order-service (guest self-ordering)", () => {
     expect(await placeOrder(fx, takeaway)).toEqual({ ok: false, error: "venue_closed" });
     expect(await placeOrder(fx, dineIn)).toEqual({ ok: false, error: "venue_closed" });
 
-    // Open around the clock (close === open is an overnight window that
-    // never shuts), so ASAP is back — no clock arithmetic to go stale.
-    await setHours(compileWeekly({ slots: [{ open: "00:00", close: "00:00" }], closedDays: [] }));
+    // Open (practically) around the clock, so ASAP is back. 00:00–23:59,
+    // not 00:00–00:00: a same-minute slot now means "left blank".
+    await setHours(compileWeekly({ slots: [{ open: "00:00", close: "23:59" }], closedDays: [] }));
     expect((await placeOrder(fx, takeaway)).ok).toBe(true);
     expect((await placeOrder(fx, dineIn)).ok).toBe(true);
 

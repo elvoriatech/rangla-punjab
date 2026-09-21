@@ -246,7 +246,7 @@ describe("public menu loader", () => {
     await asUser(userId, (tx) =>
       tx.venue.updateMany({
         data: {
-          hours: compileWeekly({ slots: [{ open: "00:00", close: "00:00" }], closedDays: [] }),
+          hours: compileWeekly({ slots: [{ open: "00:00", close: "23:59" }], closedDays: [] }),
         },
       }),
     );
@@ -369,7 +369,7 @@ describe("public menu loader", () => {
         data: {
           hours: {
             configured: true,
-            days: everyDay({ closed: false, slots: [{ open: "00:00", close: "00:00" }] }),
+            days: everyDay({ closed: false, slots: [{ open: "00:00", close: "23:59" }] }),
           },
         },
       }),

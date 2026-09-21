@@ -307,7 +307,7 @@ describe("GET /api/v1/menu — ?locale", () => {
       days: Object.fromEntries(
         ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [
           d,
-          { closed: false, slots: [{ open: "00:00", close: "00:00" }] },
+          { closed: false, slots: [{ open: "00:00", close: "23:59" }] },
         ]),
       ),
     };
