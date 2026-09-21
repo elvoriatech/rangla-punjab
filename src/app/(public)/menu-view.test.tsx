@@ -792,22 +792,23 @@ describe("MenuView footer", () => {
     const html = footerOf(
       renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />),
     );
-    // Row 1: one wrapping flex row that spreads its groups across the
-    // width. Nothing is a grid column any more.
+    // Row 1: one full-width "landscape" row that spreads its groups edge
+    // to edge — one line from lg up. Nothing is a grid column any more.
     expect(html).toContain(
-      '<div class="flex flex-wrap items-center gap-x-8 gap-y-3 md:justify-between">',
+      '<div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 lg:flex-nowrap">',
     );
+    expect(html).not.toContain("max-w-7xl");
     expect(html).not.toMatch(/<div class="grid gap-9 md:grid-cols-3/);
     // Row 2: legal links and the powered-by line side by side, both 12px.
-    expect(html).toMatch(/border-t[^"]*pt-3 text-xs"/);
+    expect(html).toMatch(/border-t[^"]*pt-2 text-xs"/);
     expect(html).not.toContain("tracking-[0.32em]");
     // Tighter vertical padding is the other half of the height budget.
-    expect(html).toContain("py-5");
+    expect(html).toContain("py-3");
     // No small-caps column headings left in the footer.
     expect(html).not.toContain("tracking-[0.18em]");
   });
 
-  it("orders row 1: identity, payments, language, contacts", () => {
+  it("orders row 1: identity, contacts, language, payments", () => {
     const html = footerOf(
       renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />),
     );
@@ -820,10 +821,11 @@ describe("MenuView footer", () => {
     for (const [name, at] of Object.entries(groups)) {
       expect(at, `${name} renders in the footer`).toBeGreaterThan(-1);
     }
-    // The numbers come last in the row, after the app badges.
-    expect(groups.identity).toBeLessThan(groups.payments);
-    expect(groups.payments).toBeLessThan(groups.language);
-    expect(groups.language).toBeLessThan(groups.contacts);
+    // Logo + name in the left corner, the numbers beside it, the
+    // accepted payments in the right corner.
+    expect(groups.identity).toBeLessThan(groups.contacts);
+    expect(groups.contacts).toBeLessThan(groups.language);
+    expect(groups.language).toBeLessThan(groups.payments);
     // Left over from the column layout: nothing is centred in its own
     // track any more, and no group carries a heading.
     expect(html).not.toContain("md:text-center");
@@ -864,19 +866,18 @@ describe("MenuView footer", () => {
     expect(html).not.toMatch(/<div[^>]*class="min-w-0"><\/div>/);
   });
 
-  it("clears the floating cart bar with bottom padding — only when ordering is on", () => {
-    const CLEARANCE = "pb-[calc(6rem+env(safe-area-inset-bottom))]";
+  it("ends right under its last line on desktop; clears the cart bar below lg", () => {
+    // Owner decision 2026-09-21: no dead space under the powered-by line on
+    // desktop. Below lg the full-width cart bar would cover the legal links,
+    // so the clearance stays there — and only while ordering is live.
+    const CLEARANCE = "max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]";
     const withCart = renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} />);
-    expect(withCart, "ordering on → footer clears the cart bar").toContain(CLEARANCE);
-    // No cart bar (no ordering mode enabled) → no dead space under the
-    // powered-by line.
+    expect(withCart).toContain(CLEARANCE);
+    expect(withCart).not.toMatch(/[" ]pb-\[calc/);
+    // Desktop: nothing reserved — the cart button floats above the footer.
+    expect(withCart).not.toContain("lg:pr-[");
     const noCart = renderToStaticMarkup(<MenuView menu={CONTACTED} />);
-    expect(noCart, "ordering off → no extra padding").not.toContain(CLEARANCE);
-    // Paused ordering takes the cart bar away too.
-    const paused = renderToStaticMarkup(
-      <MenuView menu={CONTACTED} orderingModes={ALL_MODES} orderingPaused />,
-    );
-    expect(paused, "ordering paused → no extra padding").not.toContain(CLEARANCE);
+    expect(noCart).not.toContain(CLEARANCE);
   });
 });
 

@@ -596,11 +596,10 @@ export function MenuView({
             heading over each one.
 
             Row 1 is a single wrapping flex row that spreads its five
-            groups across the width — identity, what you can pay with, the
-            language switcher, "Get the app", the venue's numbers. The
-            numbers sit at the far end on purpose: they are the one group
-            a guest goes looking for, so they get the edge rather than
-            the middle of the row.
+            groups across the width — identity (logo + name) in the left
+            corner, then the venue's numbers right beside it, the language
+            switcher, "Get the app", and what you can pay with in the right
+            corner (owner's layout, 2026-09-21).
             Row 2 is the operator's line: legal links and "powered by"
             side by side rather than stacked.
 
@@ -614,18 +613,23 @@ export function MenuView({
             A phone wraps this into more lines, which is fine and expected;
             what must not happen is a sideways scroll, hence `flex-wrap`
             on every row and `min-w-0` on every group. */}
-        {/* Bottom padding only while ordering is live: that is exactly when
-            <CartDrawer> parks its floating cart button at `bottom-4`, and
-            without the clearance it sat on top of the powered-by line on a
-            phone. `env(safe-area-inset-bottom)` adds the home-indicator
-            strip so the gap is the same on a notched iPhone. */}
+        {/* Desktop: the footer ends right under its last line (owner,
+            2026-09-21) — the floating cart button sits at the right and
+            misses the centred bottom line. Below lg the cart bar spans the
+            width and would cover Impressum/Datenschutz (which must stay
+            reachable), so there — and only while ordering is live — the
+            footer keeps the button's 60px footprint + a 12px gap clear.
+            From lg up the button simply floats above the footer's right
+            corner (owner's choice) — no reserved space. */}
         <div
-          className={`mx-auto max-w-7xl px-6 py-5 sm:px-8 ${
-            ordering ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""
+          className={`w-full px-6 py-3 sm:px-8 lg:px-12 ${
+            ordering ? "max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : ""
           }`}
         >
-          {/* ---------- Row 1 · everything a guest might act on ---------- */}
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 md:justify-between">
+          {/* Landscape: the row spans the whole footer edge to edge, one
+              line from lg up (nowrap), groups spread apart; smaller
+              screens wrap but still spread rather than bunching left. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 lg:flex-nowrap">
             {/* a · Who this restaurant is */}
             <div className="inline-flex min-w-0 items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -647,103 +651,7 @@ export function MenuView({
               <span className="min-w-0 font-serif text-lg italic">{menu.venue.name}</span>
             </div>
 
-            {/* b · What you can pay with. Rendered ONLY when the owner
-                accepts something — an always-present empty <div> would
-                still eat one of the row's gaps. role="group" + the label
-                keep the strip named now that its heading is gone, and the
-                small chips keep the row one line tall. */}
-            {payMarks.length > 0 ? (
-              <div role="group" aria-label={t.footer.acceptedPayments} className="min-w-0">
-                <PaymentMarks ids={payMarks} size="sm" />
-              </div>
-            ) : null}
-            {/* c · What language you read it in. <LocaleSwitcher> is itself
-                a <nav aria-label={t.nav.language}>, so the dropped heading
-                costs the group nothing — and wrapping it in a SECOND
-                element carrying the same name would announce "Language"
-                twice, one landmark nested in another. */}
-            {menu.venue.enabledLocales.length > 1 ? (
-              <div className="min-w-0">
-                <LocaleSwitcher
-                  current={locale}
-                  enabled={menu.venue.enabledLocales}
-                  activeDiet={activeDiet}
-                  t={t}
-                />
-              </div>
-            ) : null}
-
-            {/* d · "Get the app" — the landing spot for the header's jump
-                link, and the only place in the product a guest is offered
-                the venue's own app. Every piece is an ordinary anchor, so
-                it works with JS off. Absent entirely until an owner
-                publishes a link, and the badges come from a list so an
-                unpublished store is never an empty list item. The artwork
-                is our own brand-neutral drawing (see `app-badges.tsx`),
-                not Apple's or Google's files. The section's aria-label is
-                what names it now that the heading and the blurb are gone. */}
-            {appLinks ? (
-              <section id="get-the-app" aria-label={t.app.title} className="min-w-0 scroll-mt-32">
-                <ul className="flex flex-wrap items-center gap-2">
-                  {appLinks.ios ? (
-                    <li>
-                      <a
-                        href={appLinks.ios}
-                        target="_blank"
-                        rel="noopener"
-                        aria-label={t.app.storeAria(`${t.app.iosTop} ${t.app.iosName}`)}
-                        className="inline-flex"
-                      >
-                        <AppStoreBadge
-                          topLine={t.app.iosTop}
-                          storeName={t.app.iosName}
-                          className="h-[46px] w-[153px]"
-                        />
-                      </a>
-                    </li>
-                  ) : null}
-                  {appLinks.android ? (
-                    <li>
-                      <a
-                        href={appLinks.android}
-                        target="_blank"
-                        rel="noopener"
-                        aria-label={t.app.storeAria(`${t.app.androidTop} ${t.app.androidName}`)}
-                        className="inline-flex"
-                      >
-                        <GooglePlayBadge
-                          topLine={t.app.androidTop}
-                          storeName={t.app.androidName}
-                          className="h-[46px] w-[153px]"
-                        />
-                      </a>
-                    </li>
-                  ) : null}
-                  {appLinks.apk ? (
-                    /* Deliberately a plain button, not a third badge: a
-                       file the venue hosts itself is not a store listing,
-                       and dressing it as one would be the wrong promise.
-                       The "Android will ask you to allow the install"
-                       hint used to be a paragraph under the row; it is
-                       the anchor's `title` now, so the warning still
-                       reaches the guest without costing the footer a
-                       line. */
-                    <li>
-                      <a
-                        href={appLinks.apk}
-                        download
-                        title={t.app.apkHint}
-                        className="inline-flex h-[46px] items-center rounded-[9px] border border-current/45 px-4 text-xs font-semibold no-underline"
-                      >
-                        {t.app.apk}
-                      </a>
-                    </li>
-                  ) : null}
-                </ul>
-              </section>
-            ) : null}
-
-            {/* e · The restaurant's own numbers — icon + number, one line.
+            {/* b · The restaurant's own numbers — icon + number, one line.
                 The icon says which line it is, so the visible "Call
                 landline" / "Mobil anrufen" wording is dropped; each
                 anchor's aria-label still spells out what the link does
@@ -789,6 +697,106 @@ export function MenuView({
                 </ul>
               </nav>
             ) : null}
+            {/* c · What language you read it in. <LocaleSwitcher> is itself
+                a <nav aria-label={t.nav.language}>, so the dropped heading
+                costs the group nothing — and wrapping it in a SECOND
+                element carrying the same name would announce "Language"
+                twice, one landmark nested in another. */}
+            {menu.venue.enabledLocales.length > 1 ? (
+              <div className="min-w-0">
+                <LocaleSwitcher
+                  current={locale}
+                  enabled={menu.venue.enabledLocales}
+                  activeDiet={activeDiet}
+                  t={t}
+                />
+              </div>
+            ) : null}
+
+            {/* d · "Get the app" — the landing spot for the header's jump
+                link, and the only place in the product a guest is offered
+                the venue's own app. Every piece is an ordinary anchor, so
+                it works with JS off. Absent entirely until an owner
+                publishes a link, and the badges come from a list so an
+                unpublished store is never an empty list item. The artwork
+                is our own brand-neutral drawing (see `app-badges.tsx`),
+                not Apple's or Google's files. The section's aria-label is
+                what names it now that the heading and the blurb are gone. */}
+            {appLinks ? (
+              <section id="get-the-app" aria-label={t.app.title} className="min-w-0 scroll-mt-32">
+                <ul className="flex flex-wrap items-center gap-2">
+                  {appLinks.ios ? (
+                    <li>
+                      <a
+                        href={appLinks.ios}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label={t.app.storeAria(`${t.app.iosTop} ${t.app.iosName}`)}
+                        className="inline-flex"
+                      >
+                        <AppStoreBadge
+                          topLine={t.app.iosTop}
+                          storeName={t.app.iosName}
+                          className="h-[38px] w-[127px]"
+                        />
+                      </a>
+                    </li>
+                  ) : null}
+                  {appLinks.android ? (
+                    <li>
+                      <a
+                        href={appLinks.android}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label={t.app.storeAria(`${t.app.androidTop} ${t.app.androidName}`)}
+                        className="inline-flex"
+                      >
+                        <GooglePlayBadge
+                          topLine={t.app.androidTop}
+                          storeName={t.app.androidName}
+                          className="h-[38px] w-[127px]"
+                        />
+                      </a>
+                    </li>
+                  ) : null}
+                  {appLinks.apk ? (
+                    /* Deliberately a plain button, not a third badge: a
+                       file the venue hosts itself is not a store listing,
+                       and dressing it as one would be the wrong promise.
+                       The "Android will ask you to allow the install"
+                       hint used to be a paragraph under the row; it is
+                       the anchor's `title` now, so the warning still
+                       reaches the guest without costing the footer a
+                       line. */
+                    <li>
+                      <a
+                        href={appLinks.apk}
+                        download
+                        title={t.app.apkHint}
+                        className="inline-flex h-[38px] items-center rounded-[9px] border border-current/45 px-4 text-xs font-semibold no-underline"
+                      >
+                        {t.app.apk}
+                      </a>
+                    </li>
+                  ) : null}
+                </ul>
+              </section>
+            ) : null}
+
+            {/* e · What you can pay with — the right corner. Rendered ONLY when the owner
+                accepts something — an always-present empty <div> would
+                still eat one of the row's gaps. role="group" + the label
+                keep the strip named now that its heading is gone, and the
+                small chips keep the row one line tall. */}
+            {payMarks.length > 0 ? (
+              <div
+                role="group"
+                aria-label={t.footer.acceptedPayments}
+                className="min-w-0 max-lg:ml-auto"
+              >
+                <PaymentMarks ids={payMarks} size="sm" />
+              </div>
+            ) : null}
           </div>
 
           {/* ---------- Row 2 · the operator, and its legal pages ---------- */}
@@ -796,7 +804,7 @@ export function MenuView({
               1.8:1 against dark-red surfaces — surface ink instead, which
               is what the <footer> already sets, so a plain opacity is
               enough here. */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 border-t border-[var(--menu-surface-text,var(--menu-text))]/10 pt-3 text-xs">
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 border-t border-[var(--menu-surface-text,var(--menu-text))]/10 pt-2 text-xs">
             {/* The restaurant's own line comes first — the two links and
                 the operator's credit after it. One line on a desktop, the
                 same wrap as the rest of the row on a phone. */}
