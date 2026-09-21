@@ -56,7 +56,11 @@ export interface MobileColors {
 }
 
 export interface MobileBrandInput {
-  /** Venue display name — becomes the launcher/app name. */
+  /**
+   * Venue display name, in full — e.g. "Rangla Punjab Restaurant · Konstanz".
+   * Kept verbatim as `venue.name` (the app splits it into two lines itself);
+   * the launcher label is shortened from it by `launcherName`.
+   */
   name: string;
   /** Venue slug — seeds the Expo slug, deep-link scheme and bundle ids. */
   slug: string;
@@ -104,6 +108,7 @@ export interface MobileBrandAssets {
 
 export interface MobileBrand {
   venue: {
+    /** The venue's full display name, exactly as the row holds it. */
     name: string;
     slug: string;
     themeId: string;
@@ -114,6 +119,7 @@ export interface MobileBrand {
     halal: boolean;
   };
   app: {
+    /** The launcher label — `launcherName(venue.name)`, NOT the full name. */
     name: string;
     slug: string;
     scheme: string;
@@ -315,6 +321,69 @@ export function deriveScrim(colors: MobileColors, groundHex: string): string {
 
 // ------------------------------------------------------------- identifiers
 
+/**
+ * Separator the venue name uses between the house name and its qualifier
+ * (city, branch): space, U+00B7 MIDDLE DOT, space.
+ */
+const NAME_QUALIFIER = " · ";
+
+/**
+ * Generic venue-type nouns. Dropping one loses nothing a guest needs to
+ * recognise the icon — "Rangla Punjab" identifies the restaurant; the word
+ * "Restaurant" is what every restaurant is called. Matched case-insensitively
+ * against the LAST word only, so "Kitchen Garden" or "Grill 54" keep theirs.
+ */
+const VENUE_TYPE_WORDS = new Set([
+  "restaurant",
+  "ristorante",
+  "restaurante",
+  "imbiss",
+  "bistro",
+  "café",
+  "cafe",
+  "pizzeria",
+  "grill",
+  "kitchen",
+  "küche",
+]);
+
+/**
+ * The launcher label: what a phone prints under the app icon.
+ *
+ * This is NOT the venue's name. Home screens give a label roughly 11–13
+ * characters before they truncate — iOS middle-truncates ("Rangla…onstanz")
+ * and Android tail-truncates to one or two lines — so a full row value like
+ * "Rangla Punjab Restaurant · Konstanz" reaches the guest as ellipsis soup on
+ * every device. `expo.name` is exactly that label (prebuild writes it to
+ * `CFBundleDisplayName` and Android's `app_name`), so it gets the short form
+ * while `venue.name` / `brand.name` keep the full string for the screens,
+ * which have room to lay it out over two lines.
+ *
+ * The shortening is two conservative cuts, both of which only ever remove
+ * words the guest does not need to tell one restaurant from another:
+ *
+ *   1. Everything from the first ` · ` on — the qualifier is a city or branch.
+ *   2. A trailing generic venue-type noun, if a name remains without it.
+ *
+ * Whatever is left is returned as-is: no truncation, no ellipsis. A name that
+ * is still long after both cuts is the venue's own choice, and mangling it
+ * further would be worse than letting the OS do its own truncation.
+ *
+ *   "Rangla Punjab Restaurant · Konstanz" → "Rangla Punjab"
+ *   "Rangla Punjab · Konstanz"            → "Rangla Punjab"
+ *   "Bella Italia"                        → "Bella Italia"
+ *   "Restaurant"                          → "Restaurant"  (nothing else left)
+ */
+export function launcherName(venueName: string): string {
+  const head = venueName.split(NAME_QUALIFIER)[0]!.trim();
+  const words = head.split(/\s+/).filter(Boolean);
+  const last = words[words.length - 1];
+  if (words.length > 1 && last && VENUE_TYPE_WORDS.has(last.toLowerCase())) {
+    return words.slice(0, -1).join(" ");
+  }
+  return words.join(" ");
+}
+
 /** Expo slug: lowercase, `a-z0-9-`, no leading/trailing or doubled dashes. */
 export function expoSlug(raw: string): string {
   const slug = raw
@@ -368,7 +437,9 @@ export function deriveMobileBrand(input: MobileBrandInput): MobileBrand {
       halal: input.halal === true,
     },
     app: {
-      name,
+      // The launcher label, not the venue name — see `launcherName`. The
+      // `|| name` is for a name made only of a qualifier separator.
+      name: launcherName(name) || name,
       slug,
       scheme: expoScheme(input.slug),
       version: input.version?.trim() || DEFAULT_APP_VERSION,
@@ -427,7 +498,10 @@ export function buildExpoBrandConfig(brand: MobileBrand): Record<string, unknown
       // `npx expo config`.
       brand: {
         venueSlug: brand.venue.slug,
-        venueName: brand.venue.name,
+        // The short launcher form, matching `name` above: this block is the
+        // config's own identity echo, and the screens read the full name from
+        // `brand.generated.ts` / the menu payload, never from here.
+        venueName: brand.app.name,
         themeId: brand.venue.themeId,
         ...(brand.apiUrl ? { apiUrl: brand.apiUrl } : {}),
       },

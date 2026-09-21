@@ -35,7 +35,7 @@
     "logo": "./assets/generated/logo.png"
   },
   "expo": {
-    "name": "Rangla Punjab Restaurant · Konstanz",
+    "name": "Rangla Punjab",
     "slug": "rangla-punjab",
     "scheme": "ranglapunjab",
     "version": "1.0.0",
@@ -63,7 +63,7 @@
     "extra": {
       "brand": {
         "venueSlug": "rangla-punjab",
-        "venueName": "Rangla Punjab Restaurant · Konstanz",
+        "venueName": "Rangla Punjab",
         "themeId": "rangla-royal"
       }
     }

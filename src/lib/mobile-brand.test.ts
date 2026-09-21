@@ -10,6 +10,7 @@ import {
   deriveMobileColors,
   expoScheme,
   expoSlug,
+  launcherName,
   renderBrandModule,
 } from "./mobile-brand";
 
@@ -150,6 +151,36 @@ describe("deriveScrim", () => {
   });
 });
 
+describe("launcherName", () => {
+  it.each([
+    // The qualifier AND the generic noun go — both cuts in one name.
+    ["Rangla Punjab Restaurant · Konstanz", "Rangla Punjab"],
+    // Qualifier only.
+    ["Rangla Punjab · Konstanz", "Rangla Punjab"],
+    // Nothing generic to drop, no qualifier: left alone.
+    ["Bella Italia", "Bella Italia"],
+    // Dropping the noun would leave nothing, so it stays.
+    ["Restaurant", "Restaurant"],
+  ])("%s → %s", (full, short) => {
+    expect(launcherName(full)).toBe(short);
+  });
+
+  it("matches the venue-type noun case-insensitively", () => {
+    expect(launcherName("Bella Italia RISTORANTE")).toBe("Bella Italia");
+    expect(launcherName("Zum Löwen imbiss")).toBe("Zum Löwen");
+    expect(launcherName("Stadtgarten Küche")).toBe("Stadtgarten");
+  });
+
+  it("only drops a generic noun in the LAST position", () => {
+    expect(launcherName("Kitchen Garden")).toBe("Kitchen Garden");
+    expect(launcherName("Cafe Central")).toBe("Cafe Central");
+  });
+
+  it("leaves a short name that needs no cut untouched", () => {
+    expect(launcherName("Rangla Punjab")).toBe("Rangla Punjab");
+  });
+});
+
 describe("expoSlug / expoScheme", () => {
   it.each([
     ["rangla-punjab", "rangla-punjab", "ranglapunjab"],
@@ -200,6 +231,17 @@ describe("deriveMobileBrand", () => {
     const brand = deriveMobileBrand({ ...input, slug: "24-hour-diner" });
     expect(brand.app.androidPackage).toBe("com.elvoria.v24hourdiner");
     expect(brand.app.scheme).toBe("app24hourdiner");
+  });
+
+  it("shortens the launcher label but keeps the venue's full name", () => {
+    const brand = deriveMobileBrand({ ...input, name: "Rangla Punjab Restaurant · Konstanz" });
+    // `expo.name` becomes CFBundleDisplayName / app_name, which every home
+    // screen truncates around 11–13 characters.
+    expect(brand.app.name).toBe("Rangla Punjab");
+    // The screens lay the full name out over two lines themselves.
+    expect(brand.venue.name).toBe("Rangla Punjab Restaurant · Konstanz");
+    expect(buildExpoBrandConfig(brand).name).toBe("Rangla Punjab");
+    expect(renderBrandModule(brand)).toContain('name: "Rangla Punjab Restaurant · Konstanz"');
   });
 
   it("falls back to the slug when the name is blank", () => {
