@@ -28,6 +28,7 @@ import {
   useLoyalty,
 } from "../loyalty";
 import { ReservationsCard } from "../reservations";
+import { venueNameLines } from "../venue-name";
 import { FieldLabel, OutlineButton, PrimaryButton, RequiredLegend } from "../components";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
@@ -89,6 +90,7 @@ export function AccountScreen({
   const [rewardOpen, setRewardOpen] = useState(false);
 
   const staff = auth.staff;
+  const venueLines = venueNameLines(menu.venue.name);
   useEffect(() => {
     // Not in restaurant mode: the endpoint mints a device code, and the
     // owner is never offered a provider button.
@@ -282,7 +284,18 @@ export function AccountScreen({
       >
         <View style={styles.heroOverlay}>
           <Image source={logo} style={styles.logo} />
-          <Text style={styles.name}>{menu.venue.name}</Text>
+          {/* Name over town, the same letterhead the welcome screen sets
+              (see `venue-name.ts`). Single-line + shrink-to-fit, because
+              the hero is a fixed 150 pt and a wrapped name would push the
+              town out of it. */}
+          <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+            {venueLines.line1}
+          </Text>
+          {venueLines.line2 ? (
+            <Text style={styles.namePlace} numberOfLines={1}>
+              {venueLines.line2}
+            </Text>
+          ) : null}
         </View>
         {/* This screen has its own hero instead of BrandHeader, so the
             owner's burger is placed on it by hand — same corner, same
@@ -349,7 +362,10 @@ export function AccountScreen({
           <Text style={styles.cardTitle}>{staff ? t.staffSignedIn : t.accountTitle}</Text>
           {staff ? (
             <>
-              <Text style={styles.profileName}>{staff.name || menu.venue.name}</Text>
+              {/* Who the counter is signed in as. One line by nature, so
+                  it takes the name's first line rather than the stored
+                  string with its " · Konstanz" trailing off the end. */}
+              <Text style={styles.profileName}>{staff.name || venueLines.line1}</Text>
               {staff.email ? <Text style={styles.profileMail}>{staff.email}</Text> : null}
               <View style={styles.signOutBox}>
                 <OutlineButton
@@ -795,6 +811,16 @@ const styles = StyleSheet.create({
     color: colors.onRed,
     fontSize: 20,
     ...fonts.bodyHeavy,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowRadius: 5,
+  },
+  /** The town under the name — the welcome screen's pairing at hero
+   *  scale: same faces, same shadow, two thirds the size. */
+  namePlace: {
+    color: colors.onRed,
+    fontSize: 13,
+    ...fonts.bodyBold,
+    letterSpacing: 2,
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowRadius: 5,
   },

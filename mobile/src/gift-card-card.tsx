@@ -20,7 +20,7 @@ import { TOUCH_MIN } from "./layout";
 /**
  * The code, in a face where 0 and O, 1 and I cannot be confused.
  *
- * The brand faces are Playfair and Nunito and neither is monospaced;
+ * The brand face is Nunito, which is not monospaced;
  * this is the one string in the app that is DICTATED and TYPED rather
  * than read, so it gets the platform's own fixed-width face. (The codes
  * themselves are drawn from Crockford base32, which has already thrown

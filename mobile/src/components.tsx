@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
+import { HalalMark } from "./halal-mark";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
 import { useBumpOnChange, usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
@@ -79,14 +80,17 @@ export function RequiredLegend({ style }: { style?: StyleProp<TextStyle> }): Rea
  * and costs no vertical space at all (see `VenueStatePill`, exported for
  * exactly that). The header is back to a single row.
  *
- * `rating` takes the SUBTITLE's slot, directly under the venue name:
- * "★ 4,7 (440) · Bewertung schreiben" is a credential, and the place it
- * earns is beside the name it belongs to, not buried under the hero
- * where it read as one more card. The little all-caps "RESTAURANT"
- * subtitle is what it replaces — the two never share the line, because
- * a third row of type under a 20 pt name is noise. No rating (the
- * default: no Place ID, rating switched off, older server) ⇒ the
- * subtitle stays exactly as it was.
+ * `rating` and `subtitle` SHARE the second line: "Konstanz · ★ 4,7 (440)
+ * · Bewertung schreiben". The subtitle is no longer the all-caps
+ * "RESTAURANT" it started as — Home now passes the venue's TOWN, the
+ * second half of a name like "Rangla Punjab Restaurant · Konstanz" (see
+ * `venue-name.ts`) — and a town is worth keeping next to the rating
+ * rather than losing to it. They run in ONE row inside the rating's own
+ * press box, which is why the bar's height is unchanged: it is still a
+ * title line plus one line under it, and `HEADER_CONTENT_HEIGHT` still
+ * measures that. Only the rating is tappable; the town is a plain label
+ * in front of it. No rating (no Place ID, rating switched off, an older
+ * server) ⇒ the subtitle renders on its own exactly as it always did.
  *
  * EVERY screen's bar is the SAME height. The content area is pinned to
  * `HEADER_CONTENT_HEIGHT` (safe-area padding sits above it, in `App.tsx`),
@@ -165,7 +169,7 @@ export function BrandHeader({
             {title}
           </Text>
           {rating ? (
-            <HeaderRatingLine rating={rating} />
+            <HeaderRatingLine rating={rating} prefix={subtitle} />
           ) : subtitle ? (
             <Text style={styles.headerSubtitle} numberOfLines={1}>
               {subtitle}
@@ -270,7 +274,22 @@ function HeaderPointsPill({
  * AA for the size, and the link keeps its underline so it is not colour
  * alone that says "tap me".
  */
-function HeaderRatingLine({ rating }: { rating: ApiRating }): React.ReactElement {
+function HeaderRatingLine({
+  rating,
+  prefix,
+}: {
+  rating: ApiRating;
+  /**
+   * The subtitle this line absorbed — the venue's town, on the screens
+   * that carry its name. It rides INSIDE the press box rather than on a
+   * row of its own, so adding it costs the header no height; it is
+   * `accessibilityElementsHidden` because the press box speaks for
+   * itself ("4.7 out of 5, 440 reviews — write a review") and a town
+   * read into the middle of that sentence would only muddle it. The
+   * town is announced by the header TITLE's own two lines instead.
+   */
+  prefix?: string;
+}): React.ReactElement {
   const { t, lang } = useI18n();
   // "4.7" in English, "4,7" in German — the venue's score is a number
   // the guest reads, so it follows their language like every price does.
@@ -289,6 +308,21 @@ function HeaderRatingLine({ rating }: { rating: ApiRating }): React.ReactElement
     >
       {/* `row` mirrors itself in an RTL build, so the star leads the
           line in whichever direction the guest reads. */}
+      {prefix ? (
+        <>
+          {/* `shrink` on the town and not on the star/score: a long town
+              gives way before the number does. */}
+          <Text
+            style={styles.headerPlace}
+            numberOfLines={1}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          >
+            {prefix}
+          </Text>
+          <Text style={styles.headerRatingCount}>·</Text>
+        </>
+      ) : null}
       <Text style={styles.headerRatingStar}>★</Text>
       <Text style={styles.headerRatingValue}>{value}</Text>
       <Text style={styles.headerRatingCount}>({count})</Text>
@@ -458,8 +492,18 @@ export function DishBadges({
   const { t } = useI18n();
   const dietNames = t.dietary as Record<string, string>;
   const allergenNames = t.allergens as Record<string, string>;
-  const badges = [
-    ...item.dietary.map((d) => ({ key: `d-${d}`, icon: DIET_ICONS[d] ?? "•", diet: true })),
+  // Halal is the one badge that is ART rather than a glyph: the venue's
+  // own حلال mark in its shop-window green, in place of the 🕌 mosque
+  // emoji — which said "Islam", not "halal kitchen", and drew a
+  // different picture on every platform (see `halal-mark.tsx`). It keeps
+  // the badge stack's drop shadow, which is what holds any of these
+  // glyphs together over a bright photo.
+  const badges: { key: string; icon: React.ReactNode; diet: boolean }[] = [
+    ...item.dietary.map((d) => ({
+      key: `d-${d}`,
+      icon: d === "halal" ? <HalalMark size="chip" shadow /> : (DIET_ICONS[d] ?? "•"),
+      diet: true,
+    })),
     ...item.allergens.map((a) => ({ key: `a-${a}`, icon: ALLERGEN_ICONS[a] ?? "•", diet: false })),
   ];
   if (badges.length === 0) return null;
@@ -487,7 +531,7 @@ export function DishBadges({
           key={b.key}
           style={[styles.badge, dim, b.diet ? styles.badgeDiet : styles.badgeAllergen]}
         >
-          <Text style={glyph}>{b.icon}</Text>
+          {typeof b.icon === "string" ? <Text style={glyph}>{b.icon}</Text> : b.icon}
         </View>
       ))}
       {rest > 0 ? (
@@ -700,10 +744,11 @@ const styles = StyleSheet.create({
    *  that can park their contents at the top (burger) or the middle
    *  (logo / back arrow) independently.
    *
-   *  `gap: 8` rather than the old 12: "Rangla Punjab · Konstanz" at 20 pt
-   *  needs ~235 pt, and 375 - 32 padding - 2×44 slots - 2×8 gaps leaves
-   *  it 239. `adjustsFontSizeToFit` on the title is the guarantee for the
-   *  names that don't fit even that. */
+   *  `gap: 8` rather than the old 12: the title is now the name's FIRST
+   *  line ("Rangla Punjab Restaurant"), which at 20 pt needs ~240 pt, and
+   *  375 - 32 padding - 2×44 slots - 2×8 gaps leaves it 239.
+   *  `adjustsFontSizeToFit` on the title is the guarantee for the names
+   *  that don't fit even that. */
   header: {
     flexDirection: "row",
     alignItems: "stretch",
@@ -771,8 +816,25 @@ const styles = StyleSheet.create({
   stateDot: { width: 9, height: 9, borderRadius: 5 },
   stateText: { ...fonts.bodyHeavy, fontSize: 11, letterSpacing: 0.2 },
   /** Explicit `lineHeight` so the fixed bar height is arithmetic rather
-   *  than a guess about Playfair's ascenders on each platform. */
-  headerTitle: { color: colors.onRed, fontSize: 20, lineHeight: 26, ...fonts.display },
+   *  than a guess about the face's ascenders on each platform. */
+  /**
+   * 17, and every step of that is a measurement rather than taste.
+   *
+   * The centre slot on a 360 pt phone is 224 pt (360 - 32 padding - 2×44
+   * side rails - 2×8 gaps). "Rangla Punjab Restaurant" wanted 240 pt of
+   * the old Playfair at 20 and truncated to "Rangla Punjab Restau…" on
+   * web and on any Android that ignores `adjustsFontSizeToFit`; 18 took
+   * it to 216 and fixed that.
+   *
+   * Nunito 800 is then NOT the narrower face one would assume — at 18 it
+   * measures 224, exactly the slot, with nothing in hand. 17 brings it to
+   * ~212 and restores the margin. `adjustsFontSizeToFit` stays as the net
+   * for venues with longer names than this one.
+   *
+   * `lineHeight` deliberately STAYS at 26, so `HEADER_CONTENT_HEIGHT` is
+   * untouched and no screen's red bar changes height.
+   */
+  headerTitle: { color: colors.onRed, fontSize: 17, lineHeight: 26, ...fonts.display },
   headerSubtitle: {
     color: colors.goldSoft,
     ...fonts.body,
@@ -798,6 +860,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 2,
   },
+  /** The town, sharing the rating's row. Gold like the subtitle it came
+   *  from, but at the rating line's size and without the 3 pt tracking —
+   *  it is a word on a crowded line now, not a standalone caption. */
+  headerPlace: { color: colors.goldSoft, ...fonts.bodyBold, fontSize: 12, flexShrink: 1 },
   headerRatingStar: { color: colors.goldSoft, ...fonts.body, fontSize: 13 },
   headerRatingValue: { color: colors.onRed, ...fonts.bodyBold, fontSize: 12.5 },
   headerRatingCount: { color: colors.goldSoft, ...fonts.body, fontSize: 12 },

@@ -384,6 +384,13 @@ const en = {
 
   giftCardsHeading: "Gift cards",
   giftCardsLead: "Pick a card, add a message, and hand it to whoever deserves it.",
+  /** The amount the guest loads the card with — a required field, so the
+   *  label wears the asterisk (`FieldLabel required`). The helper line
+   *  and both errors are filled from the venue's own bounds. */
+  giftCardAmount: "Amount",
+  giftCardAmountHint: "{min} – {max}",
+  giftCardAmountMissing: "Please enter an amount",
+  giftCardAmountRange: "Please enter a whole amount between {min} and {max}.",
   giftCardRecipient: "Who is it for? (optional)",
   giftCardMessage: "Your message (optional)",
   giftCardBuy: "Buy · {price}",
@@ -1078,6 +1085,10 @@ const de: Strings = {
   giftCardsHeading: "Geschenkgutscheine",
   giftCardsLead:
     "Wähl einen Geschenkgutschein, schreib eine Nachricht dazu und schenk ihn jemandem, der es verdient hat.",
+  giftCardAmount: "Betrag",
+  giftCardAmountHint: "{min} – {max}",
+  giftCardAmountMissing: "Bitte Betrag eingeben",
+  giftCardAmountRange: "Bitte einen vollen Betrag zwischen {min} und {max} eingeben.",
   giftCardRecipient: "Für wen ist er? (optional)",
   giftCardMessage: "Deine Nachricht (optional)",
   giftCardBuy: "Kaufen · {price}",
@@ -1764,6 +1775,10 @@ const fr: Strings = {
 
   giftCardsHeading: "Cartes cadeaux",
   giftCardsLead: "Choisissez une carte, ajoutez un message et offrez-la à qui le mérite.",
+  giftCardAmount: "Montant",
+  giftCardAmountHint: "{min} – {max}",
+  giftCardAmountMissing: "Veuillez saisir un montant",
+  giftCardAmountRange: "Veuillez saisir un montant entier entre {min} et {max}.",
   giftCardRecipient: "Pour qui est-elle ? (facultatif)",
   giftCardMessage: "Votre message (facultatif)",
   giftCardBuy: "Acheter · {price}",
@@ -2449,6 +2464,10 @@ const it: Strings = {
 
   giftCardsHeading: "Carte regalo",
   giftCardsLead: "Scegli una carta, aggiungi un messaggio e regalala a chi se lo merita.",
+  giftCardAmount: "Importo",
+  giftCardAmountHint: "{min} – {max}",
+  giftCardAmountMissing: "Inserisci un importo",
+  giftCardAmountRange: "Inserisci un importo intero tra {min} e {max}.",
   giftCardRecipient: "Per chi è? (facoltativo)",
   giftCardMessage: "Il tuo messaggio (facoltativo)",
   giftCardBuy: "Acquista · {price}",
@@ -3134,6 +3153,10 @@ const es: Strings = {
 
   giftCardsHeading: "Tarjetas regalo",
   giftCardsLead: "Elige una tarjeta, añade un mensaje y dásela a quien se lo merezca.",
+  giftCardAmount: "Importe",
+  giftCardAmountHint: "{min} – {max}",
+  giftCardAmountMissing: "Introduce un importe",
+  giftCardAmountRange: "Introduce un importe entero entre {min} y {max}.",
   giftCardRecipient: "¿Para quién es? (opcional)",
   giftCardMessage: "Tu mensaje (opcional)",
   giftCardBuy: "Comprar · {price}",
@@ -3816,6 +3839,10 @@ const ar: Strings = {
 
   giftCardsHeading: "بطاقات الهدايا",
   giftCardsLead: "اختر بطاقة، أضف رسالة، وأهدِها لمن يستحق.",
+  giftCardAmount: "المبلغ",
+  giftCardAmountHint: "{min} – {max}",
+  giftCardAmountMissing: "يرجى إدخال المبلغ",
+  giftCardAmountRange: "يرجى إدخال مبلغ صحيح بين {min} و{max}.",
   giftCardRecipient: "لمن هي؟ (اختياري)",
   giftCardMessage: "رسالتك (اختياري)",
   giftCardBuy: "شراء · {price}",

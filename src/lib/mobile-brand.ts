@@ -68,6 +68,13 @@ export interface MobileBrandInput {
   bannerKey?: string | null;
   /** `branding.backdrop` — the hero falls back to this menu backdrop's image. */
   backdropId?: string | null;
+  /**
+   * `branding.halalFilter === "on"` — the venue advertises its kitchen as
+   * halal. Not a colour and not an asset: the app reads it to decide whether
+   * the welcome screen wears the calligraphic حلال mark. Absent means off,
+   * so a venue that never set the flag never claims the certification.
+   */
+  halal?: boolean;
   /** Baked into `extra.brand.apiUrl` for reference; builds still set EXPO_PUBLIC_API_URL. */
   apiUrl?: string | null;
   /** Reverse-DNS prefix for the store identifiers. */
@@ -103,6 +110,8 @@ export interface MobileBrand {
     logoKey: string | null;
     bannerKey: string | null;
     backdropId: string | null;
+    /** Whether the app may show the halal mark — see `MobileBrandInput.halal`. */
+    halal: boolean;
   };
   app: {
     name: string;
@@ -354,6 +363,9 @@ export function deriveMobileBrand(input: MobileBrandInput): MobileBrand {
       logoKey: input.logoKey ?? null,
       bannerKey: input.bannerKey ?? null,
       backdropId: input.backdropId ?? null,
+      // Strictly `=== true`: anything else — undefined, a stray string, an
+      // older caller — means the venue has not claimed it.
+      halal: input.halal === true,
     },
     app: {
       name,
@@ -453,6 +465,9 @@ export const brand = {
   name: ${JSON.stringify(brand.venue.name)},
   slug: ${JSON.stringify(brand.venue.slug)},
   themeId: ${JSON.stringify(brand.venue.themeId)},
+  /** The venue advertises a halal kitchen (\`branding.halalFilter === "on"\`).
+   *  Gates the calligraphic حلال mark on the welcome screen. */
+  halal: ${JSON.stringify(brand.venue.halal)},
 } as const;
 
 export const colors = {

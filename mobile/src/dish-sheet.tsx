@@ -4,6 +4,7 @@ import type { ApiItem } from "./api";
 import { DIET_ICONS, useI18n } from "./i18n";
 import { colors, fonts, money, radius } from "./theme";
 import { DishBadges } from "./components";
+import { HalalMark } from "./halal-mark";
 
 /**
  * Dish details. The list rows are deliberately uniform — one line of name,
@@ -69,13 +70,26 @@ export function DishSheet({
 
                 {item.dietary.length > 0 ? (
                   <View style={styles.tagRow}>
-                    {item.dietary.map((d) => (
-                      <View key={d} style={styles.tag}>
-                        <Text style={styles.tagText}>
-                          {DIET_ICONS[d] ?? "•"} {label(t.dietary, d)}
-                        </Text>
-                      </View>
-                    ))}
+                    {item.dietary.map((d) =>
+                      // Halal wears the venue's own حلال mark instead of an
+                      // emoji — the same art the photo badges and the
+                      // welcome screen carry (see `halal-mark.tsx`). Green,
+                      // like everywhere else, but the palette's DARKER
+                      // green: the mark's own shop-window green is 1.8:1
+                      // on this cream plate, where `positive` is 4.69:1.
+                      d === "halal" ? (
+                        <View key={d} style={[styles.tag, styles.tagRowInner]}>
+                          <HalalMark size="chip" color={colors.positive} />
+                          <Text style={styles.tagText}>{label(t.dietary, d)}</Text>
+                        </View>
+                      ) : (
+                        <View key={d} style={styles.tag}>
+                          <Text style={styles.tagText}>
+                            {DIET_ICONS[d] ?? "•"} {label(t.dietary, d)}
+                          </Text>
+                        </View>
+                      ),
+                    )}
                   </View>
                 ) : null}
 
@@ -163,6 +177,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
+  /** Only the halal chip needs it: the mark is a View, so it and the
+   *  label sit side by side rather than inside one Text run. */
+  tagRowInner: { flexDirection: "row", alignItems: "center", gap: 6 },
   tagText: { color: colors.ink, ...fonts.bodySemi, fontSize: 12 },
   metaLabel: {
     color: colors.inkSoft,

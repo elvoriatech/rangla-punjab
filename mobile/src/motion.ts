@@ -119,8 +119,13 @@ export function usePulse(): Animated.Value {
 const FLICKER_STOPS = [0.45, 1, 0.2, 0.8, 0.35, 0.95];
 
 /**
- * The Offers flame: a scale up to 1.15 with a ±6° lean, on durations that
- * are drawn at random.
+ * The Offers flame: a scale up to `maxScale` with a ±6° lean, on durations
+ * that are drawn at random.
+ *
+ * `maxScale` is a parameter because the swell has to fit the ICON SLOT it
+ * burns in: 1.15 reads well at the old 24 pt, but in the 3-up grid's 22 pt
+ * slot the same swell pushes the flame's box past the band and nudges the
+ * label under it. The caller knows its slot; this hook does not.
  *
  * The durations are rolled ONCE per mount and then looped, rather than
  * re-rolled every cycle. Re-rolling would mean building a fresh Animated
@@ -132,7 +137,7 @@ const FLICKER_STOPS = [0.45, 1, 0.2, 0.8, 0.35, 0.95];
  * Reduced motion returns an empty style: the flame is still drawn, it just
  * sits there.
  */
-export function useFireFlicker(): MotionStyle {
+export function useFireFlicker(maxScale = 1.15): MotionStyle {
   const reduced = useReducedMotion();
   const flicker = useRef(new Animated.Value(0)).current;
   const durations = useRef(FLICKER_STOPS.map(() => 110 + Math.round(Math.random() * 190))).current;
@@ -156,7 +161,7 @@ export function useFireFlicker(): MotionStyle {
   const style = useMemo<MotionStyle>(
     () => ({
       transform: [
-        { scale: flicker.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) },
+        { scale: flicker.interpolate({ inputRange: [0, 1], outputRange: [1, maxScale] }) },
         // Through the middle rather than straight across, so the lean and
         // the swell peak at different moments and the flame looks pushed by
         // a draught instead of pumped.
@@ -168,7 +173,7 @@ export function useFireFlicker(): MotionStyle {
         },
       ],
     }),
-    [flicker],
+    [flicker, maxScale],
   );
   return reduced ? STILL : style;
 }

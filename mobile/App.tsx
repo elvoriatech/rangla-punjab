@@ -15,17 +15,17 @@ import * as ExpoLinking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
 import {
   useFonts,
-  PlayfairDisplay_700Bold,
-  PlayfairDisplay_800ExtraBold,
-  PlayfairDisplay_600SemiBold_Italic,
-} from "@expo-google-fonts/playfair-display";
-import {
   Nunito_300Light,
   Nunito_400Regular,
   Nunito_600SemiBold,
   Nunito_700Bold,
   Nunito_800ExtraBold,
+  Nunito_800ExtraBold_Italic,
 } from "@expo-google-fonts/nunito";
+// The naskh face behind the halal mark's حلال. Loaded on EVERY build, not
+// just the Arabic one: the mark is the venue's calligraphy, not a
+// translation, so a German guest sees the same glyph (see `HalalMark`).
+import { Amiri_700Bold } from "@expo-google-fonts/amiri";
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu, OFFERS_CATEGORY_ID } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
@@ -870,17 +870,18 @@ function TabButton({
 }
 
 export default function App(): React.ReactElement {
-  // The mockup's display serif; until it's ready render brand red so the
+  // One family for the whole app now (see `theme.ts`): the display serif
+  // went when the owner asked for every heading to be set in the venue
+  // name's own face. Until the faces are ready render brand red, so the
   // launch never flashes unstyled text.
   const [fontsLoaded] = useFonts({
-    PlayfairDisplay_700Bold,
-    PlayfairDisplay_800ExtraBold,
-    PlayfairDisplay_600SemiBold_Italic,
     Nunito_300Light,
     Nunito_400Regular,
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,
+    Nunito_800ExtraBold_Italic,
+    Amiri_700Bold,
   });
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.red }} />;
   return (

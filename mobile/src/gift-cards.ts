@@ -66,13 +66,34 @@ export interface GiftCardView {
   shareUrl: string | null;
 }
 
-/** The venue's shop window. */
+/**
+ * The venue's shop window.
+ *
+ * The three bounds are what the GUEST's amount has to satisfy: a card is
+ * bought for a typed amount, not for the design's price, so every design
+ * can be had for anything between `minAmountCents` and `maxAmountCents`
+ * in steps of `amountStepCents`. A product's own `priceCents` is only
+ * the SUGGESTION shown on its tile and used as the field's placeholder.
+ *
+ * The defaults below (5 € – 500 €, whole euros) mirror the server's, so
+ * an app talking to a server that predates the fields still validates
+ * the same way the server will — and the server validates again
+ * regardless, since these arrive over the wire.
+ */
 export interface GiftCardShop {
   enabled: boolean;
   expiryMonths: number;
   currency: string;
   products: GiftCardProduct[];
+  minAmountCents: number;
+  maxAmountCents: number;
+  amountStepCents: number;
 }
+
+/** What the shop falls back to when the server omits the bounds. */
+export const GIFT_CARD_MIN_CENTS = 500;
+export const GIFT_CARD_MAX_CENTS = 50_000;
+export const GIFT_CARD_STEP_CENTS = 100;
 
 /** What `POST /api/v1/gift-cards` hands back to pay with. Identical in
  *  shape to the order flow's `PaymentIntentInfo`, deliberately: the same
@@ -108,6 +129,9 @@ export type GiftCardBuyError =
   | "code_exhausted"
   | "not_available"
   | "unknown_product"
+  /** The typed amount is outside the venue's bounds, or not a whole
+   *  step. The screen re-states its own range message for this. */
+  | "invalid_amount"
   | "rate_limited"
   | "network"
   | (string & {});
@@ -214,6 +238,12 @@ export async function fetchGiftCardShop(): Promise<GiftCardShop | null> {
       expiryMonths: num(body.expiryMonths, 12),
       currency: str(body.currency, "EUR"),
       products,
+      // Clamped to something sane rather than trusted blind: a server
+      // that answers 0 or a negative would otherwise disable the
+      // field's validation entirely.
+      minAmountCents: Math.max(1, num(body.minAmountCents, GIFT_CARD_MIN_CENTS)),
+      maxAmountCents: Math.max(1, num(body.maxAmountCents, GIFT_CARD_MAX_CENTS)),
+      amountStepCents: Math.max(1, num(body.amountStepCents, GIFT_CARD_STEP_CENTS)),
     };
   } catch {
     return null;
@@ -222,6 +252,13 @@ export async function fetchGiftCardShop(): Promise<GiftCardShop | null> {
 
 export interface BuyGiftCardInput {
   productId: string;
+  /**
+   * What the guest chose to load the card with, in integer cents.
+   * REQUIRED: the design no longer carries the price. The server checks
+   * it again against its own bounds and answers `invalid_amount` when it
+   * disagrees, so this is a convenience for the guest, not a guarantee.
+   */
+  amountCents: number;
   recipientName?: string;
   message?: string;
   method: "card" | "paypal";

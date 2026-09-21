@@ -1,12 +1,13 @@
 {
   "$generated": "pnpm brand:mobile — generated file, do not edit by hand",
   "venue": {
-    "name": "Rangla Punjab",
+    "name": "Rangla Punjab Restaurant · Konstanz",
     "slug": "rangla-punjab",
     "themeId": "rangla-royal",
     "logoKey": "cmt4bi0850000kusbfsqelvlj/uploads/b2fa8f99-0913-4360-a8a0-508805c2cb9d",
     "bannerKey": "cmt4bi0850000kusbfsqelvlj/uploads/4dcc09d0-24d7-41b2-886f-d789ef2ab6dd",
-    "backdropId": "ivory-minaret"
+    "backdropId": "ivory-minaret",
+    "halal": true
   },
   "colors": {
     "red": "#8f1a1a",
@@ -34,7 +35,7 @@
     "logo": "./assets/generated/logo.png"
   },
   "expo": {
-    "name": "Rangla Punjab",
+    "name": "Rangla Punjab Restaurant · Konstanz",
     "slug": "rangla-punjab",
     "scheme": "ranglapunjab",
     "version": "1.0.0",
@@ -62,7 +63,7 @@
     "extra": {
       "brand": {
         "venueSlug": "rangla-punjab",
-        "venueName": "Rangla Punjab",
+        "venueName": "Rangla Punjab Restaurant · Konstanz",
         "themeId": "rangla-royal"
       }
     }

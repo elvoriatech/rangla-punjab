@@ -210,6 +210,8 @@ interface VenueRow {
   logoKey: string | null;
   bannerKey: string | null;
   backdrop: string | null;
+  /** `branding.halalFilter === "on"` — the app's halal mark hangs off this. */
+  halal: boolean;
 }
 
 /**
@@ -246,6 +248,7 @@ async function loadVenue(slug: string | undefined): Promise<VenueRow> {
       logoKey: typeof branding.logoKey === "string" ? branding.logoKey : null,
       bannerKey: typeof branding.bannerKey === "string" ? branding.bannerKey : null,
       backdrop: typeof branding.backdrop === "string" ? branding.backdrop : null,
+      halal: branding.halalFilter === "on",
     };
   } finally {
     await prisma.$disconnect();
@@ -593,6 +596,9 @@ async function main(): Promise<void> {
       logoKey: null,
       bannerKey: null,
       backdrop: null,
+      // No database to read the flag from, and a build tool must never
+      // invent a certification claim: --no-db is always "not halal".
+      halal: false,
     };
   }
 
@@ -603,6 +609,7 @@ async function main(): Promise<void> {
     logoKey: venue.logoKey,
     bannerKey: venue.bannerKey,
     backdropId: venue.backdrop,
+    halal: venue.halal,
     apiUrl: opts.apiUrl ?? process.env.EXPO_PUBLIC_API_URL ?? null,
     bundlePrefix: opts.bundlePrefix,
     version: opts.version,

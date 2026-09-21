@@ -206,6 +206,13 @@ describe("deriveMobileBrand", () => {
     expect(deriveMobileBrand({ ...input, name: "   " }).app.name).toBe("rangla-punjab");
   });
 
+  it("carries the venue's halal flag, defaulting to off", () => {
+    // The mark is a CLAIM about the kitchen, so anything short of an
+    // explicit `true` has to leave it off.
+    expect(deriveMobileBrand(input).venue.halal).toBe(false);
+    expect(deriveMobileBrand({ ...input, halal: true }).venue.halal).toBe(true);
+  });
+
   it("drops the monochrome icon when the logo has no alpha", () => {
     expect(deriveMobileBrand({ ...input, monochrome: false }).assets.adaptiveMonochrome).toBeNull();
     const config = buildExpoBrandConfig(deriveMobileBrand({ ...input, monochrome: false }));
@@ -288,6 +295,12 @@ describe("renderBrandModule", () => {
     expect(source).toContain('require("../assets/generated/logo.png")');
     expect(source).toContain('require("../assets/generated/hero.jpg")');
     expect(source).toContain(`export const scrim = "${brand.scrim}"`);
+    expect(source).toContain("halal: false,");
+  });
+
+  it("emits the halal flag the welcome screen gates its mark on", () => {
+    const halal = deriveMobileBrand({ name: "Rangla", slug: "rangla", halal: true });
+    expect(renderBrandModule(halal)).toContain("halal: true,");
   });
 
   it("escapes a venue name containing quotes", () => {

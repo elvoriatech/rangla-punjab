@@ -9,18 +9,22 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useI18n } from "../i18n";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { GoogleButton } from "../google-button";
+import { HalalMark } from "../halal-mark";
+import { venueNameLines } from "../venue-name";
 import { brand, colors, fonts, hero, logo, radius, scrim } from "../theme";
 
 /**
  * The launch screen — the mockup's red Willkommen page, element for
- * element: wave artwork, logo medallion, serif wordmark, gold flourish,
- * the four-feature icon row, a second flourish, italic Willkommen +
- * tagline, then the two entries ("Bestellung Starten" → menu,
- * "Anmelden / Registrieren" → account).
+ * element: wave artwork, logo medallion, the venue's name over its town,
+ * gold flourish, the four-feature icon row, a second flourish, italic
+ * Willkommen + tagline, then the two entries ("Bestellung Starten" →
+ * menu, "Anmelden / Registrieren" → account). A halal kitchen wears the
+ * calligraphic mark in the top-left corner, over the scrim.
  *
  * It has TWO variants, and they are one component on purpose:
  *
@@ -73,7 +77,11 @@ export function WelcomeScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   const auth = useAuth();
+  const insets = useSafeAreaInsets();
   const loading = variant === "loading";
+  // "Rangla Punjab Restaurant" over "Konstanz" — one `venues.name` with
+  // the " · " separator in it, set as a letterhead (see `venue-name.ts`).
+  const { line1, line2 } = venueNameLines(brand.name);
 
   // One tap to an account, right on the launch screen — native Google
   // where the build supports it, the browser device flow otherwise.
@@ -105,11 +113,26 @@ export function WelcomeScreen({
         <View style={styles.logoRing}>
           <Image source={logo} style={styles.logo} />
         </View>
-        <Text style={styles.brand}>{brand.name}</Text>
-        <View style={styles.ruleRow}>
-          <View style={styles.rule} />
-          <Text style={styles.sub}>{t.restaurant}</Text>
-          <View style={styles.rule} />
+        {/* The name must FIT BY CONSTRUCTION, not by shrinking: web has no
+            `adjustsFontSizeToFit` at all and Android honours it unevenly, so
+            a size that only just fits in the simulator is a size that
+            ellipsises on a real phone. Two things buy the room — 24 pt
+            instead of 28 (measured: "Rangla Punjab Restaurant" wants
+            ~298 pt of Nunito 800 at 24), and `nameBlock`, which claws back
+            half the scrim's 32 pt gutter either side. That is 328 pt of
+            line on a 360 pt phone and 358 on a 390 pt one, against 298
+            needed. `adjustsFontSizeToFit` stays as the device-side safety
+            net for the venue whose name is longer still; it is no longer
+            what THIS venue depends on. */}
+        <View style={styles.nameBlock}>
+          <Text style={styles.brand} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+            {line1}
+          </Text>
+          {line2 ? (
+            <Text style={styles.brandPlace} numberOfLines={1}>
+              {line2}
+            </Text>
+          ) : null}
         </View>
         <Image source={ORNAMENT} style={styles.ornamentSmall} resizeMode="contain" />
 
@@ -122,7 +145,12 @@ export function WelcomeScreen({
           />
           <View style={styles.featureDivider} />
           <Feature
-            icon={<Ionicons name="leaf-outline" size={24} color={colors.onRed} />}
+            // The one green icon in the row, at the owner's word: the same
+            // `colors.halal` the corner mark wears, so "fresh" and "halal"
+            // read as one promise rather than two unrelated colours. Its
+            // LABEL stays cream like the other three, so the strip still
+            // scans as a set and the colour is never the only signal.
+            icon={<Ionicons name="leaf-outline" size={24} color={colors.halal} />}
             label={t.featFresh}
           />
           <View style={styles.featureDivider} />
@@ -204,6 +232,17 @@ export function WelcomeScreen({
           </>
         )}
       </ScrollView>
+      {/* The owner's mock: the mark in the top-left corner, over the red,
+          clear of the notch. Absolute and OUTSIDE the ScrollView, so it
+          stays put while a short phone scrolls the stack underneath it,
+          and `pointerEvents="none"` so it never eats a tap meant for the
+          page. `left` rather than `start`: the corner is the corner in
+          both reading directions — this is artwork, not a control. */}
+      {brand.halal ? (
+        <View style={[styles.halal, { top: insets.top + 14 }]} pointerEvents="none">
+          <HalalMark />
+        </View>
+      ) : null}
     </ImageBackground>
   );
 }
@@ -231,16 +270,68 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logo: { width: 112, height: 112, borderRadius: 56 },
+  /**
+   * The venue's name, and the town under it.
+   *
+   * NUNITO, not the display serif — the same `bodyHeavy` face and the
+   * same soft shadow as the profile heading on the Account screen, at the
+   * owner's word: the two places the restaurant's own name is set should
+   * be one typeface, and the old display serif at 36 was reading as a
+   * wordmark rather than as the name of a place. The app has since gone
+   * to that one face everywhere (see `theme.ts`), so this is no longer
+   * the exception it was — it is simply the heading ramp's top end. The "— RESTAURANT —" rule row that used
+   * to sit here is gone with it; the town says what the rule said, and
+   * says something true about THIS restaurant rather than a generic word.
+   */
+  /**
+   * The name's own measure, WIDER than the rest of the page.
+   *
+   * The scrim insets everything by 32 pt, which is right for the buttons
+   * and the tagline but costs the one string that cannot afford it; a
+   * -16 margin hands half of each gutter back. Nothing else on the page
+   * moves, because only this block opts out.
+   *
+   * It has to be a VIEW and not the margin on the Text itself: every
+   * react-native-web `Text` carries a base `max-width: 100%`, which
+   * silently clamps a negatively-margined text box straight back to the
+   * parent's padding box — measured, on the build this shipped from. A
+   * View has no such rule, and the Texts inside then stretch to IT.
+   */
+  nameBlock: { alignSelf: "stretch", marginHorizontal: -16 },
   brand: {
     color: colors.onRed,
-    fontSize: 36,
-    ...fonts.display,
+    fontSize: 24,
+    ...fonts.bodyHeavy,
+    /** Zero, stated: tracking is what pushed the name past the measure,
+     *  and the town under it carries the letter-spaced look for the pair. */
+    letterSpacing: 0,
+    textAlign: "center",
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowRadius: 6,
   },
-  ruleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
-  rule: { width: 42, height: 1, backgroundColor: colors.goldSoft },
-  sub: { color: colors.goldSoft, fontSize: 12, letterSpacing: 4, ...fonts.bodyBold },
+  /** The locality: smaller, tracked out, the quiet half of the pair. It
+   *  shares the name's wider measure so the two lines are centred on the
+   *  same axis rather than on two different ones. */
+  brandPlace: {
+    color: colors.onRed,
+    fontSize: 15,
+    ...fonts.bodyBold,
+    letterSpacing: 2.5,
+    marginTop: 2,
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowRadius: 5,
+  },
+  /** Top-left corner, clear of the notch (`top` is set inline from the
+   *  safe-area inset).
+   *
+   *  The mark is ROTATED -18° about its own centre, which pushes its
+   *  painted corners ~8 pt further out than the layout box on every
+   *  side. `left: 20` and the +14 on the inset are what keep those
+   *  corners inside the screen and off the status bar; the un-rotated
+   *  box therefore sits a little in from where a square mark would.
+   *  See the mark itself in `halal-mark.tsx`. */
+  halal: { position: "absolute", left: 20 },
   ornamentSmall: { width: 150, height: 28, marginTop: 10, opacity: 0.95 },
   featureRow: {
     flexDirection: "row",

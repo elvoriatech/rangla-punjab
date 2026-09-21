@@ -24,6 +24,7 @@ import { headlineVoucher, useLoyalty } from "../loyalty";
 import type { GiftCardShop } from "../gift-cards";
 import { fetchGiftCardShop } from "../gift-cards";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
+import { venueNameLines } from "../venue-name";
 import { DishSheet } from "../dish-sheet";
 
 /**
@@ -259,11 +260,16 @@ export function HomeScreen({
     .slice(0, 3)
     .map((i) => i.name)
     .join(" · ");
+  // "Rangla Punjab Restaurant" in the header's title, "Konstanz" on the
+  // line under it. When the venue's name has no " · " in it, line 2 is
+  // null and the header falls back to the all-caps "RESTAURANT" it has
+  // always shown (see `venue-name.ts`).
+  const venueLines = venueNameLines(menu.venue.name);
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader
-        title={menu.venue.name}
-        subtitle={t.restaurant}
+        title={venueLines.line1}
+        subtitle={venueLines.line2 ?? t.restaurant}
         onMenu={onOpenOwnerMenu}
         rating={menu.rating ?? null}
         // `useLoyalty` already answers null when the guest is signed out
@@ -281,64 +287,87 @@ export function HomeScreen({
             entry points that are simply there or not. */}
         {restaurant ? <ServiceSwitches onChanged={onMenuChanged} /> : null}
 
-        {/* THE ACTION SET — four cards on one plate, two to a row.
-            Delivery and Pickup are what a guest usually came for;
-            Reserve and Gift cards are the two errands that are not an
-            order.
-            The icons are the app's OWN: the scooter and the bag the
-            guest has always tapped, and the house's table SVG on the
-            reserve card. A pass at replacing them with one outline icon
-            family in tinted circles was taken back out at the owner's
-            word — the layout below is what survived it. */}
-        {restaurant ? null : (
-          <View style={styles.modeRow}>
-            {menu.ordering.delivery ? (
-              <ActionCard
-                icon={<Text style={styles.modeEmoji}>🛵</Text>}
-                title={t.delivery}
-                subtitle={t.deliverySub}
-                onPress={() => onStartOrder("delivery")}
-              />
-            ) : null}
-            {menu.ordering.takeaway ? (
-              <ActionCard
-                icon={<Text style={styles.modeEmoji}>🛍️</Text>}
-                title={t.pickup}
-                subtitle={t.pickupSub}
-                onPress={() => onStartOrder("takeaway")}
-              />
-            ) : null}
-          </View>
-        )}
+        {/* THE ACTION SET — a 3-UP GRID: six cells, two rows, every cell
+            the same 58 pt tile of icon-over-label.
 
-        {/* Booking a table and buying a gift card — the second half of
-            the same set. Either can be switched off by the venue
-            (reservations from its settings, gift cards from the shop
-            route), and whichever is left simply takes the whole row.
-            Complaint is NOT in this set: it shares the row below with
-            Offers, because a guest with a problem should always be able
-            to find the way to say so WITHOUT it competing with the four
-            things people actually come here to do. */}
-        {!restaurant && (menu.ordering.reservations || giftCardsOn) ? (
-          <View style={styles.modeRow}>
-            {menu.ordering.reservations ? (
-              <ActionCard
-                icon={<TableForGuestsIcon size={26} />}
-                title={t.reserveShort}
-                subtitle={t.reserveSub}
-                onPress={() => setReserveOpen(true)}
-              />
+            Three to a row rather than two, at the owner's word: with two
+            the six entries needed three rows and pushed "Categories" off
+            the bottom of a 360×800 phone, which is the one thing this
+            screen must not do — the categories ARE the menu. Two rows of
+            three plus a shorter hero put the category chips back above
+            the fold without scrolling.
+
+            Row A is what a guest usually came for (order, or book a
+            table); row B is the three errands that are not an order.
+            Anything the venue switches off simply leaves its row — the
+            cells are `flexBasis: 0 / flexGrow: 1`, so two survivors split
+            the row in halves and one takes it whole (see `actionCard`).
+
+            The icons are the app's OWN: the scooter and the bag the guest
+            has always tapped, and the house's table SVG on the reserve
+            card. A pass at replacing them with one outline icon family in
+            tinted circles was taken back out at the owner's word.
+
+            The subtitles are not on the cards at this size — there is no
+            room for a second line — but they are not lost: each one is
+            still spoken as part of the cell's `accessibilityLabel`. */}
+        {restaurant ? null : (
+          <>
+            {menu.ordering.delivery || menu.ordering.takeaway || menu.ordering.reservations ? (
+              <View style={styles.modeRow}>
+                {menu.ordering.delivery ? (
+                  <ActionCard
+                    icon={<Text style={styles.modeEmoji}>🛵</Text>}
+                    title={t.delivery}
+                    subtitle={t.deliverySub}
+                    onPress={() => onStartOrder("delivery")}
+                  />
+                ) : null}
+                {menu.ordering.takeaway ? (
+                  <ActionCard
+                    icon={<Text style={styles.modeEmoji}>🛍️</Text>}
+                    title={t.pickup}
+                    subtitle={t.pickupSub}
+                    onPress={() => onStartOrder("takeaway")}
+                  />
+                ) : null}
+                {menu.ordering.reservations ? (
+                  <ActionCard
+                    icon={<TableForGuestsIcon size={18} />}
+                    title={t.reserveShort}
+                    subtitle={t.reserveSub}
+                    onPress={() => setReserveOpen(true)}
+                  />
+                ) : null}
+              </View>
             ) : null}
-            {giftCardsOn ? (
+
+            {/* Row B. Complaint is always here, whatever else is on: a
+                guest with a problem must always be able to find the way
+                to say so. Offers is the only cell on this screen allowed
+                to move, so the movement still means something, and it is
+                absent entirely when the count is 0 (P7-12). */}
+            <View style={styles.modeRow}>
+              {giftCardsOn ? (
+                <ActionCard
+                  icon={<Text style={styles.modeEmoji}>🎁</Text>}
+                  title={t.giftCardsTitle}
+                  subtitle={t.giftCardsSub}
+                  onPress={onOpenGiftCards}
+                />
+              ) : null}
+              {offerCount > 0 ? (
+                <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
+              ) : null}
               <ActionCard
-                icon={<Text style={styles.modeEmoji}>🎁</Text>}
-                title={t.giftCardsTitle}
-                subtitle={t.giftCardsSub}
-                onPress={onOpenGiftCards}
+                icon={<Text style={styles.modeEmoji}>💬</Text>}
+                title={t.complainShort}
+                subtitle={t.complainSub}
+                onPress={onComplain}
               />
-            ) : null}
-          </View>
-        ) : null}
+            </View>
+          </>
+        )}
 
         {/* A reward already won is the one thing on this screen worth
             interrupting the browse for — gold-edged, above the
@@ -357,35 +386,6 @@ export function HomeScreen({
             <Text style={styles.reserveChevron}>{CHEVRON_FORWARD}</Text>
           </Pressable>
         ) : null}
-
-        {/* Offers and Reklamation, one row, half and half — between the
-            hero and the categories.
-            Offers is the one part of the menu with a reason to be looked
-            at today, and the only card on this screen allowed to move, so
-            the movement still means something. Complaint is its quiet
-            neighbour: the same plate and the same bare emoji as the
-            action set, but nothing to catch the eye — a thing a guest
-            needs to FIND, not a thing to be invited into.
-            Pairing them costs a full row of vertical space and loses
-            nothing: neither line ever needed 328 pt.
-            The row is `styles.modeRow`, so the two halves are the same
-            height by the row's `stretch` alone — no height is stated
-            anywhere, least of all a percentage one (see `actionCard`).
-            With no offers on, the complaint card is the row's only child
-            and `flexGrow: 1` gives it the whole width by itself. */}
-        {restaurant ? null : (
-          <View style={styles.modeRow}>
-            {offerCount > 0 ? (
-              <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
-            ) : null}
-            <ActionCard
-              icon={<Text style={styles.modeEmoji}>💬</Text>}
-              title={t.complainShort}
-              subtitle={t.complainSub}
-              onPress={onComplain}
-            />
-          </View>
-        )}
 
         <SectionTitle action={t.showAll} onAction={onBrowseAll}>
           {t.categories}
@@ -433,23 +433,34 @@ export function HomeScreen({
 /**
  * One of the entry points at the top of Home.
  *
- * The presentation is the app's original one, restored at the owner's
- * word: the icon BARE — the emoji the card has always had, or the
- * house's own table SVG on the reserve card — over a bold body title and
- * one line of soft ink, on the plain cream plate with its hairline
- * border. No tinted circle, no display serif: those were a redesign the
- * owner asked to be taken back out. The caller passes the icon as a
- * node, so an emoji and an SVG can sit in the same set without the card
- * knowing which it holds.
+ * ONE CELL OF THE 3-UP GRID: a 58 pt tile, icon over label, three to a
+ * row. It has been through two shapes on the way here — 88 pt vertical
+ * tiles with subtitles, then 44 pt horizontal strips — and both lost to
+ * the same measurement: six entries have to leave the category chips
+ * visible on a 360×800 phone without scrolling. Three columns is what
+ * finally does it, and it is why the layout is back to vertical: at a
+ * third of the row there is no width for an icon AND a label side by
+ * side.
  *
- * What the redesign is allowed to keep is the LAYOUT — two half-width
- * cards per row, the two-line title slot, and equal heights.
+ * The SUBTITLE is not on the card — but it is not lost: it is still in
+ * `accessibilityLabel`, so a screen reader hears "Lieferung — in 30–45
+ * Minuten bei dir" exactly as it always did. What is dropped is a line
+ * of 11 pt grey that sighted guests were not reading.
  *
- * Equal heights inside a row come from the row's `stretch` plus a card
- * that only ever GROWS into it, never from a stated height: "Tisch
- * reservieren" wraps to two lines at 360 pt while "Abholung" does not,
- * and a fixed height would either clip one or pad the other. A
- * percentage height is worse than either — see `styles.actionCard`.
+ * The icon is still BARE — the emoji the card has always had, or the
+ * house's own table SVG on the reserve card — on the plain cream plate
+ * with its hairline border. No tinted circle, no display serif: those
+ * were a redesign the owner asked to be taken back out. The caller
+ * passes the icon as a node, so an emoji and an SVG can sit in the same
+ * set without the card knowing which it holds.
+ *
+ * Equal heights inside a row still come from the row's `stretch` plus a
+ * card that only ever GROWS into it, never from a stated height — the
+ * rule survives every reshaping because the reason for it does:
+ * "Geschenkgutscheine" takes two lines at a third of 360 pt where
+ * "Abholung" takes one, and a fixed height would either clip the first
+ * or pad the second. A percentage height is worse than either — see
+ * `styles.actionCard`.
  *
  * The press-back is the app's shared `usePressScale`, which returns a
  * still style and no-op handlers on a device with Reduce Motion on — the
@@ -482,25 +493,18 @@ function ActionCard({
         style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.9 }]}
       >
         <View style={styles.actionIcon}>{icon}</View>
-        {/* A slot two lines tall on every card, with the title centred
-            inside it: "Abholung" is one line and "Tisch reservieren" two,
-            and without the slot the one-line card would sit its icon 19 pt
-            higher than its neighbour's. `adjustsFontSizeToFit` covers the
-            one word that still does not fit at 360 pt
-            ("Geschenkgutscheine"), which would otherwise break mid-word
-            and leave a line with a single letter on it. */}
-        <View style={styles.actionTitleSlot}>
-          <Text
-            style={styles.actionTitle}
-            numberOfLines={2}
-            adjustsFontSizeToFit
-            minimumFontScale={0.82}
-          >
-            {title}
-          </Text>
-        </View>
-        <Text style={styles.actionSub} numberOfLines={1}>
-          {subtitle}
+        {/* TWO lines allowed, because a third of a 360 pt row is ~103 pt
+            of usable width and "Geschenkgutscheine" cannot be had on one
+            line at any size worth reading. `adjustsFontSizeToFit` stays
+            as the shrink-before-truncate net for the words that do not
+            fit even two lines. */}
+        <Text
+          style={styles.actionTitle}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
+          {title}
         </Text>
       </Pressable>
     </Animated.View>
@@ -511,24 +515,26 @@ function ActionCard({
  * Offers — the left half of the row, an `ActionCard` that is allowed to
  * burn.
  *
- * It is deliberately the SAME card as its neighbour: the wrapper, the
- * plate, the icon slot, the two-line title slot and the one-line
- * subtitle are `ActionCard`'s own styles, so the two halves line up
- * whichever of them wraps. Only three things are added, and each is the
- * reason this card exists rather than decoration — the ember ring, the
- * flicker on the flame, and the live count in the title.
+ * It is deliberately the SAME cell as its neighbours: the wrapper, the
+ * plate, the icon band and the label are `ActionCard`'s own styles, so
+ * the three tiles in the row line up exactly. Only three things are
+ * added, and each is the reason this cell exists rather than decoration
+ * — the ember ring, the flicker on the flame, and the live count.
  *
  * The overrides it needs on top of `actionCard`: a 2 pt TRANSPARENT
  * border, because `PulsingBorder` is an absolutely-positioned sibling
  * whose `inset={2}` resolves against the parent's padding edge — the
- * ring then lands exactly on the border box and the two cards' outer
- * edges stay flush. It states no height, for the same reason
- * `actionCard` doesn't.
+ * ring then lands exactly on the border box and the tiles' outer edges
+ * stay flush. It states no height, for the same reason `actionCard`
+ * doesn't.
  *
- * The title carries "Angebote · 3 Gerichte" — long for half a 360 pt
- * screen, so it gets the slot's `numberOfLines={2}` and
- * `adjustsFontSizeToFit` exactly like the action titles. The subtitle is
- * the offer names, clipped to one line: a taste of what's on, not a list.
+ * The COUNT is a BADGE in the corner, not words in the label. At a third
+ * of a 360 pt row "Angebote · 3 Gerichte" wrapped to two lines and shrank
+ * to the font floor, and the first thing to become unreadable was the
+ * number — the one part of this tile that changes. As a gold pill it is
+ * read first and the label is free to be the single word. The offer NAMES
+ * have no room at this size either; they ride the `accessibilityLabel`
+ * with the count, where nothing is lost.
  */
 function OffersCard({
   count,
@@ -540,7 +546,9 @@ function OffersCard({
   onPress: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
-  const fire = useFireFlicker();
+  // 1.1, not the default 1.15: the grid's icon band is 22 pt and the
+  // bigger swell pushes the flame's box into the label under it.
+  const fire = useFireFlicker(1.1);
   const press = usePressScale(0.97);
   const countLabel = count === 1 ? t.offersCardCountOne : fill(t.offersCardCount, { n: count });
   return (
@@ -550,31 +558,39 @@ function OffersCard({
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
         accessibilityRole="button"
-        accessibilityLabel={`${t.offersCardTitle} — ${countLabel}`}
+        accessibilityLabel={
+          names
+            ? `${t.offersCardTitle} — ${countLabel} — ${names}`
+            : `${t.offersCardTitle} — ${countLabel}`
+        }
         style={({ pressed }) => [styles.actionCard, styles.offersCard, pressed && { opacity: 0.9 }]}
       >
         <PulsingBorder inset={2} style={styles.offersRing} />
-        {/* The flame sits in the same bare icon slot as its neighbours'
-            emoji, so the row reads as two cards of one family — what marks
-            this one out is that the flame MOVES. */}
+        {/* The count, as a pill in the corner. Hidden from the reader —
+            the Pressable's own label already says "3 Angebote" in words,
+            and a bare "3" read out after it is noise. */}
+        <View
+          style={styles.offersCount}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          pointerEvents="none"
+        >
+          <Text style={styles.offersCountText}>{count}</Text>
+        </View>
+        {/* The flame sits in the same bare icon band as its neighbours'
+            emoji, so the row reads as three tiles of one family — what
+            marks this one out is that the flame MOVES. */}
         <View style={styles.actionIcon}>
           <Animated.Text style={[styles.offersEmoji, fire]}>🔥</Animated.Text>
         </View>
-        <View style={styles.actionTitleSlot}>
-          <Text
-            style={styles.actionTitle}
-            numberOfLines={2}
-            adjustsFontSizeToFit
-            minimumFontScale={0.82}
-          >
-            {t.offersCardTitle} · {countLabel}
-          </Text>
-        </View>
-        {names ? (
-          <Text style={styles.actionSub} numberOfLines={1}>
-            {names}
-          </Text>
-        ) : null}
+        <Text
+          style={styles.actionTitle}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
+          {t.offersCardTitle}
+        </Text>
       </Pressable>
     </Animated.View>
   );
@@ -691,10 +707,12 @@ function ServiceSwitch({
 }
 
 const styles = StyleSheet.create({
-  /** 176, not the old 160: the top ~36 pt are the pill's band now, and
-   *  the extra 16 is what lets the dish keep its full size underneath it
-   *  instead of being clipped into the corner the pill occupies. */
-  hero: { height: 176, borderRadius: radius.lg, overflow: "hidden" },
+  /** 132, down from 176. The hero is the biggest single thing between
+   *  the header and the categories, and the owner's ask — category chips
+   *  visible without scrolling on a 360×800 phone — is bought as much
+   *  here as in the action grid. The top ~34 pt are still the open/closed
+   *  pill's band; what came off is the air under the dish. */
+  hero: { height: 132, borderRadius: radius.lg, overflow: "hidden" },
   serviceCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -723,14 +741,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
   },
   // Cut-out plates float straight on the artwork — no frame, no white box.
   // Bottom-aligned inside the slide so the plate sits well clear of the
   // pill's band in the corner above it.
-  heroDish: { width: 136, height: 124, alignSelf: "flex-end" },
+  heroDish: { width: 100, height: 92, alignSelf: "flex-end" },
   /** The open/closed pill, pinned into the hero's top-END corner: `end`
    *  rather than `right`, so an RTL build mirrors it to the left. Above
    *  the slides (z 1) and the dots (z 2) on both platforms — Android
@@ -776,7 +794,7 @@ const styles = StyleSheet.create({
    *  whichever of them wraps. It is the ONLY vertical coupling in this
    *  row: nothing here may set a height, least of all a percentage one
    *  (see `actionCard`). */
-  modeRow: { flexDirection: "row", alignItems: "stretch", gap: 12, marginTop: 14 },
+  modeRow: { flexDirection: "row", alignItems: "stretch", gap: 8, marginTop: 8 },
   /**
    * The flexed, animated wrapper — see `ActionCard`.
    *
@@ -809,59 +827,58 @@ const styles = StyleSheet.create({
    */
   actionCard: {
     flexGrow: 1,
-    /** The pre-redesign `actionCard` floor, kept: a comfortable target
-     *  even on the card whose subtitle is short. A floor, not a fixed
-     *  height, so a guest running larger system text gets a taller card
-     *  rather than a clipped one. */
-    minHeight: 88,
+    /** 58: an 18 pt icon band, two 14 pt label lines and 6 pt of padding
+     *  top and bottom. A FLOOR, not a fixed height, so a guest running
+     *  larger system text gets a taller tile rather than a clipped one —
+     *  and the row's `stretch` then lifts its neighbours to match.
+     *
+     *  Below the 44 pt touch minimum this would be a problem; at 58 the
+     *  tile is comfortably past it in both directions. */
+    minHeight: 58,
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: radius.lg,
-    /** The original plate: a hairline border and NO shadow — the
-     *  redesign's drop shadow went with the tinted circles. 14 down the
-     *  page from `modeCard`, 10 across from the old `actionCard`: the
-     *  narrower gutter is what lets "Geschenkgutscheine" hold one line
-     *  on a 360 pt screen instead of breaking after the "n". */
-    paddingHorizontal: 10,
-    paddingVertical: 14,
+    /** `md`, not `lg`: a 16 pt radius on a 103 pt tile eats the corners
+     *  the label needs. */
+    borderRadius: radius.md,
+    /** The plate is unchanged: a hairline border and NO shadow. Only the
+     *  padding shrank with the tile — and `horizontal` is down to 4,
+     *  because at a third of a 360 pt row every point of it comes
+     *  straight off the label's measure. */
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    /** ICON OVER LABEL, both centred. At a third of the row there is no
+     *  width for the two side by side. */
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    gap: 3,
   },
-  /** The icon, bare — no circle behind it. The slot exists only so a
-   *  26 pt SVG (reserve) and an emoji (everything else) occupy the same
-   *  band: an emoji's line box is taller than its point size and differs
-   *  per platform, so without the slot the reserve card's title would sit
-   *  a couple of points above its row-mate's. 34 is the emoji's own line
-   *  box (see `modeEmoji`), and it is a FLOOR, so larger system text
-   *  grows the band instead of clipping the glyph. */
-  actionIcon: { minHeight: 34, alignItems: "center", justifyContent: "center" },
-  /** Two lines' worth of box whether or not the title uses both, with the
-   *  title centred in it — so the icons and the subtitles line up
-   *  across a row regardless of which title wraps. `alignSelf: "stretch"`
-   *  keeps it the card's full inner width (the card centres its children),
-   *  which is the width the title gets to wrap in. A floor rather than a
-   *  fixed height, so larger system text grows the slot instead of
-   *  clipping it. */
-  actionTitleSlot: { alignSelf: "stretch", minHeight: 38, justifyContent: "center" },
-  /** The original `modeTitle`/`modeSub`: bold BODY face at 14, soft ink
-   *  at 11 under it. Centred explicitly, because a title that wraps to
-   *  two lines would otherwise be left-aligned inside a centred card.
-   *  `lineHeight` is the one addition — 2 × 19 is the title slot. */
+  /** The icon, bare — no circle behind it. The slot survives every
+   *  reshaping because its reason does: an 18 pt SVG (reserve) and an
+   *  emoji (everything else) have different line boxes, and without a
+   *  fixed slot the reserve tile's label would sit a couple of points
+   *  below its row-mates'. 22 is the emoji's line box at the new size
+   *  (see `modeEmoji`), and it is a FLOOR, so larger system text grows
+   *  the band instead of clipping the glyph. */
+  actionIcon: { minHeight: 22, alignItems: "center", justifyContent: "center" },
+  /** Bold BODY face at 12 over two lines. Centred explicitly, because a
+   *  label that wraps would otherwise set itself against the start edge
+   *  inside a centred tile. `lineHeight` is stated so the 58 pt floor is
+   *  arithmetic rather than a guess about Nunito's ascenders per
+   *  platform: 22 + 3 + 2×14 + 12 padding = 65 for a two-line label,
+   *  which is what the row settles at. */
   actionTitle: {
     color: colors.ink,
     ...fonts.bodyBold,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 14,
     textAlign: "center",
   },
-  actionSub: { color: colors.inkSoft, ...fonts.body, fontSize: 11, textAlign: "center" },
   /** Delivery 🛵, Pickup 🛍️, Gift cards 🎁, Complaint 💬 — the app's own
-   *  glyphs at the size they have always been. `lineHeight` is stated so
-   *  the box an emoji occupies is the same on web as on the devices,
-   *  which is what `actionIcon`'s 34 is measured from. */
-  modeEmoji: { ...fonts.body, fontSize: 26, lineHeight: 32 },
+   *  glyphs, down to 18 with the tile. `lineHeight` is stated so the box
+   *  an emoji occupies is the same on web as on the devices, which is
+   *  what `actionIcon`'s 22 is measured from. */
+  modeEmoji: { ...fonts.body, fontSize: 18, lineHeight: 22 },
   reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
   rewardBanner: {
     flexDirection: "row",
@@ -893,10 +910,38 @@ const styles = StyleSheet.create({
   offersCard: { borderWidth: 2, borderColor: "transparent", elevation: 3 },
   /** The ring traces the card's OUTER edge, so it takes the outer radius. */
   offersRing: { borderRadius: radius.lg },
-  /** 24 — a shade under its neighbours' 26, because the flicker scales it
-   *  to 1.15 at the top of its cycle and the icon slot has to hold that
-   *  without nudging the title. */
-  offersEmoji: { ...fonts.body, fontSize: 24, lineHeight: 32 },
+  /** 16 — a shade under its neighbours' 18, because the flicker scales it
+   *  at the top of its cycle and the 22 pt icon slot has to hold that
+   *  without nudging the label. */
+  offersEmoji: { ...fonts.body, fontSize: 16, lineHeight: 22 },
+  /**
+   * The live count, as a small gold pill in the tile's top-END corner
+   * rather than words in the label.
+   *
+   * "Angebote · 3 Gerichte" did not survive the 3-up grid: at a third of
+   * a 360 pt row it wrapped to two lines and shrank to the floor, and
+   * what got lost was the number — the one part of this tile that
+   * changes. As a badge it is the first thing read instead, and the
+   * label is free to be the single word "Angebote".
+   *
+   * `end`/`zIndex` rather than `right`: an RTL build mirrors the corner
+   * with everything else, and the pill has to clear the pulsing ring
+   * that is drawn over the same box.
+   */
+  offersCount: {
+    position: "absolute",
+    top: 3,
+    end: 3,
+    zIndex: 2,
+    minWidth: 16,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: radius.pill,
+    backgroundColor: colors.goldSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  offersCountText: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 10, lineHeight: 13 },
   rewardTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   rewardCta: { color: colors.gold, ...fonts.bodyBold, fontSize: 12 },
   catChip: { alignItems: "center", width: 72 },
