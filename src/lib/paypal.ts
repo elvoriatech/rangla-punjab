@@ -269,18 +269,35 @@ export function getPayPalProvider(): PayPalProvider {
   return cached;
 }
 
-/**
- * Provider for ONE restaurant: its own dashboard-entered credentials win,
- * the deployment-wide PAYPAL_* env vars are the fallback. Not cached —
- * credentials are per tenant and can change from the dashboard at any time.
- */
-export function payPalProviderFor(credentials: {
+interface TenantPayPalCredentials {
   clientId: string | null;
   secret: string | null;
   env: "sandbox" | "live";
   enabled: boolean;
-}): PayPalProvider {
-  if (credentials.enabled && credentials.clientId && credentials.secret) {
+}
+
+/**
+ * Do the restaurant's own dashboard keys take effect? Yes when enabled and
+ * complete — except that a deployment running LIVE PayPal outranks a
+ * restaurant's SANDBOX keys: test keys left switched on in the dashboard
+ * must never send real guests to the sandbox checkout.
+ */
+export function tenantPayPalKeysApply(
+  credentials: TenantPayPalCredentials,
+  serverMode: PayPalProvider["mode"] = getPayPalProvider().mode,
+): boolean {
+  if (!(credentials.enabled && credentials.clientId && credentials.secret)) return false;
+  return !(serverMode === "live" && credentials.env === "sandbox");
+}
+
+/**
+ * Provider for ONE restaurant: its own dashboard-entered credentials win
+ * (see `tenantPayPalKeysApply`), the deployment-wide PAYPAL_* env vars are
+ * the fallback. Not cached — credentials are per tenant and can change from
+ * the dashboard at any time.
+ */
+export function payPalProviderFor(credentials: TenantPayPalCredentials): PayPalProvider {
+  if (tenantPayPalKeysApply(credentials) && credentials.clientId && credentials.secret) {
     return new RealPayPalProvider(credentials.clientId, credentials.secret, credentials.env);
   }
   return getPayPalProvider();

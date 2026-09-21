@@ -2,7 +2,7 @@ import { prisma } from "./db";
 import { asTenant } from "./tenant";
 import { createLogger } from "./logger";
 import type { PayPalWebhookHeaders } from "./paypal";
-import { parsePayPalCustomId, payPalProviderFor } from "./paypal";
+import { parsePayPalCustomId, payPalProviderFor, tenantPayPalKeysApply } from "./paypal";
 import { env } from "./env";
 import { finalizePayPalReturn } from "./paypal-service";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
@@ -149,7 +149,11 @@ export async function handlePayPalWebhook(input: {
   }
 
   const keys = await getPayPalKeysForTenant(subject.tenantId);
-  const webhookId = keys.webhookId ?? env.PAYPAL_WEBHOOK_ID ?? null;
+  // The webhook id must belong to the same PayPal app as the provider that
+  // verifies it: when the server's live keys overrule the restaurant's
+  // sandbox ones, its sandbox webhook id is overruled with them.
+  const overruled = keys.enabled && keys.clientId && keys.secret && !tenantPayPalKeysApply(keys);
+  const webhookId = (overruled ? null : keys.webhookId) ?? env.PAYPAL_WEBHOOK_ID ?? null;
   if (!webhookId) return { status: 400, kind: "not_configured" };
 
   const provider = payPalProviderFor(keys);
