@@ -73,12 +73,11 @@ const de: CheckoutCopy = {
   cashToDriver: "Bar an den Fahrer",
   placing: "Wird gesendet…",
   opening: "Wird geöffnet…",
-  explainerOnline:
-    "Karte und PayPal öffnen eine sichere Zahlungsseite, sobald Ihre Bestellung gespeichert ist; abgebucht wird erst, wenn Sie dort bestätigen. Ihr Beleg wird danach automatisch heruntergeladen.",
+  explainerOnline: "Sicher bezahlen",
   explainerDelivery: "Keine Onlinezahlung — Sie zahlen beim Fahrer.",
   explainerPickup: "Keine Onlinezahlung — Sie zahlen bei der Abholung.",
   explainerDineIn: "Keine Zahlung jetzt — Sie zahlen im Restaurant.",
-  weAccept: "Wir akzeptieren",
+  securedBy: (providers) => `Sichere Zahlungsabwicklung mit ${providers}`,
 
   placedIntro: "Ihre Bestellung ist eingegangen — das Team sieht sie als",
   placedRef: (n) => `Bestellung Nr. ${n}`,

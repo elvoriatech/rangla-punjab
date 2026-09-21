@@ -107,12 +107,11 @@ const en = {
   cashToDriver: "Cash to driver",
   placing: "Placing…",
   opening: "Opening…",
-  explainerOnline:
-    "Card and PayPal open a secure payment page once your order is saved; nothing is charged before you confirm there. Your receipt downloads automatically afterwards.",
+  explainerOnline: "Pay securely",
   explainerDelivery: "No payment online — you pay the driver.",
   explainerPickup: "No payment online — you pay at pickup.",
   explainerDineIn: "No payment now — you pay at the restaurant.",
-  weAccept: "We accept",
+  securedBy: (providers: string) => `Secure payment processing with ${providers}`,
 
   /* Confirmation */
   placedIntro: "Your order is in — the staff sees it as",

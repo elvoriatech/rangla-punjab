@@ -75,12 +75,11 @@ const ar: CheckoutCopy = {
   cashToDriver: "نقدًا للسائق",
   placing: "جارٍ الإرسال…",
   opening: "جارٍ الفتح…",
-  explainerOnline:
-    "تفتح البطاقة وPayPal صفحة دفع آمنة بمجرد حفظ طلبك، ولا يُخصم أي مبلغ قبل تأكيدك هناك. يُنزَّل الإيصال تلقائيًا بعد ذلك.",
+  explainerOnline: "دفع آمن",
   explainerDelivery: "لا يوجد دفع عبر الإنترنت — تدفع للسائق.",
   explainerPickup: "لا يوجد دفع عبر الإنترنت — تدفع عند الاستلام.",
   explainerDineIn: "لا دفع الآن — تدفع في المطعم.",
-  weAccept: "نقبل",
+  securedBy: (providers) => `معالجة دفع آمنة عبر ${providers}`,
 
   placedIntro: "وصل طلبك — يراه الفريق باسم",
   placedRef: (n) => `الطلب رقم ${n}`,

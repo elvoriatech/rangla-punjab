@@ -74,12 +74,11 @@ const fr: CheckoutCopy = {
   cashToDriver: "Espèces au livreur",
   placing: "Envoi en cours…",
   opening: "Ouverture…",
-  explainerOnline:
-    "La carte bancaire et PayPal ouvrent une page de paiement sécurisée dès que votre commande est enregistrée ; rien n'est débité avant votre confirmation. Votre reçu se télécharge ensuite automatiquement.",
+  explainerOnline: "Paiement sécurisé",
   explainerDelivery: "Aucun paiement en ligne — vous payez le livreur.",
   explainerPickup: "Aucun paiement en ligne — vous payez au retrait.",
   explainerDineIn: "Aucun paiement maintenant — vous payez au restaurant.",
-  weAccept: "Nous acceptons",
+  securedBy: (providers) => `Paiement sécurisé via ${providers}`,
 
   placedIntro: "Votre commande est bien arrivée — l'équipe la voit comme la",
   placedRef: (n) => `commande n° ${n}`,

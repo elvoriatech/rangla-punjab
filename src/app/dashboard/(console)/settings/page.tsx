@@ -982,8 +982,15 @@ export default async function SettingsPage({
           <div className="mt-4 space-y-2">
             {WEEKDAYS.map((wd) => {
               const day = venueHours.hours.days[wd];
-              const s1 = day?.slots?.[0];
-              const s2 = day?.slots?.[1];
+              // A day with a single slot that starts in the afternoon or
+              // evening (e.g. Monday dinner only) goes in the SECOND pair,
+              // so it lines up under the other days' dinner times instead
+              // of reading as a lunch slot. Saving is unaffected: either
+              // pair of boxes becomes the same one slot.
+              const only = day?.slots?.length === 1 ? day.slots[0] : undefined;
+              const lateOnly = only !== undefined && only.open >= "15:00";
+              const s1 = lateOnly ? undefined : day?.slots?.[0];
+              const s2 = lateOnly ? only : day?.slots?.[1];
               const closed = day?.closed ?? !venueHours.hours.configured;
               return (
                 <div

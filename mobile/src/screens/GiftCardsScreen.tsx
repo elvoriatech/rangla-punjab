@@ -103,9 +103,11 @@ export function GiftCardsScreen({
    *  scold a guest who is still typing the first digit. */
   const [amountTouched, setAmountTouched] = useState(false);
   /** The buyer's contact number — REQUIRED (the restaurant must be able
-   *  to reach whoever paid). Prefilled from the account's profile when it
-   *  has one; the server normalises whatever spelling is typed. */
-  const [phone, setPhone] = useState(auth.customer?.phone ?? "");
+   *  to reach whoever paid). Starts as just the German country code
+   *  (owner, 2026-09-21) — never prefilled from the profile, which on a
+   *  shared or staff device showed someone else's number. The server
+   *  normalises whatever spelling is typed. */
+  const [phone, setPhone] = useState("+49 ");
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");

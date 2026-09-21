@@ -73,12 +73,11 @@ const it: CheckoutCopy = {
   cashToDriver: "Contanti al fattorino",
   placing: "Invio…",
   opening: "Apertura…",
-  explainerOnline:
-    "Carta e PayPal aprono una pagina di pagamento sicura non appena l'ordine è salvato; nulla viene addebitato prima della tua conferma. Poi la ricevuta si scarica automaticamente.",
+  explainerOnline: "Pagamento sicuro",
   explainerDelivery: "Nessun pagamento online: paghi al fattorino.",
   explainerPickup: "Nessun pagamento online: paghi al ritiro.",
   explainerDineIn: "Nessun pagamento adesso: paghi al ristorante.",
-  weAccept: "Accettiamo",
+  securedBy: (providers) => `Elaborazione sicura del pagamento con ${providers}`,
 
   placedIntro: "Il tuo ordine è arrivato: lo staff lo vede come",
   placedRef: (n) => `ordine n. ${n}`,

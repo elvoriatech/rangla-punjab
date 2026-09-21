@@ -73,12 +73,11 @@ const es: CheckoutCopy = {
   cashToDriver: "Efectivo al repartidor",
   placing: "Enviando…",
   opening: "Abriendo…",
-  explainerOnline:
-    "Con tarjeta o PayPal se abre una página de pago segura en cuanto se guarda tu pedido; no se cobra nada hasta que lo confirmes allí. Después, el recibo se descarga automáticamente.",
+  explainerOnline: "Pago seguro",
   explainerDelivery: "Sin pago online: pagas al repartidor.",
   explainerPickup: "Sin pago online: pagas al recoger.",
   explainerDineIn: "Ahora no se paga: pagas en el restaurante.",
-  weAccept: "Aceptamos",
+  securedBy: (providers) => `Procesamiento de pago seguro con ${providers}`,
 
   placedIntro: "Tu pedido ha llegado: el personal lo ve como",
   placedRef: (n) => `pedido n.º ${n}`,

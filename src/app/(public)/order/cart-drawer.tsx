@@ -889,19 +889,20 @@ export function CartDrawer({
           type="button"
           onClick={() => setOpen(true)}
           className={
-            "menu-pop fixed bottom-4 end-4 z-30 flex items-center gap-3 rounded-full bg-[var(--menu-surface)] px-5 py-3 text-sm font-medium text-[var(--menu-surface-text,var(--menu-text))] shadow-[0_18px_36px_-12px_rgba(0,0,0,0.45)] transition-transform hover:scale-[1.03] active:scale-95 " +
+            // The surface accent (gold on the Rangla theme) with surface ink,
+            // so the button stands out from the dark footer and cards it
+            // floats over (owner, 2026-09-21).
+            "menu-pop fixed bottom-4 end-4 z-30 flex items-center gap-3 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-5 py-3 text-sm font-semibold text-[var(--menu-surface,var(--menu-bg))] shadow-[0_18px_36px_-12px_rgba(0,0,0,0.55)] ring-2 ring-black/10 transition-transform hover:scale-[1.03] active:scale-95 " +
             FOCUS_RING
           }
         >
           {placed ? (
-            <span className="text-[var(--menu-surface-accent,var(--menu-accent))]">
-              {t.placedBadge(String(placed.orderNumber))}
-            </span>
+            <span>{t.placedBadge(String(placed.orderNumber))}</span>
           ) : (
             <>
               <span className="relative inline-flex" aria-hidden="true">
-                <CartIcon className="h-5 w-5 text-[var(--menu-surface-accent,var(--menu-accent))]" />
-                <span className="absolute -end-2.5 -top-2 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-[var(--menu-accent)] px-1 text-[10px] font-bold leading-none text-[var(--menu-on-accent,var(--menu-bg))]">
+                <CartIcon className="h-5 w-5" />
+                <span className="absolute -end-2.5 -top-2 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-[var(--menu-surface)] px-1 text-[10px] font-bold leading-none text-[var(--menu-surface-text,var(--menu-text))]">
                   {count}
                 </span>
               </span>
@@ -1661,8 +1662,12 @@ export function CartDrawer({
                   Visa / Mastercard / Amex; PayPal appears on its own rail. */}
               {onlinePayment || paypalPayment ? (
                 <div className="mt-3 flex flex-col items-center gap-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.2em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                    {t.weAccept}
+                  <span className="text-center text-[11px] font-medium text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                    {t.securedBy(
+                      [onlinePayment ? "Stripe" : null, paypalPayment ? "PayPal" : null]
+                        .filter(Boolean)
+                        .join(" / "),
+                    )}
                   </span>
                   <PaymentMarks
                     ids={acceptedPaymentIds({ onlinePayment, paypalPayment })}
