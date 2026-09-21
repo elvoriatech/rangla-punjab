@@ -219,13 +219,10 @@ describe("publicContact", () => {
         href: "tel:+497531123456",
       },
       // Not published — and therefore explicitly null, never a half-built
-      // entry with an empty href.
+      // entry with an empty href. WhatsApp (and mobile) are never
+      // published any more, even when a number is stored.
       mobile: null,
-      whatsapp: {
-        number: "+491701234567",
-        display: "+49 1701 234567",
-        href: "https://wa.me/491701234567",
-      },
+      whatsapp: null,
       email: null,
     });
   });

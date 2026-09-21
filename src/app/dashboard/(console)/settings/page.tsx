@@ -122,7 +122,7 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   // who mistyped one number needs to know WHICH one, not that "something"
   // was wrong with a card holding three.
   contact: {
-    saved: "Contact details saved. Guests can call or message you straight from the menu.",
+    saved: "Contact details saved. Guests can call or e-mail you straight from the menu.",
   },
   contact_landline: {
     error:
@@ -141,7 +141,7 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
       "That doesn't look like an e-mail address. Write it in full — info@your-restaurant.de — or empty the box to hide it.",
   },
   contact_invalid: {
-    error: "Couldn't save your contact details — check the four boxes and try again.",
+    error: "Couldn't save your contact details — check both boxes and try again.",
   },
   // "Get the app". Same shape as the contact card: one success line, and a
   // refusal per box that names the link that was refused — pasting the Play
@@ -532,7 +532,7 @@ export default async function SettingsPage({
         </div>
       </section>
 
-      {/* Contact. One form, four boxes: they are one decision ("how can a
+      {/* Contact. One form, two boxes (landline + e-mail): they are one decision ("how can a
           guest reach us?") and posting them together means an owner who
           fixes a typo in one never has to re-enter the others. */}
       <form action={saveContactAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
@@ -540,7 +540,7 @@ export default async function SettingsPage({
         <p className="mt-1 text-xs text-muted">
           Guests see these on their account page and in the app; leave a field empty to hide it.
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
             <span className="font-medium">Landline</span>
             <input
@@ -551,32 +551,6 @@ export default async function SettingsPage({
               maxLength={32}
               defaultValue={contact?.landline ?? ""}
               placeholder="07531 123456"
-              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium">Mobile</span>
-            <input
-              type="tel"
-              name="mobile"
-              inputMode="tel"
-              autoComplete="off"
-              maxLength={32}
-              defaultValue={contact?.mobile ?? ""}
-              placeholder="0170 1234567"
-              className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium">WhatsApp</span>
-            <input
-              type="tel"
-              name="whatsapp"
-              inputMode="tel"
-              autoComplete="off"
-              maxLength={32}
-              defaultValue={contact?.whatsapp ?? ""}
-              placeholder="0170 1234567"
               className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
             />
           </label>
@@ -596,7 +570,7 @@ export default async function SettingsPage({
         </div>
         <p className="mt-2 text-xs text-muted">
           A German number can be typed either way — 07531 123456 or +49 7531 123456. Numbers are
-          saved in international form so calling and WhatsApp work from abroad too.
+          saved in international form so calling works from abroad too.
         </p>
         <SubmitButton
           pendingLabel="Saving…"

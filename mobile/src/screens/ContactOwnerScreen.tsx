@@ -25,10 +25,11 @@ import { colors, fonts, radius } from "../theme";
 /**
  * Contact details, from behind the counter.
  *
- * Three numbers — landline, mobile, WhatsApp — each of which a guest
- * taps on their Account screen to call or to message. Any of them may be
- * left empty, and empty is not a gap to apologise for: it simply means
- * that row does not appear.
+ * The landline and the e-mail address — the two ways the restaurant
+ * publishes (mobile + WhatsApp were dropped 2026-09-21). A guest taps
+ * them on their Account screen to call or to write. Either may be left
+ * empty, and empty is not a gap to apologise for: it simply means that
+ * row does not appear.
  *
  * The app validates NOTHING about a phone number. "0 7531 123456",
  * "+49 7531 123456" and "07531/123456" are the same number to an owner,
@@ -67,15 +68,13 @@ export function ContactOwnerScreen({
   const [busy, setBusy] = useState(false);
 
   const [landline, setLandline] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
+  const [email, setEmail] = useState("");
 
   /** Memoised so `save` below is not rebuilt on every keystroke. */
   const label = useMemo<Record<StaffContactField, string>>(
     () => ({
       landline: t.contactOwnerLandline,
-      mobile: t.contactOwnerMobile,
-      whatsapp: t.contactOwnerWhatsapp,
+      email: t.contactEmail,
     }),
     [t],
   );
@@ -86,8 +85,7 @@ export function ContactOwnerScreen({
   const adopt = useCallback((next: StaffContact): void => {
     setContact(next);
     setLandline(next.landline ?? "");
-    setMobile(next.mobile ?? "");
-    setWhatsapp(next.whatsapp ?? "");
+    setEmail(next.email ?? "");
     setBadField(null);
   }, []);
 
@@ -107,7 +105,7 @@ export function ContactOwnerScreen({
     void load();
   }, [load]);
 
-  // All three travel together: this is one form with one button, and a
+  // Both travel together: this is one form with one button, and a
   // per-field PATCH would let the owner walk away from half an edit.
   const save = useCallback(async (): Promise<void> => {
     if (!staffToken) return;
@@ -116,8 +114,10 @@ export function ContactOwnerScreen({
     setBadField(null);
     const res = await updateStaffContact(staffToken, {
       landline: landline.trim(),
-      mobile: mobile.trim(),
-      whatsapp: whatsapp.trim(),
+      email: email.trim(),
+      // Clears any mobile / WhatsApp number saved before they were dropped.
+      mobile: "",
+      whatsapp: "",
     });
     setBusy(false);
     if (res.ok) {
@@ -131,23 +131,24 @@ export function ContactOwnerScreen({
       return;
     }
     // The server names the number it refused — point at it, rather than
-    // leaving the owner to guess which of the three was the problem.
+    // leaving the owner to guess which of the two was the problem.
     const field = isStaffContactField(res.field) ? res.field : null;
     setBadField(field);
     setNotice({
       tone: "bad",
       text:
         res.error === "invalid" && field
-          ? fill(t.contactOwnerBad, { field: label[field] })
+          ? field === "email"
+            ? t.contactOwnerBadEmail
+            : fill(t.contactOwnerBad, { field: label[field] })
           : t.contactOwnerSaveFailed,
     });
-  }, [staffToken, landline, mobile, whatsapp, adopt, clearStaff, onMenuChanged, t, label]);
+  }, [staffToken, landline, email, adopt, clearStaff, onMenuChanged, t, label]);
 
-  const value: Record<StaffContactField, string> = { landline, mobile, whatsapp };
+  const value: Record<StaffContactField, string> = { landline, email };
   const setValue: Record<StaffContactField, (next: string) => void> = {
     landline: setLandline,
-    mobile: setMobile,
-    whatsapp: setWhatsapp,
+    email: setEmail,
   };
 
   return (
@@ -192,17 +193,29 @@ export function ContactOwnerScreen({
                         setValue[field](next);
                         setBadField(null);
                       }}
-                      // A phone pad is the only keyboard that belongs on
-                      // any of the three; `+` and spaces are fine, the
-                      // server sorts the shape out.
-                      keyboardType="phone-pad"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      textContentType="telephoneNumber"
+                      // Phone pad for the landline (`+` and spaces are
+                      // fine, the server sorts the shape out); the mail
+                      // keyboard for the address.
+                      {...(field === "email"
+                        ? ({
+                            keyboardType: "email-address",
+                            inputMode: "email",
+                            autoComplete: "email",
+                            textContentType: "emailAddress",
+                            autoCapitalize: "none",
+                            maxLength: 120,
+                            placeholder: "info@restaurant.de",
+                          } as const)
+                        : ({
+                            keyboardType: "phone-pad",
+                            inputMode: "tel",
+                            autoComplete: "tel",
+                            textContentType: "telephoneNumber",
+                            maxLength: 32,
+                            placeholder: "+49 7531 123456",
+                          } as const))}
                       autoCorrect={false}
                       spellCheck={false}
-                      maxLength={32}
-                      placeholder="+49 7531 123456"
                       placeholderTextColor={colors.inkSoft}
                       style={[styles.input, badField === field && styles.inputBad]}
                       accessibilityLabel={label[field]}

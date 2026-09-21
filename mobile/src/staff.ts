@@ -1200,17 +1200,17 @@ export async function searchStaffRatingPlaces(
  * (a phone-number grammar belongs in one place, not in two clients).
  * ------------------------------------------------------------------ */
 
-/** Which of the three a message is about. */
-export type StaffContactField = "landline" | "mobile" | "whatsapp";
+/** Which box a message is about. The restaurant publishes its landline
+ *  and e-mail only; mobile + WhatsApp are no longer offered. */
+export type StaffContactField = "landline" | "email";
 
-export const CONTACT_FIELDS: readonly StaffContactField[] = ["landline", "mobile", "whatsapp"];
+export const CONTACT_FIELDS: readonly StaffContactField[] = ["landline", "email"];
 
-/** Each number in the server's own storage form (E.164), or null when
- *  the owner has not filled that row in. */
+/** The landline in the server's storage form (E.164) and the address,
+ *  each null when the owner has not filled that row in. */
 export interface StaffContact {
   landline: string | null;
-  mobile: string | null;
-  whatsapp: string | null;
+  email: string | null;
 }
 
 export function isStaffContactField(value: unknown): value is StaffContactField {
@@ -1221,8 +1221,7 @@ export function asStaffContact(raw: unknown): StaffContact {
   const c = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   return {
     landline: nullableStr(c.landline),
-    mobile: nullableStr(c.mobile),
-    whatsapp: nullableStr(c.whatsapp),
+    email: nullableStr(c.email),
   };
 }
 
@@ -1243,7 +1242,9 @@ export async function fetchStaffContact(token: string): Promise<StaffResult<Staf
  */
 export async function updateStaffContact(
   token: string,
-  patch: Partial<Record<StaffContactField, string>>,
+  // `mobile` / `whatsapp` are only ever sent empty, to clear numbers
+  // stored before those rows were dropped.
+  patch: Partial<Record<StaffContactField | "mobile" | "whatsapp", string>>,
 ): Promise<StaffResult<StaffContact>> {
   const res = await staffFetch(token, "/api/v1/staff/contact", { method: "PATCH", body: patch });
   if (!res) return { ok: false, error: "network" };

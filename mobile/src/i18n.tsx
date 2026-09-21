@@ -706,6 +706,7 @@ const en = {
   contactOwnerSaved: "Contact details saved.",
   contactOwnerSaveFailed: "Couldn't save the contact details.",
   contactOwnerBad: "Check {field}: that doesn't look like a phone number.",
+  contactOwnerBadEmail: "Check E-mail: that doesn't look like an e-mail address.",
 
   /* The owner's own sign-in password — a sheet off the owner's menu. */
   ownerPassword: "Password",
@@ -1398,6 +1399,7 @@ const de: Strings = {
   contactOwnerSaved: "Kontaktdaten gespeichert.",
   contactOwnerSaveFailed: "Die Kontaktdaten konnten nicht gespeichert werden.",
   contactOwnerBad: "Prüfe {field}: Das sieht nicht nach einer Telefonnummer aus.",
+  contactOwnerBadEmail: "Prüfe E-Mail: Das sieht nicht nach einer E-Mail-Adresse aus.",
 
   /* Das eigene Anmelde-Passwort des Inhabers – Sheet aus dem Inhaber-Menü. */
   ownerPassword: "Passwort",
@@ -2088,6 +2090,7 @@ const fr: Strings = {
   contactOwnerSaved: "Coordonnées enregistrées.",
   contactOwnerSaveFailed: "Les coordonnées n'ont pas pu être enregistrées.",
   contactOwnerBad: "Vérifiez {field} : cela ne ressemble pas à un numéro de téléphone.",
+  contactOwnerBadEmail: "Vérifiez l’e-mail : cela ne ressemble pas à une adresse e-mail.",
 
   /* Le mot de passe du restaurateur — feuille ouverte depuis son menu. */
   ownerPassword: "Mot de passe",
@@ -2778,6 +2781,7 @@ const it: Strings = {
   contactOwnerSaved: "Contatti salvati.",
   contactOwnerSaveFailed: "Non è stato possibile salvare i contatti.",
   contactOwnerBad: "Controlla {field}: non sembra un numero di telefono.",
+  contactOwnerBadEmail: "Controlla l'e-mail: non sembra un indirizzo e-mail.",
 
   /* La password del titolare — foglio aperto dal menu del titolare. */
   ownerPassword: "Password",
@@ -3466,6 +3470,7 @@ const es: Strings = {
   contactOwnerSaved: "Datos de contacto guardados.",
   contactOwnerSaveFailed: "No se han podido guardar los datos de contacto.",
   contactOwnerBad: "Revisa {field}: no parece un número de teléfono.",
+  contactOwnerBadEmail: "Revisa el correo: no parece una dirección de correo.",
 
   /* La contraseña del propietario: hoja abierta desde su menú. */
   ownerPassword: "Contraseña",
@@ -4145,6 +4150,7 @@ const ar: Strings = {
   contactOwnerSaved: "تم حفظ بيانات الاتصال.",
   contactOwnerSaveFailed: "تعذّر حفظ بيانات الاتصال.",
   contactOwnerBad: "تحقّق من {field}: لا يبدو هذا رقم هاتف.",
+  contactOwnerBadEmail: "تحقّق من البريد الإلكتروني: لا يبدو هذا عنوان بريد إلكتروني.",
 
   /* كلمة مرور المالك — لوحة تُفتح من قائمة المالك. */
   ownerPassword: "كلمة المرور",

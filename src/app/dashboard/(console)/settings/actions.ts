@@ -308,8 +308,10 @@ export async function saveContactAction(form: FormData): Promise<void> {
   const userId = await requireUser();
   const result = await updateVenueContact(userId, {
     landline: String(form.get("landline") ?? ""),
-    mobile: String(form.get("mobile") ?? ""),
-    whatsapp: String(form.get("whatsapp") ?? ""),
+    // No longer offered (landline + e-mail only): saving clears any number
+    // stored before, so nothing lingers in the database either.
+    mobile: "",
+    whatsapp: "",
     email: String(form.get("email") ?? ""),
   });
   return finish(userId, result.ok, result.ok ? "contact" : `contact_${result.field ?? "invalid"}`);

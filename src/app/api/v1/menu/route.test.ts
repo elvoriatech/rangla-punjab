@@ -203,20 +203,12 @@ describe("GET /api/v1/menu — ?locale", () => {
         },
       }),
     );
-    // `tel:` keeps the plus, `wa.me` drops it — both built here so the
-    // app opens a URL rather than re-deriving either rule.
+    // Mobile + WhatsApp stay in the payload for older app builds but are
+    // never published, even with numbers stored.
     expect((await read(fx.slug)).venue.contact).toEqual({
       landline: null,
-      mobile: {
-        number: "+491701234567",
-        display: "+49 1701 234567",
-        href: "tel:+491701234567",
-      },
-      whatsapp: {
-        number: "+491701234567",
-        display: "+49 1701 234567",
-        href: "https://wa.me/491701234567",
-      },
+      mobile: null,
+      whatsapp: null,
       // An address is its own display string, behind a `mailto:`.
       email: {
         number: "info@restaurant.de",

@@ -182,11 +182,8 @@ describe("public menu loader", () => {
         href: "tel:+497531123456",
       },
       mobile: null,
-      whatsapp: {
-        number: "+491701234567",
-        display: "+49 1701 234567",
-        href: "https://wa.me/491701234567",
-      },
+      // Stored, but WhatsApp is no longer published.
+      whatsapp: null,
       email: {
         number: "info@restaurant.de",
         display: "info@restaurant.de",

@@ -226,9 +226,17 @@ export function parseContactConfig(raw: unknown): ContactConfig {
     : { landline: null, mobile: null, whatsapp: null, email: null };
 }
 
+/**
+ * The slots guests are shown. The restaurant publishes its landline and
+ * e-mail only (owner decision 2026-09-21); `mobile` and `whatsapp` stay in
+ * the stored shape and the API payload — always null — so app builds that
+ * already read those keys keep working, but nothing ever fills them.
+ */
+export const PUBLISHED_CONTACT_FIELDS = ["landline", "email"] as const;
+
 /** True when nothing is published — the whole feature renders nowhere. */
 export function contactEmpty(config: ContactConfig): boolean {
-  return CONTACT_FIELDS.every((f) => config[f] === null);
+  return PUBLISHED_CONTACT_FIELDS.every((f) => config[f] === null);
 }
 
 /** One way in, ready to render: what to dial or write to, what to show,
@@ -262,18 +270,14 @@ export interface PublicContact {
 
 export function publicContact(config: ContactConfig): PublicContact | null {
   if (contactEmpty(config)) return null;
-  const entry = (number: string | null, whatsapp = false): ContactEntry | null =>
-    number === null
-      ? null
-      : {
-          number,
-          display: displayPhone(number),
-          href: whatsapp ? whatsappHref(number) : telHref(number),
-        };
+  const entry = (number: string | null): ContactEntry | null =>
+    number === null ? null : { number, display: displayPhone(number), href: telHref(number) };
   return {
     landline: entry(config.landline),
-    mobile: entry(config.mobile),
-    whatsapp: entry(config.whatsapp, true),
+    // Not published (see PUBLISHED_CONTACT_FIELDS) — even a number stored
+    // before that decision stays off every guest surface.
+    mobile: null,
+    whatsapp: null,
     // An address needs no grouping and no derivation — it IS its own
     // display string, which is why it does not go through `entry`.
     email:
