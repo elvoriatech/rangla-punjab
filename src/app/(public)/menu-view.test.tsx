@@ -705,7 +705,7 @@ describe("MenuView footer", () => {
     expect(html).not.toContain("tracking-[0.18em]");
   });
 
-  it("orders row 1: identity, contacts, language, payments", () => {
+  it("orders row 1: identity, payments, language, contacts", () => {
     const html = footerOf(
       renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />),
     );
@@ -718,9 +718,10 @@ describe("MenuView footer", () => {
     for (const [name, at] of Object.entries(groups)) {
       expect(at, `${name} renders in the footer`).toBeGreaterThan(-1);
     }
-    expect(groups.identity).toBeLessThan(groups.contacts);
-    expect(groups.contacts).toBeLessThan(groups.language);
-    expect(groups.language).toBeLessThan(groups.payments);
+    // The numbers come last in the row, after the app badges.
+    expect(groups.identity).toBeLessThan(groups.payments);
+    expect(groups.payments).toBeLessThan(groups.language);
+    expect(groups.language).toBeLessThan(groups.contacts);
     // Left over from the column layout: nothing is centred in its own
     // track any more, and no group carries a heading.
     expect(html).not.toContain("md:text-center");

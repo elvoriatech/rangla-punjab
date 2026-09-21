@@ -587,8 +587,11 @@ export function MenuView({
             heading over each one.
 
             Row 1 is a single wrapping flex row that spreads its five
-            groups across the width — identity, the venue's numbers, the
-            language switcher, "Get the app", what you can pay with.
+            groups across the width — identity, what you can pay with, the
+            language switcher, "Get the app", the venue's numbers. The
+            numbers sit at the far end on purpose: they are the one group
+            a guest goes looking for, so they get the edge rather than
+            the middle of the row.
             Row 2 is the operator's line: legal links and "powered by"
             side by side rather than stacked.
 
@@ -635,39 +638,16 @@ export function MenuView({
               <span className="min-w-0 font-serif text-lg italic">{menu.venue.name}</span>
             </div>
 
-            {/* b · The restaurant's own numbers — icon + number, one line.
-                The icon says which line it is, so the visible "Call
-                landline" / "Mobil anrufen" wording is dropped; each
-                anchor's aria-label still spells out what the link does
-                ("Call landline +49 …", "Message +49 … on WhatsApp"), so a
-                screen reader hears more than a bare number and no sr-only
-                copy is needed on top of it. Plain anchors — `tel:` dials,
-                `wa.me` opens WhatsApp — so the group works with JS off,
-                which is the contract for every public page. Built from a
-                derived list so a slot the owner left empty produces no
-                list item at all, ever. */}
-            {contactRows.length > 0 ? (
-              <nav aria-label={t.contact.title} className="min-w-0">
-                <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                  {contactRows.map((row) => (
-                    <li key={row.key}>
-                      <a
-                        href={row.href}
-                        aria-label={row.aria}
-                        {...(row.key === "whatsapp"
-                          ? { target: "_blank", rel: "noopener noreferrer" }
-                          : {})}
-                        className="inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
-                      >
-                        <ContactIcon kind={row.key} />
-                        <span className="font-medium tabular-nums">{row.display}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
+            {/* b · What you can pay with. Rendered ONLY when the owner
+                accepts something — an always-present empty <div> would
+                still eat one of the row's gaps. role="group" + the label
+                keep the strip named now that its heading is gone, and the
+                small chips keep the row one line tall. */}
+            {payMarks.length > 0 ? (
+              <div role="group" aria-label={t.footer.acceptedPayments} className="min-w-0">
+                <PaymentMarks ids={payMarks} size="sm" />
+              </div>
             ) : null}
-
             {/* c · What language you read it in. <LocaleSwitcher> is itself
                 a <nav aria-label={t.nav.language}>, so the dropped heading
                 costs the group nothing — and wrapping it in a SECOND
@@ -754,15 +734,37 @@ export function MenuView({
               </section>
             ) : null}
 
-            {/* e · What you can pay with. Rendered ONLY when the owner
-                accepts something — an always-present empty <div> would
-                still eat one of the row's gaps. role="group" + the label
-                keep the strip named now that its heading is gone, and the
-                small chips keep the row one line tall. */}
-            {payMarks.length > 0 ? (
-              <div role="group" aria-label={t.footer.acceptedPayments} className="min-w-0">
-                <PaymentMarks ids={payMarks} size="sm" />
-              </div>
+            {/* e · The restaurant's own numbers — icon + number, one line.
+                The icon says which line it is, so the visible "Call
+                landline" / "Mobil anrufen" wording is dropped; each
+                anchor's aria-label still spells out what the link does
+                ("Call landline +49 …", "Message +49 … on WhatsApp"), so a
+                screen reader hears more than a bare number and no sr-only
+                copy is needed on top of it. Plain anchors — `tel:` dials,
+                `wa.me` opens WhatsApp — so the group works with JS off,
+                which is the contract for every public page. Built from a
+                derived list so a slot the owner left empty produces no
+                list item at all, ever. */}
+            {contactRows.length > 0 ? (
+              <nav aria-label={t.contact.title} className="min-w-0">
+                <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                  {contactRows.map((row) => (
+                    <li key={row.key}>
+                      <a
+                        href={row.href}
+                        aria-label={row.aria}
+                        {...(row.key === "whatsapp"
+                          ? { target: "_blank", rel: "noopener noreferrer" }
+                          : {})}
+                        className="inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
+                      >
+                        <ContactIcon kind={row.key} />
+                        <span className="font-medium tabular-nums">{row.display}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
             ) : null}
           </div>
 
