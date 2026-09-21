@@ -293,6 +293,10 @@ export function MenuView({
   // ONE catalogue lookup for the whole render; every sub-component takes
   // `t` as a prop rather than resolving the locale again.
   const t = menuCopy(locale);
+  // Footer copyright year — read ONCE per render so every place that
+  // prints it agrees, and so a test can pin a single value. The page is
+  // rendered per request / per revalidation, so it rolls over on its own.
+  const year = new Date().getFullYear();
   const diets = activeDiets ?? new Set<string>();
   const activeDiet = diets.size > 0 ? Array.from(diets)[0]! : null;
   const catList = allCategories ?? menu.categories.map((c) => ({ id: c.id, name: c.name }));
@@ -774,6 +778,12 @@ export function MenuView({
               is what the <footer> already sets, so a plain opacity is
               enough here. */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 border-t border-[var(--menu-surface-text,var(--menu-text))]/10 pt-3 text-xs">
+            {/* The restaurant's own line comes first — the two links and
+                the operator's credit after it. One line on a desktop, the
+                same wrap as the rest of the row on a phone. */}
+            <span className="text-center text-xs opacity-75">
+              {t.footer.copyright(year, menu.venue.name)}
+            </span>
             <nav
               aria-label={t.footer.legal}
               className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1"
@@ -2659,6 +2669,21 @@ interface ContactRow {
   aria: string;
 }
 
+/** One filled circle per contact kind, so the three rows are told apart
+ *  at a glance rather than by reading the number: WhatsApp's own green,
+ *  a blue for the landline, an amber for the mobile. Solid fills with a
+ *  white glyph, which clears 4.5:1 on both the dark-red surface and the
+ *  light one — the colour is decoration, never the only cue, since the
+ *  anchor's `aria-label` still names the line. A kind we do not know
+ *  keeps the neutral translucent disc. */
+const CONTACT_ICON_SKIN: Record<ContactRow["key"], string> = {
+  landline: "bg-[#2563EB] text-white",
+  mobile: "bg-[#F59E0B] text-white",
+  whatsapp: "bg-[#25D366] text-white",
+};
+
+const CONTACT_ICON_NEUTRAL = "bg-[var(--menu-surface-text,var(--menu-text))]/10";
+
 /** Leading glyph for a footer contact row. Our own geometry rather than
  *  any messenger's logo — the row already says "WhatsApp" in words, and a
  *  re-drawn brand mark is the one thing worse than none. `aria-hidden`:
@@ -2667,7 +2692,9 @@ function ContactIcon({ kind }: { kind: ContactRow["key"] }): React.ReactElement 
   return (
     <span
       aria-hidden="true"
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--menu-surface-text,var(--menu-text))]/10"
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+        CONTACT_ICON_SKIN[kind] ?? CONTACT_ICON_NEUTRAL
+      }`}
     >
       <svg
         viewBox="0 0 24 24"

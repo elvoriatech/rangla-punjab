@@ -686,6 +686,32 @@ describe("MenuView footer", () => {
     }
   });
 
+  it("opens the bottom row with the restaurant's own copyright line", () => {
+    const year = new Date().getFullYear();
+    const html = footerOf(renderToStaticMarkup(<MenuView menu={{ ...fixture, locale: "de" }} />));
+    expect(html).toContain(`\u00a9 ${year} Ristorante Volpe`);
+    expect(html, "German copy, not English").toContain("Alle Rechte vorbehalten");
+    // First item of row 2: the venue's line, then the operator's pages.
+    const at = html.indexOf("\u00a9 ");
+    expect(at, "footer prints a copyright line").toBeGreaterThan(-1);
+    expect(at, "copyright comes before Impressum").toBeLessThan(html.indexOf("Impressum"));
+  });
+
+  it("gives each contact kind its own colour disc, WhatsApp in WhatsApp green", () => {
+    const html = footerOf(renderToStaticMarkup(<MenuView menu={CONTACTED} />));
+    // The icon disc sits inside its anchor, so read each one off its link.
+    const discOf = (href: string): string =>
+      html.match(new RegExp(`<a href="${href}[^"]*"[^>]*>\\s*<span[^>]*class="([^"]*)"`))?.[1] ??
+      "";
+    expect(discOf("https://wa.me/"), "WhatsApp green").toContain("bg-[#25D366]");
+    expect(discOf("tel:\\+497531123456"), "landline blue").toContain("bg-[#2563EB]");
+    expect(discOf("tel:\\+491701234567"), "mobile amber").toContain("bg-[#F59E0B]");
+    // White glyph on the filled disc, and the disc stays out of the a11y
+    // tree — the anchor's aria-label is what carries the meaning.
+    expect(discOf("https://wa.me/")).toContain("text-white");
+    expect(html).toMatch(/<span aria-hidden="true" class="[^"]*bg-\[#25D366\]/);
+  });
+
   it("is two rows, not columns — the owner wants 2–3 lines, not a block", () => {
     const html = footerOf(
       renderToStaticMarkup(<MenuView menu={CONTACTED} orderingModes={ALL_MODES} onlinePayment />),

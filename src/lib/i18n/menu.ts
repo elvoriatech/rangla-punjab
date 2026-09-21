@@ -155,6 +155,9 @@ const en = {
   },
   footer: {
     poweredBy: (brand: string): string => `Powered by ${brand} · Digital Menus`,
+    /** The restaurant's own copyright line, first in the bottom row.
+     *  `year` is resolved once per render, `name` is the venue's. */
+    copyright: (year: number, name: string): string => `© ${year} ${name} · All rights reserved`,
     acceptedPayments: "Accepted payments",
     /** Accessible name of the bottom legal-link row, and the two links in
      *  it. Both pages are the operator's, not the restaurant's, which is
@@ -338,6 +341,7 @@ const de: MenuCopy = {
   },
   footer: {
     poweredBy: (brand) => `Bereitgestellt von ${brand} · Digitale Speisekarten`,
+    copyright: (year, name) => `© ${year} ${name} · Alle Rechte vorbehalten`,
     acceptedPayments: "Akzeptierte Zahlungsmittel",
     legal: "Rechtliches",
     imprint: "Impressum",
@@ -498,6 +502,7 @@ const fr: MenuCopy = {
   },
   footer: {
     poweredBy: (brand) => `Propulsé par ${brand} · Cartes numériques`,
+    copyright: (year, name) => `© ${year} ${name} · Tous droits réservés`,
     acceptedPayments: "Moyens de paiement acceptés",
     legal: "Informations légales",
     imprint: "Mentions légales",
@@ -656,6 +661,7 @@ const es: MenuCopy = {
   },
   footer: {
     poweredBy: (brand) => `Con tecnología de ${brand} · Cartas digitales`,
+    copyright: (year, name) => `© ${year} ${name} · Todos los derechos reservados`,
     acceptedPayments: "Pagos aceptados",
     legal: "Información legal",
     imprint: "Aviso legal",
@@ -814,6 +820,7 @@ const it: MenuCopy = {
   },
   footer: {
     poweredBy: (brand) => `Servizio offerto da ${brand} · Menu digitali`,
+    copyright: (year, name) => `© ${year} ${name} · Tutti i diritti riservati`,
     acceptedPayments: "Pagamenti accettati",
     legal: "Informazioni legali",
     imprint: "Note legali",
@@ -984,6 +991,7 @@ const ar: MenuCopy = {
   },
   footer: {
     poweredBy: (brand) => `مُقدَّم من ${brand} · قوائم طعام رقمية`,
+    copyright: (year, name) => `© ${year} ${name} · جميع الحقوق محفوظة`,
     acceptedPayments: "طرق الدفع المقبولة",
     legal: "معلومات قانونية",
     imprint: "بيانات الناشر",
