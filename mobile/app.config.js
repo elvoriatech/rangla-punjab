@@ -115,14 +115,22 @@ module.exports = ({ config }) => {
     [
       "expo-splash-screen",
       {
-        // The mascot in a round white medallion with a gold ring — the
-        // Welcome screen's own logo treatment. The generated splash.png
-        // carries a white square behind the mascot, which read as a box
-        // on the red.
-        image: "./assets/splash-medallion.png",
+        // The mascot CUT OUT, on the brand red — the same figure the
+        // launch screen draws, at close to the same size (owner,
+        // 2026-09-22: "why do I see a white screen with logo and then the
+        // launching screen?").
+        //
+        // It used to be a white medallion with a gold ring, so the app
+        // opened on a white disc and then replaced it with a cut-out
+        // mascot: two different logos back to back, which is exactly what
+        // that flash was. Same artwork and the same red on both sides
+        // means the hand-off is now a change of layout rather than a
+        // change of picture. The generated splash.png is not used — it
+        // carries a white square behind the mascot.
+        image: "./assets/logo-cutout.png",
         backgroundColor: generated.splash?.backgroundColor ?? "#8f1a1a",
         resizeMode: "contain",
-        imageWidth: 200,
+        imageWidth: 180,
       },
     ],
     "expo-localization",
