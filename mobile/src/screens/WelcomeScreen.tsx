@@ -8,18 +8,21 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { VenueWordmark } from "../venue-wordmark";
 import { useI18n } from "../i18n";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { GoogleButton } from "../google-button";
 import { HalalMark } from "../halal-mark";
 import { displayVenueName, venueNameLines } from "../venue-name";
-import { brand, colors, fonts, hero, logo, radius, scrim } from "../theme";
+import { brand, colors, fonts, hero, radius, scrim } from "../theme";
 
 /**
  * The launch screen — the mockup's red Willkommen page, element for
- * element: wave artwork, logo medallion, the venue's name over its town,
+ * element: wave artwork, the mascot on the red, the venue's lockup
+ * over its town,
  * gold flourish, the four-feature icon row, a second flourish, italic
  * Willkommen + tagline, then the two entries ("Bestellung Starten" →
  * menu, "Anmelden / Registrieren" → account). A halal kitchen wears the
@@ -43,6 +46,9 @@ import { brand, colors, fonts, hero, logo, radius, scrim } from "../theme";
  */
 
 const ORNAMENT = require("../../assets/ornament.png");
+/** The venue mascot with its white card removed — see the note at the
+ *  launch screen's logo, and `scripts/cut-out-logo.mjs`. */
+const LOGO_CUTOUT = require("../../assets/logo-cutout.png");
 
 function Feature({ icon, label }: { icon: React.ReactNode; label: string }): React.ReactElement {
   return (
@@ -80,6 +86,15 @@ export function WelcomeScreen({
   // "Rangla Punjab Restaurant" over "Konstanz" — one `venues.name` with
   // the " · " separator in it, set as a letterhead (see `venue-name.ts`).
   const { line1, line2 } = venueNameLines(displayVenueName());
+  /** The mark's measure: the window less a margin of its own — narrower
+   *  than the page's text so the lockup has air either side, as it does
+   *  on the posters, and 32 pt narrower again since the owner asked for
+   *  the top line 5 pt smaller (2026-09-22; the mark is fitted to THIS,
+   *  so its width is what sets the lettering's size). Capped at 390 so a
+   *  tablet gets a letterhead rather than a shop sign. Live across
+   *  rotations, because this screen scrolls and does not lock to
+   *  portrait. */
+  const nameWidth = Math.min(390, Math.max(160, useWindowDimensions().width - 88));
 
   // One tap to an account, right on the launch screen — native Google
   // where the build supports it, the browser device flow otherwise.
@@ -108,24 +123,30 @@ export function WelcomeScreen({
         contentContainerStyle={styles.scrim}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoRing}>
-          <Image source={logo} style={styles.logo} />
-        </View>
-        {/* The name must FIT BY CONSTRUCTION, not by shrinking: web has no
-            `adjustsFontSizeToFit` at all and Android honours it unevenly, so
-            a size that only just fits in the simulator is a size that
-            ellipsises on a real phone. Two things buy the room — 24 pt
-            instead of 28 (measured: "Rangla Punjab Restaurant" wants
-            ~298 pt of Nunito 800 at 24), and `nameBlock`, which claws back
-            half the scrim's 32 pt gutter either side. That is 328 pt of
-            line on a 360 pt phone and 358 on a 390 pt one, against 298
-            needed. `adjustsFontSizeToFit` stays as the device-side safety
-            net for the venue whose name is longer still; it is no longer
-            what THIS venue depends on. */}
+        {/* The mascot, straight on the red — no medallion, no white card
+            (owner, 2026-09-22: "there is no background of logo"). The
+            generated logo is drawn ON a white square, so the launch
+            screen uses the cut-out made from it by
+            `scripts/cut-out-logo.mjs`; everywhere the logo sits on a
+            light surface (the header, the Account hero) keeps the
+            generated one. */}
+        <Image source={LOGO_CUTOUT} style={styles.logo} resizeMode="contain" />
+        {/* The venue's own LOCKUP — "RANGLA PUNJAB" over a smaller
+            "RESTAURANT", in the lime sticker lettering, exactly as the
+            owner's posters set it (see `venue-wordmark.tsx`, whose
+            proportions are measured off those posters).
+
+            It is set past any phone's measure and fitted to it by the
+            mark's own `maxWidth`, which scales the whole thing — glyphs,
+            strokes, tracking and the artwork's condensed width together,
+            so it spans the page on every phone — rather
+            than relying on `adjustsFontSizeToFit`, which web does not
+            implement at all and Android honours unevenly.
+
+            The measure is the window less the scrim's 32 pt gutters, plus
+            the 16 pt either side that `nameBlock` claws back. */}
         <View style={styles.nameBlock}>
-          <Text style={styles.brand} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-            {line1}
-          </Text>
+          <VenueWordmark name={line1} size={64} maxWidth={nameWidth} />
           {line2 ? (
             <Text style={styles.brandPlace} numberOfLines={1}>
               {line2}
@@ -258,34 +279,20 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     backgroundColor: scrim,
   },
-  logoRing: {
-    width: 122,
-    height: 122,
-    borderRadius: 61,
-    borderWidth: 2,
-    borderColor: colors.goldSoft,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.cream,
-    overflow: "hidden",
-    marginBottom: 16,
-  },
-  logo: { width: 112, height: 112, borderRadius: 56 },
+  /** Bigger than the old 112 pt medallion, because there is no ring
+   *  around it any more and the mascot is the page's first image. */
+  logo: { width: 168, height: 168, marginBottom: 4 },
   /**
    * The venue's name, and the town under it.
    *
-   * NUNITO, not the display serif — the same `bodyHeavy` face and the
-   * same soft shadow as the profile heading on the Account screen, at the
-   * owner's word: the two places the restaurant's own name is set should
-   * be one typeface, and the old display serif at 36 was reading as a
-   * wordmark rather than as the name of a place. The app has since gone
-   * to that one face everywhere (see `theme.ts`), so this is no longer
-   * the exception it was — it is simply the heading ramp's top end. The "— RESTAURANT —" rule row that used
-   * to sit here is gone with it; the town says what the rule said, and
-   * says something true about THIS restaurant rather than a generic word.
-   */
-  /**
-   * The name's own measure, WIDER than the rest of the page.
+   * The name is the STICKER lettering now (owner, 2026-09-22) — the lime,
+   * outlined face off the logo, the same one the POINTS badge wears, so
+   * the restaurant's name is set in the restaurant's own letters wherever
+   * it appears. It was Nunito 800 before that, and a display serif before
+   * that; the town underneath keeps the app's body face, which is what
+   * holds the pair together as a letterhead rather than two logos.
+   *
+   * The name's own measure is WIDER than the rest of the page.
    *
    * The scrim insets everything by 32 pt, which is right for the buttons
    * and the tagline but costs the one string that cannot afford it; a
@@ -298,29 +305,23 @@ const styles = StyleSheet.create({
    * parent's padding box — measured, on the build this shipped from. A
    * View has no such rule, and the Texts inside then stretch to IT.
    */
-  nameBlock: { alignSelf: "stretch", marginHorizontal: -16 },
-  brand: {
-    color: colors.onRed,
-    fontSize: 24,
-    ...fonts.bodyHeavy,
-    /** Zero, stated: tracking is what pushed the name past the measure,
-     *  and the town under it carries the letter-spaced look for the pair. */
-    letterSpacing: 0,
-    textAlign: "center",
-    textShadowColor: "rgba(0,0,0,0.4)",
-    textShadowRadius: 6,
-  },
-  /** The locality: smaller, tracked out, the quiet half of the pair. It
-   *  shares the name's wider measure so the two lines are centred on the
-   *  same axis rather than on two different ones. */
+  /** `alignItems: center` because the sticker lettering sizes its own box
+   *  (it is an SVG, not a Text that fills the line) — without it the box
+   *  would sit at the start of the stretched block. */
+  nameBlock: { alignSelf: "stretch", alignItems: "center", marginHorizontal: -16 },
+  /** The locality: smaller, tracked out, the quiet half of the pair — and
+   *  PURE WHITE, a weight heavier than the cream it used to be (owner,
+   *  2026-09-22), so it holds its own under the lime lettering instead of
+   *  fading into the red. It shares the name's wider measure so the two
+   *  lines are centred on the same axis rather than on two different ones. */
   brandPlace: {
-    color: colors.onRed,
-    fontSize: 15,
-    ...fonts.bodyBold,
+    color: "#FFFFFF",
+    fontSize: 16,
+    ...fonts.bodyHeavy,
     letterSpacing: 2.5,
-    marginTop: 2,
+    marginTop: 4,
     textAlign: "center",
-    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowColor: "rgba(0,0,0,0.45)",
     textShadowRadius: 5,
   },
   /** Top-left corner, clear of the notch (`top` is set inline from the

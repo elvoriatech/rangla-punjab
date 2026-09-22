@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ApiContactEntry, ApiLoyaltyEntry, ApiMenu, ApiVenueContact } from "../api";
@@ -31,7 +32,8 @@ import { ReservationsCard } from "../reservations";
 import { displayVenueName, venueNameLines } from "../venue-name";
 import { FieldLabel, OutlineButton, PrimaryButton, RequiredLegend } from "../components";
 import { CartoonTitle } from "../cartoon-title";
-import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
+import { VenueWordmark } from "../venue-wordmark";
+import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 
 /**
  * Konto / Account — language, sign-in (one-tap Google, the browser device
@@ -46,6 +48,10 @@ import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from
  * (an account's order history) or meaningless (the guest's own rewards).
  * Signed OUT, nothing here hints that a restaurant login exists.
  */
+/** The venue mascot with its white card removed — see
+ *  `scripts/cut-out-logo.mjs`. Shared with the launch screen. */
+const LOGO_CUTOUT = require("../../assets/logo-cutout.png");
+
 export function AccountScreen({
   menu,
   menuLoading = false,
@@ -92,6 +98,9 @@ export function AccountScreen({
 
   const staff = auth.staff;
   const venueLines = venueNameLines(displayVenueName(menu.venue.name));
+  /** The hero's measure for the name, less a 24 pt breathing gutter each
+   *  side. Live across rotations. */
+  const nameWidth = Math.max(160, useWindowDimensions().width - 48);
   useEffect(() => {
     // Not in restaurant mode: the endpoint mints a device code, and the
     // owner is never offered a provider button.
@@ -286,14 +295,18 @@ export function AccountScreen({
         imageStyle={{ width: "100%", height: "100%" }}
       >
         <View style={styles.heroOverlay}>
-          <Image source={logo} style={styles.logo} />
+          {/* The mascot cut out of its white card, like the launch screen
+              — no medallion behind it on the venue's own artwork (owner,
+              2026-09-22: "no background for logo in banners"). */}
+          <Image source={LOGO_CUTOUT} style={styles.logo} resizeMode="contain" />
           {/* Name over town, the same letterhead the welcome screen sets
-              (see `venue-name.ts`). Single-line + shrink-to-fit, because
-              the hero is a fixed 150 pt and a wrapped name would push the
-              town out of it. */}
-          <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-            {venueLines.line1}
-          </Text>
+              (see `venue-name.ts`) and, since 2026-09-22, in the same
+              lockup the owner's posters use: wherever this app prints the
+              venue's own name it prints the poster's mark. `maxWidth`
+              rather than shrink-to-fit — the hero is a fixed 150 pt, so
+              the name has to fit the measure by construction or it pushes
+              the town out of the box. */}
+          <VenueWordmark name={venueLines.line1} size={30} maxWidth={nameWidth} />
           {venueLines.line2 ? (
             <Text style={styles.namePlace} numberOfLines={1}>
               {venueLines.line2}
@@ -820,20 +833,14 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: scrim,
   },
-  logo: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.cream },
-  name: {
-    color: colors.onRed,
-    fontSize: 20,
-    ...fonts.bodyHeavy,
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowRadius: 5,
-  },
+  logo: { width: 66, height: 66 },
   /** The town under the name — the welcome screen's pairing at hero
-   *  scale: same faces, same shadow, two thirds the size. */
+   *  scale: pure white, a weight heavier than the cream it was, so it
+   *  holds under the lime lettering (owner, 2026-09-22). */
   namePlace: {
-    color: colors.onRed,
+    color: "#FFFFFF",
     fontSize: 13,
-    ...fonts.bodyBold,
+    ...fonts.bodyHeavy,
     letterSpacing: 2,
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowRadius: 5,

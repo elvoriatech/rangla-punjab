@@ -14,9 +14,10 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
+import { colors, fonts, isRTL, money, radius, statusTones } from "./theme";
 import { HalalMark } from "./halal-mark";
 import { CartoonTitle } from "./cartoon-title";
+import { VenueWordmark } from "./venue-wordmark";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
 import { useBumpOnChange, usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
@@ -71,7 +72,7 @@ export function RequiredLegend({ style }: { style?: StyleProp<TextStyle> }): Rea
  * Red screen header with the brand mark — the mockup's top bar.
  *
  * The two optional slots belong to RESTAURANT MODE: a burger at the end
- * that opens the owner's menu, and a back arrow in place of the logo on
+ * that opens the owner's menu, and a back arrow in the start rail on
  * the screens that aren't tabs. A guest build passes neither, so the bar
  * is exactly the mockup's.
  *
@@ -95,7 +96,7 @@ export function RequiredLegend({ style }: { style?: StyleProp<TextStyle> }): Rea
  * word; either way it renders on its own line whether or not a rating is
  * there.
  *
- * The side slots are NOT in that column: the logo stays pinned to the
+ * The side slots are NOT in that column: the back arrow stays pinned to the
  * start edge and the owner's burger to the end edge, as they always
  * were, so the centred text keeps symmetric gutters no matter which of
  * them is present.
@@ -112,7 +113,7 @@ export function RequiredLegend({ style }: { style?: StyleProp<TextStyle> }): Rea
  */
 export function BrandHeader({
   title,
-  subtitle,
+  sticker = false,
   onMenu,
   onBack,
   rating,
@@ -120,7 +121,18 @@ export function BrandHeader({
   onPoints,
 }: {
   title: string;
-  subtitle?: string;
+  /**
+   * Set the title in the venue's own STICKER lettering (lime, outlined —
+   * `CartoonTitle`) instead of the app's heading face.
+   *
+   * Only the screens that put the RESTAURANT'S NAME in the bar pass it
+   * (owner, 2026-09-22). "Cart", "Orders" and the rest stay in Nunito:
+   * the lettering is the venue's signature, and a signature that is on
+   * every word means nothing. The bar's height does not depend on it —
+   * `HEADER_CONTENT_HEIGHT` is the sticker case either way — so a guest
+   * moving between tabs never sees the red slab change size.
+   */
+  sticker?: boolean;
   onMenu?: () => void;
   onBack?: () => void;
   /** The venue's Google rating, on the screens that carry its name. */
@@ -142,11 +154,17 @@ export function BrandHeader({
   onPoints?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  /** The middle slot's measured width — what the name is fitted to. */
+  const [center, setCenter] = React.useState(0);
   return (
     <View style={styles.headerWrap}>
       <View style={styles.header}>
-        {/* Start slot: logo, or the back arrow in its place. Both stay
-            vertically centred in the bar, exactly where they were. */}
+        {/* Start slot: the back arrow, or the mascot in its place. The
+            mascot is the CUT-OUT — no cream medallion behind it (owner,
+            2026-09-22) — and the rail is always its 44 pt, whether or not
+            anything is in it, because that reserve is what keeps the
+            venue's name centred on the BAR rather than on whatever is
+            left of it. */}
         <View style={styles.headerStart}>
           {onBack ? (
             <Pressable
@@ -165,30 +183,50 @@ export function BrandHeader({
               />
             </Pressable>
           ) : (
-            <Image source={logo} style={styles.headerLogo} />
+            <Image source={LOGO_CUTOUT} style={styles.headerLogo} resizeMode="contain" />
           )}
         </View>
-        <View style={styles.headerCenter}>
-          <Text
-            style={styles.headerTitle}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-          >
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {subtitle}
+        <View style={styles.headerCenter} onLayout={(e) => setCenter(e.nativeEvent.layout.width)}>
+          {/* The venue's name as the poster LOCKUP — "RANGLA PUNJAB" over
+              a smaller "RESTAURANT" — the same mark the launch screen
+              sets (owner, 2026-09-22).
+
+              It is fitted to the MEASURED middle slot rather than to a
+              guess: this bar's centre is what is left after two 44 pt
+              side slots, two 8 pt gaps and the 16 pt insets, and the
+              points pill widens its slot to 110. `CartoonTitle` scales
+              the whole lettering to whatever that leaves, so a long name
+              shrinks instead of being clipped — `adjustsFontSizeToFit`
+              can't help here, an SVG has no such affordance. Until the
+              first layout the cap is the narrowest case, so the name is
+              never drawn too wide and then snapped back. */}
+          {sticker ? (
+            <VenueWordmark
+              name={title}
+              // Past any phone's middle slot on purpose: `maxWidth` does
+              // the sizing, so the mark always spans the room the two
+              // rails leave it instead of sitting at a fixed size with
+              // air either side (owner, 2026-09-22 — "stretch the name").
+              size={60}
+              maxWidth={Math.min(center > 0 ? center : HEADER_TITLE_MIN, HEADER_TITLE_MAX)}
+            />
+          ) : (
+            <Text
+              style={styles.headerTitle}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {title}
             </Text>
-          ) : null}
+          )}
           {rating ? <HeaderRatingLine rating={rating} /> : null}
         </View>
         {/* End slot: the burger, pinned to the TOP corner of the content
             area rather than centred on it. The slot itself is always
             there — an empty one on the screens without a burger — so the
             centred title keeps symmetric gutters either way. */}
-        <View style={[styles.headerEnd, onPoints && styles.headerEndWide]}>
+        <View style={[styles.headerEnd, onPoints && styles.headerEndCentred]}>
           {onPoints ? <HeaderPointsPill points={points ?? null} onPress={onPoints} /> : null}
           {onMenu ? (
             <Pressable
@@ -234,7 +272,10 @@ function HeaderPointsPill({
     <Animated.View style={bump}>
       <Pressable
         onPress={onPress}
-        hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+        // The badge's own box is ~23 pt tall now, so the slop is what
+        // carries it past the 44 pt target WCAG 2.5.5 asks for: 23 + 2×12
+        // = 47 vertically, and the same idea sideways.
+        hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
         accessibilityRole="button"
         accessibilityLabel={
           points === null ? t.pointsScreenTitle : fill(t.pointsBadgeLabel, { points })
@@ -249,7 +290,10 @@ function HeaderPointsPill({
           >
             🎁
           </Text>
-          <CartoonTitle text={t.pointsBadgeWord} size={12} />
+          {/* `maxWidth` rather than a smaller size: the word is set as big
+              as the square can hold and shrinks itself to fit, so the
+              badge stays square whatever the language calls points. */}
+          <CartoonTitle text={t.pointsBadgeWord} size={9} maxWidth={POINTS_BADGE - 8} />
         </View>
       </Pressable>
     </Animated.View>
@@ -668,21 +712,63 @@ export function QtyStepper({
 /**
  * The one height every screen's red bar agrees on, safe-area padding
  * excluded. It is the tallest case there is, added up rather than
- * guessed at: the title's 22 pt line box, 1 pt of air, the town's 16 pt
- * line box, then the rating's own row (2 pt of air + a 24 pt press box)
- * — 65, rounded up to 66 so the stack is never the exact height of its
- * container.
+ * guessed at: the venue lockup stretched to its 225 pt cap is a 71 pt
+ * box (the mark is 4.66 : 1, plus the rim the white stroke needs above
+ * and below — see `venue-wordmark.tsx`), then the rating's own row (2 pt
+ * of air + a 24 pt press box) — 97, rounded up to 98.
  *
- * A screen with no rating, or no subtitle, renders the SAME 66 and
+ * The town used to have a line of its own in here. It is gone at the
+ * owner's word (2026-09-22), and the space went into the mark: the
+ * lockup already says the restaurant's name and what it is, and
+ * "Konstanz" underneath was a third thing to read in a bar that is
+ * chrome, not content. It still heads the Account screen, where there is
+ * room for the whole letterhead.
+ *
+ * It was 66 while the name was Nunito 800 at 17; the lockup carries a
+ * second line, an arch and strokes that sit outside the glyphs, and this
+ * is that difference, measured rather than eyeballed. Nothing here is
+ * free: every point here is a point off every screen below it. The mark
+ * went to 34 at the owner's word (2026-09-22) — the bar had space around
+ * the name, and the points badge (half its height, 30 pt of its slot)
+ * and the round logo (all 44 pt of its rail) gave that space up for it.
+ * The mark is 4.66 times as wide as it is tall, so every point of width
+ * it gains is a fifth of a point of bar height: this is as big as the
+ * name gets before the red slab starts eating the screen.
+ *
+ * A screen with no rating renders the SAME 98 and
  * simply centres what it has in it. That is the point: the red slab must
  * not change height when the guest moves between Home, Menu, Cart and
  * Orders.
  */
-const HEADER_CONTENT_HEIGHT = 66;
+const HEADER_CONTENT_HEIGHT = 98;
 /** Both side slots, reserved whether or not anything is in them, so the
  *  centred title always has the same gutter left and right. 44 is the
  *  minimum touch target, which the burger now fills exactly. */
 const HEADER_SLOT = 44;
+/** The venue mascot with its white card removed — see
+ *  `scripts/cut-out-logo.mjs`. */
+const LOGO_CUTOUT = require("../assets/logo-cutout.png");
+
+/** The POINTS badge: a square, and a small one. It was a 65 × 42 card,
+ *  then briefly a wide one-row pill; both read as a second title
+ *  competing with the venue's name. 40 keeps it inside the 44 pt rail the
+ *  burger already reserves, and `hitSlop` carries the touch target. */
+const POINTS_BADGE = 40;
+/** How far below the bar's middle the badge sits. */
+const POINTS_BADGE_DROP = 10;
+/** What the name is fitted to before the first layout: the narrowest
+ *  middle slot there is (a 360 pt phone, less the 16 pt insets, the two
+ *  44 pt slots and the two 8 pt gaps). Never wider than the real one, so
+ *  the lettering only ever grows into place, never jumps back. */
+const HEADER_TITLE_MIN = 224;
+/**
+ * …and the widest it may get. The lockup is 4.66 times as wide as it is
+ * tall, so its width IS the bar's height: uncapped, a 430 pt phone would
+ * give the mark 294 pt and a 73 pt box while a 360 pt one gave it 58,
+ * and `HEADER_CONTENT_HEIGHT` is a single number for every device. 260
+ * is the widest that still fits that number.
+ */
+const HEADER_TITLE_MAX = 225;
 
 const styles = StyleSheet.create({
   /** The asterisk on a required field, and the line that explains it.
@@ -735,34 +821,43 @@ const styles = StyleSheet.create({
     height: HEADER_CONTENT_HEIGHT,
     gap: 8,
   },
-  /** Logo and back arrow keep their old vertical centring. */
+  /** The back arrow keeps its old vertical centring. */
   headerStart: { width: HEADER_SLOT, justifyContent: "center", alignItems: "flex-start" },
+  /** The mascot, cut out of its white card and given the rail's full
+   *  width. No circle, no fill: on the red bar it is the figure itself. */
+  headerLogo: { width: 42, height: 42 },
   /** The burger rides the TOP of the content area (owner's ask), flush
    *  with the slab's own 16 pt inset on the end side. */
   headerEnd: { width: HEADER_SLOT, justifyContent: "flex-start", alignItems: "flex-end" },
-  /** The points pill needs more than the burger's 44 pt square. Capped
-   *  at 96 so a four-figure balance still cannot squeeze the venue
-   *  name out of the middle — the title truncates itself long before
-   *  that, and `adjustsFontSizeToFit` covers the rest. */
-  headerEndWide: { width: "auto", minWidth: HEADER_SLOT, maxWidth: 110 },
+  /** The POINTS badge sits a little BELOW the mascot's top rather than
+   *  level with it (owner, 2026-09-22): the mascot's art runs to the
+   *  edges of its box and the badge is a solid white card, so matching
+   *  their boxes made the card look like it was riding high. Stated as
+   *  the centred position plus a drop, so it survives a change to the
+   *  bar's height. The burger keeps the top — it is a menu affordance,
+   *  not part of the venue's row. */
+  headerEndCentred: {
+    justifyContent: "flex-start",
+    paddingTop: (HEADER_CONTENT_HEIGHT - POINTS_BADGE) / 2 + POINTS_BADGE_DROP,
+  },
   /** White card on the red, as in the owner's mock. */
   headerPoints: {
-    flexDirection: "row",
+    width: POINTS_BADGE,
+    height: POINTS_BADGE,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: 9,
-    paddingVertical: 3,
-    paddingHorizontal: 5,
+    borderRadius: 10,
     shadowColor: "#000",
     shadowOpacity: 0.18,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
+  /** The gift over the word, in a SQUARE (owner, 2026-09-22: a badge as
+   *  wide as a sentence read as a button for something else). */
   headerPointsBody: { alignItems: "center" },
-  headerPointsGift: { fontSize: 14, lineHeight: 17 },
-  headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
+  headerPointsGift: { fontSize: 12, lineHeight: 15 },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
    *  never shifts the title off centre. */
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
@@ -800,25 +895,14 @@ const styles = StyleSheet.create({
   },
   stateDot: { width: 9, height: 9, borderRadius: 5 },
   stateText: { ...fonts.bodyHeavy, fontSize: 11, letterSpacing: 0.2 },
-  /** Explicit `lineHeight` so the fixed bar height is arithmetic rather
-   *  than a guess about the face's ascenders on each platform. */
   /**
-   * 17, and every step of that is a measurement rather than taste.
-   *
-   * The centre slot on a 360 pt phone is 224 pt (360 - 32 padding - 2×44
-   * side rails - 2×8 gaps). "Rangla Punjab Restaurant" wanted 240 pt of
-   * the old Playfair at 20 and truncated to "Rangla Punjab Restau…" on
-   * web and on any Android that ignores `adjustsFontSizeToFit`; 18 took
-   * it to 216 and fixed that.
-   *
-   * Nunito 800 is then NOT the narrower face one would assume — at 18 it
-   * measures 224, exactly the slot, with nothing in hand. 17 brings it to
-   * ~212 and restores the margin. `adjustsFontSizeToFit` stays as the net
-   * for venues with longer names than this one.
-   *
-   * `lineHeight` is stated (22, a hair over the 17 pt size) so
-   * `HEADER_CONTENT_HEIGHT` is arithmetic rather than a guess about the
-   * face's ascenders on each platform.
+   * Line 1, on the screens that do NOT wear the sticker lettering — a
+   * screen's own name ("Cart", "Orders"). 17 pt of Nunito 800: the
+   * centre slot on a 360 pt phone is 224 pt (360 - 32 padding - 2×44
+   * side rails - 2×8 gaps), and this name measures ~212 there, which
+   * leaves the margin `adjustsFontSizeToFit` then guarantees for the
+   * longer ones. `lineHeight` is stated so the fixed bar height stays
+   * arithmetic rather than a guess about each platform's ascenders.
    */
   headerTitle: {
     color: colors.onRed,
@@ -826,19 +910,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: "center",
     ...fonts.display,
-  },
-  /** Line 2 — the venue's town (or the fallback "RESTAURANT"). Bold and
-   *  tracked out so it reads as part of the name's setting rather than as
-   *  a caption, and `lineHeight` stated for the same arithmetic reason
-   *  the title's is. */
-  headerSubtitle: {
-    color: colors.goldSoft,
-    ...fonts.bodyBold,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 2,
-    marginTop: 1,
-    textAlign: "center",
   },
   /** One baseline under the name. `minHeight` + `paddingVertical` give
    *  the press a ~28 pt box of its own, and the 10 pt hitSlop above and
