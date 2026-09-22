@@ -108,7 +108,7 @@ interface MenuPayload {
       email: Entry | null;
     } | null;
     appLinks: { ios?: string; android?: string; apk?: string } | null;
-    heroSlides: string[];
+    heroSlides: { url: string; kind: "dish" | "banner" }[];
   };
   ordering: { acceptsAsapNow: boolean; requestSlots: string[] };
   offerCount: number;
@@ -243,26 +243,38 @@ describe("GET /api/v1/menu — ?locale", () => {
     });
   });
 
-  it("sends the home slider as absolute image URLs in order", async () => {
+  it("sends the home slider as absolute { url, kind } in order", async () => {
     const fx = await fixture();
-    // Untouched venue: the four dishes the app has always shown.
+    // Untouched venue: German banner, the four dishes, English banner.
     const defaults = (await read(fx.slug)).venue.heroSlides;
-    expect(defaults).toHaveLength(4);
-    expect(defaults[0]).toMatch(/^https?:\/\/.+\/app-slider\/hero-biryani\.webp$/);
+    expect(defaults.map((s) => s.kind)).toEqual([
+      "banner",
+      "dish",
+      "dish",
+      "dish",
+      "dish",
+      "banner",
+    ]);
+    expect(defaults[0]!.url).toMatch(/^https?:\/\/.+\/app-slider\/points-de\.webp$/);
+    expect(defaults[5]!.url).toMatch(/\/app-slider\/points-en\.webp$/);
 
     await asTenant(fx.tenantId, (tx) =>
       tx.venue.updateMany({
-        data: { branding: { heroSlides: ["t/uploads/b", "builtin:hero-kebab", "t/uploads/a"] } },
+        data: {
+          branding: { heroSlides: ["t/uploads/b", "builtin:hero-kebab", "banner:t/uploads/p"] },
+        },
       }),
     );
     const slides = (await read(fx.slug)).venue.heroSlides;
     expect(slides).toHaveLength(3);
-    expect(slides[0]).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=480$/);
-    expect(slides[1]).toMatch(/\/app-slider\/hero-kebab\.webp$/);
-    expect(slides[2]).toMatch(/\/img\/t%2Fuploads%2Fa\?w=480$/);
+    expect(slides[0]).toMatchObject({ kind: "dish" });
+    expect(slides[0]!.url).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=480$/);
+    expect(slides[1]!.url).toMatch(/\/app-slider\/hero-kebab\.webp$/);
+    expect(slides[2]).toMatchObject({ kind: "banner" });
+    expect(slides[2]!.url).toMatch(/\/img\/t%2Fuploads%2Fp\?w=1280$/);
 
-    // The owner removed every dish: an empty list, and the app's own
-    // bundled plates take over.
+    // The owner removed every slide: an empty list, and the app's own
+    // bundled dishes take over.
     await asTenant(fx.tenantId, (tx) =>
       tx.venue.updateMany({ data: { branding: { heroSlides: [] } } }),
     );

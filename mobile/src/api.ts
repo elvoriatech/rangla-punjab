@@ -98,6 +98,11 @@ export interface ApiLoyaltyConfig {
   rewardValueCents: number;
 }
 
+export interface ApiHeroSlide {
+  url: string;
+  kind: "dish" | "banner";
+}
+
 export interface ApiMenu {
   ok: true;
   venue: {
@@ -143,11 +148,12 @@ export interface ApiMenu {
      */
     contact?: ApiVenueContact | null;
     /**
-     * The home slider's dishes, uploaded by the owner in Dashboard →
-     * Settings → App home slider: absolute URLs in display order. Empty
-     * (or absent on an older server) ⇒ the built-in dishes show.
+     * The home slider, managed by the owner in Dashboard → Settings →
+     * App home slider, in display order: a `dish` sits on the red hero
+     * beside the welcome line, a `banner` is a poster filling the slide.
+     * Empty (or absent on an older server) ⇒ the built-in dishes show.
      */
-    heroSlides?: string[];
+    heroSlides?: ApiHeroSlide[];
   };
   ordering: ApiOrdering;
   categories: ApiCategory[];
@@ -242,9 +248,13 @@ export async function fetchMenu(locale?: string, options?: { fresh?: boolean }):
       openNow: typeof menu.venue.openNow === "boolean" ? menu.venue.openNow : null,
       contact: asVenueContact(menu.venue.contact),
       heroSlides: Array.isArray(menu.venue.heroSlides)
-        ? menu.venue.heroSlides
-            .filter((u): u is string => typeof u === "string" && u.length > 0)
-            .map((u) => rebaseUrl(u))
+        ? (menu.venue.heroSlides as unknown[]).flatMap((raw): ApiHeroSlide[] => {
+            const v = raw as Partial<ApiHeroSlide> | null;
+            if (!v || typeof v.url !== "string" || v.url.length === 0) return [];
+            // Anything that is not explicitly a banner is drawn as a dish —
+            // the look the slider has always had.
+            return [{ url: rebaseUrl(v.url), kind: v.kind === "banner" ? "banner" : "dish" }];
+          })
         : [],
     },
     categories,

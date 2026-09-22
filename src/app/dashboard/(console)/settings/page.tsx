@@ -25,12 +25,19 @@ import { MAX_NOTIFY_EMAILS, PAYMENT_METHODS } from "@/lib/ordering-config";
 import { MAX_APP_LINK_LENGTH } from "@/lib/app-links-config";
 import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
 import { uploadedImageUrl } from "@/lib/menu-images";
-import { BUILT_IN_DISHES, MAX_HERO_SLIDES, builtInLabel, heroSlideUrl } from "@/lib/hero-slides";
+import {
+  BUILT_IN_DISHES,
+  MAX_HERO_SLIDES,
+  builtInLabel,
+  heroSlideKind,
+  heroSlideUrl,
+} from "@/lib/hero-slides";
 import { siteUrl } from "@/lib/public-menu";
 import { DeliveryAreasEditor } from "./delivery-areas-editor";
 import type { PlaceSuggestion } from "@/lib/google-rating";
 import { OWNER_PASSWORD_MIN_LENGTH } from "@/lib/auth-service";
 import {
+  addHeroBannerAction,
   addHeroSlideAction,
   changePasswordAction,
   moveHeroSlideAction,
@@ -67,8 +74,27 @@ import { RequiredLegend, RequiredMark } from "@/components/required-mark";
  * saved.
  */
 
-/** A dish as the app draws it: contained, on the red hero backdrop. */
-function SlidePreview({ src, alt }: { src: string; alt: string }): React.ReactElement {
+/** A slide as the app draws it: a dish contained on the red hero
+ *  backdrop, a banner filling a wide box. */
+function SlidePreview({
+  src,
+  alt,
+  banner = false,
+}: {
+  src: string;
+  alt: string;
+  banner?: boolean;
+}): React.ReactElement {
+  if (banner) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt}
+        className="h-16 w-32 shrink-0 border border-ink/15 bg-[#7a1f1f] object-contain"
+      />
+    );
+  }
   return (
     <span
       className="flex h-16 w-16 shrink-0 items-center justify-center border border-ink/15 bg-[#7a1f1f] bg-cover bg-center p-1"
@@ -102,19 +128,19 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
     error: "Couldn't remove the banner — try again.",
   },
   slide: {
-    saved: "Dish added. The app shows it the next time its home screen refreshes.",
+    saved: "Slide added. The app shows it the next time its home screen refreshes.",
     error: "That image didn't upload. Use a JPEG, PNG, or WebP up to 10 MB.",
   },
   "slide-full": {
-    error: `The slider is full (${MAX_HERO_SLIDES} dishes). Remove one before adding another.`,
+    error: `The slider is full (${MAX_HERO_SLIDES} slides). Remove one before adding another.`,
   },
   "slide-removed": {
-    saved: "Dish removed from the app's home slider.",
-    error: "Couldn't remove that dish — try again.",
+    saved: "Slide removed from the app's home slider.",
+    error: "Couldn't remove that slide — try again.",
   },
   "slide-moved": {
     saved: "Slide order saved.",
-    error: "Couldn't move that dish — try again.",
+    error: "Couldn't move that slide — try again.",
   },
   hours: {
     saved: "Opening hours saved. Guests see your open/closed status live on the menu.",
@@ -565,9 +591,9 @@ export default async function SettingsPage({
         </div>
       </section>
 
-      {/* App home slider. The dishes that rotate on the red hero at the
-          top of the mobile app's home screen. Empty = the four dishes
-          built into the app. */}
+      {/* App home slider. The slides that rotate at the top of the mobile
+          app's home screen: dishes (on the red hero) and banners (full
+          slide). Empty = the four dishes built into the app. */}
       <section
         aria-labelledby="slider-title"
         className="mt-6 border border-ink/15 bg-card px-6 py-5"
@@ -576,18 +602,24 @@ export default async function SettingsPage({
           App home slider
         </p>
         <p className="mt-1 text-xs text-muted">
-          The dishes that rotate on the red banner at the top of the app&apos;s home screen, next to
-          the welcome line — in this order. The banner, the text, and the layout stay the same; only
-          the dish pictures change. Up to {MAX_HERO_SLIDES} dishes: the app&apos;s four built-in
-          dishes are listed first, and you can keep, reorder, or remove any of them.
+          The slides that rotate at the top of the app&apos;s home screen, in this order — up to{" "}
+          {MAX_HERO_SLIDES}. Two kinds: a <strong>dish</strong> sits on the red banner next to the
+          welcome line (the usual look), a <strong>banner</strong> is a finished poster that fills
+          the whole slide. The built-in slides are listed until you change them; keep, reorder, or
+          remove any of them.
         </p>
-        <p className="mt-1 text-xs font-medium text-ink">
-          Best result: a <strong>PNG with a transparent background</strong> (just the plate, no
-          table or backdrop), about <strong>700 × 700 pixels</strong>. A photo with a background
-          works too, but shows as a rectangle. Files up to 10&nbsp;MB are accepted; each upload is
-          compressed automatically (max 800&nbsp;px, WebP), and phones download a copy of roughly
-          20–60&nbsp;KB.
-        </p>
+        <ul className="mt-1 list-disc pl-5 text-xs text-ink">
+          <li>
+            <strong>Dish:</strong> a PNG with a <strong>transparent background</strong> (just the
+            plate), about <strong>700 × 700 px</strong>. Stored at max 800&nbsp;px; phones download
+            ~20–60&nbsp;KB.
+          </li>
+          <li>
+            <strong>Banner:</strong> a wide poster, <strong>2 : 1</strong> (e.g. 1600 × 800 px). It
+            is shown whole, so keep the text large. Stored at max 1600&nbsp;px; phones download
+            ~100–150&nbsp;KB.
+          </li>
+        </ul>
 
         {slides.length > 0 ? (
           <ol className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -600,14 +632,19 @@ export default async function SettingsPage({
                   {i + 1}
                 </span>
                 <SlidePreview
-                  src={heroSlideUrl(key, 240)}
-                  alt={builtInLabel(key) ?? `Dish ${i + 1}`}
+                  src={heroSlideUrl(key, heroSlideKind(key) === "banner" ? 320 : 240)}
+                  alt={builtInLabel(key) ?? `Slide ${i + 1}`}
+                  banner={heroSlideKind(key) === "banner"}
                 />
-                {builtInLabel(key) ? (
-                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted">
-                    Built-in
-                  </span>
-                ) : null}
+                <span className="shrink-0 text-[10px] uppercase leading-tight tracking-wider text-muted">
+                  {heroSlideKind(key) === "banner" ? "Banner" : "Dish"}
+                  {builtInLabel(key) ? (
+                    <>
+                      <br />
+                      Built-in
+                    </>
+                  ) : null}
+                </span>
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                   <form action={moveHeroSlideAction}>
                     <input type="hidden" name="key" value={key} />
@@ -615,7 +652,7 @@ export default async function SettingsPage({
                     <SubmitButton
                       pendingLabel="…"
                       disabled={i === 0}
-                      aria-label={`Move dish ${i + 1} earlier`}
+                      aria-label={`Move slide ${i + 1} earlier`}
                       className="min-h-8 min-w-8 border border-ink/25 px-2 text-sm hover:bg-cream disabled:opacity-30"
                     >
                       ↑
@@ -627,7 +664,7 @@ export default async function SettingsPage({
                     <SubmitButton
                       pendingLabel="…"
                       disabled={i === slides.length - 1}
-                      aria-label={`Move dish ${i + 1} later`}
+                      aria-label={`Move slide ${i + 1} later`}
                       className="min-h-8 min-w-8 border border-ink/25 px-2 text-sm hover:bg-cream disabled:opacity-30"
                     >
                       ↓
@@ -637,7 +674,7 @@ export default async function SettingsPage({
                     <input type="hidden" name="key" value={key} />
                     <SubmitButton
                       pendingLabel="Removing…"
-                      aria-label={`Remove dish ${i + 1}`}
+                      aria-label={`Remove slide ${i + 1}`}
                       className="text-xs text-red-800 underline underline-offset-2 hover:text-red-900"
                     >
                       Remove
@@ -650,8 +687,8 @@ export default async function SettingsPage({
         ) : (
           <div className="mt-4 border border-dashed border-ink/20 px-4 py-3">
             <p className="text-xs text-muted">
-              You removed every dish, so the app is showing its four built-in dishes again. Add a
-              dish to replace them.
+              You removed every slide, so the app is showing its four built-in dishes again. Add a
+              dish or a banner to replace them.
             </p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {BUILT_IN_DISHES.map((d) => (
@@ -664,31 +701,54 @@ export default async function SettingsPage({
         )}
 
         {slides.length < MAX_HERO_SLIDES ? (
-          <form action={addHeroSlideAction} className="mt-4">
-            <label className="block text-sm">
-              <span className="font-medium">
-                Add a dish
-                <RequiredMark />
-              </span>
-              <input
-                type="file"
-                name="slide"
-                required
-                accept="image/png,image/webp,image/jpeg"
-                className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
-              />
-            </label>
-            <RequiredLegend className="mt-1 text-xs text-muted" />
-            <SubmitButton
-              pendingLabel="Uploading…"
-              className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
-            >
-              Add dish
-            </SubmitButton>
-          </form>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <form action={addHeroSlideAction}>
+              <label className="block text-sm">
+                <span className="font-medium">
+                  Add a dish
+                  <RequiredMark />
+                </span>
+                <input
+                  type="file"
+                  name="slide"
+                  required
+                  accept="image/png,image/webp,image/jpeg"
+                  className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
+                />
+              </label>
+              <SubmitButton
+                pendingLabel="Uploading…"
+                className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+              >
+                Add dish
+              </SubmitButton>
+            </form>
+            <form action={addHeroBannerAction}>
+              <label className="block text-sm">
+                <span className="font-medium">
+                  Add a banner
+                  <RequiredMark />
+                </span>
+                <input
+                  type="file"
+                  name="slideBanner"
+                  required
+                  accept="image/png,image/webp,image/jpeg"
+                  className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
+                />
+              </label>
+              <SubmitButton
+                pendingLabel="Uploading…"
+                className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+              >
+                Add banner
+              </SubmitButton>
+            </form>
+            <RequiredLegend className="text-xs text-muted sm:col-span-2" />
+          </div>
         ) : (
           <p className="mt-4 text-xs text-muted">
-            The slider is full ({MAX_HERO_SLIDES} dishes). Remove one to add another.
+            The slider is full ({MAX_HERO_SLIDES} slides). Remove one to add another.
           </p>
         )}
       </section>

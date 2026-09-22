@@ -3,6 +3,7 @@ import {
   Animated,
   Image,
   ImageBackground,
+  type ImageSourcePropType,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ApiMenu, ApiItem } from "../api";
+import type { ApiHeroSlide, ApiMenu, ApiItem } from "../api";
 import { offerItems } from "../api";
 import { useAuth } from "../auth";
 import type { StaffHoursWeek, StaffOrdering } from "../staff";
@@ -74,19 +75,30 @@ function HeroCarousel({
 }: {
   text: string;
   openNow: boolean | null;
-  /** The owner's own dishes (Dashboard → Settings → App home slider).
-   *  Non-empty ⇒ they replace the built-in plates; the slide itself —
-   *  red artwork, headline, dish on the right — looks exactly the same. */
-  photos: string[];
+  /** The owner's slides (Dashboard → Settings → App home slider). A dish
+   *  keeps the classic slide — red artwork, headline, plate on the right;
+   *  a banner is a finished poster, shown whole across the slide. Empty ⇒
+   *  the plates bundled in the app. */
+  photos: ApiHeroSlide[];
 }): React.ReactElement {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   const scroller = useRef<ScrollView>(null);
-  const slides = photos.length > 0 ? photos.map((uri) => ({ uri })) : HERO_SLIDES;
+  const slides: { source: ImageSourcePropType; kind: "dish" | "banner" }[] =
+    photos.length > 0
+      ? photos.map((p) => ({ source: { uri: p.url }, kind: p.kind }))
+      : HERO_SLIDES.map((source) => ({ source, kind: "dish" as const }));
   const count = slides.length;
+  /**
+   * With a banner in the set, the hero takes the posters' own 2 : 1 shape
+   * so a poster fills the slide edge to edge with nothing cut off (owner,
+   * 2026-09-22). Dish-only sets keep the classic 132 pt strip.
+   */
+  const hasBanner = slides.some((s) => s.kind === "banner");
+  const heroHeight = hasBanner && width ? Math.round(width / 2) : undefined;
   // A different set of slides (the owner just added or removed one) must
   // not leave the pager parked past the new last page.
-  const slidesKey = photos.join("|");
+  const slidesKey = photos.map((p) => p.url).join("|");
   useEffect(() => {
     setPage(0);
     scroller.current?.scrollTo({ x: 0, animated: false });
@@ -107,7 +119,7 @@ function HeroCarousel({
   return (
     <ImageBackground
       source={hero}
-      style={styles.hero}
+      style={[styles.hero, heroHeight ? { height: heroHeight } : null]}
       // Explicit cover: without it the generated artwork drives the hero's
       // intrinsic width, stretching the carousel slides past the screen.
       resizeMode="cover"
@@ -128,12 +140,31 @@ function HeroCarousel({
           if (width) setPage(Math.round(e.nativeEvent.contentOffset.x / width));
         }}
       >
-        {slides.map((src, i) => (
-          <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
-            <Text style={styles.heroText}>{text}</Text>
-            <Image source={src} style={styles.heroDish} resizeMode="contain" />
-          </View>
-        ))}
+        {slides.map((slide, i) =>
+          slide.kind === "banner" ? (
+            <View key={i} style={[styles.heroBannerSlide, width ? { width } : null]}>
+              {/* The whole poster, edge to edge: the hero matches its 2 : 1
+                  shape, so its headline and small print all show. */}
+              <Image
+                source={slide.source}
+                style={styles.heroBanner}
+                resizeMode="cover"
+                accessibilityIgnoresInvertColors
+              />
+            </View>
+          ) : (
+            <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
+              <Text style={styles.heroText}>{text}</Text>
+              <Image
+                source={slide.source}
+                // The taller hero gets a bigger plate, so the slide isn't
+                // an empty red field around the same small dish.
+                style={[styles.heroDish, heroHeight ? styles.heroDishLarge : null]}
+                resizeMode="contain"
+              />
+            </View>
+          ),
+        )}
       </ScrollView>
       <View style={styles.heroDots} pointerEvents="none">
         {Array.from({ length: count }, (_, i) => (
@@ -772,6 +803,11 @@ const styles = StyleSheet.create({
   // Bottom-aligned inside the slide so the plate sits well clear of the
   // pill's band in the corner above it.
   heroDish: { width: 100, height: 92, alignSelf: "flex-end" },
+  heroDishLarge: { width: 140, height: 128 },
+  heroBannerSlide: { height: "100%" },
+  // Exactly the slide's box: the hero is 2 : 1 whenever a banner is in
+  // the set, the same shape as the posters, so `cover` crops nothing.
+  heroBanner: { width: "100%", height: "100%" },
   /** The open/closed pill, pinned into the hero's top-END corner: `end`
    *  rather than `right`, so an RTL build mirrors it to the left. Above
    *  the slides (z 1) and the dots (z 2) on both platforms — Android

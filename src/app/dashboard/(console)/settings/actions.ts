@@ -14,7 +14,7 @@ import { getSessionUserId, setSessionCookie } from "@/lib/auth";
 import { changeUserPassword } from "@/lib/auth-service";
 import { clientIp } from "@/lib/client-ip";
 import { saveUploadedImage } from "@/lib/media-service";
-import { HERO_SLIDE_STORAGE } from "@/lib/hero-slides";
+import { HERO_BANNER_STORAGE, HERO_SLIDE_STORAGE, bannerSlideKey } from "@/lib/hero-slides";
 import { checkRateLimit, GOOGLE_LOOKUP_IP, PASSWORD_CHANGE_IP } from "@/lib/rate-limit";
 import { searchPlaces } from "@/lib/google-rating";
 import {
@@ -154,6 +154,26 @@ export async function addHeroSlideAction(form: FormData): Promise<void> {
   const saved = await saveUploadedImage(userId, slide, "App home slider dish", HERO_SLIDE_STORAGE);
   if (!saved.ok) return finish(userId, false, "slide");
   const result = await updateVenueHeroSlides(userId, { op: "add", key: saved.storageKey });
+  if (!result.ok && result.error === "full") return finish(userId, false, "slide-full");
+  return finish(userId, result.ok, "slide");
+}
+
+/** Adds a full-slide banner (a finished poster) to the end of the slider. */
+export async function addHeroBannerAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const banner = form.get("slideBanner");
+  if (!(banner instanceof File) || banner.size === 0) return finish(userId, false, "slide");
+  const saved = await saveUploadedImage(
+    userId,
+    banner,
+    "App home slider banner",
+    HERO_BANNER_STORAGE,
+  );
+  if (!saved.ok) return finish(userId, false, "slide");
+  const result = await updateVenueHeroSlides(userId, {
+    op: "add",
+    key: bannerSlideKey(saved.storageKey),
+  });
   if (!result.ok && result.error === "full") return finish(userId, false, "slide-full");
   return finish(userId, result.ok, "slide");
 }

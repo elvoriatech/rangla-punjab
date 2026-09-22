@@ -7,7 +7,7 @@ import { getRestaurantSlug } from "@/lib/restaurant";
 import { menuImageUrl } from "@/lib/menu-images";
 import { categoryIcon } from "@/lib/category-icons";
 import { siteUrl } from "@/lib/site-url";
-import { HERO_SLIDE_FETCH_WIDTH, heroSlideUrl } from "@/lib/hero-slides";
+import { heroSlideFetchWidth, heroSlideKind, heroSlideUrl } from "@/lib/hero-slides";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 import { isLocaleCode } from "@/lib/locales";
 import { publicLoyalty } from "@/lib/loyalty-config";
@@ -129,14 +129,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             ? abs(menuImageUrl(branding.logoKey, menu.venue.id, 192))
             : null,
           theme: branding.theme ?? null,
-          // The dishes on the app's home slider, owner-managed in
-          // Dashboard → Settings: absolute image URLs in display order —
-          // the four built-in dishes until the owner changes the list.
-          // Always an array; empty (the owner removed every dish) makes
-          // the app fall back to the plates bundled in it.
-          heroSlides: (branding.heroSlides ?? []).map((key) =>
-            abs(heroSlideUrl(key, HERO_SLIDE_FETCH_WIDTH)),
-          ),
+          // The app's home slider, owner-managed in Dashboard → Settings:
+          // `{ url, kind }` in display order — `dish` (the plate beside the
+          // welcome line) or `banner` (a poster that fills the slide).
+          // Always an array; empty (the owner removed every slide) makes
+          // the app fall back to the dishes bundled in it.
+          heroSlides: (branding.heroSlides ?? []).map((key) => ({
+            url: abs(heroSlideUrl(key, heroSlideFetchWidth(key))),
+            kind: heroSlideKind(key),
+          })),
           hours: menu.venue.hours,
           // The IANA zone those `hours` are written in (e.g.
           // "Europe/Berlin"). Sent beside them because the app recomputes
