@@ -32,7 +32,7 @@ import { useCart } from "../cart";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
 import { useVenueOpenNow, venueTimezone } from "../hours";
-import { armedVoucher, discountFor, useLoyalty } from "../loyalty";
+import { armedVoucher, discountFor, pointsForFood, useLoyalty } from "../loyalty";
 import type { GiftCardView } from "../gift-cards";
 import { fetchMyGiftCards, giftCardLast4, isSpendable, normalizeGiftCardCode } from "../gift-cards";
 import { rememberOrder } from "../orders-store";
@@ -235,10 +235,8 @@ export function CartScreen({
   // Loyalty is earned on the FOOD subtotal — a delivery fee never buys
   // points. Absent config or a basket below the threshold: no line.
   const loyalty = menu.loyalty;
-  const earnsPoints =
-    Boolean(loyalty?.enabled) &&
-    cart.totalCents > 0 &&
-    cart.totalCents >= (loyalty?.minOrderCents ?? 0);
+  const earnedPoints = loyalty?.enabled ? pointsForFood(loyalty, cart.totalCents) : 0;
+  const earnsPoints = earnedPoints > 0;
 
   // The guest's live loyalty state. Null whenever there is no programme,
   // no account or no server support — so everything below collapses to
@@ -1252,7 +1250,7 @@ export function CartScreen({
               {earnsPoints && loyalty ? (
                 <Text style={styles.earnLine}>
                   {fill(auth.token ? t.cartEarnPoints : t.cartEarnSignIn, {
-                    points: loyalty.pointsPerOrder,
+                    points: earnedPoints,
                   })}
                 </Text>
               ) : null}

@@ -310,3 +310,18 @@ const styles = StyleSheet.create({
   closeRow: { alignItems: "center", paddingTop: 2 },
   closeText: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13 },
 });
+
+/**
+ * Points a basket's FOOD value earns — `pointsPerOrder` for every FULL
+ * `minOrderCents` step (5 per €20 at the defaults; €45 ⇒ 10). Mirrors the
+ * server's `pointsForFood` (src/lib/loyalty-points.ts), which is what
+ * actually credits the ledger; this is only the cart's preview of it.
+ */
+export function pointsForFood(
+  config: { minOrderCents: number; pointsPerOrder: number },
+  foodCents: number,
+): number {
+  if (config.pointsPerOrder <= 0 || foodCents <= 0) return 0;
+  if (config.minOrderCents <= 0) return config.pointsPerOrder;
+  return Math.floor(foodCents / config.minOrderCents) * config.pointsPerOrder;
+}

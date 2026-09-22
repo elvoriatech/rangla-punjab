@@ -3,7 +3,12 @@ import { asTenant } from "./tenant";
 import { createLogger } from "./logger";
 import { captureException } from "./observability";
 import { foodValueCents } from "./ordering-config";
-import { loyaltyActive, parseLoyaltyConfig, type LoyaltyConfig } from "./loyalty-config";
+import {
+  loyaltyActive,
+  parseLoyaltyConfig,
+  pointsForFood,
+  type LoyaltyConfig,
+} from "./loyalty-config";
 import { localDateTimeToInstant, venueDateISO } from "./opening-hours";
 import { formatPrice } from "./public-menu";
 import { siteUrl } from "./site-url";
@@ -204,9 +209,9 @@ export async function creditOrderIfEligible(
 
     const config = parseLoyaltyConfig(order.venue.loyalty);
     if (!loyaltyActive(config)) return { result: NOT_CREDITED, minted: [] };
-    if (foodValueCents(order) < config.minOrderCents) {
-      return { result: NOT_CREDITED, minted: [] };
-    }
+    // 5 points per full €20 of food (at the defaults) — see `pointsForFood`.
+    const points = pointsForFood(config, foodValueCents(order));
+    if (points <= 0) return { result: NOT_CREDITED, minted: [] };
 
     // Idempotent by construction: `skipDuplicates` turns the racing
     // second caller into a 0-row insert instead of a unique violation,
@@ -218,7 +223,7 @@ export async function creditOrderIfEligible(
           tenantId,
           customerId: order.customerId,
           orderId: order.id,
-          delta: config.pointsPerOrder,
+          delta: points,
           reason: "order",
         },
       ],
@@ -233,7 +238,7 @@ export async function creditOrderIfEligible(
       venueName: order.venue.name,
       branding: order.venue.branding,
     });
-    return { result: { credited: true, points: config.pointsPerOrder }, minted };
+    return { result: { credited: true, points }, minted };
   });
 
   if (outcome.result.credited) {

@@ -214,6 +214,16 @@ describe("loyalty earning", () => {
     expect(summary.history[0]?.orderNumber).toBeTypeOf("number");
   });
 
+  it("earns per full €20 step of food: €49.80 earns 10, not 5", async () => {
+    const fx = await fixture({ ...ON, rewardPoints: 1000 });
+    const orderId = await order(fx, 4); // 4 × €12.45 = €49.80 ⇒ two €20 steps
+    expect(await creditOrderIfEligible(fx.tenantId, orderId)).toEqual({
+      credited: true,
+      points: 10,
+    });
+    expect((await getLoyaltySummary(fx.tenantId, fx.customerId)).balance).toBe(10);
+  });
+
   it("earns nothing below the minimum order value", async () => {
     const fx = await fixture(ON);
     const orderId = await order(fx, 1); // €12.45 < €20

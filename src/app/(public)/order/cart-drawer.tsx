@@ -11,6 +11,7 @@ import type { CheckoutCopy } from "@/lib/i18n/checkout/en";
 import { loadCheckoutCopy } from "@/lib/i18n/checkout/load";
 import { dirFor, uiLocale } from "@/lib/locales";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
+import { pointsForFood } from "@/lib/loyalty-points";
 import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 import {
   EMPTY_CART,
@@ -672,13 +673,12 @@ export function CartDrawer({
         (orderType === "delivery" &&
           (!street.trim() || !zip.trim() || (hasAreas && !selectedArea)));
   const money = (cents: number): string => formatCents(cents, currency, locale);
-  // Points are per ORDER and earned on the FOOD subtotal — the delivery
-  // fee never counts, which is why this reads `itemsTotal`, not `total`.
-  const earnsPoints =
-    Boolean(loyalty?.enabled) &&
-    (loyalty?.pointsPerOrder ?? 0) > 0 &&
-    itemsTotal >= (loyalty?.minOrderCents ?? 0);
-  const loyaltyPoints = String(loyalty?.pointsPerOrder ?? 0);
+  // Points are earned on the FOOD subtotal — 5 per full €20 at the
+  // defaults (`pointsForFood`) — and the delivery fee never counts, which
+  // is why this reads `itemsTotal`, not `total`.
+  const earnedPoints = loyalty?.enabled ? pointsForFood(loyalty, itemsTotal) : 0;
+  const earnsPoints = earnedPoints > 0;
+  const loyaltyPoints = String(earnedPoints);
   /** Is there a delivery address to SHOW rather than ask for? A returning
    *  guest gets the card with a "Change" link; a new one gets the fields
    *  straight away, because a card summarising nothing is just a gap. */

@@ -313,9 +313,9 @@ export default async function AccountPage({
             <section aria-label="Rewards" className="mt-8 border border-ink/15 bg-card px-5 py-4">
               <h2 className="font-serif text-2xl">Treuepunkte · Rewards</h2>
               <p className="mt-1 text-sm text-muted">
-                {loyalty.pointsPerOrder} Punkte pro Bestellung ab{" "}
-                {formatPrice(loyalty.minOrderCents, "EUR", "de")} · {loyalty.rewardPoints} Punkte
-                ergeben {formatPrice(loyalty.rewardValueCents, "EUR", "de")} geschenkt.
+                {loyalty.pointsPerOrder} Punkte je {formatPrice(loyalty.minOrderCents, "EUR", "de")}{" "}
+                Bestellwert · {loyalty.rewardPoints} Punkte ergeben{" "}
+                {formatPrice(loyalty.rewardValueCents, "EUR", "de")} geschenkt.
               </p>
 
               <p className="mt-4 font-serif text-3xl tabular-nums">

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export { pointsForFood } from "./loyalty-points";
+
 /**
  * Per-venue loyalty switches — the owner's "Loyalty" section in
  * Dashboard → Settings, stored in `venues.loyalty` JSONB.

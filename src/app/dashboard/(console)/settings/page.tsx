@@ -1501,7 +1501,7 @@ export default async function SettingsPage({
 
           <div className="mt-4 grid grid-cols-1 gap-4 border-t border-ink/10 pt-4 sm:grid-cols-2">
             <label className="block text-sm">
-              <span className="font-medium">Minimum order to earn (€)</span>
+              <span className="font-medium">Points are earned per (€ of food)</span>
               <input
                 type="number"
                 name="loyaltyMinOrder"
@@ -1511,11 +1511,12 @@ export default async function SettingsPage({
                 className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
               />
               <span className="mt-1 block text-xs text-muted">
-                Food only — the delivery fee never counts towards this.
+                Every full step earns points — at €20, an order of €45 counts twice. Also the
+                minimum: below it, no points. Food only; the delivery fee never counts.
               </span>
             </label>
             <label className="block text-sm">
-              <span className="font-medium">Points per qualifying order</span>
+              <span className="font-medium">Points for each step</span>
               <input
                 type="number"
                 name="loyaltyPointsPerOrder"
@@ -1525,7 +1526,8 @@ export default async function SettingsPage({
                 className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
               />
               <span className="mt-1 block text-xs text-muted">
-                A flat number, however big the order is.
+                e.g. 5 points for every full €{(loyalty.minOrderCents / 100).toFixed(0)} spent on
+                food.
               </span>
             </label>
             <label className="block text-sm">
@@ -1540,8 +1542,8 @@ export default async function SettingsPage({
               />
               <span className="mt-1 block text-xs text-muted">
                 {loyalty.pointsPerOrder > 0
-                  ? `About ${Math.ceil(loyalty.rewardPoints / loyalty.pointsPerOrder)} orders at today's rate.`
-                  : "Set points per order above first."}
+                  ? `About €${Math.ceil(loyalty.rewardPoints / loyalty.pointsPerOrder) * Math.max(1, loyalty.minOrderCents / 100)} of food at today's rate.`
+                  : "Set points for each step above first."}
               </span>
             </label>
             <label className="block text-sm">
