@@ -48,16 +48,17 @@ const BANNER_PREFIX = "banner:";
  * the points programme, the gift-card discount, the service promise — and
  * it is the owner's own artwork rather than a stock plate on red.
  *
- * `points-en` stays in the CATALOGUE but out of the defaults: the venue
- * serves a German high street, and the English poster is one the owner
- * adds back from the dashboard if they ever want it.
+ * All four are German: the venue serves a German high street, and the
+ * English points poster it used to carry went with the dish plates
+ * (owner, 2026-09-22). The catalogue and the defaults are therefore the
+ * same list today — the picker in the dashboard exists for putting one
+ * BACK after it has been removed, and for whatever is added here next.
  */
 export const BUILT_IN_SLIDES = [
   { name: "points-de", label: "Points banner (German)", kind: "banner" },
   { name: "welcome-de", label: "Welcome banner (German)", kind: "banner" },
   { name: "giftcard-de", label: "Gift-card banner (German)", kind: "banner" },
   { name: "service-de", label: "Service promise banner (German)", kind: "banner" },
-  { name: "points-en", label: "Points banner (English)", kind: "banner" },
 ] as const satisfies readonly { name: string; label: string; kind: HeroSlideKind }[];
 
 /** A venue that never touched its slider starts with the four German

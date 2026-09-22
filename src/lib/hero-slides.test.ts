@@ -28,9 +28,9 @@ describe("heroSlidesOf", () => {
   });
 
   it("keeps valid keys in order and drops junk and unknown built-ins", () => {
-    expect(heroSlidesOf(["a", "", 3, null, "builtin:points-en", "builtin:../x", "b"])).toEqual([
+    expect(heroSlidesOf(["a", "", 3, null, "builtin:service-de", "builtin:../x", "b"])).toEqual([
       "a",
-      "builtin:points-en",
+      "builtin:service-de",
       "b",
     ]);
   });
@@ -80,8 +80,15 @@ describe("slide kinds", () => {
 
 describe("the built-in picker", () => {
   it("offers exactly the posters the slider isn't already carrying", () => {
-    expect(unusedBuiltInSlides([...DEFAULT_HERO_SLIDES]).map((b) => b.name)).toEqual(["points-en"]);
-    expect(unusedBuiltInSlides([]).map((b) => b.name)).toEqual(BUILT_IN_SLIDES.map((b) => b.name));
+    // The catalogue IS the default set today, so an untouched slider has
+    // nothing left to offer and the picker stays out of the page.
+    expect(unusedBuiltInSlides([...DEFAULT_HERO_SLIDES])).toEqual([]);
+    expect(unusedBuiltInSlides([])).toHaveLength(BUILT_IN_SLIDES.length);
+    expect(unusedBuiltInSlides(["builtin:points-de"]).map((b) => b.name)).toEqual([
+      "welcome-de",
+      "giftcard-de",
+      "service-de",
+    ]);
     // An upload never hides a built-in from the picker.
     expect(unusedBuiltInSlides(["t/uploads/x"])).toHaveLength(BUILT_IN_SLIDES.length);
   });
