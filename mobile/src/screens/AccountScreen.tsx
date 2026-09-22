@@ -585,10 +585,9 @@ export function AccountScreen({
               <Text style={styles.pointsBalance}>{loyalty?.balance ?? 0}</Text>
               <Text style={styles.pointsUnit}>{t.rewardsPoints}</Text>
             </View>
+            {/* No "0 / 100" under the bar: the balance is already the big
+                number above, and points keep counting past the reward. */}
             <PointsBar have={loyalty?.balance ?? 0} need={loyaltyConfig.rewardPoints} />
-            <Text style={styles.pointsProgress}>
-              {loyalty?.balance ?? 0} / {loyaltyConfig.rewardPoints}
-            </Text>
             <Text style={styles.pointsRule}>
               {fill(t.rewardsEarnLine, {
                 min: money(loyaltyConfig.minOrderCents, currency),
@@ -933,7 +932,6 @@ const styles = StyleSheet.create({
   pointsHead: { flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 8 },
   pointsBalance: { color: colors.red, ...fonts.displayHeavy, fontSize: 40, lineHeight: 44 },
   pointsUnit: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 14 },
-  pointsProgress: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12, marginTop: 6 },
   pointsRule: { color: colors.ink, ...fonts.body, fontSize: 13, marginTop: 6, lineHeight: 19 },
   subLabel: {
     color: colors.inkSoft,

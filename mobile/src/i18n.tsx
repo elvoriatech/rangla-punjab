@@ -389,7 +389,7 @@ const en = {
   pointsHowCollectA: "Collect {points} Points",
   pointsHowCollectB: "and get {value} worth of food FREE!",
   pointsNote:
-    "Points are earned on food purchases only.\nPoints have no cash value and cannot be exchanged for cash.\nTerms & conditions apply.",
+    "Points are earned on food purchases only.\nPoints have no cash value.\nTerms & conditions apply.",
   pointsSignIn: "Sign in to collect points",
   pointsBadgeWord: "POINTS",
   cartEarnPoints: "You'll earn {points} points with this order",
@@ -1139,8 +1139,7 @@ const de: Strings = {
   pointsHowGetB: "{points} Punkte",
   pointsHowCollectA: "Sammle {points} Punkte",
   pointsHowCollectB: "und erhalte Essen im Wert von {value} GRATIS!",
-  pointsNote:
-    "Punkte gibt es nur für Speisen.\nPunkte haben keinen Barwert und können nicht in Bargeld umgetauscht werden.\nEs gelten die AGB.",
+  pointsNote: "Punkte gibt es nur für Speisen.\nPunkte haben keinen Barwert.\nEs gelten die AGB.",
   pointsSignIn: "Melde dich an und sammle Punkte",
   pointsBadgeWord: "PUNKTE",
   cartEarnPoints: "Mit dieser Bestellung sammelst du {points} Punkte",
@@ -1882,7 +1881,7 @@ const fr: Strings = {
   pointsHowCollectA: "Cumulez {points} points",
   pointsHowCollectB: "et obtenez {value} de repas OFFERTS !",
   pointsNote:
-    "Les points s'obtiennent uniquement sur les achats de repas.\nLes points n'ont aucune valeur monétaire et ne peuvent pas être échangés contre de l'argent.\nConditions applicables.",
+    "Les points s'obtiennent uniquement sur les achats de repas.\nLes points n'ont aucune valeur monétaire.\nConditions applicables.",
   pointsSignIn: "Connectez-vous pour cumuler des points",
   pointsBadgeWord: "POINTS",
   cartEarnPoints: "Cette commande vous rapporte {points} points",
@@ -2622,7 +2621,7 @@ const it: Strings = {
   pointsHowCollectA: "Raccogli {points} punti",
   pointsHowCollectB: "e ricevi {value} di cibo GRATIS!",
   pointsNote:
-    "I punti si guadagnano solo sugli acquisti di cibo.\nI punti non hanno valore in denaro e non possono essere convertiti in contanti.\nSi applicano termini e condizioni.",
+    "I punti si guadagnano solo sugli acquisti di cibo.\nI punti non hanno valore in denaro.\nSi applicano termini e condizioni.",
   pointsSignIn: "Accedi per raccogliere punti",
   pointsBadgeWord: "PUNTI",
   cartEarnPoints: "Con questo ordine guadagni {points} punti",
@@ -3361,7 +3360,7 @@ const es: Strings = {
   pointsHowCollectA: "Junta {points} puntos",
   pointsHowCollectB: "¡y recibe {value} en comida GRATIS!",
   pointsNote:
-    "Los puntos se obtienen solo con compras de comida.\nLos puntos no tienen valor en efectivo y no se pueden canjear por dinero.\nSe aplican términos y condiciones.",
+    "Los puntos se obtienen solo con compras de comida.\nLos puntos no tienen valor en efectivo.\nSe aplican términos y condiciones.",
   pointsSignIn: "Inicia sesión para juntar puntos",
   pointsBadgeWord: "PUNTOS",
   cartEarnPoints: "Con este pedido ganas {points} puntos",
@@ -4094,8 +4093,7 @@ const ar: Strings = {
   pointsHowGetB: "{points} نقاط",
   pointsHowCollectA: "اجمع {points} نقطة",
   pointsHowCollectB: "واحصل على طعام بقيمة {value} مجانًا!",
-  pointsNote:
-    "تُكسب النقاط على مشتريات الطعام فقط.\nليس للنقاط قيمة نقدية ولا يمكن استبدالها بالمال.\nتطبق الشروط والأحكام.",
+  pointsNote: "تُكسب النقاط على مشتريات الطعام فقط.\nليس للنقاط قيمة نقدية.\nتطبق الشروط والأحكام.",
   pointsSignIn: "سجّل الدخول لجمع النقاط",
   pointsBadgeWord: "نقاط",
   cartEarnPoints: "ستكسب {points} نقاط مع هذا الطلب",

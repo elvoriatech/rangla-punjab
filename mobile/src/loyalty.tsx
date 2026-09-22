@@ -228,8 +228,10 @@ export function RewardSheet({
                 </Text>
                 <View style={{ gap: 8 }}>
                   <PointsBar have={loyalty?.balance ?? 0} need={rewardPoints} />
+                  {/* Just the balance — no "/ 100": points keep counting
+                      past the reward (owner, 2026-09-22). */}
                   <Text style={styles.progressText}>
-                    {loyalty?.balance ?? 0} / {rewardPoints} {t.rewardsPoints}
+                    {loyalty?.balance ?? 0} {t.rewardsPoints}
                   </Text>
                 </View>
                 {justUsed ? (

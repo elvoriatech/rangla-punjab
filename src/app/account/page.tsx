@@ -319,10 +319,7 @@ export default async function AccountPage({
               </p>
 
               <p className="mt-4 font-serif text-3xl tabular-nums">
-                {loyalty.balance}{" "}
-                <span className="font-sans text-sm text-muted">
-                  / {loyalty.rewardPoints} Punkte
-                </span>
+                {loyalty.balance} <span className="font-sans text-sm text-muted">Punkte</span>
               </p>
               {/* Two divs rather than <progress>: the native element's
                   fill can only be themed through vendor pseudo-elements,
