@@ -282,18 +282,16 @@ function HeaderPointsPill({
         }
         style={({ pressed }) => [styles.headerPoints, pressed && { opacity: 0.8 }]}
       >
+        {/* A gift in the venue's own red, not the platform's emoji: 🎁 is
+            drawn by whatever font the OS ships and changed size, colour
+            and even shape between iOS and Android. A vector glyph is one
+            picture everywhere and takes the brand's colour. */}
         <View style={styles.headerPointsBody}>
-          <Text
-            style={styles.headerPointsGift}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          >
-            🎁
-          </Text>
+          <Ionicons name="gift" size={15} color={colors.red} />
           {/* `maxWidth` rather than a smaller size: the word is set as big
               as the square can hold and shrinks itself to fit, so the
               badge stays square whatever the language calls points. */}
-          <CartoonTitle text={t.pointsBadgeWord} size={9} maxWidth={POINTS_BADGE - 8} />
+          <CartoonTitle text={t.pointsBadgeWord} size={9} maxWidth={POINTS_BADGE - 10} />
         </View>
       </Pressable>
     </Animated.View>
@@ -753,7 +751,7 @@ const LOGO_CUTOUT = require("../assets/logo-cutout.png");
  *  then briefly a wide one-row pill; both read as a second title
  *  competing with the venue's name. 40 keeps it inside the 44 pt rail the
  *  burger already reserves, and `hitSlop` carries the touch target. */
-const POINTS_BADGE = 40;
+const POINTS_BADGE = 42;
 /** How far below the bar's middle the badge sits. */
 const POINTS_BADGE_DROP = 10;
 /** What the name is fitted to before the first layout: the narrowest
@@ -841,23 +839,37 @@ const styles = StyleSheet.create({
     paddingTop: (HEADER_CONTENT_HEIGHT - POINTS_BADGE) / 2 + POINTS_BADGE_DROP,
   },
   /** White card on the red, as in the owner's mock. */
+  /**
+   * The badge itself: a warm card with a gold edge, not a plain white
+   * chip.
+   *
+   * Every surface this app lifts off a background is the same three
+   * things — the cream card colour, a gold hairline and a soft drop
+   * shadow (the dish cards, the reward banner, the gift-card tiles used
+   * to be). The badge was the one exception, a flat white square, and on
+   * the red bar it read as a system control rather than as something of
+   * the restaurant's. Now it matches, at a quarter of the size: the
+   * cream keeps it warm against the red, the gold ring is what makes it
+   * look made rather than drawn, and the shadow lifts it off the slab.
+   */
   headerPoints: {
     width: POINTS_BADGE,
     height: POINTS_BADGE,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
+    backgroundColor: colors.creamCard,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.goldSoft,
     shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
+    shadowOpacity: 0.22,
+    shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    elevation: 4,
   },
   /** The gift over the word, in a SQUARE (owner, 2026-09-22: a badge as
    *  wide as a sentence read as a button for something else). */
-  headerPointsBody: { alignItems: "center" },
-  headerPointsGift: { fontSize: 12, lineHeight: 15 },
+  headerPointsBody: { alignItems: "center", gap: 1 },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
    *  never shifts the title off centre. */
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
