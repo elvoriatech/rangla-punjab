@@ -444,6 +444,25 @@ describe("public menu loader", () => {
     expect(menu).toBeNull();
   });
 
+  it("leaves switched-off dishes, and categories left empty by them, off the guest menu", async () => {
+    const { tenantId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+    // Switch the only Starter off in the PUBLISHED tree (how the owner's
+    // quick availability toggle lands).
+    await asTenant(tenantId, (tx) =>
+      tx.item.updateMany({
+        where: {
+          name: "Burrata",
+          category: { menuVersion: { status: "published" } },
+        },
+        data: { isAvailable: false },
+      }),
+    );
+    const menu = await loadPublicMenu(context!);
+    expect(menu?.categories.map((c) => c.name)).toEqual(["Mains"]);
+    expect(menu?.categories.flatMap((c) => c.items.map((i) => i.name))).toEqual(["Risotto"]);
+  });
+
   it("preview context loads the DRAFT tree, not the published one", async () => {
     const { userId, venueSlug } = await seedPublishedMenu();
     // Publish once — public and draft trees are equal now. Then edit the

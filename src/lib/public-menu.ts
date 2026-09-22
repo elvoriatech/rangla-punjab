@@ -239,7 +239,13 @@ export async function loadPublicMenu(
         name: true,
         photoMedia: { select: { storageKey: true } },
         items: {
-          where: { deletedAt: null },
+          // A dish the owner switched off is not on the menu at all (owner,
+          // 2026-09-22) — not greyed out, not "not available". The owner's
+          // preview still shows it, so they can see what they turned off.
+          where: {
+            deletedAt: null,
+            ...(context.mode === "preview" ? {} : { isAvailable: true }),
+          },
           orderBy: { orderIndex: "asc" },
           select: {
             id: true,
@@ -277,7 +283,11 @@ export async function loadPublicMenu(
        disagree about whether an offer window is on. */
     const now = new Date();
 
-    const localisedCategories: PublicCategory[] = categories.map((cat) => ({
+    // A category whose every dish is switched off would be an empty
+    // heading; guests don't see it (the preview keeps it).
+    const shown =
+      context.mode === "preview" ? categories : categories.filter((c) => c.items.length > 0);
+    const localisedCategories: PublicCategory[] = shown.map((cat) => ({
       id: cat.id,
       name: translated(translations, "category", cat.id, "name") ?? cat.name,
       photoKey: cat.photoMedia?.storageKey ?? null,
