@@ -189,9 +189,13 @@ module.exports = ({ config }) => {
     ];
   }
 
+  // `splash` is the pre-SDK-52 launch-screen key: ignored by the build and
+  // rejected by expo-doctor. The launch screen is the expo-splash-screen
+  // plugin above, so the generated key is dropped here.
+  const { splash: _legacySplash, ...generatedConfig } = generated;
   return {
     ...config,
-    ...generated,
+    ...generatedConfig,
     ios,
     android,
     web: { ...config.web, ...generated.web },
