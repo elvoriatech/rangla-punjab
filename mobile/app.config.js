@@ -107,6 +107,24 @@ module.exports = ({ config }) => {
 
   const plugins = [
     ...(config.plugins ?? []),
+    // The launch screen. Since SDK 52 the root `splash` key is ignored —
+    // without this plugin iOS pointed at a splash image that was never
+    // generated and Android fell back to a system default, so guests saw
+    // a stale picture on first open (owner, 2026-09-22). Image and colour
+    // come from the brand file, so a rebrand re-runs through here.
+    [
+      "expo-splash-screen",
+      {
+        // The mascot in a round white medallion with a gold ring — the
+        // Welcome screen's own logo treatment. The generated splash.png
+        // carries a white square behind the mascot, which read as a box
+        // on the red.
+        image: "./assets/splash-medallion.png",
+        backgroundColor: generated.splash?.backgroundColor ?? "#8f1a1a",
+        resizeMode: "contain",
+        imageWidth: 200,
+      },
+    ],
     "expo-localization",
     "expo-secure-store",
     "expo-web-browser",

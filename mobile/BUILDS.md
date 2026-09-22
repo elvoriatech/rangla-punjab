@@ -371,7 +371,7 @@ ships a config plugin:
 ```bash
 cd mobile
 npx expo prebuild -p ios --no-install       # --no-install keeps the cached Pods
-grep -n UsageDescription ios/RanglaPunjab/Info.plist
+grep -n UsageDescription ios/RanglaPunjabRestaurant/Info.plist
 ```
 
 The `grep` is the proof: every permission the app asks for must have a
@@ -387,13 +387,13 @@ time, so they always pick plugin changes up on their own.**
 
 That prebuild also costs you the build on a **free personal Apple team**: the
 `expo-notifications` config plugin writes `aps-environment` into
-`ios/RanglaPunjab/RanglaPunjab.entitlements`, and a personal team cannot sign
+`ios/RanglaPunjabRestaurant/RanglaPunjabRestaurant.entitlements`, and a personal team cannot sign
 the Push Notifications capability, so `expo run:ios` dies with "Provisioning
 Profile … does not support the Push Notifications capability". Strip the
 entitlement after every prebuild, before building locally:
 
 ```bash
-plutil -remove aps-environment ios/RanglaPunjab/RanglaPunjab.entitlements
+plutil -remove aps-environment ios/RanglaPunjabRestaurant/RanglaPunjabRestaurant.entitlements
 ```
 
 Push simply stays inactive on that install — which it is anyway without an
@@ -746,3 +746,16 @@ When the account exists:
    `<TEAM_ID>.com.elvoria.ranglapunjab` and the path `/dispatch/*`.
 3. Rebuild — the entitlement is baked into the binary, so this needs a new
    build, not just a deploy.
+
+## App display name + launch screen (2026-09-22)
+
+- The launcher name is **"Rangla Punjab Restaurant"** (owner). It lives in
+  `brand.generated.json` → `expo.name`; the next `pnpm brand:mobile` run must
+  pass `--name "Rangla Punjab Restaurant"` or it reverts to the short name.
+  Home screens truncate long names (≈ "Rangla Punjab…"); install dialogs,
+  Settings and the stores show it in full.
+- The launch screen comes from the `expo-splash-screen` plugin in
+  `app.config.js` (SDK 52+ ignores the root `splash` key): the mascot in a
+  white/gold medallion (`assets/splash-medallion.png`) on the brand red.
+  Native change → `npx expo prebuild` (+ `LANG=en_US.UTF-8 pod install` on
+  iOS) and a rebuild; an OTA update cannot change it.

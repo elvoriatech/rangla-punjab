@@ -35,7 +35,7 @@
     "logo": "./assets/generated/logo.png"
   },
   "expo": {
-    "name": "Rangla Punjab",
+    "name": "Rangla Punjab Restaurant",
     "slug": "rangla-punjab",
     "scheme": "ranglapunjab",
     "version": "1.0.0",
