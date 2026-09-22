@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  ImageBackground,
   Linking,
   Pressable,
   ScrollView,
@@ -11,7 +10,6 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ApiContactEntry, ApiLoyaltyEntry, ApiMenu, ApiVenueContact } from "../api";
@@ -30,10 +28,15 @@ import {
 } from "../loyalty";
 import { ReservationsCard } from "../reservations";
 import { displayVenueName, venueNameLines } from "../venue-name";
-import { FieldLabel, OutlineButton, PrimaryButton, RequiredLegend } from "../components";
+import {
+  BrandHeader,
+  FieldLabel,
+  OutlineButton,
+  PrimaryButton,
+  RequiredLegend,
+} from "../components";
 import { CartoonTitle } from "../cartoon-title";
-import { VenueWordmark } from "../venue-wordmark";
-import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
+import { CHEVRON_FORWARD, colors, fonts, money, radius } from "../theme";
 
 /**
  * Konto / Account — language, sign-in (one-tap Google, the browser device
@@ -48,10 +51,6 @@ import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../t
  * (an account's order history) or meaningless (the guest's own rewards).
  * Signed OUT, nothing here hints that a restaurant login exists.
  */
-/** The venue mascot with its white card removed — see
- *  `scripts/cut-out-logo.mjs`. Shared with the launch screen. */
-const LOGO_CUTOUT = require("../../assets/logo-cutout.png");
-
 export function AccountScreen({
   menu,
   menuLoading = false,
@@ -98,9 +97,6 @@ export function AccountScreen({
 
   const staff = auth.staff;
   const venueLines = venueNameLines(displayVenueName(menu.venue.name));
-  /** The hero's measure for the name, less a 24 pt breathing gutter each
-   *  side. Live across rotations. */
-  const nameWidth = Math.max(160, useWindowDimensions().width - 48);
   useEffect(() => {
     // Not in restaurant mode: the endpoint mints a device code, and the
     // owner is never offered a provider button.
@@ -288,46 +284,14 @@ export function AccountScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <ImageBackground
-        source={hero}
-        style={styles.hero}
-        resizeMode="cover"
-        imageStyle={{ width: "100%", height: "100%" }}
-      >
-        <View style={styles.heroOverlay}>
-          {/* The mascot cut out of its white card, like the launch screen
-              — no medallion behind it on the venue's own artwork (owner,
-              2026-09-22: "no background for logo in banners"). */}
-          <Image source={LOGO_CUTOUT} style={styles.logo} resizeMode="contain" />
-          {/* Name over town, the same letterhead the welcome screen sets
-              (see `venue-name.ts`) and, since 2026-09-22, in the same
-              lockup the owner's posters use: wherever this app prints the
-              venue's own name it prints the poster's mark. `maxWidth`
-              rather than shrink-to-fit — the hero is a fixed 150 pt, so
-              the name has to fit the measure by construction or it pushes
-              the town out of the box. */}
-          <VenueWordmark name={venueLines.line1} size={30} maxWidth={nameWidth} />
-          {venueLines.line2 ? (
-            <Text style={styles.namePlace} numberOfLines={1}>
-              {venueLines.line2}
-            </Text>
-          ) : null}
-        </View>
-        {/* This screen has its own hero instead of BrandHeader, so the
-            owner's burger is placed on it by hand — same corner, same
-            glyph, so it is in one place on every restaurant screen. */}
-        {onOpenOwnerMenu ? (
-          <Pressable
-            onPress={onOpenOwnerMenu}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t.ownerMenuOpen}
-            style={({ pressed }) => [styles.heroMenu, pressed && { opacity: 0.6 }]}
-          >
-            <Ionicons name="menu" size={26} color={colors.onRed} />
-          </Pressable>
-        ) : null}
-      </ImageBackground>
+      {/* The SAME red bar the rest of the app wears — the mascot, the
+          venue's lockup, and nothing else (owner, 2026-09-22). This
+          screen used to build its own 150 pt artwork hero with the name
+          and town on it; two headings for one venue meant two things to
+          keep in step, and the bar already says who this is. No points
+          badge here (this IS where the balance lives, further down) and
+          no rating line (the Home screen is where a guest is deciding). */}
+      <BrandHeader title={venueLines.line1} sticker onMenu={onOpenOwnerMenu} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}>
         {/* Language */}
         <View style={styles.card}>
@@ -816,35 +780,6 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }): Re
 
 const styles = StyleSheet.create({
   hoursTitleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
-  hero: { height: 150 },
-  heroMenu: {
-    position: "absolute",
-    top: 8,
-    end: 8,
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroOverlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    backgroundColor: scrim,
-  },
-  logo: { width: 66, height: 66 },
-  /** The town under the name — the welcome screen's pairing at hero
-   *  scale: pure white, a weight heavier than the cream it was, so it
-   *  holds under the lime lettering (owner, 2026-09-22). */
-  namePlace: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    ...fonts.bodyHeavy,
-    letterSpacing: 2,
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowRadius: 5,
-  },
   card: {
     backgroundColor: colors.creamCard,
     borderWidth: 1,
