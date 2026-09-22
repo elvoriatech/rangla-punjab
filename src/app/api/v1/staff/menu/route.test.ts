@@ -209,6 +209,15 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
     );
   }
 
+  /** Is this dish on the GUEST menu at all? A switched-off dish is left
+   *  off entirely (not listed as unavailable). */
+  async function onGuestMenu(id: string): Promise<boolean> {
+    const res = await PUBLIC_MENU(new NextRequest("http://localhost:3000/api/v1/menu"));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as PublicMenuBody;
+    return body.categories.flatMap((c) => c.items).some((i) => i.id === id);
+  }
+
   async function publicItem(
     id: string,
   ): Promise<PublicMenuBody["categories"][number]["items"][number]> {
@@ -290,13 +299,15 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
     const pair = await rows(publishedDalId, draftDalId);
     expect(pair.every((r) => r.isAvailable === false)).toBe(true);
 
-    // No publish happened in between — the guest endpoint already says so.
-    expect((await publicItem(publishedDalId)).isAvailable).toBe(false);
+    // No publish happened in between — the dish is already off the
+    // guest menu.
+    expect(await onGuestMenu(publishedDalId)).toBe(false);
 
     // And back on, so later assertions start from a known state.
     const back = await patchItem(publishedDalId, { isAvailable: true });
     expect(back.body.mirrored).toBe(true);
     expect((await rows(draftDalId))[0]!.isAvailable).toBe(true);
+    expect(await onGuestMenu(publishedDalId)).toBe(true);
   });
 
   it("accepts the DRAFT id too, and writes the published twin", async () => {

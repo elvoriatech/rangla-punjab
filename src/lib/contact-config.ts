@@ -208,11 +208,27 @@ const phoneField = z.preprocess((v) => normalizePhone(v), z.string().nullable().
  *  address or a hand-edited number all read back as "not published". */
 const emailField = z.preprocess((v) => normalizeEmail(v), z.string().nullable().catch(null));
 
+/** The restaurant's postal address — free text, up to two lines, shown in
+ *  the order e-mail's footer. Not a contact SLOT (nothing to dial), so it
+ *  sits beside `CONTACT_FIELDS` rather than in it. */
+export const MAX_ADDRESS_LENGTH = 200;
+const addressField = z.preprocess((v) => {
+  if (typeof v !== "string") return null;
+  const lines = v
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  const text = lines.join("\n").slice(0, MAX_ADDRESS_LENGTH);
+  return text || null;
+}, z.string().nullable().catch(null));
+
 export const contactConfigSchema = z.object({
   landline: phoneField.default(null),
   mobile: phoneField.default(null),
   whatsapp: phoneField.default(null),
   email: emailField.default(null),
+  address: addressField.default(null),
 });
 
 export type ContactConfig = z.infer<typeof contactConfigSchema>;
@@ -223,7 +239,7 @@ export function parseContactConfig(raw: unknown): ContactConfig {
   const parsed = contactConfigSchema.safeParse(raw ?? {});
   return parsed.success
     ? parsed.data
-    : { landline: null, mobile: null, whatsapp: null, email: null };
+    : { landline: null, mobile: null, whatsapp: null, email: null, address: null };
 }
 
 /**

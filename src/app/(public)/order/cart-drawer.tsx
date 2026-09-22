@@ -778,6 +778,8 @@ export function CartDrawer({
         customerPhone: orderType === "dine_in" ? undefined : customerPhone.trim(),
         customerEmail: customerEmail.trim() || undefined,
         intendedPayment: method,
+        // The guest's language, so the order e-mail arrives in it.
+        locale,
         address:
           orderType === "delivery"
             ? {

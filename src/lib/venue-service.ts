@@ -860,7 +860,7 @@ export async function getVenueContact(userId: string): Promise<ContactResult<Con
  */
 export async function updateVenueContact(
   userId: string,
-  input: Partial<Record<ContactField, string | null>>,
+  input: Partial<Record<ContactField, string | null>> & { address?: string | null },
 ): Promise<ContactResult> {
   const patch: Partial<Record<ContactField, string | null>> = {};
   for (const field of CONTACT_FIELDS) {
@@ -882,7 +882,14 @@ export async function updateVenueContact(
       select: { id: true, contact: true },
     });
     if (!venue) return { ok: false, error: "no_venue" as const };
-    const next = { ...parseContactConfig(venue.contact), ...patch };
+    const next = {
+      ...parseContactConfig(venue.contact),
+      ...patch,
+      // Free text, normalised by the schema on the way in.
+      ...(input.address === undefined
+        ? {}
+        : { address: parseContactConfig({ address: input.address }).address }),
+    };
     await tx.venue.update({ where: { id: venue.id }, data: { contact: next } });
     return { ok: true as const, value: undefined };
   });

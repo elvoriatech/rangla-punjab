@@ -147,6 +147,7 @@ describe("parseContactConfig", () => {
       mobile: "+491701234567",
       whatsapp: "+491701234567",
       email: "info@restaurant.de",
+      address: null,
     });
   });
 
@@ -158,6 +159,7 @@ describe("parseContactConfig", () => {
         mobile: null,
         whatsapp: null,
         email: null,
+        address: null,
       });
       expect(contactEmpty(parsed)).toBe(true);
     }
@@ -177,7 +179,13 @@ describe("parseContactConfig", () => {
         whatsapp: 49_1701234567,
         email: "info@",
       }),
-    ).toEqual({ landline: "+497531123456", mobile: null, whatsapp: null, email: null });
+    ).toEqual({
+      landline: "+497531123456",
+      mobile: null,
+      whatsapp: null,
+      email: null,
+      address: null,
+    });
   });
 
   it("the schema itself never throws on garbage", () => {
@@ -188,10 +196,22 @@ describe("parseContactConfig", () => {
   });
 });
 
+describe("address", () => {
+  it("keeps up to three trimmed lines and treats blank as none", () => {
+    expect(
+      parseContactConfig({ address: "  Fritz-Arnold-Str. 7 \n\n 78467 Konstanz " }).address,
+    ).toBe("Fritz-Arnold-Str. 7\n78467 Konstanz");
+    expect(parseContactConfig({ address: "   " }).address).toBeNull();
+    expect(parseContactConfig({ address: 42 }).address).toBeNull();
+  });
+});
+
 describe("publicContact", () => {
   it("is null when the owner has published nothing", () => {
     expect(publicContact(parseContactConfig({}))).toBeNull();
-    expect(publicContact({ landline: null, mobile: null, whatsapp: null, email: null })).toBeNull();
+    expect(
+      publicContact({ landline: null, mobile: null, whatsapp: null, email: null, address: null }),
+    ).toBeNull();
   });
 
   it("projects an address as its own display string, behind a mailto:", () => {

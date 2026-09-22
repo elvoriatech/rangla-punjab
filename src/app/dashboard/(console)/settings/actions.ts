@@ -370,6 +370,7 @@ export async function saveContactAction(form: FormData): Promise<void> {
     mobile: "",
     whatsapp: "",
     email: String(form.get("email") ?? ""),
+    address: String(form.get("address") ?? ""),
   });
   return finish(userId, result.ok, result.ok ? "contact" : `contact_${result.field ?? "invalid"}`);
 }

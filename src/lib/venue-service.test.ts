@@ -462,7 +462,13 @@ describe("venue-service (owner dashboard)", () => {
     const { userId } = await signupWithVenue();
     const r = await getVenueContact(userId);
     if (!r.ok) throw new Error("no venue");
-    expect(r.value).toEqual({ landline: null, mobile: null, whatsapp: null, email: null });
+    expect(r.value).toEqual({
+      landline: null,
+      mobile: null,
+      whatsapp: null,
+      email: null,
+      address: null,
+    });
   });
 
   it("updateVenueContact stores E.164, whatever the owner typed", async () => {
@@ -485,6 +491,7 @@ describe("venue-service (owner dashboard)", () => {
       mobile: "+491701234567",
       whatsapp: "+491701234567",
       email: "info@restaurant.de",
+      address: null,
     });
   });
 
@@ -507,6 +514,7 @@ describe("venue-service (owner dashboard)", () => {
       mobile: "+491707654321",
       whatsapp: null,
       email: null,
+      address: null,
     });
 
     // Explicit null is the same clear, from a JSON client rather than a form.

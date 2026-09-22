@@ -789,6 +789,22 @@ export default async function SettingsPage({
             />
           </label>
         </div>
+        <label className="mt-4 block text-sm">
+          <span className="font-medium">Address</span>
+          <span className="mt-0.5 block text-xs text-muted">
+            Shown in the footer of the order e-mail guests receive. Two lines, e.g. street and
+            postcode + town.
+          </span>
+          <textarea
+            name="address"
+            rows={2}
+            maxLength={200}
+            autoComplete="street-address"
+            defaultValue={contact?.address ?? ""}
+            placeholder={"Fritz-Arnold-Str. 7\n78467 Konstanz"}
+            className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+          />
+        </label>
         <p className="mt-2 text-xs text-muted">
           A German number can be typed either way — 07531 123456 or +49 7531 123456. Numbers are
           saved in international form so calling works from abroad too.

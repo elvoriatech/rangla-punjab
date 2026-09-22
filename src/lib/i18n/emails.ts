@@ -18,6 +18,16 @@ import { VAT_RATE_LABEL } from "@/lib/vat";
 /* ------------------------------------------------------------------ */
 
 const receiptEn = {
+  thankYou: "Thank You!",
+  received: "Your order has been received.",
+  preparing: "We are preparing it with care and look forward to serving you!",
+  orderNumber: "Order number",
+  item: "Item",
+  price: "Price",
+  featFresh: "Fresh ingredients",
+  featAuthentic: "Authentic recipes",
+  featHospitality: "Warm hospitality",
+  tagline: "Good food brings people together",
   subject: (n: string, venue: string) => `Your order #${n} at ${venue}`,
   heading: (n: string) => `Order #${n}`,
   thanks: "Thank you for your order!",
@@ -53,6 +63,16 @@ const receiptEn = {
 export type ReceiptCopy = typeof receiptEn;
 
 const receiptDe: ReceiptCopy = {
+  thankYou: "Vielen Dank!",
+  received: "Ihre Bestellung ist eingegangen.",
+  preparing: "Wir bereiten sie mit Liebe zu und freuen uns auf Sie!",
+  orderNumber: "Bestellnummer",
+  item: "Artikel",
+  price: "Preis",
+  featFresh: "Frische Zutaten",
+  featAuthentic: "Authentische Rezepte",
+  featHospitality: "Herzliche Gastfreundschaft",
+  tagline: "Gutes Essen bringt Menschen zusammen",
   subject: (n, venue) => `Ihre Bestellung Nr. ${n} bei ${venue}`,
   heading: (n) => `Bestellung Nr. ${n}`,
   thanks: "Vielen Dank für Ihre Bestellung!",
@@ -83,6 +103,16 @@ const receiptDe: ReceiptCopy = {
 };
 
 const receiptFr: ReceiptCopy = {
+  thankYou: "Merci !",
+  received: "Votre commande a bien été reçue.",
+  preparing: "Nous la préparons avec soin et avons hâte de vous servir !",
+  orderNumber: "Numéro de commande",
+  item: "Article",
+  price: "Prix",
+  featFresh: "Ingrédients frais",
+  featAuthentic: "Recettes authentiques",
+  featHospitality: "Accueil chaleureux",
+  tagline: "La bonne cuisine rassemble",
   subject: (n, venue) => `Votre commande n° ${n} chez ${venue}`,
   heading: (n) => `Commande n° ${n}`,
   thanks: "Merci pour votre commande !",
@@ -113,6 +143,16 @@ const receiptFr: ReceiptCopy = {
 };
 
 const receiptEs: ReceiptCopy = {
+  thankYou: "¡Gracias!",
+  received: "Hemos recibido tu pedido.",
+  preparing: "Lo preparamos con cariño y te esperamos con ganas.",
+  orderNumber: "Número de pedido",
+  item: "Artículo",
+  price: "Precio",
+  featFresh: "Ingredientes frescos",
+  featAuthentic: "Recetas auténticas",
+  featHospitality: "Hospitalidad cálida",
+  tagline: "La buena comida une a las personas",
   subject: (n, venue) => `Tu pedido n.º ${n} en ${venue}`,
   heading: (n) => `Pedido n.º ${n}`,
   thanks: "¡Gracias por tu pedido!",
@@ -143,6 +183,16 @@ const receiptEs: ReceiptCopy = {
 };
 
 const receiptIt: ReceiptCopy = {
+  thankYou: "Grazie!",
+  received: "Il tuo ordine è stato ricevuto.",
+  preparing: "Lo prepariamo con cura e non vediamo l'ora di servirti!",
+  orderNumber: "Numero d'ordine",
+  item: "Articolo",
+  price: "Prezzo",
+  featFresh: "Ingredienti freschi",
+  featAuthentic: "Ricette autentiche",
+  featHospitality: "Calda ospitalità",
+  tagline: "Il buon cibo unisce le persone",
   subject: (n, venue) => `Il tuo ordine n. ${n} da ${venue}`,
   heading: (n) => `Ordine n. ${n}`,
   thanks: "Grazie per il tuo ordine!",
@@ -173,6 +223,16 @@ const receiptIt: ReceiptCopy = {
 };
 
 const receiptAr: ReceiptCopy = {
+  thankYou: "شكرًا لك!",
+  received: "تم استلام طلبك.",
+  preparing: "نحضّره بعناية ونتطلع إلى خدمتك!",
+  orderNumber: "رقم الطلب",
+  item: "الصنف",
+  price: "السعر",
+  featFresh: "مكونات طازجة",
+  featAuthentic: "وصفات أصيلة",
+  featHospitality: "ضيافة دافئة",
+  tagline: "الطعام الطيب يجمع الناس",
   subject: (n, venue) => `طلبك رقم ${n} لدى ${venue}`,
   heading: (n) => `الطلب رقم ${n}`,
   thanks: "شكرًا لطلبك!",

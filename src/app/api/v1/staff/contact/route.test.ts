@@ -130,6 +130,7 @@ describe("/api/v1/staff/contact", () => {
       mobile: null,
       whatsapp: null,
       email: null,
+      address: null,
     });
   });
 
@@ -146,6 +147,7 @@ describe("/api/v1/staff/contact", () => {
       mobile: "+491701234567",
       whatsapp: "+491701234567",
       email: "info@restaurant.de",
+      address: null,
     });
     // The read is the editor's read: raw numbers, no display string and no
     // href — the app posts these values straight back.
@@ -167,6 +169,7 @@ describe("/api/v1/staff/contact", () => {
       whatsapp: "+491701234567",
       // Untouched by a patch that never named it.
       email: "info@restaurant.de",
+      address: null,
     });
     expect((await patch({ email: "" })).body.contact?.email).toBeNull();
 

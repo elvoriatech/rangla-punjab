@@ -12,6 +12,8 @@ import { resolveTenantAccess } from "./plan-state";
 import { currentOpenState, openState, todayLocalTimeToDate } from "./opening-hours";
 import { parseOpeningHours } from "./opening-hours-schema";
 import { parseLoyaltyConfig } from "./loyalty-config";
+import { isLocaleCode } from "./locales";
+import { displayPhone, parseContactConfig, telHref } from "./contact-config";
 import { attachVoucherToOrder, claimArmedVoucher } from "./loyalty-service";
 import { attachGiftCardToOrder, claimGiftCardForOrder } from "./gift-card-service";
 import {
@@ -99,6 +101,14 @@ export const placeOrderSchema = z
      * kitchen, and mailed from markOrderPaid once the payment settles.
      */
     intendedPayment: z.enum(["cash", "card", "paypal"]).optional(),
+    /** The language the guest is using ("de", "en", …). Unknown codes are
+     *  dropped rather than refusing the order. */
+    locale: z
+      .string()
+      .trim()
+      .max(8)
+      .optional()
+      .transform((v) => (v && isLocaleCode(v) ? v : undefined)),
     /**
      * "Spend the reward I armed in the app on this order."
      *
@@ -491,6 +501,7 @@ export async function placeOrder(
         customerName: orderType === "dine_in" ? null : input.customerName || null,
         customerPhone: orderType === "dine_in" ? null : input.customerPhone || null,
         customerEmail: input.customerEmail?.toLowerCase() || null,
+        locale: input.locale ?? null,
         deliveryAddress: orderType === "delivery" && input.address ? input.address : undefined,
         requestedFor,
         totalCents,
@@ -628,6 +639,12 @@ export interface ReceiptOrder extends OrderFulfilment {
    *  who set the app to French should be mailed in French. Null for an
    *  anonymous order, or a guest who never chose. */
   customerLocale?: string | null;
+  /** The language the order was placed in (web cart / app). Outranks
+   *  `customerLocale`: it is what the guest was actually reading. */
+  locale?: string | null;
+  /** Where the order e-mail's footer points: the venue's published
+   *  address, phone and site. Optional for the hand-built fixtures. */
+  venueFooter?: { address: string | null; phone: string | null; phoneHref: string | null };
   paymentStatus: string;
   paymentProvider: string | null;
   /** Loyalty reward applied to this order (0 = none). The item lines keep
@@ -677,6 +694,7 @@ export async function getOrderForReceipt(
         customerName: true,
         customerPhone: true,
         customerEmail: true,
+        locale: true,
         requestedFor: true,
         deliveryAddress: true,
         paymentStatus: true,
@@ -688,7 +706,9 @@ export async function getOrderForReceipt(
         totalCents: true,
         currency: true,
         createdAt: true,
-        venue: { select: { name: true, slug: true, branding: true, defaultLocale: true } },
+        venue: {
+          select: { name: true, slug: true, branding: true, defaultLocale: true, contact: true },
+        },
         // Only the language — the receipt already carries the guest's
         // name, phone and address from the order row itself.
         customer: { select: { locale: true } },
@@ -709,6 +729,14 @@ export async function getOrderForReceipt(
       ...order,
       deliveryAddress: order.deliveryAddress as ReceiptOrder["deliveryAddress"],
       customerLocale: order.customer?.locale ?? null,
+      venueFooter: (() => {
+        const c = parseContactConfig(order.venue.contact);
+        return {
+          address: c.address,
+          phone: c.landline ? displayPhone(c.landline) : null,
+          phoneHref: c.landline ? telHref(c.landline) : null,
+        };
+      })(),
       venue: {
         name: order.venue.name,
         slug: order.venue.slug,

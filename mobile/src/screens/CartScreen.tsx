@@ -517,6 +517,8 @@ export function CartScreen({
         customerPhone: needsContact ? phone.trim() : undefined,
         customerEmail: email.trim() || undefined,
         intendedPayment: method,
+        // The app's language, so the order e-mail arrives in it.
+        locale: lang,
         // Only ever true when the account really holds an armed voucher —
         // the server checks again and owns the outcome.
         redeemVoucher: rewardCents > 0 ? true : undefined,

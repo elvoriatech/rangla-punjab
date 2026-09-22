@@ -431,6 +431,8 @@ export interface PlaceOrderInput {
    *  created first and paid immediately afterwards (sheet or web page),
    *  because a card that fails must not lose the basket. */
   intendedPayment?: "cash" | "card" | "paypal";
+  /** The guest's app language — picks the order e-mail's language. */
+  locale?: string;
   /**
    * Spend the guest's ARMED voucher on this order. Only ever true when
    * `/api/v1/me/loyalty` said there is one — the server re-checks, applies

@@ -31,7 +31,7 @@ export async function sendReceiptEmailForOrder(
     // picks the email copy AND rides the two links below, so the receipt
     // PDF and the tracker page open in the same language as the mail.
     // An anonymous order has no profile to ask, so it gets the venue's.
-    const locale = uiLocale(order.customerLocale ?? order.venue.defaultLocale);
+    const locale = uiLocale(order.locale ?? order.customerLocale ?? order.venue.defaultLocale);
     const token = signReceiptToken(order.id, tenantId);
     const base = siteUrl();
     const receiptUrl = `${base}/api/orders/${encodeURIComponent(order.id)}/receipt?token=${encodeURIComponent(token)}&locale=${locale}`;
@@ -63,6 +63,7 @@ export async function sendReceiptEmailForOrder(
         receiptUrl,
         trackUrl,
         reviewUrl: review ? trackedReviewUrl(order.id, token) : null,
+        siteBase: base,
       }),
     });
     log.info("receipt.emailed", { orderId, tenantId, paid: order.paymentStatus === "paid" });

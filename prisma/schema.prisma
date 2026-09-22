@@ -549,6 +549,11 @@ model Order {
   customerPhone String? @map("customer_phone")
   /// Optional: where the receipt email goes. Any order type.
   customerEmail String? @map("customer_email")
+  /// The language the guest ordered in (a LOCALE_CODES value), sent by the
+  /// app / web cart. Picks the order e-mail's language first — before the
+  /// account's `Customer.locale` and the venue default — so a guest who
+  /// orders without an account still hears back in their own language.
+  locale        String? @map("locale") @db.VarChar(8)
   // {street, zip, city, note} for delivery orders.
   deliveryAddress Json? @map("delivery_address")
   // none = pay at restaurant; pending/paid/failed = online payment.
