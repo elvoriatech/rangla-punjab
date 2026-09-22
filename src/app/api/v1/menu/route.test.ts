@@ -252,8 +252,8 @@ describe("GET /api/v1/menu — ?locale", () => {
     );
     const slides = (await read(fx.slug)).venue.heroSlides;
     expect(slides).toHaveLength(2);
-    expect(slides[0]).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=1280$/);
-    expect(slides[1]).toMatch(/\/img\/t%2Fuploads%2Fa\?w=1280$/);
+    expect(slides[0]).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=480$/);
+    expect(slides[1]).toMatch(/\/img\/t%2Fuploads%2Fa\?w=480$/);
   });
 
   it("sends the Google rating, and an explicit null when there is none (P7-14)", async () => {

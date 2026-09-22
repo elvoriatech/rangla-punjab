@@ -74,17 +74,16 @@ function HeroCarousel({
 }: {
   text: string;
   openNow: boolean | null;
-  /** The owner's own slides (Dashboard → Settings → App home slider).
-   *  Non-empty ⇒ they replace the built-in plates entirely, each shown
-   *  full-bleed and as-is: an owner's promo image carries its own words,
-   *  so the headline and scrim stay off it. */
+  /** The owner's own dishes (Dashboard → Settings → App home slider).
+   *  Non-empty ⇒ they replace the built-in plates; the slide itself —
+   *  red artwork, headline, dish on the right — looks exactly the same. */
   photos: string[];
 }): React.ReactElement {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   const scroller = useRef<ScrollView>(null);
-  const custom = photos.length > 0;
-  const count = custom ? photos.length : HERO_SLIDES.length;
+  const slides = photos.length > 0 ? photos.map((uri) => ({ uri })) : HERO_SLIDES;
+  const count = slides.length;
   // A different set of slides (the owner just added or removed one) must
   // not leave the pager parked past the new last page.
   const slidesKey = photos.join("|");
@@ -118,7 +117,7 @@ function HeroCarousel({
       {/* The artwork is the venue's own now, so its brightness is unknown at
           build time — the generated scrim is what keeps the headline legible
           over a pale backdrop as well as a dark one. */}
-      {custom ? null : <View style={styles.heroScrim} pointerEvents="none" />}
+      <View style={styles.heroScrim} pointerEvents="none" />
       <ScrollView
         ref={scroller}
         style={styles.heroScroll}
@@ -129,25 +128,12 @@ function HeroCarousel({
           if (width) setPage(Math.round(e.nativeEvent.contentOffset.x / width));
         }}
       >
-        {custom
-          ? photos.map((uri, i) => (
-              <View key={uri} style={[styles.heroPhotoSlide, width ? { width } : null]}>
-                <Image
-                  source={{ uri }}
-                  style={styles.heroPhoto}
-                  resizeMode="cover"
-                  accessibilityIgnoresInvertColors
-                  accessible
-                  accessibilityLabel={`${text} (${i + 1}/${photos.length})`}
-                />
-              </View>
-            ))
-          : HERO_SLIDES.map((src, i) => (
-              <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
-                <Text style={styles.heroText}>{text}</Text>
-                <Image source={src} style={styles.heroDish} resizeMode="contain" />
-              </View>
-            ))}
+        {slides.map((src, i) => (
+          <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
+            <Text style={styles.heroText}>{text}</Text>
+            <Image source={src} style={styles.heroDish} resizeMode="contain" />
+          </View>
+        ))}
       </ScrollView>
       <View style={styles.heroDots} pointerEvents="none">
         {Array.from({ length: count }, (_, i) => (
@@ -776,10 +762,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
   },
-  // An owner's slide fills the whole hero; the hero's own radius and
-  // `overflow: hidden` round its corners.
-  heroPhotoSlide: { height: "100%" },
-  heroPhoto: { width: "100%", height: "100%" },
   // Cut-out plates float straight on the artwork — no frame, no white box.
   // Bottom-aligned inside the slide so the plate sits well clear of the
   // pill's band in the corner above it.

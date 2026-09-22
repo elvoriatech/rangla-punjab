@@ -71,6 +71,32 @@ describe("normalizeImage", () => {
     expect(meta.orientation).toBeUndefined();
   });
 
+  it("honours a tighter edge and WebP output, keeping transparency", async () => {
+    const input = await sharp({
+      create: {
+        width: 1600,
+        height: 1200,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const out = await normalizeImage(input, { maxEdge: 800, webp: true });
+    if (!out.ok) throw new Error("expected ok");
+    expect(out.format).toBe("webp");
+    expect(out.contentType).toBe("image/webp");
+    expect([out.width, out.height]).toEqual([800, 600]);
+    expect((await sharp(out.bytes).metadata()).hasAlpha).toBe(true);
+  });
+
+  it("never lets maxEdge raise the 2048px cap", async () => {
+    const out = await normalizeImage(await testImage(4000, 1000, "jpeg"), { maxEdge: 5000 });
+    if (!out.ok) throw new Error("expected ok");
+    expect(out.width).toBe(MAX_IMAGE_EDGE_PX);
+    expect(out.format).toBe("jpeg");
+  });
+
   it("rejects non-image bytes and unsupported containers", async () => {
     expect(await normalizeImage(Buffer.from("#!/bin/sh\nrm -rf /"))).toEqual({
       ok: false,

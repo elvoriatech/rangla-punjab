@@ -194,12 +194,12 @@ describe("venue-service (owner dashboard)", () => {
     expect(await slides()).toEqual(["t/a", "t/b"]);
   });
 
-  it("updateVenueHeroSlides refuses a ninth slide and an empty key", async () => {
+  it("updateVenueHeroSlides refuses a seventh slide and an empty key", async () => {
     const { userId } = await signupWithVenue();
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 6; i += 1) {
       expect((await updateVenueHeroSlides(userId, { op: "add", key: `t/${i}` })).ok).toBe(true);
     }
-    expect(await updateVenueHeroSlides(userId, { op: "add", key: "t/9" })).toEqual({
+    expect(await updateVenueHeroSlides(userId, { op: "add", key: "t/7" })).toEqual({
       ok: false,
       error: "full",
     });

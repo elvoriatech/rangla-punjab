@@ -7,6 +7,7 @@ import { getRestaurantSlug } from "@/lib/restaurant";
 import { menuImageUrl, uploadedImageUrl } from "@/lib/menu-images";
 import { categoryIcon } from "@/lib/category-icons";
 import { siteUrl } from "@/lib/site-url";
+import { HERO_SLIDE_FETCH_WIDTH } from "@/lib/hero-slides";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 import { isLocaleCode } from "@/lib/locales";
 import { publicLoyalty } from "@/lib/loyalty-config";
@@ -128,10 +129,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             ? abs(menuImageUrl(branding.logoKey, menu.venue.id, 192))
             : null,
           theme: branding.theme ?? null,
-          // The app's home slider, owner-managed in Dashboard → Settings:
-          // absolute image URLs in display order. Always an array — empty
-          // means "none uploaded", and the app keeps its built-in artwork.
-          heroSlides: (branding.heroSlides ?? []).map((key) => abs(uploadedImageUrl(key, 1280))),
+          // The dishes on the app's home slider, owner-managed in
+          // Dashboard → Settings: absolute image URLs in display order.
+          // Always an array — empty means "none uploaded", and the app
+          // keeps the dishes built into it.
+          heroSlides: (branding.heroSlides ?? []).map((key) =>
+            abs(uploadedImageUrl(key, HERO_SLIDE_FETCH_WIDTH)),
+          ),
           hours: menu.venue.hours,
           // The IANA zone those `hours` are written in (e.g.
           // "Europe/Berlin"). Sent beside them because the app recomputes

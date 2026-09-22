@@ -37,7 +37,22 @@ export type NormalizedImage = {
 
 export type NormalizeResult = NormalizedImage | { ok: false; error: "invalid_image" };
 
-export async function normalizeImage(input: Buffer): Promise<NormalizeResult> {
+/**
+ * Per-use tightening on top of the defaults: `maxEdge` caps the longest
+ * edge below the 2048px default (never above it), and `webp: true`
+ * re-encodes to WebP whatever came in — transparency survives, so a
+ * cut-out PNG dish stays a cut-out at a fraction of the bytes.
+ */
+export interface NormalizeOptions {
+  maxEdge?: number;
+  webp?: boolean;
+}
+
+export async function normalizeImage(
+  input: Buffer,
+  options: NormalizeOptions = {},
+): Promise<NormalizeResult> {
+  const edge = Math.min(options.maxEdge ?? MAX_IMAGE_EDGE_PX, MAX_IMAGE_EDGE_PX);
   try {
     const meta = await sharp(input, { limitInputPixels: MAX_INPUT_PIXELS }).metadata();
     const format = meta.format;
@@ -51,15 +66,16 @@ export async function normalizeImage(input: Buffer): Promise<NormalizeResult> {
       // would come out sideways.
       .rotate()
       .resize({
-        width: MAX_IMAGE_EDGE_PX,
-        height: MAX_IMAGE_EDGE_PX,
+        width: edge,
+        height: edge,
         fit: "inside",
         withoutEnlargement: true,
       });
-    if (format === "jpeg") {
+    const outFormat: NormalizedFormat = options.webp ? "webp" : (format as NormalizedFormat);
+    if (outFormat === "jpeg") {
       pipeline = pipeline.jpeg({ quality: 82, mozjpeg: true });
-    } else if (format === "webp") {
-      pipeline = pipeline.webp({ quality: 80 });
+    } else if (outFormat === "webp") {
+      pipeline = pipeline.webp({ quality: 80, alphaQuality: 90 });
     } else {
       // Palette quantization: 24-bit photographic PNGs drop ~65% with no
       // visible loss; logos/graphics (the typical PNG upload) even more.
@@ -70,8 +86,8 @@ export async function normalizeImage(input: Buffer): Promise<NormalizeResult> {
     return {
       ok: true,
       bytes: data,
-      contentType: `image/${format as NormalizedFormat}`,
-      format: format as NormalizedFormat,
+      contentType: `image/${outFormat}`,
+      format: outFormat,
       width: info.width,
       height: info.height,
     };

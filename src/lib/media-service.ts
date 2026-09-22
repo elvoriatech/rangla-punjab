@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { asUser } from "./tenant";
-import { normalizeImage } from "./image-normalize";
+import { normalizeImage, type NormalizeOptions } from "./image-normalize";
 import { writeUpload } from "./image-storage";
 
 /**
@@ -31,6 +31,8 @@ export async function saveUploadedImage(
   userId: string,
   file: File,
   altText: string,
+  /** Tighter-than-default storage for one use (see `NormalizeOptions`). */
+  normalize?: NormalizeOptions,
 ): Promise<MediaResult> {
   if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
     return { ok: false, error: "invalid_type" };
@@ -38,7 +40,7 @@ export async function saveUploadedImage(
   if (file.size === 0) return { ok: false, error: "empty" };
   if (file.size > MAX_BYTES) return { ok: false, error: "too_large" };
 
-  const normalized = await normalizeImage(Buffer.from(await file.arrayBuffer()));
+  const normalized = await normalizeImage(Buffer.from(await file.arrayBuffer()), normalize);
   if (!normalized.ok) return normalized;
 
   return asUser(userId, async (tx) => {

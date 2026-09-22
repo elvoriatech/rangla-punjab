@@ -143,9 +143,9 @@ export interface ApiMenu {
      */
     contact?: ApiVenueContact | null;
     /**
-     * The home slider's images, uploaded by the owner in Dashboard →
+     * The home slider's dishes, uploaded by the owner in Dashboard →
      * Settings → App home slider: absolute URLs in display order. Empty
-     * (or absent on an older server) ⇒ the built-in artwork shows.
+     * (or absent on an older server) ⇒ the built-in dishes show.
      */
     heroSlides?: string[];
   };

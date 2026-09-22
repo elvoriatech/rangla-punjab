@@ -67,6 +67,29 @@ import { RequiredLegend, RequiredMark } from "@/components/required-mark";
  * saved.
  */
 
+/** The four dishes built into the app (`mobile/assets/carousel/`), as
+ *  small web copies in `/public/app-slider/` — shown while the owner has
+ *  uploaded none, so the card always says what guests see right now. */
+const BUILT_IN_DISHES = [
+  { file: "hero-biryani", name: "Biryani" },
+  { file: "hero-kebab", name: "Kebab" },
+  { file: "hero-karahi", name: "Karahi" },
+  { file: "hero-biryani-2", name: "Biryani (second plate)" },
+] as const;
+
+/** A dish as the app draws it: contained, on the red hero backdrop. */
+function SlidePreview({ src, alt }: { src: string; alt: string }): React.ReactElement {
+  return (
+    <span
+      className="flex h-16 w-16 shrink-0 items-center justify-center border border-ink/15 bg-[#7a1f1f] bg-cover bg-center p-1"
+      style={{ backgroundImage: "url(/app-slider/backdrop.webp)" }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
+    </span>
+  );
+}
+
 const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   name: {
     saved: "Name saved. It shows everywhere — menu, QR page, and this dashboard.",
@@ -89,19 +112,19 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
     error: "Couldn't remove the banner — try again.",
   },
   slide: {
-    saved: "Slide added. The app shows it the next time its home screen refreshes.",
+    saved: "Dish added. The app shows it the next time its home screen refreshes.",
     error: "That image didn't upload. Use a JPEG, PNG, or WebP up to 10 MB.",
   },
   "slide-full": {
-    error: `The slider is full (${MAX_HERO_SLIDES} images). Remove one before adding another.`,
+    error: `The slider is full (${MAX_HERO_SLIDES} dishes). Remove one before adding another.`,
   },
   "slide-removed": {
-    saved: "Slide removed from the app's home slider.",
-    error: "Couldn't remove that slide — try again.",
+    saved: "Dish removed from the app's home slider.",
+    error: "Couldn't remove that dish — try again.",
   },
   "slide-moved": {
     saved: "Slide order saved.",
-    error: "Couldn't move that slide — try again.",
+    error: "Couldn't move that dish — try again.",
   },
   hours: {
     saved: "Opening hours saved. Guests see your open/closed status live on the menu.",
@@ -552,8 +575,9 @@ export default async function SettingsPage({
         </div>
       </section>
 
-      {/* App home slider. The rotating images at the top of the mobile
-          app's home screen. Empty = the app's built-in dish artwork. */}
+      {/* App home slider. The dishes that rotate on the red hero at the
+          top of the mobile app's home screen. Empty = the four dishes
+          built into the app. */}
       <section
         aria-labelledby="slider-title"
         className="mt-6 border border-ink/15 bg-card px-6 py-5"
@@ -562,14 +586,16 @@ export default async function SettingsPage({
           App home slider
         </p>
         <p className="mt-1 text-xs text-muted">
-          The images that rotate at the top of the app&apos;s home screen, in this order. Until you
-          add one, the app shows its built-in dish artwork. Up to {MAX_HERO_SLIDES} images.
+          The dishes that rotate on the red banner at the top of the app&apos;s home screen, next to
+          the welcome line — in this order. The banner, the text, and the layout stay the same; only
+          the dish pictures change. Up to {MAX_HERO_SLIDES} dishes.
         </p>
         <p className="mt-1 text-xs font-medium text-ink">
-          Recommended size: <strong>1200 × 460 pixels</strong> (wide, about 2.6 : 1). Each image
-          fills the whole slide and is shown as-is — no text is added on top — so any headline
-          belongs in the image itself, kept away from the top-right corner where the app shows
-          &ldquo;Open&rdquo; / &ldquo;Closed&rdquo;.
+          Best result: a <strong>PNG with a transparent background</strong> (just the plate, no
+          table or backdrop), about <strong>700 × 700 pixels</strong>. A photo with a background
+          works too, but shows as a rectangle. Files up to 10&nbsp;MB are accepted; each upload is
+          compressed automatically (max 800&nbsp;px, WebP), and phones download a copy of roughly
+          20–60&nbsp;KB.
         </p>
 
         {slides.length > 0 ? (
@@ -582,12 +608,7 @@ export default async function SettingsPage({
                 <span className="w-5 shrink-0 text-center text-xs font-medium text-muted">
                   {i + 1}
                 </span>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={uploadedImageUrl(key, 320)}
-                  alt={`Slide ${i + 1}`}
-                  className="h-16 w-[166px] shrink-0 border border-ink/15 bg-white object-cover"
-                />
+                <SlidePreview src={uploadedImageUrl(key, 240)} alt={`Dish ${i + 1}`} />
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                   <form action={moveHeroSlideAction}>
                     <input type="hidden" name="key" value={key} />
@@ -595,7 +616,7 @@ export default async function SettingsPage({
                     <SubmitButton
                       pendingLabel="…"
                       disabled={i === 0}
-                      aria-label={`Move slide ${i + 1} earlier`}
+                      aria-label={`Move dish ${i + 1} earlier`}
                       className="min-h-8 min-w-8 border border-ink/25 px-2 text-sm hover:bg-cream disabled:opacity-30"
                     >
                       ↑
@@ -607,7 +628,7 @@ export default async function SettingsPage({
                     <SubmitButton
                       pendingLabel="…"
                       disabled={i === slides.length - 1}
-                      aria-label={`Move slide ${i + 1} later`}
+                      aria-label={`Move dish ${i + 1} later`}
                       className="min-h-8 min-w-8 border border-ink/25 px-2 text-sm hover:bg-cream disabled:opacity-30"
                     >
                       ↓
@@ -617,7 +638,7 @@ export default async function SettingsPage({
                     <input type="hidden" name="key" value={key} />
                     <SubmitButton
                       pendingLabel="Removing…"
-                      aria-label={`Remove slide ${i + 1}`}
+                      aria-label={`Remove dish ${i + 1}`}
                       className="text-xs text-red-800 underline underline-offset-2 hover:text-red-900"
                     >
                       Remove
@@ -628,23 +649,33 @@ export default async function SettingsPage({
             ))}
           </ol>
         ) : (
-          <p className="mt-4 border border-dashed border-ink/20 px-4 py-3 text-xs text-muted">
-            No slides yet — the app is showing its built-in artwork.
-          </p>
+          <div className="mt-4 border border-dashed border-ink/20 px-4 py-3">
+            <p className="text-xs text-muted">
+              Showing now — the app&apos;s built-in dishes. Add your first dish and it replaces
+              these; remove all of yours to bring them back.
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {BUILT_IN_DISHES.map((d) => (
+                <li key={d.file}>
+                  <SlidePreview src={`/app-slider/${d.file}.webp`} alt={d.name} />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {slides.length < MAX_HERO_SLIDES ? (
           <form action={addHeroSlideAction} className="mt-4">
             <label className="block text-sm">
               <span className="font-medium">
-                Add an image
+                Add a dish
                 <RequiredMark />
               </span>
               <input
                 type="file"
                 name="slide"
                 required
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/png,image/webp,image/jpeg"
                 className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
               />
             </label>
@@ -653,12 +684,12 @@ export default async function SettingsPage({
               pendingLabel="Uploading…"
               className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
             >
-              Add slide
+              Add dish
             </SubmitButton>
           </form>
         ) : (
           <p className="mt-4 text-xs text-muted">
-            The slider is full. Remove a slide to add a new one.
+            The slider is full ({MAX_HERO_SLIDES} dishes). Remove one to add another.
           </p>
         )}
       </section>
