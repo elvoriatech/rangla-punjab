@@ -159,6 +159,7 @@ export function HomeScreen({
   onBrowseAll,
   onStartOrder,
   onOpenAccount,
+  onOpenPoints,
   onOpenGiftCards,
   onComplain,
   onOpenOwnerMenu,
@@ -173,6 +174,8 @@ export function HomeScreen({
   onStartOrder: (type: "takeaway" | "delivery") => void;
   /** Switches to the Account tab, where the Rewards card lives. */
   onOpenAccount: () => void;
+  /** Opens "My Points" — the header badge's destination. */
+  onOpenPoints: () => void;
   /** Opens the gift-card shop. Only reachable while the venue has the
    *  feature on and at least one active design (see `giftShop`). */
   onOpenGiftCards: () => void;
@@ -293,8 +296,11 @@ export function HomeScreen({
         // or the venue's programme is off, so the pill appears exactly
         // when there is a real balance to show — and never behind the
         // counter, where the burger owns this corner.
+        // The POINTS badge shows wherever the venue runs the programme —
+        // signed out too: the page it opens explains the rules and asks
+        // them to sign in. Never behind the counter (the burger's corner).
         points={!restaurant && loyalty ? loyalty.balance : null}
-        onPoints={onOpenAccount}
+        onPoints={!restaurant && menu.loyalty?.enabled ? onOpenPoints : undefined}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <HeroCarousel text={t.heroLine} openNow={openNow} photos={menu.venue.heroSlides ?? []} />

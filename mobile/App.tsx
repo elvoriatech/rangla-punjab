@@ -26,6 +26,7 @@ import {
 // just the Arabic one: the mark is the venue's calligraphy, not a
 // translation, so a German guest sees the same glyph (see `HalalMark`).
 import { Amiri_700Bold } from "@expo-google-fonts/amiri";
+import { LuckiestGuy_400Regular } from "@expo-google-fonts/luckiest-guy";
 import type { ApiMenu, ApiItem, OrderType, PlacedOrder } from "./src/api";
 import { fetchMenu, OFFERS_CATEGORY_ID } from "./src/api";
 import { CartProvider, useCart } from "./src/cart";
@@ -53,6 +54,7 @@ import { RatingOwnerScreen } from "./src/screens/RatingOwnerScreen";
 import { HoursOwnerScreen } from "./src/screens/HoursOwnerScreen";
 import { ContactOwnerScreen } from "./src/screens/ContactOwnerScreen";
 import { GiftCardsScreen } from "./src/screens/GiftCardsScreen";
+import { PointsScreen } from "./src/screens/PointsScreen";
 import { MyGiftCardsScreen } from "./src/screens/MyGiftCardsScreen";
 import { RedeemGiftCardScreen } from "./src/screens/RedeemGiftCardScreen";
 import { GiftCardsOwnerScreen } from "./src/screens/GiftCardsOwnerScreen";
@@ -91,6 +93,8 @@ type Tab =
   | "rating"
   | "hours"
   | "contact"
+  /** Guest: the loyalty page behind the header's POINTS badge. */
+  | "points"
   /** Guest: the shop window. */
   | "giftcards"
   /** Guest: the cards this account has bought. */
@@ -583,6 +587,7 @@ function Shell(): React.ReactElement {
               setTab("menu");
             }}
             onOpenAccount={() => setTab("info")}
+            onOpenPoints={() => setTab("points")}
             onOpenGiftCards={() => setTab("giftcards")}
             onComplain={onComplain}
           />
@@ -649,6 +654,13 @@ function Shell(): React.ReactElement {
             onMenuChanged={refresh}
             onBack={() => setTab("board")}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
+        {menuCurrent && tab === "points" && !restaurant ? (
+          <PointsScreen
+            menu={menu}
+            onBack={() => setTab("home")}
+            onOpenAccount={() => setTab("info")}
           />
         ) : null}
         {menuCurrent && tab === "giftcards" && !restaurant ? (
@@ -886,6 +898,7 @@ export default function App(): React.ReactElement {
     Nunito_800ExtraBold,
     Nunito_800ExtraBold_Italic,
     Amiri_700Bold,
+    LuckiestGuy_400Regular,
   });
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: colors.red }} />;
   return (

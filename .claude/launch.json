@@ -33,6 +33,15 @@
         "EXPO_PUBLIC_API_URL=http://localhost:58816 npm --prefix mobile run web -- --port 8083"
       ],
       "port": 8083
+    },
+    {
+      "name": "rangla-mobile-sim",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd mobile && EXPO_PUBLIC_API_URL=http://localhost:58816 npx expo start --port 8084 --clear"
+      ],
+      "port": 8084
     }
   ]
 }

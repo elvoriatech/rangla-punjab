@@ -709,10 +709,15 @@ function ProductTile({
           </View>
         )}
         <DiscountBadge percent={discount} />
-        <Text style={styles.tileName} numberOfLines={2}>
-          {product.name}
-        </Text>
-        <Text style={styles.tilePrice}>{money(product.priceCents, currency)}</Text>
+        {/* Name and value on one line: name at the start, value at the end. */}
+        <View style={styles.tileLine}>
+          <Text style={styles.tileName} numberOfLines={1}>
+            {product.name}
+          </Text>
+          <Text style={styles.tilePrice} numberOfLines={1}>
+            {money(product.priceCents, currency)}
+          </Text>
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -757,7 +762,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.cream,
   },
-  tileName: { color: colors.ink, ...fonts.bodyBold, fontSize: 13.5 },
+  tileLine: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 2 },
+  tileName: { color: colors.ink, ...fonts.bodyBold, fontSize: 13.5, flexShrink: 1 },
   tilePrice: { color: colors.red, ...fonts.bodyHeavy, fontSize: 15 },
   label: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
   hint: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },

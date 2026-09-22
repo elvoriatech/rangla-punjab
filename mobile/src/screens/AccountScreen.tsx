@@ -30,6 +30,7 @@ import {
 import { ReservationsCard } from "../reservations";
 import { displayVenueName, venueNameLines } from "../venue-name";
 import { FieldLabel, OutlineButton, PrimaryButton, RequiredLegend } from "../components";
+import { CartoonTitle } from "../cartoon-title";
 import { CHEVRON_FORWARD, colors, fonts, hero, logo, money, radius, scrim } from "../theme";
 
 /**
@@ -696,7 +697,12 @@ export function AccountScreen({
 
         {/* Hours */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t.hours}</Text>
+          {/* The owner's sticker lettering, behind the clock the mock
+              puts in front of it. */}
+          <View style={styles.hoursTitleRow}>
+            <Ionicons name="time-outline" size={24} color={colors.ink} />
+            <CartoonTitle text={t.hours.toLocaleUpperCase()} size={21} />
+          </View>
           {dayKeys.map((key, i) => {
             const h = hoursDays[key];
             const windows = (h?.slots ?? []).filter((s) => s.open && s.close);
@@ -797,6 +803,7 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }): Re
 }
 
 const styles = StyleSheet.create({
+  hoursTitleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
   hero: { height: 150 },
   heroMenu: {
     position: "absolute",

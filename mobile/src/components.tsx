@@ -16,6 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, isRTL, logo, money, radius, statusTones } from "./theme";
 import { HalalMark } from "./halal-mark";
+import { CartoonTitle } from "./cartoon-title";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
 import { useBumpOnChange, usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
@@ -187,15 +188,8 @@ export function BrandHeader({
             area rather than centred on it. The slot itself is always
             there — an empty one on the screens without a burger — so the
             centred title keeps symmetric gutters either way. */}
-        <View
-          style={[
-            styles.headerEnd,
-            points !== null && points !== undefined && styles.headerEndWide,
-          ]}
-        >
-          {points !== null && points !== undefined && onPoints ? (
-            <HeaderPointsPill points={points} onPress={onPoints} />
-          ) : null}
+        <View style={[styles.headerEnd, onPoints && styles.headerEndWide]}>
+          {onPoints ? <HeaderPointsPill points={points ?? null} onPress={onPoints} /> : null}
           {onMenu ? (
             <Pressable
               onPress={onMenu}
@@ -214,47 +208,49 @@ export function BrandHeader({
 }
 
 /**
- * "35 Pkt." in the header's end corner — what the guest has, on every
- * screen they visit.
+ * The POINTS badge in the header's end corner (owner's mock, 2026-09-22):
+ * a white rounded card with the gift, the word in the sticker lettering
+ * (`CartoonTitle`), and a chevron — it opens "My Points".
  *
- * No star and no icon: the venue's rating line, two rows away, already
- * owns the star in this bar, and two of them would read as one thing.
- * The number plus its unit is the whole message.
+ * No number on the badge itself, as in the mock; the balance is the first
+ * thing the page it opens shows, and the spoken label still carries it
+ * ("Your points: 35") whenever it is known. A real button: the 44 pt
+ * card plus hitSlop clears the touch target.
  *
- * Gold at 18% on the brand red, with a hairline gold edge so the pill
- * still has a shape on a display that flattens the tint; the text is
- * `cream`, which measures 8.2:1 against the red underneath — the same
- * pairing the rest of this bar uses. It is a real button with a spoken
- * label ("Your points: 35"), not a bare number a screen reader would
- * read out of context, and a 32 pt pill plus hitSlop clears the 44 pt
- * target.
- *
- * It pops when the BALANCE moves and only then: points are earned while
- * the guest is elsewhere in the app, so without the pop the number
- * simply reads differently the next time anyone happens to look.
- * `useBumpOnChange` sits out a reduced-motion device entirely.
+ * It pops when the BALANCE moves and only then (`useBumpOnChange`, which
+ * sits out a reduced-motion device entirely).
  */
 function HeaderPointsPill({
   points,
   onPress,
 }: {
-  points: number;
+  points: number | null;
   onPress: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
-  const bump = useBumpOnChange(points);
+  const bump = useBumpOnChange(points ?? 0);
   return (
     <Animated.View style={bump}>
       <Pressable
         onPress={onPress}
-        hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
+        hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
         accessibilityRole="button"
-        accessibilityLabel={fill(t.pointsBadgeLabel, { points })}
-        style={({ pressed }) => [styles.headerPoints, pressed && { opacity: 0.7 }]}
+        accessibilityLabel={
+          points === null ? t.pointsScreenTitle : fill(t.pointsBadgeLabel, { points })
+        }
+        style={({ pressed }) => [styles.headerPoints, pressed && { opacity: 0.8 }]}
       >
-        <Text style={styles.headerPointsText} numberOfLines={1}>
-          {fill(t.pointsBadge, { points })}
-        </Text>
+        <View style={styles.headerPointsBody}>
+          <Text
+            style={styles.headerPointsGift}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          >
+            🎁
+          </Text>
+          <CartoonTitle text={t.pointsBadgeWord} size={15} />
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.ink} />
       </Pressable>
     </Animated.View>
   );
@@ -748,19 +744,25 @@ const styles = StyleSheet.create({
    *  at 96 so a four-figure balance still cannot squeeze the venue
    *  name out of the middle — the title truncates itself long before
    *  that, and `adjustsFontSizeToFit` covers the rest. */
-  headerEndWide: { width: "auto", minWidth: HEADER_SLOT, maxWidth: 96 },
+  headerEndWide: { width: "auto", minWidth: HEADER_SLOT, maxWidth: 110 },
+  /** White card on the red, as in the owner's mock. */
   headerPoints: {
-    height: 32,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    borderRadius: radius.pill,
-    // Gold at 18% over the brand red: present enough to read as a
-    // control, quiet enough not to compete with the venue's name.
-    backgroundColor: "rgba(232, 193, 92, 0.18)",
-    borderWidth: 1,
-    borderColor: "rgba(232, 193, 92, 0.55)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    paddingVertical: 4,
+    paddingStart: 6,
+    paddingEnd: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  headerPointsText: { color: colors.cream, ...fonts.bodyHeavy, fontSize: 12.5 },
+  headerPointsBody: { alignItems: "center" },
+  headerPointsGift: { fontSize: 18, lineHeight: 21 },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
    *  never shifts the title off centre. */
