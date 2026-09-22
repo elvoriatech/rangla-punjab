@@ -877,7 +877,7 @@ const en = {
     vegan: "Vegan",
     gluten_free: "Gluten-free",
     dairy_free: "Dairy-free",
-    halal: "Halal",
+    halal: "Helal",
   },
 };
 
@@ -1623,7 +1623,7 @@ const de: Strings = {
     vegan: "Vegan",
     gluten_free: "Glutenfrei",
     dairy_free: "Laktosefrei",
-    halal: "Halal",
+    halal: "Helal",
   },
 };
 
@@ -2368,7 +2368,7 @@ const fr: Strings = {
     vegan: "Végétalien",
     gluten_free: "Sans gluten",
     dairy_free: "Sans lactose",
-    halal: "Halal",
+    halal: "Helal",
   },
 };
 
@@ -3112,7 +3112,7 @@ const it: Strings = {
     vegan: "Vegano",
     gluten_free: "Senza glutine",
     dairy_free: "Senza lattosio",
-    halal: "Halal",
+    halal: "Helal",
   },
 };
 
@@ -3853,7 +3853,7 @@ const es: Strings = {
     vegan: "Vegano",
     gluten_free: "Sin gluten",
     dairy_free: "Sin lactosa",
-    halal: "Halal",
+    halal: "Helal",
   },
 };
 
