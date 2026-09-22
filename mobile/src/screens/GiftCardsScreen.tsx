@@ -96,16 +96,15 @@ export function GiftCardsScreen({
   const [shop, setShop] = useState<GiftCardShop | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
-  /** "Other amount" is chosen: the guest types their own value, and the
-   *  card is issued on the first design's artwork. */
+  /** The guest typed their own value (no card matches it): neither card
+   *  is highlighted, and the card is issued on the first design's art. */
   const [other, setOther] = useState(false);
   const amountRef = useRef<TextInput>(null);
-  /** The tile row's measured width: each of the three tiles gets exactly
-   *  a third (less the two gaps), so they are identical boxes whatever
-   *  their text is. 0 until measured — the row renders at natural width
-   *  for that first frame. */
+  /** The tile row's measured width: the two cards split it exactly (less
+   *  the gap), so they are identical boxes whatever their text is. 0
+   *  until measured — natural width for that first frame. */
   const [rowWidth, setRowWidth] = useState(0);
-  const tileWidth = rowWidth > 0 ? Math.floor((rowWidth - 2 * TILE_GAP) / 3) : undefined;
+  const tileWidth = rowWidth > 0 ? Math.floor((rowWidth - TILE_GAP) / 2) : undefined;
   /** Whole euros, as TYPED — the string, not a number, so "0" and ""
    *  stay distinguishable and a half-typed "1" is not yet an error. */
   const [amount, setAmount] = useState("");
@@ -433,9 +432,8 @@ export function GiftCardsScreen({
               <Text style={styles.lead}>{t.giftCardsLead}</Text>
               {notice ? <Text style={styles.discount}>{notice}</Text> : null}
 
-              {/* The two designs and "Other amount", side by side — all
-                  three in view, nothing hidden off-screen to swipe to. A
-                  radio group rather than a list: exactly one is bought. */}
+              {/* The two designs, side by side. Tapping one fills its value
+                  into the amount field; any other value is typed there. */}
               <View
                 style={styles.tileRow}
                 accessibilityRole="radiogroup"
@@ -460,20 +458,6 @@ export function GiftCardsScreen({
                     }}
                   />
                 ))}
-                <OtherAmountTile
-                  width={tileWidth}
-                  hint={`${Math.round(minCents / 100)} – ${Math.round(maxCents / 100)} ${currency === "EUR" ? "€" : currency}`}
-                  discount={discount}
-                  selected={other}
-                  onPress={() => {
-                    setOther(true);
-                    setProductId(null);
-                    setAmount("");
-                    setAmountTouched(false);
-                    setError(null);
-                    amountRef.current?.focus();
-                  }}
-                />
               </View>
 
               {/* THE AMOUNT — the one required field on this form, so it
@@ -688,46 +672,6 @@ function DiscountBadge({ percent }: { percent: number }): React.ReactElement | n
   );
 }
 
-/** The last tile: the guest names their own value. */
-function OtherAmountTile({
-  hint,
-  discount,
-  width,
-  selected,
-  onPress,
-}: {
-  hint: string;
-  discount: number;
-  width: number | undefined;
-  selected: boolean;
-  onPress: () => void;
-}): React.ReactElement {
-  const { t } = useI18n();
-  const press = usePressScale(0.96);
-  return (
-    <Animated.View style={[press.style, styles.tileCell, width ? { width } : null]}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={press.onPressIn}
-        onPressOut={press.onPressOut}
-        accessibilityRole="radio"
-        accessibilityState={{ selected }}
-        accessibilityLabel={`${t.giftCardOtherAmount} · ${hint}`}
-        style={[styles.tile, selected && styles.tileOn]}
-      >
-        <View style={[styles.tileArt, styles.tileArtFallback]}>
-          <Ionicons name="create-outline" size={30} color={colors.red} />
-        </View>
-        <DiscountBadge percent={discount} />
-        <Text style={styles.tileName} numberOfLines={2}>
-          {t.giftCardOtherAmount}
-        </Text>
-        <Text style={styles.tilePrice}>{hint}</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 function ProductTile({
   product,
   currency,
@@ -780,10 +724,9 @@ const styles = StyleSheet.create({
   lead: { color: colors.inkSoft, ...fonts.body, fontSize: 13.5, lineHeight: 19 },
   disabled: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13.5, marginTop: 24 },
   boughtTitle: { color: colors.ink, ...fonts.display, fontSize: 22 },
-  /** `stretch` gives all three the tallest one's height. */
+  /** `stretch` gives both cards the taller one's height. */
   tileRow: { flexDirection: "row", alignItems: "stretch", gap: TILE_GAP, paddingVertical: 4 },
-  /** A third of the row each, so all three always fit. The scaling
-   *  wrapper is the row's child, so IT takes the flex. */
+  /** Sized by the measured row (see `tileWidth`). */
   tileCell: { minWidth: 0 },
   tile: {
     flex: 1,
@@ -807,15 +750,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.goldSoft,
   },
-  badgeText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 11 },
-  tileArt: { width: "100%", height: 84, borderRadius: radius.md, backgroundColor: colors.line },
+  badgeText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 12 },
+  tileArt: { width: "100%", height: 104, borderRadius: radius.md, backgroundColor: colors.line },
   tileArtFallback: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.cream,
   },
-  tileName: { color: colors.ink, ...fonts.bodyBold, fontSize: 13 },
-  tilePrice: { color: colors.red, ...fonts.bodyHeavy, fontSize: 14 },
+  tileName: { color: colors.ink, ...fonts.bodyBold, fontSize: 13.5 },
+  tilePrice: { color: colors.red, ...fonts.bodyHeavy, fontSize: 15 },
   label: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
   hint: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The amount field is a ROW — the input plus a fixed unit — so the
