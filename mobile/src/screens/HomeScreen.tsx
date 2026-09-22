@@ -34,15 +34,6 @@ import { DishSheet } from "../dish-sheet";
  * dishes.
  */
 
-// The design's hero: text on the red wave, a signature dish on the
-// right — rotating through the house plates every few seconds.
-const HERO_SLIDES = [
-  require("../../assets/carousel/hero-biryani.png"),
-  require("../../assets/carousel/hero-kebab.png"),
-  require("../../assets/carousel/hero-karahi.png"),
-  require("../../assets/carousel/hero-biryani-2.png"),
-];
-
 /**
  * The hero, and the venue's open/closed pill in its top-end corner.
  *
@@ -84,10 +75,21 @@ function HeroCarousel({
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   const scroller = useRef<ScrollView>(null);
-  const slides: { source: ImageSourcePropType; kind: "dish" | "banner" }[] =
+  /**
+   * The venue's slides, or — when it has none — ONE plain slide: the red
+   * artwork and the welcome line, no image at all.
+   *
+   * That fallback used to be four cut-out plates bundled in the app,
+   * 2.8 MB of PNG every guest downloaded with the binary whether their
+   * venue showed them or not. The slider is posters now (owner,
+   * 2026-09-22) and a poster is the venue's own artwork, which the app
+   * cannot carry for it — so the empty case is the one slide that needs
+   * no download rather than a set of stock dishes.
+   */
+  const slides: { source: ImageSourcePropType | null; kind: "dish" | "banner" }[] =
     photos.length > 0
       ? photos.map((p) => ({ source: { uri: p.url }, kind: p.kind }))
-      : HERO_SLIDES.map((source) => ({ source, kind: "dish" as const }));
+      : [{ source: null, kind: "dish" as const }];
   const count = slides.length;
   /**
    * With a banner in the set, the hero takes the posters' own 2 : 1 shape
@@ -116,6 +118,26 @@ function HeroCarousel({
     return () => clearInterval(id);
   }, [width, count]);
 
+  /**
+   * How many slides may fetch their image yet.
+   *
+   * A poster is ~120 KB and the slider carries four of them; mounting
+   * every `Image` at once puts half a megabyte on the wire at exactly
+   * the moment the menu payload, the category medallions and the dish
+   * photos are competing for it — on a phone outside the restaurant's
+   * wifi that is the whole first impression. So the hero fetches the
+   * slide on screen and the one after it, and reaches for the next only
+   * as the pager gets there (which the 3.5 s rotation does on its own).
+   * The empty slides keep their full width, so the paging arithmetic and
+   * the dots are unchanged.
+   */
+  const [ready, setReady] = useState(2);
+  useEffect(() => {
+    setReady((current) => Math.max(current, page + 2));
+  }, [page]);
+  // A new set of slides starts the window over with the new first slide.
+  useEffect(() => setReady(2), [slidesKey]);
+
   return (
     <ImageBackground
       source={hero}
@@ -141,36 +163,44 @@ function HeroCarousel({
         }}
       >
         {slides.map((slide, i) =>
-          slide.kind === "banner" ? (
+          slide.kind === "banner" && slide.source ? (
             <View key={i} style={[styles.heroBannerSlide, width ? { width } : null]}>
               {/* The whole poster, edge to edge: the hero matches its 2 : 1
                   shape, so its headline and small print all show. */}
-              <Image
-                source={slide.source}
-                style={styles.heroBanner}
-                resizeMode="cover"
-                accessibilityIgnoresInvertColors
-              />
+              {i < ready ? (
+                <Image
+                  source={slide.source}
+                  style={styles.heroBanner}
+                  resizeMode="cover"
+                  accessibilityIgnoresInvertColors
+                />
+              ) : null}
             </View>
           ) : (
             <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
               <Text style={styles.heroText}>{text}</Text>
-              <Image
-                source={slide.source}
-                // The taller hero gets a bigger plate, so the slide isn't
-                // an empty red field around the same small dish.
-                style={[styles.heroDish, heroHeight ? styles.heroDishLarge : null]}
-                resizeMode="contain"
-              />
+              {slide.source ? (
+                <Image
+                  source={slide.source}
+                  // The taller hero gets a bigger plate, so the slide isn't
+                  // an empty red field around the same small dish.
+                  style={[styles.heroDish, heroHeight ? styles.heroDishLarge : null]}
+                  resizeMode="contain"
+                />
+              ) : null}
             </View>
           ),
         )}
       </ScrollView>
-      <View style={styles.heroDots} pointerEvents="none">
-        {Array.from({ length: count }, (_, i) => (
-          <View key={i} style={[styles.heroDot, i === page && styles.heroDotActive]} />
-        ))}
-      </View>
+      {/* A pager with one page is not a pager: a lone dot reads as a
+          control that does nothing. */}
+      {count > 1 ? (
+        <View style={styles.heroDots} pointerEvents="none">
+          {Array.from({ length: count }, (_, i) => (
+            <View key={i} style={[styles.heroDot, i === page && styles.heroDotActive]} />
+          ))}
+        </View>
+      ) : null}
       {/* The hero's top-end corner. The points badge used to stack
           under this pill; it lives in the red header now, where it is
           on every screen rather than only this one — so the corner is
@@ -320,7 +350,9 @@ export function HomeScreen({
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader
         title={venueLines.line1}
-        subtitle={venueLines.line2 ?? t.restaurant}
+        // The one bar that carries the restaurant's own name, so the one
+        // that sets it in the restaurant's own letters.
+        sticker
         onMenu={onOpenOwnerMenu}
         rating={menu.rating ?? null}
         // `useLoyalty` already answers null when the guest is signed out

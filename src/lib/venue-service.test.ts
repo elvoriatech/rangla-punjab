@@ -170,31 +170,22 @@ describe("venue-service (owner dashboard)", () => {
     expect(venue.value.branding.logoKey).toBeNull();
   });
 
-  it("a fresh venue's slider holds the six built-ins, and any can be swapped out", async () => {
+  it("a fresh venue's slider holds the four German posters, and any can be swapped out", async () => {
     const { userId } = await signupWithVenue();
     const r = await getVenueForUser(userId);
     expect(r.ok && r.value.branding.heroSlides).toEqual([
       "builtin:points-de",
-      "builtin:hero-biryani",
-      "builtin:hero-kebab",
-      "builtin:hero-karahi",
-      "builtin:hero-biryani-2",
-      "builtin:points-en",
+      "builtin:welcome-de",
+      "builtin:giftcard-de",
+      "builtin:service-de",
     ]);
-    // Full at six: a seventh is refused until one goes.
-    expect(await updateVenueHeroSlides(userId, { op: "add", key: "t/new" })).toEqual({
-      ok: false,
-      error: "full",
-    });
-    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:hero-kebab" });
+    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:giftcard-de" });
     await updateVenueHeroSlides(userId, { op: "add", key: "t/new" });
     const after = await getVenueForUser(userId);
     expect(after.ok && after.value.branding.heroSlides).toEqual([
       "builtin:points-de",
-      "builtin:hero-biryani",
-      "builtin:hero-karahi",
-      "builtin:hero-biryani-2",
-      "builtin:points-en",
+      "builtin:welcome-de",
+      "builtin:service-de",
       "t/new",
     ]);
   });
@@ -202,14 +193,7 @@ describe("venue-service (owner dashboard)", () => {
   it("updateVenueHeroSlides adds, reorders and removes slides in order", async () => {
     const { userId } = await signupWithVenue();
     // Start from an empty slider so the order under test is ours alone.
-    for (const d of [
-      "points-de",
-      "hero-biryani",
-      "hero-kebab",
-      "hero-karahi",
-      "hero-biryani-2",
-      "points-en",
-    ]) {
+    for (const d of ["points-de", "welcome-de", "giftcard-de", "service-de"]) {
       await updateVenueHeroSlides(userId, { op: "remove", key: `builtin:${d}` });
     }
     for (const key of ["t/a", "t/b", "t/c"]) {
@@ -236,9 +220,7 @@ describe("venue-service (owner dashboard)", () => {
 
   it("updateVenueHeroSlides refuses a seventh slide and an empty key", async () => {
     const { userId } = await signupWithVenue();
-    // Six built-ins fill it; drop two, and two uploads fill it again.
-    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:points-de" });
-    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:points-en" });
+    // Four built-ins to start; two uploads fill the slider to its six.
     for (let i = 0; i < 2; i += 1) {
       expect((await updateVenueHeroSlides(userId, { op: "add", key: `t/${i}` })).ok).toBe(true);
     }
@@ -254,17 +236,15 @@ describe("venue-service (owner dashboard)", () => {
 
   it("slides survive saving other branding (logo, appearance)", async () => {
     const { userId } = await signupWithVenue();
-    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:hero-kebab" });
+    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:welcome-de" });
     await updateVenueHeroSlides(userId, { op: "add", key: "t/keep" });
     await updateVenueLogo(userId, "t/logo");
     await updateVenueAppearance(userId, { theme: "ivory-day", texture: "jali" });
     const r = await getVenueForUser(userId);
     expect(r.ok && r.value.branding.heroSlides).toEqual([
       "builtin:points-de",
-      "builtin:hero-biryani",
-      "builtin:hero-karahi",
-      "builtin:hero-biryani-2",
-      "builtin:points-en",
+      "builtin:giftcard-de",
+      "builtin:service-de",
       "t/keep",
     ]);
   });

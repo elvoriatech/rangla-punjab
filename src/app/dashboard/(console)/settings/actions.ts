@@ -14,7 +14,12 @@ import { getSessionUserId, setSessionCookie } from "@/lib/auth";
 import { changeUserPassword } from "@/lib/auth-service";
 import { clientIp } from "@/lib/client-ip";
 import { saveUploadedImage } from "@/lib/media-service";
-import { HERO_BANNER_STORAGE, HERO_SLIDE_STORAGE, bannerSlideKey } from "@/lib/hero-slides";
+import {
+  BUILT_IN_SLIDES,
+  HERO_BANNER_STORAGE,
+  HERO_SLIDE_STORAGE,
+  bannerSlideKey,
+} from "@/lib/hero-slides";
 import { checkRateLimit, GOOGLE_LOOKUP_IP, PASSWORD_CHANGE_IP } from "@/lib/rate-limit";
 import { searchPlaces } from "@/lib/google-rating";
 import {
@@ -176,6 +181,24 @@ export async function addHeroBannerAction(form: FormData): Promise<void> {
   });
   if (!result.ok && result.error === "full") return finish(userId, false, "slide-full");
   return finish(userId, result.ok, "slide");
+}
+
+/**
+ * Puts one of the app's own posters back in the slider.
+ *
+ * The name is checked against the catalogue rather than trusted: a
+ * `builtin:` key that names no file would render a broken slide in every
+ * guest's app, and this form posts a name straight from the browser.
+ */
+export async function addBuiltInSlideAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const name = String(form.get("name") ?? "");
+  if (!BUILT_IN_SLIDES.some((s) => s.name === name)) {
+    return finish(userId, false, "slide-builtin");
+  }
+  const result = await updateVenueHeroSlides(userId, { op: "add", key: `builtin:${name}` });
+  if (!result.ok && result.error === "full") return finish(userId, false, "slide-full");
+  return finish(userId, result.ok, "slide-builtin");
 }
 
 export async function removeHeroSlideAction(form: FormData): Promise<void> {

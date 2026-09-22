@@ -26,17 +26,18 @@ import { MAX_APP_LINK_LENGTH } from "@/lib/app-links-config";
 import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
 import { uploadedImageUrl } from "@/lib/menu-images";
 import {
-  BUILT_IN_DISHES,
   MAX_HERO_SLIDES,
   builtInLabel,
   heroSlideKind,
   heroSlideUrl,
+  unusedBuiltInSlides,
 } from "@/lib/hero-slides";
 import { siteUrl } from "@/lib/public-menu";
 import { DeliveryAreasEditor } from "./delivery-areas-editor";
 import type { PlaceSuggestion } from "@/lib/google-rating";
 import { OWNER_PASSWORD_MIN_LENGTH } from "@/lib/auth-service";
 import {
+  addBuiltInSlideAction,
   addHeroBannerAction,
   addHeroSlideAction,
   changePasswordAction,
@@ -131,6 +132,13 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
     saved: "Slide added. The app shows it the next time its home screen refreshes.",
     error: "That image didn't upload. Use a JPEG, PNG, or WebP up to 10 MB.",
   },
+  /** The built-in picker. Its failure is never a bad upload — it is a
+   *  name that is not in the catalogue, which only a tampered form can
+   *  produce. */
+  "slide-builtin": {
+    saved: "Poster added. The app shows it the next time its home screen refreshes.",
+    error: "That isn't one of the built-in posters — pick one from the list and try again.",
+  },
   "slide-full": {
     error: `The slider is full (${MAX_HERO_SLIDES} slides). Remove one before adding another.`,
   },
@@ -155,8 +163,8 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
     error: "Couldn't save loyalty — check the points and amounts and try again.",
   },
   halal: {
-    saved: "Saved. The Halal filter and badge now match your choice on the public menu.",
-    error: "Couldn't save the Halal setting — try again.",
+    saved: "Saved. The Helal filter and badge now match your choice on the public menu.",
+    error: "Couldn't save the Helal setting — try again.",
   },
   // Gift cards. The switch and the three designs save separately, so each
   // says which of the two took — an owner who has just uploaded a picture
@@ -374,6 +382,8 @@ export default async function SettingsPage({
   if (!venueResult.ok) redirect("/dashboard");
   const venue = venueResult.value;
   const slides = venue.branding.heroSlides ?? [];
+  /** Built-in posters this slider is not already carrying — the picker. */
+  const spare = unusedBuiltInSlides(slides);
   const orderingResult = await getOrderingSettings(userId);
   const hoursResult = await getVenueHours(userId);
   const venueHours = hoursResult.ok ? hoursResult.value : null;
@@ -591,9 +601,9 @@ export default async function SettingsPage({
         </div>
       </section>
 
-      {/* App home slider. The slides that rotate at the top of the mobile
-          app's home screen: dishes (on the red hero) and banners (full
-          slide). Empty = the four dishes built into the app. */}
+      {/* App home slider. The posters that rotate at the top of the mobile
+          app's home screen. Empty = no slider at all, just the app's plain
+          red welcome hero. */}
       <section
         aria-labelledby="slider-title"
         className="mt-6 border border-ink/15 bg-card px-6 py-5"
@@ -602,22 +612,20 @@ export default async function SettingsPage({
           App home slider
         </p>
         <p className="mt-1 text-xs text-muted">
-          The slides that rotate at the top of the app&apos;s home screen, in this order — up to{" "}
-          {MAX_HERO_SLIDES}. Two kinds: a <strong>dish</strong> sits on the red banner next to the
-          welcome line (the usual look), a <strong>banner</strong> is a finished poster that fills
-          the whole slide. The built-in slides are listed until you change them; keep, reorder, or
-          remove any of them.
+          The posters that rotate at the top of the app&apos;s home screen, in this order — up to{" "}
+          {MAX_HERO_SLIDES}. The restaurant&apos;s own German posters are built in and listed below;
+          keep, reorder or remove any of them, add one back from the picker, or upload your own.
         </p>
         <ul className="mt-1 list-disc pl-5 text-xs text-ink">
-          <li>
-            <strong>Dish:</strong> a PNG with a <strong>transparent background</strong> (just the
-            plate), about <strong>700 × 700 px</strong>. Stored at max 800&nbsp;px; phones download
-            ~20–60&nbsp;KB.
-          </li>
           <li>
             <strong>Banner:</strong> a wide poster, <strong>2 : 1</strong> (e.g. 1600 × 800 px). It
             is shown whole, so keep the text large. Stored at max 1600&nbsp;px; phones download
             ~100–150&nbsp;KB.
+          </li>
+          <li>
+            <strong>Dish:</strong> the older look — a PNG with a{" "}
+            <strong>transparent background</strong> (just the plate, about 700 × 700 px), shown on
+            the red hero next to the welcome line. Stored at max 800&nbsp;px.
           </li>
         </ul>
 
@@ -687,18 +695,42 @@ export default async function SettingsPage({
         ) : (
           <div className="mt-4 border border-dashed border-ink/20 px-4 py-3">
             <p className="text-xs text-muted">
-              You removed every slide, so the app is showing its four built-in dishes again. Add a
-              dish or a banner to replace them.
+              You removed every slide, so the app&apos;s home screen shows the plain red welcome
+              hero — no poster, and nothing to download. Add a built-in poster back below, or upload
+              your own.
             </p>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {BUILT_IN_DISHES.map((d) => (
-                <li key={d.name}>
-                  <SlidePreview src={`/app-slider/${d.name}.webp`} alt={d.label} />
-                </li>
-              ))}
-            </ul>
           </div>
         )}
+
+        {slides.length < MAX_HERO_SLIDES && spare.length > 0 ? (
+          /* The way back to a built-in poster. The defaults only seed a
+             venue that never touched its slider, so without this the
+             catalogue would be write-once: remove a poster (or ship a new
+             one after an owner has already arranged their slider) and
+             nobody could put it in place. */
+          <form action={addBuiltInSlideAction} className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="block text-sm">
+              <span className="font-medium">Add a built-in poster</span>
+              <select
+                name="name"
+                defaultValue={spare[0]!.name}
+                className="mt-1 block min-w-64 border border-ink/25 bg-card px-3 py-2 text-sm"
+              >
+                {spare.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <SubmitButton
+              pendingLabel="Adding…"
+              className="bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+            >
+              Add poster
+            </SubmitButton>
+          </form>
+        ) : null}
 
         {slides.length < MAX_HERO_SLIDES ? (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -1928,7 +1960,7 @@ export default async function SettingsPage({
         <p className="text-sm font-medium">Diet filters</p>
         <p className="mt-1 text-xs text-muted">
           Vegetarian, vegan, gluten-free, and dairy-free filters are always available to guests.
-          Halal is your call — enable it only if your kitchen can stand behind it.
+          Helal is your call — enable it only if your kitchen can stand behind it.
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input
@@ -1938,7 +1970,7 @@ export default async function SettingsPage({
             className="accent-orange"
           />
           <span>
-            Offer the Halal filter and badge <span className="text-muted">(حلال)</span>
+            Offer the Helal filter and badge <span className="text-muted">(حلال)</span>
           </span>
         </label>
         <SubmitButton

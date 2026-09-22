@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILT_IN_SLIDES,
   DEFAULT_HERO_SLIDES,
   MAX_HERO_SLIDES,
   bannerSlideKey,
@@ -8,19 +9,18 @@ import {
   heroSlideKind,
   heroSlideUrl,
   heroSlidesOf,
+  unusedBuiltInSlides,
 } from "./hero-slides";
 
 describe("heroSlidesOf", () => {
-  it("starts an untouched venue on German banner → four dishes → English banner", () => {
+  it("starts an untouched venue on the four German posters", () => {
     expect(heroSlidesOf(undefined)).toEqual([
       "builtin:points-de",
-      "builtin:hero-biryani",
-      "builtin:hero-kebab",
-      "builtin:hero-karahi",
-      "builtin:hero-biryani-2",
-      "builtin:points-en",
+      "builtin:welcome-de",
+      "builtin:giftcard-de",
+      "builtin:service-de",
     ]);
-    expect(DEFAULT_HERO_SLIDES).toHaveLength(MAX_HERO_SLIDES);
+    expect(DEFAULT_HERO_SLIDES.length).toBeLessThanOrEqual(MAX_HERO_SLIDES);
   });
 
   it("keeps an explicitly emptied list empty", () => {
@@ -28,11 +28,17 @@ describe("heroSlidesOf", () => {
   });
 
   it("keeps valid keys in order and drops junk and unknown built-ins", () => {
-    expect(heroSlidesOf(["a", "", 3, null, "builtin:hero-kebab", "builtin:../x", "b"])).toEqual([
+    expect(heroSlidesOf(["a", "", 3, null, "builtin:points-en", "builtin:../x", "b"])).toEqual([
       "a",
-      "builtin:hero-kebab",
+      "builtin:points-en",
       "b",
     ]);
+  });
+
+  it("drops the retired dish built-ins a venue may still have stored", () => {
+    expect(
+      heroSlidesOf(["builtin:points-de", "builtin:hero-kebab", "builtin:hero-biryani"]),
+    ).toEqual(["builtin:points-de"]);
   });
 
   it("reads anything else that isn't an array as no slides", () => {
@@ -48,17 +54,17 @@ describe("heroSlidesOf", () => {
 
 describe("heroSlideUrl", () => {
   it("serves built-ins from /app-slider and uploads through /img", () => {
-    expect(heroSlideUrl("builtin:hero-karahi", 480)).toBe("/app-slider/hero-karahi.webp");
+    expect(heroSlideUrl("builtin:giftcard-de", 1280)).toBe("/app-slider/giftcard-de.webp");
     expect(heroSlideUrl("t/uploads/x", 480)).toBe("/img/t%2Fuploads%2Fx?w=480");
-    expect(builtInLabel("builtin:hero-karahi")).toBe("Karahi");
+    expect(builtInLabel("builtin:giftcard-de")).toBe("Gift-card banner (German)");
     expect(builtInLabel("t/uploads/x")).toBeNull();
   });
 });
 
 describe("slide kinds", () => {
-  it("tells banners from dishes, built-in or uploaded", () => {
+  it("makes every built-in a banner, and tells uploads apart", () => {
+    expect(BUILT_IN_SLIDES.every((s) => s.kind === "banner")).toBe(true);
     expect(heroSlideKind("builtin:points-de")).toBe("banner");
-    expect(heroSlideKind("builtin:hero-kebab")).toBe("dish");
     expect(heroSlideKind(bannerSlideKey("t/uploads/p"))).toBe("banner");
     expect(heroSlideKind("t/uploads/d")).toBe("dish");
   });
@@ -69,5 +75,14 @@ describe("slide kinds", () => {
     expect(heroSlideUrl(key, heroSlideFetchWidth(key))).toBe("/img/t%2Fuploads%2Fp?w=1280");
     expect(heroSlideFetchWidth("t/uploads/d")).toBe(480);
     expect(heroSlidesOf(["banner:"])).toEqual([]);
+  });
+});
+
+describe("the built-in picker", () => {
+  it("offers exactly the posters the slider isn't already carrying", () => {
+    expect(unusedBuiltInSlides([...DEFAULT_HERO_SLIDES]).map((b) => b.name)).toEqual(["points-en"]);
+    expect(unusedBuiltInSlides([]).map((b) => b.name)).toEqual(BUILT_IN_SLIDES.map((b) => b.name));
+    // An upload never hides a built-in from the picker.
+    expect(unusedBuiltInSlides(["t/uploads/x"])).toHaveLength(BUILT_IN_SLIDES.length);
   });
 });

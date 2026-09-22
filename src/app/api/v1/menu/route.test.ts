@@ -245,23 +245,16 @@ describe("GET /api/v1/menu — ?locale", () => {
 
   it("sends the home slider as absolute { url, kind } in order", async () => {
     const fx = await fixture();
-    // Untouched venue: German banner, the four dishes, English banner.
+    // Untouched venue: the four German posters, every one a banner.
     const defaults = (await read(fx.slug)).venue.heroSlides;
-    expect(defaults.map((s) => s.kind)).toEqual([
-      "banner",
-      "dish",
-      "dish",
-      "dish",
-      "dish",
-      "banner",
-    ]);
+    expect(defaults.map((s) => s.kind)).toEqual(["banner", "banner", "banner", "banner"]);
     expect(defaults[0]!.url).toMatch(/^https?:\/\/.+\/app-slider\/points-de\.webp$/);
-    expect(defaults[5]!.url).toMatch(/\/app-slider\/points-en\.webp$/);
+    expect(defaults[2]!.url).toMatch(/\/app-slider\/giftcard-de\.webp$/);
 
     await asTenant(fx.tenantId, (tx) =>
       tx.venue.updateMany({
         data: {
-          branding: { heroSlides: ["t/uploads/b", "builtin:hero-kebab", "banner:t/uploads/p"] },
+          branding: { heroSlides: ["t/uploads/b", "builtin:service-de", "banner:t/uploads/p"] },
         },
       }),
     );
@@ -269,12 +262,12 @@ describe("GET /api/v1/menu — ?locale", () => {
     expect(slides).toHaveLength(3);
     expect(slides[0]).toMatchObject({ kind: "dish" });
     expect(slides[0]!.url).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=480$/);
-    expect(slides[1]!.url).toMatch(/\/app-slider\/hero-kebab\.webp$/);
+    expect(slides[1]!.url).toMatch(/\/app-slider\/service-de\.webp$/);
     expect(slides[2]).toMatchObject({ kind: "banner" });
     expect(slides[2]!.url).toMatch(/\/img\/t%2Fuploads%2Fp\?w=1280$/);
 
-    // The owner removed every slide: an empty list, and the app's own
-    // bundled dishes take over.
+    // The owner removed every slide: an empty list, and the app falls back
+    // to its plain red welcome hero.
     await asTenant(fx.tenantId, (tx) =>
       tx.venue.updateMany({ data: { branding: { heroSlides: [] } } }),
     );
