@@ -210,7 +210,8 @@ export function BrandHeader({
 /**
  * The POINTS badge in the header's end corner (owner's mock, 2026-09-22):
  * a white rounded card with the gift, the word in the sticker lettering
- * (`CartoonTitle`), and a chevron — it opens "My Points".
+ * (`CartoonTitle`) — it opens "My Points". Compact (owner, 2026-09-22):
+ * no chevron, small gift, so it sits inside the header's corner.
  *
  * No number on the badge itself, as in the mock; the balance is the first
  * thing the page it opens shows, and the spoken label still carries it
@@ -248,9 +249,8 @@ function HeaderPointsPill({
           >
             🎁
           </Text>
-          <CartoonTitle text={t.pointsBadgeWord} size={15} />
+          <CartoonTitle text={t.pointsBadgeWord} size={12} />
         </View>
-        <Ionicons name="chevron-forward" size={16} color={colors.ink} />
       </Pressable>
     </Animated.View>
   );
@@ -749,12 +749,11 @@ const styles = StyleSheet.create({
   headerPoints: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    paddingVertical: 4,
-    paddingStart: 6,
-    paddingEnd: 4,
+    borderRadius: 9,
+    paddingVertical: 3,
+    paddingHorizontal: 5,
     shadowColor: "#000",
     shadowOpacity: 0.18,
     shadowRadius: 4,
@@ -762,7 +761,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   headerPointsBody: { alignItems: "center" },
-  headerPointsGift: { fontSize: 18, lineHeight: 21 },
+  headerPointsGift: { fontSize: 14, lineHeight: 17 },
   headerLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cream },
   /** Same 40pt footprint as the logo, so swapping either slot in or out
    *  never shifts the title off centre. */

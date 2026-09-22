@@ -34,6 +34,11 @@ export function CartoonTitle({
   const rim = Math.max(3, size * 0.3);
   const outline = Math.max(2, size * 0.16);
   const pad = Math.ceil(rim / 2) + 1;
+  // Android draws Luckiest Guy a little wider in SVG than the <Text> ruler
+  // measures it, which clipped the last letter ("POINT" for "POINTS").
+  // The text is drawn CENTRED with this much spare room, so any mismatch
+  // is shared out to both sides instead of falling off the end.
+  const slack = Math.ceil(size * 0.35);
   // Luckiest Guy sits high in its line box: cap height ≈ 0.75 em.
   const height = Math.ceil(size * 1.05 + pad * 2);
   const baseline = pad + size * 0.86;
@@ -50,7 +55,7 @@ export function CartoonTitle({
 
   return (
     <View
-      style={[{ height, width: width ? width + pad * 2 : undefined }, style]}
+      style={[{ height, width: width ? width + pad * 2 + slack : undefined }, style]}
       accessible
       accessibilityRole="header"
       accessibilityLabel={text}
@@ -71,7 +76,7 @@ export function CartoonTitle({
         {text}
       </Text>
       {width > 0 ? (
-        <Svg width={width + pad * 2} height={height}>
+        <Svg width={width + pad * 2 + slack} height={height}>
           <Defs>
             <LinearGradient id="lime" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor="#F0FF4D" />
@@ -85,7 +90,8 @@ export function CartoonTitle({
           ].map((layer, i) => (
             <SvgText
               key={i}
-              x={pad}
+              x={(width + pad * 2 + slack) / 2}
+              textAnchor="middle"
               y={baseline}
               fontFamily={CARTOON_FONT}
               fontSize={size}
