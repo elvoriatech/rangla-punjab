@@ -70,25 +70,40 @@ const HERO_SLIDES = [
 function HeroCarousel({
   text,
   openNow,
+  photos,
 }: {
   text: string;
   openNow: boolean | null;
+  /** The owner's own slides (Dashboard → Settings → App home slider).
+   *  Non-empty ⇒ they replace the built-in plates entirely, each shown
+   *  full-bleed and as-is: an owner's promo image carries its own words,
+   *  so the headline and scrim stay off it. */
+  photos: string[];
 }): React.ReactElement {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   const scroller = useRef<ScrollView>(null);
+  const custom = photos.length > 0;
+  const count = custom ? photos.length : HERO_SLIDES.length;
+  // A different set of slides (the owner just added or removed one) must
+  // not leave the pager parked past the new last page.
+  const slidesKey = photos.join("|");
+  useEffect(() => {
+    setPage(0);
+    scroller.current?.scrollTo({ x: 0, animated: false });
+  }, [slidesKey]);
 
   useEffect(() => {
-    if (!width) return;
+    if (!width || count < 2) return;
     const id = setInterval(() => {
       setPage((current) => {
-        const next = (current + 1) % HERO_SLIDES.length;
+        const next = (current + 1) % count;
         scroller.current?.scrollTo({ x: next * width, animated: true });
         return next;
       });
     }, 3500);
     return () => clearInterval(id);
-  }, [width]);
+  }, [width, count]);
 
   return (
     <ImageBackground
@@ -103,7 +118,7 @@ function HeroCarousel({
       {/* The artwork is the venue's own now, so its brightness is unknown at
           build time — the generated scrim is what keeps the headline legible
           over a pale backdrop as well as a dark one. */}
-      <View style={styles.heroScrim} pointerEvents="none" />
+      {custom ? null : <View style={styles.heroScrim} pointerEvents="none" />}
       <ScrollView
         ref={scroller}
         style={styles.heroScroll}
@@ -114,15 +129,28 @@ function HeroCarousel({
           if (width) setPage(Math.round(e.nativeEvent.contentOffset.x / width));
         }}
       >
-        {HERO_SLIDES.map((src, i) => (
-          <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
-            <Text style={styles.heroText}>{text}</Text>
-            <Image source={src} style={styles.heroDish} resizeMode="contain" />
-          </View>
-        ))}
+        {custom
+          ? photos.map((uri, i) => (
+              <View key={uri} style={[styles.heroPhotoSlide, width ? { width } : null]}>
+                <Image
+                  source={{ uri }}
+                  style={styles.heroPhoto}
+                  resizeMode="cover"
+                  accessibilityIgnoresInvertColors
+                  accessible
+                  accessibilityLabel={`${text} (${i + 1}/${photos.length})`}
+                />
+              </View>
+            ))
+          : HERO_SLIDES.map((src, i) => (
+              <View key={i} style={[styles.heroSlide, width ? { width } : null]}>
+                <Text style={styles.heroText}>{text}</Text>
+                <Image source={src} style={styles.heroDish} resizeMode="contain" />
+              </View>
+            ))}
       </ScrollView>
       <View style={styles.heroDots} pointerEvents="none">
-        {HERO_SLIDES.map((_, i) => (
+        {Array.from({ length: count }, (_, i) => (
           <View key={i} style={[styles.heroDot, i === page && styles.heroDotActive]} />
         ))}
       </View>
@@ -283,7 +311,7 @@ export function HomeScreen({
         onPoints={onOpenAccount}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <HeroCarousel text={t.heroLine} openNow={openNow} />
+        <HeroCarousel text={t.heroLine} openNow={openNow} photos={menu.venue.heroSlides ?? []} />
 
         {/* The counter's own controls: which services are taking orders
             right now. Guests never see this — they see the RESULT, as
@@ -748,6 +776,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
   },
+  // An owner's slide fills the whole hero; the hero's own radius and
+  // `overflow: hidden` round its corners.
+  heroPhotoSlide: { height: "100%" },
+  heroPhoto: { width: "100%", height: "100%" },
   // Cut-out plates float straight on the artwork — no frame, no white box.
   // Bottom-aligned inside the slide so the plate sits well clear of the
   // pill's band in the corner above it.

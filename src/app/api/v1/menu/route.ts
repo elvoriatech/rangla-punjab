@@ -4,7 +4,7 @@ import { resolvePreviewContext } from "@/lib/preview-context";
 import { loadPublicMenu } from "@/lib/public-menu";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { getRestaurantSlug } from "@/lib/restaurant";
-import { menuImageUrl } from "@/lib/menu-images";
+import { menuImageUrl, uploadedImageUrl } from "@/lib/menu-images";
 import { categoryIcon } from "@/lib/category-icons";
 import { siteUrl } from "@/lib/site-url";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
@@ -128,6 +128,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             ? abs(menuImageUrl(branding.logoKey, menu.venue.id, 192))
             : null,
           theme: branding.theme ?? null,
+          // The app's home slider, owner-managed in Dashboard → Settings:
+          // absolute image URLs in display order. Always an array — empty
+          // means "none uploaded", and the app keeps its built-in artwork.
+          heroSlides: (branding.heroSlides ?? []).map((key) => abs(uploadedImageUrl(key, 1280))),
           hours: menu.venue.hours,
           // The IANA zone those `hours` are written in (e.g.
           // "Europe/Berlin"). Sent beside them because the app recomputes

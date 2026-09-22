@@ -17,6 +17,7 @@ import {
   updateVenueAppearance,
   updateVenueAppLinks,
   updateVenueContact,
+  updateVenueHeroSlides,
   updateVenueLocalization,
   updateVenueLogo,
   updateVenueName,
@@ -167,6 +168,54 @@ describe("venue-service (owner dashboard)", () => {
     venue = await getVenueForUser(userId);
     if (!venue.ok) throw new Error("venue vanished");
     expect(venue.value.branding.logoKey).toBeNull();
+  });
+
+  it("updateVenueHeroSlides adds, reorders and removes slides in order", async () => {
+    const { userId } = await signupWithVenue();
+    for (const key of ["t/a", "t/b", "t/c"]) {
+      expect((await updateVenueHeroSlides(userId, { op: "add", key })).ok).toBe(true);
+    }
+    const slides = async (): Promise<string[] | undefined> => {
+      const r = await getVenueForUser(userId);
+      return r.ok ? r.value.branding.heroSlides : undefined;
+    };
+    expect(await slides()).toEqual(["t/a", "t/b", "t/c"]);
+
+    await updateVenueHeroSlides(userId, { op: "move", key: "t/c", by: -1 });
+    expect(await slides()).toEqual(["t/a", "t/c", "t/b"]);
+    // Moving past either end is a harmless no-op.
+    await updateVenueHeroSlides(userId, { op: "move", key: "t/a", by: -1 });
+    await updateVenueHeroSlides(userId, { op: "move", key: "t/b", by: 1 });
+    expect(await slides()).toEqual(["t/a", "t/c", "t/b"]);
+
+    await updateVenueHeroSlides(userId, { op: "remove", key: "t/c" });
+    expect(await slides()).toEqual(["t/a", "t/b"]);
+    expect((await updateVenueHeroSlides(userId, { op: "remove", key: "t/zz" })).ok).toBe(true);
+    expect(await slides()).toEqual(["t/a", "t/b"]);
+  });
+
+  it("updateVenueHeroSlides refuses a ninth slide and an empty key", async () => {
+    const { userId } = await signupWithVenue();
+    for (let i = 0; i < 8; i += 1) {
+      expect((await updateVenueHeroSlides(userId, { op: "add", key: `t/${i}` })).ok).toBe(true);
+    }
+    expect(await updateVenueHeroSlides(userId, { op: "add", key: "t/9" })).toEqual({
+      ok: false,
+      error: "full",
+    });
+    expect(await updateVenueHeroSlides(userId, { op: "add", key: "" })).toEqual({
+      ok: false,
+      error: "invalid",
+    });
+  });
+
+  it("slides survive saving other branding (logo, appearance)", async () => {
+    const { userId } = await signupWithVenue();
+    await updateVenueHeroSlides(userId, { op: "add", key: "t/keep" });
+    await updateVenueLogo(userId, "t/logo");
+    await updateVenueAppearance(userId, { theme: "ivory-day", texture: "jali" });
+    const r = await getVenueForUser(userId);
+    expect(r.ok && r.value.branding.heroSlides).toEqual(["t/keep"]);
   });
 
   it("updateVenueGooglePlaceId round-trips, clears, and drops a stale rating (P7-14)", async () => {

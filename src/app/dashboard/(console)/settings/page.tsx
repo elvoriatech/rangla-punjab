@@ -25,12 +25,16 @@ import { MAX_NOTIFY_EMAILS, PAYMENT_METHODS } from "@/lib/ordering-config";
 import { MAX_APP_LINK_LENGTH } from "@/lib/app-links-config";
 import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
 import { uploadedImageUrl } from "@/lib/menu-images";
+import { MAX_HERO_SLIDES } from "@/lib/hero-slides";
 import { siteUrl } from "@/lib/public-menu";
 import { DeliveryAreasEditor } from "./delivery-areas-editor";
 import type { PlaceSuggestion } from "@/lib/google-rating";
 import { OWNER_PASSWORD_MIN_LENGTH } from "@/lib/auth-service";
 import {
+  addHeroSlideAction,
   changePasswordAction,
+  moveHeroSlideAction,
+  removeHeroSlideAction,
   clearGoogleManualRatingAction,
   refreshGoogleRatingAction,
   saveAppLinksAction,
@@ -83,6 +87,21 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
   "banner-removed": {
     saved: "Banner removed. Your menu shows without a hero image.",
     error: "Couldn't remove the banner — try again.",
+  },
+  slide: {
+    saved: "Slide added. The app shows it the next time its home screen refreshes.",
+    error: "That image didn't upload. Use a JPEG, PNG, or WebP up to 10 MB.",
+  },
+  "slide-full": {
+    error: `The slider is full (${MAX_HERO_SLIDES} images). Remove one before adding another.`,
+  },
+  "slide-removed": {
+    saved: "Slide removed from the app's home slider.",
+    error: "Couldn't remove that slide — try again.",
+  },
+  "slide-moved": {
+    saved: "Slide order saved.",
+    error: "Couldn't move that slide — try again.",
   },
   hours: {
     saved: "Opening hours saved. Guests see your open/closed status live on the menu.",
@@ -315,6 +334,7 @@ export default async function SettingsPage({
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");
   const venue = venueResult.value;
+  const slides = venue.branding.heroSlides ?? [];
   const orderingResult = await getOrderingSettings(userId);
   const hoursResult = await getVenueHours(userId);
   const venueHours = hoursResult.ok ? hoursResult.value : null;
@@ -530,6 +550,117 @@ export default async function SettingsPage({
             ) : null}
           </div>
         </div>
+      </section>
+
+      {/* App home slider. The rotating images at the top of the mobile
+          app's home screen. Empty = the app's built-in dish artwork. */}
+      <section
+        aria-labelledby="slider-title"
+        className="mt-6 border border-ink/15 bg-card px-6 py-5"
+      >
+        <p id="slider-title" className="text-sm font-medium">
+          App home slider
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          The images that rotate at the top of the app&apos;s home screen, in this order. Until you
+          add one, the app shows its built-in dish artwork. Up to {MAX_HERO_SLIDES} images.
+        </p>
+        <p className="mt-1 text-xs font-medium text-ink">
+          Recommended size: <strong>1200 × 460 pixels</strong> (wide, about 2.6 : 1). Each image
+          fills the whole slide and is shown as-is — no text is added on top — so any headline
+          belongs in the image itself, kept away from the top-right corner where the app shows
+          &ldquo;Open&rdquo; / &ldquo;Closed&rdquo;.
+        </p>
+
+        {slides.length > 0 ? (
+          <ol className="mt-4 grid gap-3 sm:grid-cols-2">
+            {slides.map((key, i) => (
+              <li
+                key={key}
+                className="flex items-center gap-3 border border-ink/15 bg-cream/40 p-2"
+              >
+                <span className="w-5 shrink-0 text-center text-xs font-medium text-muted">
+                  {i + 1}
+                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={uploadedImageUrl(key, 320)}
+                  alt={`Slide ${i + 1}`}
+                  className="h-16 w-[166px] shrink-0 border border-ink/15 bg-white object-cover"
+                />
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                  <form action={moveHeroSlideAction}>
+                    <input type="hidden" name="key" value={key} />
+                    <input type="hidden" name="dir" value="up" />
+                    <SubmitButton
+                      pendingLabel="…"
+                      disabled={i === 0}
+                      aria-label={`Move slide ${i + 1} earlier`}
+                      className="min-h-8 min-w-8 border border-ink/25 px-2 text-sm hover:bg-cream disabled:opacity-30"
+                    >
+                      ↑
+                    </SubmitButton>
+                  </form>
+                  <form action={moveHeroSlideAction}>
+                    <input type="hidden" name="key" value={key} />
+                    <input type="hidden" name="dir" value="down" />
+                    <SubmitButton
+                      pendingLabel="…"
+                      disabled={i === slides.length - 1}
+                      aria-label={`Move slide ${i + 1} later`}
+                      className="min-h-8 min-w-8 border border-ink/25 px-2 text-sm hover:bg-cream disabled:opacity-30"
+                    >
+                      ↓
+                    </SubmitButton>
+                  </form>
+                  <form action={removeHeroSlideAction}>
+                    <input type="hidden" name="key" value={key} />
+                    <SubmitButton
+                      pendingLabel="Removing…"
+                      aria-label={`Remove slide ${i + 1}`}
+                      className="text-xs text-red-800 underline underline-offset-2 hover:text-red-900"
+                    >
+                      Remove
+                    </SubmitButton>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-4 border border-dashed border-ink/20 px-4 py-3 text-xs text-muted">
+            No slides yet — the app is showing its built-in artwork.
+          </p>
+        )}
+
+        {slides.length < MAX_HERO_SLIDES ? (
+          <form action={addHeroSlideAction} className="mt-4">
+            <label className="block text-sm">
+              <span className="font-medium">
+                Add an image
+                <RequiredMark />
+              </span>
+              <input
+                type="file"
+                name="slide"
+                required
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-1 block w-full text-sm file:mr-3 file:border file:border-ink/30 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
+              />
+            </label>
+            <RequiredLegend className="mt-1 text-xs text-muted" />
+            <SubmitButton
+              pendingLabel="Uploading…"
+              className="mt-3 bg-orange px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] text-card hover:bg-orange-dark"
+            >
+              Add slide
+            </SubmitButton>
+          </form>
+        ) : (
+          <p className="mt-4 text-xs text-muted">
+            The slider is full. Remove a slide to add a new one.
+          </p>
+        )}
       </section>
 
       {/* Contact. One form, two boxes (landline + e-mail): they are one decision ("how can a

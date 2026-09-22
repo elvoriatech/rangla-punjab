@@ -4,6 +4,7 @@ import { asUser } from "./tenant";
 import { getActiveVenueId } from "./active-venue";
 import { MENU_THEMES, MENU_TEXTURES, MENU_BACKDROPS } from "./menu-themes";
 import { LOCALES } from "./locales";
+import { heroSlidesOf, MAX_HERO_SLIDES } from "./hero-slides";
 
 /**
  * Venue reads + writes for the owner dashboard. Same shape as the other
@@ -24,6 +25,8 @@ export interface DashboardVenue {
     primaryColor?: string;
     logoKey?: string | null;
     bannerKey?: string | null;
+    /** The app's home-slider images, in display order (storage keys). */
+    heroSlides?: string[];
     theme?: string;
     texture?: string;
     backdrop?: string;
@@ -46,6 +49,7 @@ function normalizeBranding(raw: unknown): DashboardVenue["branding"] {
       primaryColor: typeof b.primaryColor === "string" ? b.primaryColor : undefined,
       logoKey: typeof b.logoKey === "string" ? b.logoKey : null,
       bannerKey: typeof b.bannerKey === "string" ? b.bannerKey : null,
+      heroSlides: heroSlidesOf(b.heroSlides),
       theme: typeof b.theme === "string" ? b.theme : undefined,
       texture: typeof b.texture === "string" ? b.texture : undefined,
       backdrop: typeof b.backdrop === "string" ? b.backdrop : undefined,
@@ -290,6 +294,51 @@ export async function updateVenueBanner(
     });
     if (!venue) return { ok: false, error: "no_venue" as const };
     const branding = { ...normalizeBranding(venue.branding), bannerKey };
+    await tx.venue.update({ where: { id: venue.id }, data: { branding } });
+    return { ok: true as const, value: undefined };
+  });
+}
+
+/**
+ * The app's home slider. Every change — add, remove, reorder — is a
+ * function of the CURRENT list, applied inside the same transaction that
+ * reads it, so two quick clicks in the dashboard can't lose a slide.
+ *
+ * - `add`: appends; refused once the slider already holds the maximum.
+ * - `remove`: drops that key (a key that isn't there is a no-op success).
+ * - `move`: swaps the key with its neighbour, `-1` = earlier, `1` = later.
+ */
+export type HeroSlideChange =
+  | { op: "add"; key: string }
+  | { op: "remove"; key: string }
+  | { op: "move"; key: string; by: -1 | 1 };
+
+export async function updateVenueHeroSlides(
+  userId: string,
+  change: HeroSlideChange,
+): Promise<ServiceResult | { ok: false; error: "full" }> {
+  if (change.key.length === 0 || change.key.length > 512) return { ok: false, error: "invalid" };
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { id: true, branding: true },
+    });
+    if (!venue) return { ok: false, error: "no_venue" as const };
+    const current = normalizeBranding(venue.branding);
+    const slides = [...(current.heroSlides ?? [])];
+    if (change.op === "add") {
+      if (slides.length >= MAX_HERO_SLIDES) return { ok: false, error: "full" as const };
+      slides.push(change.key);
+    } else if (change.op === "remove") {
+      const at = slides.indexOf(change.key);
+      if (at >= 0) slides.splice(at, 1);
+    } else {
+      const at = slides.indexOf(change.key);
+      const to = at + change.by;
+      if (at < 0 || to < 0 || to >= slides.length) return { ok: true as const, value: undefined };
+      [slides[at], slides[to]] = [slides[to]!, slides[at]!];
+    }
+    const branding = { ...current, heroSlides: slides };
     await tx.venue.update({ where: { id: venue.id }, data: { branding } });
     return { ok: true as const, value: undefined };
   });

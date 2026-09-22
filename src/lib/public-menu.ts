@@ -8,6 +8,7 @@ import { publicRating, scheduleVenueRatingRefresh, type PublicRating } from "./g
 import { parseContactConfig, publicContact, type PublicContact } from "./contact-config";
 import { parseAppLinksConfig, publicAppLinks, type PublicAppLinks } from "./app-links-config";
 import type { PreviewContext } from "./preview-context";
+import { heroSlidesOf } from "./hero-slides";
 
 /**
  * Data loader for the public menu page. Takes a resolved `PreviewContext`
@@ -113,6 +114,9 @@ export interface PublicMenu {
        * which case the renderer falls back to 16:7.
        */
       bannerAspect?: number | null;
+      /** The app's home-slider images (storage keys, display order).
+       *  Empty ⇒ the app keeps the artwork baked into its build. */
+      heroSlides?: string[];
       theme?: string;
       texture?: string;
       backdrop?: string;
@@ -422,6 +426,7 @@ function normaliseBranding(raw: unknown): PublicMenu["venue"]["branding"] {
         typeof b.bannerAspect === "number" && Number.isFinite(b.bannerAspect) && b.bannerAspect > 0
           ? b.bannerAspect
           : null,
+      heroSlides: heroSlidesOf(b.heroSlides),
       theme: typeof b.theme === "string" ? b.theme : undefined,
       texture: typeof b.texture === "string" ? b.texture : undefined,
       backdrop: typeof b.backdrop === "string" ? b.backdrop : undefined,

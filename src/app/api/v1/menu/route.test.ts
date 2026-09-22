@@ -108,6 +108,7 @@ interface MenuPayload {
       email: Entry | null;
     } | null;
     appLinks: { ios?: string; android?: string; apk?: string } | null;
+    heroSlides: string[];
   };
   ordering: { acceptsAsapNow: boolean; requestSlots: string[] };
   offerCount: number;
@@ -240,6 +241,19 @@ describe("GET /api/v1/menu — ?locale", () => {
       ios: "https://apps.apple.com/de/app/elvoria/id1",
       android: "https://play.google.com/store/apps/details?id=com.elvoria.menu",
     });
+  });
+
+  it("sends the home slider as absolute image URLs in order, or an empty list", async () => {
+    const fx = await fixture();
+    expect((await read(fx.slug)).venue.heroSlides).toEqual([]);
+
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({ data: { branding: { heroSlides: ["t/uploads/b", "t/uploads/a"] } } }),
+    );
+    const slides = (await read(fx.slug)).venue.heroSlides;
+    expect(slides).toHaveLength(2);
+    expect(slides[0]).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=1280$/);
+    expect(slides[1]).toMatch(/\/img\/t%2Fuploads%2Fa\?w=1280$/);
   });
 
   it("sends the Google rating, and an explicit null when there is none (P7-14)", async () => {

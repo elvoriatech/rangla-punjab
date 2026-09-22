@@ -142,6 +142,12 @@ export interface ApiMenu {
      * contact card anywhere in the app.
      */
     contact?: ApiVenueContact | null;
+    /**
+     * The home slider's images, uploaded by the owner in Dashboard →
+     * Settings → App home slider: absolute URLs in display order. Empty
+     * (or absent on an older server) ⇒ the built-in artwork shows.
+     */
+    heroSlides?: string[];
   };
   ordering: ApiOrdering;
   categories: ApiCategory[];
@@ -235,6 +241,11 @@ export async function fetchMenu(locale?: string, options?: { fresh?: boolean }):
       // "closed" — the pill hides rather than inventing a verdict.
       openNow: typeof menu.venue.openNow === "boolean" ? menu.venue.openNow : null,
       contact: asVenueContact(menu.venue.contact),
+      heroSlides: Array.isArray(menu.venue.heroSlides)
+        ? menu.venue.heroSlides
+            .filter((u): u is string => typeof u === "string" && u.length > 0)
+            .map((u) => rebaseUrl(u))
+        : [],
     },
     categories,
     offerCount: offerCountOf(menu.offerCount, categories),

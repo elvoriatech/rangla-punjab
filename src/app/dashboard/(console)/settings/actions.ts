@@ -1,6 +1,11 @@
 "use server";
 
-import { updateVenueBanner, updateVenueHours, updateVenueOrdering } from "@/lib/venue-service";
+import {
+  updateVenueBanner,
+  updateVenueHeroSlides,
+  updateVenueHours,
+  updateVenueOrdering,
+} from "@/lib/venue-service";
 import type { DayHours, Weekday } from "@/lib/opening-hours";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -138,6 +143,34 @@ export async function removeBannerAction(): Promise<void> {
   const userId = await requireUser();
   const result = await updateVenueBanner(userId, null);
   return finish(userId, result.ok, "banner-removed");
+}
+
+/** Adds one photo to the end of the app's home slider. */
+export async function addHeroSlideAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const slide = form.get("slide");
+  if (!(slide instanceof File) || slide.size === 0) return finish(userId, false, "slide");
+  const saved = await saveUploadedImage(userId, slide, "App home slider image");
+  if (!saved.ok) return finish(userId, false, "slide");
+  const result = await updateVenueHeroSlides(userId, { op: "add", key: saved.storageKey });
+  if (!result.ok && result.error === "full") return finish(userId, false, "slide-full");
+  return finish(userId, result.ok, "slide");
+}
+
+export async function removeHeroSlideAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const key = String(form.get("key") ?? "");
+  const result = await updateVenueHeroSlides(userId, { op: "remove", key });
+  return finish(userId, result.ok, "slide-removed");
+}
+
+/** Moves a slide one place earlier (`dir=up`) or later (`dir=down`). */
+export async function moveHeroSlideAction(form: FormData): Promise<void> {
+  const userId = await requireUser();
+  const key = String(form.get("key") ?? "");
+  const by = form.get("dir") === "up" ? -1 : 1;
+  const result = await updateVenueHeroSlides(userId, { op: "move", key, by });
+  return finish(userId, result.ok, "slide-moved");
 }
 
 export async function saveHalalAction(form: FormData): Promise<void> {
