@@ -49,13 +49,14 @@ export function PaymentExit({
   const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState<Choice | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  /** Cancelling asks once more — inside this dialog, never a native one. */
+  const [askCancel, setAskCancel] = useState(false);
 
   useEffect(() => {
     if (autoOpen && ref.current && !ref.current.open) ref.current.showModal();
   }, [autoOpen]);
 
   async function act(choice: Choice): Promise<void> {
-    if (choice === "cancel" && !window.confirm(labels.cancelConfirm)) return;
     setBusy(choice);
     setMessage(null);
     const url =
@@ -135,14 +136,38 @@ export function PaymentExit({
                 {busy === "cash" ? labels.working : labels.payCash}
               </button>
             ) : null}
-            <button
-              type="button"
-              disabled={busy !== null}
-              onClick={() => void act("cancel")}
-              className={`${button} border border-[#b3261e]/60 text-[#b3261e] hover:bg-[#b3261e]/10`}
-            >
-              {busy === "cancel" ? labels.working : labels.cancel}
-            </button>
+            {askCancel ? (
+              <div className="border border-[#b3261e]/40 p-3">
+                <p className="text-sm">{labels.cancelConfirm}</p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void act("cancel")}
+                    className={`${button} bg-[#b3261e] text-white hover:bg-[#8f1e18]`}
+                  >
+                    {busy === "cancel" ? labels.working : labels.cancel}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => setAskCancel(false)}
+                    className={`${button} border border-ink/25 text-ink`}
+                  >
+                    {labels.close}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => setAskCancel(true)}
+                className={`${button} border border-[#b3261e]/60 text-[#b3261e] hover:bg-[#b3261e]/10`}
+              >
+                {labels.cancel}
+              </button>
+            )}
           </div>
           {message ? (
             <p role="alert" className="mt-4 text-sm text-[#b3261e]">

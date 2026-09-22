@@ -293,6 +293,8 @@ export default async function OrdersPage({
                       <ConfirmSubmit
                         message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
                         pendingLabel="Cancelling…"
+                        confirmLabel="Yes, cancel order"
+                        cancelLabel="Keep order"
                         title="Cancel this order"
                         className="text-[11px] text-muted underline-offset-2 hover:text-[#b3261e] hover:underline"
                       >
@@ -423,6 +425,8 @@ export default async function OrdersPage({
                   <ConfirmSubmit
                     message={`Cancel unpaid order #${String(order.orderNumber).padStart(4, "0")}?`}
                     pendingLabel="Cancelling…"
+                    confirmLabel="Yes, cancel order"
+                    cancelLabel="Keep order"
                     title="Cancel this unpaid order"
                     className="text-xs text-muted underline-offset-2 hover:text-[#b3261e] hover:underline"
                   >
