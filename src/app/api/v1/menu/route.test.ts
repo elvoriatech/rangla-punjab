@@ -243,17 +243,30 @@ describe("GET /api/v1/menu — ?locale", () => {
     });
   });
 
-  it("sends the home slider as absolute image URLs in order, or an empty list", async () => {
+  it("sends the home slider as absolute image URLs in order", async () => {
     const fx = await fixture();
-    expect((await read(fx.slug)).venue.heroSlides).toEqual([]);
+    // Untouched venue: the four dishes the app has always shown.
+    const defaults = (await read(fx.slug)).venue.heroSlides;
+    expect(defaults).toHaveLength(4);
+    expect(defaults[0]).toMatch(/^https?:\/\/.+\/app-slider\/hero-biryani\.webp$/);
 
     await asTenant(fx.tenantId, (tx) =>
-      tx.venue.updateMany({ data: { branding: { heroSlides: ["t/uploads/b", "t/uploads/a"] } } }),
+      tx.venue.updateMany({
+        data: { branding: { heroSlides: ["t/uploads/b", "builtin:hero-kebab", "t/uploads/a"] } },
+      }),
     );
     const slides = (await read(fx.slug)).venue.heroSlides;
-    expect(slides).toHaveLength(2);
+    expect(slides).toHaveLength(3);
     expect(slides[0]).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=480$/);
-    expect(slides[1]).toMatch(/\/img\/t%2Fuploads%2Fa\?w=480$/);
+    expect(slides[1]).toMatch(/\/app-slider\/hero-kebab\.webp$/);
+    expect(slides[2]).toMatch(/\/img\/t%2Fuploads%2Fa\?w=480$/);
+
+    // The owner removed every dish: an empty list, and the app's own
+    // bundled plates take over.
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({ data: { branding: { heroSlides: [] } } }),
+    );
+    expect((await read(fx.slug)).venue.heroSlides).toEqual([]);
   });
 
   it("sends the Google rating, and an explicit null when there is none (P7-14)", async () => {

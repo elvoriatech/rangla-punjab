@@ -4,10 +4,10 @@ import { resolvePreviewContext } from "@/lib/preview-context";
 import { loadPublicMenu } from "@/lib/public-menu";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { getRestaurantSlug } from "@/lib/restaurant";
-import { menuImageUrl, uploadedImageUrl } from "@/lib/menu-images";
+import { menuImageUrl } from "@/lib/menu-images";
 import { categoryIcon } from "@/lib/category-icons";
 import { siteUrl } from "@/lib/site-url";
-import { HERO_SLIDE_FETCH_WIDTH } from "@/lib/hero-slides";
+import { HERO_SLIDE_FETCH_WIDTH, heroSlideUrl } from "@/lib/hero-slides";
 import { currentTodaySlotTimes, reservableDates, slotTimesForDate } from "@/lib/opening-hours";
 import { isLocaleCode } from "@/lib/locales";
 import { publicLoyalty } from "@/lib/loyalty-config";
@@ -130,11 +130,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             : null,
           theme: branding.theme ?? null,
           // The dishes on the app's home slider, owner-managed in
-          // Dashboard → Settings: absolute image URLs in display order.
-          // Always an array — empty means "none uploaded", and the app
-          // keeps the dishes built into it.
+          // Dashboard → Settings: absolute image URLs in display order —
+          // the four built-in dishes until the owner changes the list.
+          // Always an array; empty (the owner removed every dish) makes
+          // the app fall back to the plates bundled in it.
           heroSlides: (branding.heroSlides ?? []).map((key) =>
-            abs(uploadedImageUrl(key, HERO_SLIDE_FETCH_WIDTH)),
+            abs(heroSlideUrl(key, HERO_SLIDE_FETCH_WIDTH)),
           ),
           hours: menu.venue.hours,
           // The IANA zone those `hours` are written in (e.g.

@@ -170,8 +170,32 @@ describe("venue-service (owner dashboard)", () => {
     expect(venue.value.branding.logoKey).toBeNull();
   });
 
+  it("a fresh venue's slider holds the four built-in dishes, and they can be removed", async () => {
+    const { userId } = await signupWithVenue();
+    const r = await getVenueForUser(userId);
+    expect(r.ok && r.value.branding.heroSlides).toEqual([
+      "builtin:hero-biryani",
+      "builtin:hero-kebab",
+      "builtin:hero-karahi",
+      "builtin:hero-biryani-2",
+    ]);
+    await updateVenueHeroSlides(userId, { op: "add", key: "t/new" });
+    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:hero-kebab" });
+    const after = await getVenueForUser(userId);
+    expect(after.ok && after.value.branding.heroSlides).toEqual([
+      "builtin:hero-biryani",
+      "builtin:hero-karahi",
+      "builtin:hero-biryani-2",
+      "t/new",
+    ]);
+  });
+
   it("updateVenueHeroSlides adds, reorders and removes slides in order", async () => {
     const { userId } = await signupWithVenue();
+    // Start from an empty slider so the order under test is ours alone.
+    for (const d of ["hero-biryani", "hero-kebab", "hero-karahi", "hero-biryani-2"]) {
+      await updateVenueHeroSlides(userId, { op: "remove", key: `builtin:${d}` });
+    }
     for (const key of ["t/a", "t/b", "t/c"]) {
       expect((await updateVenueHeroSlides(userId, { op: "add", key })).ok).toBe(true);
     }
@@ -196,7 +220,8 @@ describe("venue-service (owner dashboard)", () => {
 
   it("updateVenueHeroSlides refuses a seventh slide and an empty key", async () => {
     const { userId } = await signupWithVenue();
-    for (let i = 0; i < 6; i += 1) {
+    // Four built-ins already in, so two uploads fill it.
+    for (let i = 0; i < 2; i += 1) {
       expect((await updateVenueHeroSlides(userId, { op: "add", key: `t/${i}` })).ok).toBe(true);
     }
     expect(await updateVenueHeroSlides(userId, { op: "add", key: "t/7" })).toEqual({
@@ -211,11 +236,17 @@ describe("venue-service (owner dashboard)", () => {
 
   it("slides survive saving other branding (logo, appearance)", async () => {
     const { userId } = await signupWithVenue();
+    await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:hero-kebab" });
     await updateVenueHeroSlides(userId, { op: "add", key: "t/keep" });
     await updateVenueLogo(userId, "t/logo");
     await updateVenueAppearance(userId, { theme: "ivory-day", texture: "jali" });
     const r = await getVenueForUser(userId);
-    expect(r.ok && r.value.branding.heroSlides).toEqual(["t/keep"]);
+    expect(r.ok && r.value.branding.heroSlides).toEqual([
+      "builtin:hero-biryani",
+      "builtin:hero-karahi",
+      "builtin:hero-biryani-2",
+      "t/keep",
+    ]);
   });
 
   it("updateVenueGooglePlaceId round-trips, clears, and drops a stale rating (P7-14)", async () => {

@@ -25,7 +25,7 @@ import { MAX_NOTIFY_EMAILS, PAYMENT_METHODS } from "@/lib/ordering-config";
 import { MAX_APP_LINK_LENGTH } from "@/lib/app-links-config";
 import { WEEKDAYS, WEEKDAY_LABELS, formatDay } from "@/lib/opening-hours";
 import { uploadedImageUrl } from "@/lib/menu-images";
-import { MAX_HERO_SLIDES } from "@/lib/hero-slides";
+import { BUILT_IN_DISHES, MAX_HERO_SLIDES, builtInLabel, heroSlideUrl } from "@/lib/hero-slides";
 import { siteUrl } from "@/lib/public-menu";
 import { DeliveryAreasEditor } from "./delivery-areas-editor";
 import type { PlaceSuggestion } from "@/lib/google-rating";
@@ -66,16 +66,6 @@ import { RequiredLegend, RequiredMark } from "@/components/required-mark";
  * error banners are section-specific so the owner knows exactly what
  * saved.
  */
-
-/** The four dishes built into the app (`mobile/assets/carousel/`), as
- *  small web copies in `/public/app-slider/` — shown while the owner has
- *  uploaded none, so the card always says what guests see right now. */
-const BUILT_IN_DISHES = [
-  { file: "hero-biryani", name: "Biryani" },
-  { file: "hero-kebab", name: "Kebab" },
-  { file: "hero-karahi", name: "Karahi" },
-  { file: "hero-biryani-2", name: "Biryani (second plate)" },
-] as const;
 
 /** A dish as the app draws it: contained, on the red hero backdrop. */
 function SlidePreview({ src, alt }: { src: string; alt: string }): React.ReactElement {
@@ -588,7 +578,8 @@ export default async function SettingsPage({
         <p className="mt-1 text-xs text-muted">
           The dishes that rotate on the red banner at the top of the app&apos;s home screen, next to
           the welcome line — in this order. The banner, the text, and the layout stay the same; only
-          the dish pictures change. Up to {MAX_HERO_SLIDES} dishes.
+          the dish pictures change. Up to {MAX_HERO_SLIDES} dishes: the app&apos;s four built-in
+          dishes are listed first, and you can keep, reorder, or remove any of them.
         </p>
         <p className="mt-1 text-xs font-medium text-ink">
           Best result: a <strong>PNG with a transparent background</strong> (just the plate, no
@@ -608,7 +599,15 @@ export default async function SettingsPage({
                 <span className="w-5 shrink-0 text-center text-xs font-medium text-muted">
                   {i + 1}
                 </span>
-                <SlidePreview src={uploadedImageUrl(key, 240)} alt={`Dish ${i + 1}`} />
+                <SlidePreview
+                  src={heroSlideUrl(key, 240)}
+                  alt={builtInLabel(key) ?? `Dish ${i + 1}`}
+                />
+                {builtInLabel(key) ? (
+                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted">
+                    Built-in
+                  </span>
+                ) : null}
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                   <form action={moveHeroSlideAction}>
                     <input type="hidden" name="key" value={key} />
@@ -651,13 +650,13 @@ export default async function SettingsPage({
         ) : (
           <div className="mt-4 border border-dashed border-ink/20 px-4 py-3">
             <p className="text-xs text-muted">
-              Showing now — the app&apos;s built-in dishes. Add your first dish and it replaces
-              these; remove all of yours to bring them back.
+              You removed every dish, so the app is showing its four built-in dishes again. Add a
+              dish to replace them.
             </p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {BUILT_IN_DISHES.map((d) => (
-                <li key={d.file}>
-                  <SlidePreview src={`/app-slider/${d.file}.webp`} alt={d.name} />
+                <li key={d.name}>
+                  <SlidePreview src={`/app-slider/${d.name}.webp`} alt={d.label} />
                 </li>
               ))}
             </ul>
