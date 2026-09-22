@@ -39,6 +39,11 @@ const en = {
   payAtRestaurant: "Pay at the restaurant",
   autoRefresh: "This page refreshes automatically every 15 seconds.",
   backToMenu: "Back to the menu",
+  cashCancel: "Cancel order",
+  cashCancelUntil: "You can cancel this order until {time}.",
+  cashCancelConfirm: "Yes, cancel my order",
+  cashCancelClosed:
+    "Too late to cancel — the restaurant is already on it. Please call them if something is wrong.",
 
   /* Payment page */
   net: "Net",
@@ -154,7 +159,7 @@ const en = {
      would read as "still coming". */
   cancelledTitle: "This order was cancelled",
   cancelledBody:
-    "The restaurant called this order off, so nothing is being prepared. If you already paid, the restaurant will refund you — give them a call if anything is unclear.",
+    "This order was cancelled, so nothing is being prepared. If you already paid, the restaurant will refund you — give them a call if anything is unclear.",
 
   /* "Rate us on Google" — shown on a FINISHED order only, never while the
      food is still coming: asking for a review before the guest has eaten
@@ -247,6 +252,11 @@ const de: PostOrderCopy = {
   payAtRestaurant: "Zahlung im Restaurant",
   autoRefresh: "Diese Seite aktualisiert sich automatisch alle 15 Sekunden.",
   backToMenu: "Zur Speisekarte",
+  cashCancel: "Bestellung stornieren",
+  cashCancelUntil: "Du kannst diese Bestellung bis {time} Uhr stornieren.",
+  cashCancelConfirm: "Ja, Bestellung stornieren",
+  cashCancelClosed:
+    "Zu spät zum Stornieren — das Restaurant ist schon dabei. Bitte ruf an, wenn etwas nicht stimmt.",
 
   net: "Netto",
   vatLine: (rate) => `MwSt. ${rate} % (enthalten)`,
@@ -351,7 +361,7 @@ const de: PostOrderCopy = {
 
   cancelledTitle: "Diese Bestellung wurde storniert",
   cancelledBody:
-    "Das Restaurant hat diese Bestellung storniert — es wird nichts zubereitet. Falls Sie bereits bezahlt haben, erstattet Ihnen das Restaurant den Betrag. Rufen Sie bei Fragen einfach an.",
+    "Diese Bestellung wurde storniert — es wird nichts zubereitet. Falls Sie bereits bezahlt haben, erstattet Ihnen das Restaurant den Betrag. Rufen Sie bei Fragen einfach an.",
 
   required: {
     mark: "(Pflichtfeld)",
@@ -432,6 +442,11 @@ const fr: PostOrderCopy = {
   payAtRestaurant: "Paiement au restaurant",
   autoRefresh: "Cette page s'actualise automatiquement toutes les 15 secondes.",
   backToMenu: "Retour à la carte",
+  cashCancel: "Annuler la commande",
+  cashCancelUntil: "Vous pouvez annuler cette commande jusqu’à {time}.",
+  cashCancelConfirm: "Oui, annuler ma commande",
+  cashCancelClosed:
+    "Trop tard pour annuler — le restaurant s’en occupe déjà. Appelez-le en cas de problème.",
 
   net: "Montant HT",
   vatLine: (rate) => `TVA ${rate} % (incluse)`,
@@ -535,7 +550,7 @@ const fr: PostOrderCopy = {
 
   cancelledTitle: "Cette commande a été annulée",
   cancelledBody:
-    "Le restaurant a annulé cette commande : rien n'est en préparation. Si vous aviez déjà payé, le restaurant vous remboursera — appelez-le si quelque chose n'est pas clair.",
+    "Cette commande a été annulée : rien n'est en préparation. Si vous aviez déjà payé, le restaurant vous remboursera — appelez-le si quelque chose n'est pas clair.",
 
   required: {
     mark: "(obligatoire)",
@@ -611,6 +626,11 @@ const es: PostOrderCopy = {
   payAtRestaurant: "Pago en el restaurante",
   autoRefresh: "Esta página se actualiza automáticamente cada 15 segundos.",
   backToMenu: "Volver a la carta",
+  cashCancel: "Cancelar pedido",
+  cashCancelUntil: "Puedes cancelar este pedido hasta las {time}.",
+  cashCancelConfirm: "Sí, cancelar mi pedido",
+  cashCancelClosed:
+    "Demasiado tarde para cancelar: el restaurante ya lo está preparando. Llámalos si algo va mal.",
 
   net: "Base imponible",
   vatLine: (rate) => `IVA ${rate} % (incluido)`,
@@ -712,7 +732,7 @@ const es: PostOrderCopy = {
 
   cancelledTitle: "Este pedido se ha cancelado",
   cancelledBody:
-    "El restaurante ha cancelado este pedido, así que no se preparará nada. Si ya habías pagado, el restaurante te devolverá el importe. Llámales si tienes cualquier duda.",
+    "Este pedido se ha cancelado, así que no se preparará nada. Si ya habías pagado, el restaurante te devolverá el importe. Llámales si tienes cualquier duda.",
 
   required: {
     mark: "(obligatorio)",
@@ -788,6 +808,11 @@ const it: PostOrderCopy = {
   payAtRestaurant: "Pagamento al ristorante",
   autoRefresh: "Questa pagina si aggiorna automaticamente ogni 15 secondi.",
   backToMenu: "Torna al menu",
+  cashCancel: "Annulla ordine",
+  cashCancelUntil: "Puoi annullare questo ordine fino alle {time}.",
+  cashCancelConfirm: "Sì, annulla il mio ordine",
+  cashCancelClosed:
+    "Troppo tardi per annullare: il ristorante ci sta già lavorando. Chiamalo se qualcosa non va.",
 
   net: "Imponibile",
   vatLine: (rate) => `IVA ${rate}% (inclusa)`,
@@ -888,7 +913,7 @@ const it: PostOrderCopy = {
 
   cancelledTitle: "Questo ordine è stato annullato",
   cancelledBody:
-    "Il ristorante ha annullato questo ordine: non verrà preparato nulla. Se avevi già pagato, il ristorante ti rimborserà. Chiamali se qualcosa non ti è chiaro.",
+    "Questo ordine è stato annullato: non verrà preparato nulla. Se avevi già pagato, il ristorante ti rimborserà. Chiamali se qualcosa non ti è chiaro.",
 
   required: {
     mark: "(obbligatorio)",
@@ -964,6 +989,10 @@ const ar: PostOrderCopy = {
   payAtRestaurant: "الدفع في المطعم",
   autoRefresh: "تُحدَّث هذه الصفحة تلقائيًا كل 15 ثانية.",
   backToMenu: "العودة إلى قائمة الطعام",
+  cashCancel: "إلغاء الطلب",
+  cashCancelUntil: "يمكنك إلغاء هذا الطلب حتى {time}.",
+  cashCancelConfirm: "نعم، ألغِ طلبي",
+  cashCancelClosed: "فات وقت الإلغاء — المطعم يعمل على طلبك بالفعل. اتصل بهم إذا كانت هناك مشكلة.",
 
   net: "الصافي",
   vatLine: (rate) => `ضريبة القيمة المضافة ${rate}% (مشمولة)`,
@@ -1060,7 +1089,7 @@ const ar: PostOrderCopy = {
 
   cancelledTitle: "تم إلغاء هذا الطلب",
   cancelledBody:
-    "ألغى المطعم هذا الطلب، ولن يتم تحضير أي شيء. إذا كنت قد دفعت بالفعل، فسيردّ لك المطعم المبلغ. اتصل بهم إذا كان لديك أي استفسار.",
+    "أُلغي هذا الطلب، ولن يتم تحضير أي شيء. إذا كنت قد دفعت بالفعل، فسيردّ لك المطعم المبلغ. اتصل بهم إذا كان لديك أي استفسار.",
 
   required: {
     mark: "(حقل مطلوب)",

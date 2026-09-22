@@ -96,6 +96,20 @@ const issueWindowHoursField = z.preprocess((v) => {
 }, z.number().int().min(1).max(MAX_INT32).catch(DEFAULT_ISSUE_WINDOW_HOURS));
 
 /**
+ * How long after placing a CASH order the guest may still cancel it
+ * themselves (owner, 2026-09-22). 0 switches the button off; capped at an
+ * hour so a forgotten setting can't let a guest cancel dinner mid-meal.
+ * Online-paid orders have their own, separate exits.
+ */
+export const DEFAULT_CASH_CANCEL_MINUTES = 10;
+export const MAX_CASH_CANCEL_MINUTES = 60;
+const cashCancelMinutesField = z.preprocess((v) => {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_CASH_CANCEL_MINUTES;
+  return Math.min(MAX_CASH_CANCEL_MINUTES, Math.max(0, Math.round(n)));
+}, z.number().int().min(0).max(MAX_CASH_CANCEL_MINUTES).catch(DEFAULT_CASH_CANCEL_MINUTES));
+
+/**
  * May the restaurant APP (the Board) cancel an order?
  *
  * OFF by default, and the one switch in here the app cannot flip itself:
@@ -143,6 +157,9 @@ export const orderingConfigSchema = z.object({
   // Owner-side only, and web-only to SET: the app reads it (to know
   // whether to draw a cancel button) but may never turn it on.
   appCancelEnabled: appCancelEnabledField.default(false),
+  // Owner-side, read by the guest's tracker through its own route (see
+  // `cash-cancel.ts`) — the public menu never needs it.
+  cashCancelMinutes: cashCancelMinutesField.default(DEFAULT_CASH_CANCEL_MINUTES),
   // Shown in the public menu footer. Per-item sanitised (one unknown
   // value never nukes the list): legacy "credit" expands to
   // Visa + Mastercard, junk is dropped, absent → German-typical default.

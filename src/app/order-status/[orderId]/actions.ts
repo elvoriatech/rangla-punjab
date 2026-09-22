@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { verifyReceiptToken } from "@/lib/receipt-token";
+import { cancelCashOrderByGuest } from "@/lib/cash-cancel";
 import { ISSUE_BODY_MAX, MAX_ISSUE_PHOTO_BYTES, postGuestIssueMessage } from "@/lib/issue-service";
 
 /**
@@ -49,4 +50,23 @@ export async function reportIssueAction(form: FormData): Promise<void> {
 
   const result = await postGuestIssueMessage(claim.tenantId, orderId, { body, photo });
   back(orderId, token, locale, result.ok ? "sent" : result.error);
+}
+
+/**
+ * The guest's "Cancel order" on a CASH order, inside the venue's window.
+ * The rule and the deadline live in `cancelCashOrderByGuest`; a late or
+ * repeated tap comes back to the tracker with `?cancel=closed`.
+ */
+export async function cancelCashOrderAction(form: FormData): Promise<void> {
+  const orderId = String(form.get("orderId") ?? "");
+  const token = String(form.get("token") ?? "");
+  const locale = String(form.get("locale") ?? "");
+  const claim = token ? verifyReceiptToken(token) : null;
+  if (!claim || claim.orderId !== orderId) redirect("/");
+
+  const result = await cancelCashOrderByGuest(claim.tenantId, orderId);
+  const query = new URLSearchParams({ token });
+  if (locale) query.set("locale", locale);
+  if (!result.ok) query.set("cancel", "closed");
+  redirect(`/order-status/${encodeURIComponent(orderId)}?${query.toString()}`);
 }

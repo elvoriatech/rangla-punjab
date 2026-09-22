@@ -147,6 +147,16 @@ export function TrackScreen({
   const confirmedRef = useRef(confirmed);
   confirmedRef.current = confirmed;
   const reloadRef = useRef<() => void>(() => {});
+  /**
+   * The guest's own cancel on a CASH order, inside the venue's window.
+   * The deadline is the SERVER's (`cashCancelUntil`); the phone only
+   * counts down to it once a second and hides the button when it passes.
+   * The cancel route re-checks it, so a slow tap past the line is refused.
+   */
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [cashAsk, setCashAsk] = useState(false);
+  const [cashBusy, setCashBusy] = useState(false);
+  const [cashError, setCashError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -232,6 +242,30 @@ export function TrackScreen({
             : t.cancelOrderFailed,
       );
     }
+    reloadRef.current();
+  }
+
+  const cashUntilMs = tracking?.cashCancelUntil ? Date.parse(tracking.cashCancelUntil) : NaN;
+  const cashLeftMs = Number.isFinite(cashUntilMs) ? cashUntilMs - nowMs : 0;
+  const cashCancelOpen = cashLeftMs > 0 && tracking?.status !== "cancelled";
+  useEffect(() => {
+    if (!Number.isFinite(cashUntilMs)) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [cashUntilMs]);
+  const cashLeftText = (() => {
+    const s = Math.max(0, Math.ceil(cashLeftMs / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  })();
+
+  async function cancelCash(): Promise<void> {
+    setCashBusy(true);
+    setCashError(null);
+    const res = await cancelOrder(orderId, token);
+    setCashBusy(false);
+    setCashAsk(false);
+    if (!res.ok)
+      setCashError(res.error === "window_closed" ? t.cashCancelClosed : t.cancelOrderFailed);
     reloadRef.current();
   }
 
@@ -622,6 +656,42 @@ export function TrackScreen({
             ) : null}
           </View>
         )}
+        {/* Cash orders: cancel within the venue's window, with the time
+            left counting down; gone once it runs out. */}
+        {cashCancelOpen ? (
+          <View style={styles.cashCancelBox}>
+            {cashAsk ? (
+              <>
+                <Text style={styles.cancelAskText}>{t.cashCancelAsk}</Text>
+                <Pressable
+                  onPress={() => void cancelCash()}
+                  disabled={cashBusy}
+                  accessibilityRole="button"
+                  style={[styles.cancelYesBtn, cashBusy && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.cancelYesText}>{t.cancelOrderYes}</Text>
+                </Pressable>
+                <Pressable onPress={() => setCashAsk(false)} style={styles.receiptBtn}>
+                  <Text style={styles.receiptBtnText}>{t.cancelOrderKeep}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => setCashAsk(true)}
+                  accessibilityRole="button"
+                  style={styles.cashCancelBtn}
+                >
+                  <Text style={styles.cashCancelBtnText}>{t.cancelOrder}</Text>
+                </Pressable>
+                <Text style={styles.cashCancelHint}>
+                  {fill(t.cashCancelLeft, { time: cashLeftText })}
+                </Text>
+              </>
+            )}
+          </View>
+        ) : null}
+        {cashError ? <Text style={styles.payBanner}>{cashError}</Text> : null}
         {/* The way on, as a real button at the end of the receipt (owner,
             2026-09-22) — the small "‹ Back" at the top went unseen. */}
         {onOpenMenu ? (
@@ -716,6 +786,18 @@ export function TrackScreen({
 }
 
 const styles = StyleSheet.create({
+  cashCancelBox: { marginTop: 16, gap: 8 },
+  cashCancelBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    borderRadius: radius.pill,
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  cashCancelBtnText: { color: colors.danger, ...fonts.bodyHeavy, fontSize: 15 },
+  cashCancelHint: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5, textAlign: "center" },
   back: { color: colors.red, fontSize: 15, ...fonts.bodyBold, marginBottom: 10 },
   loading: { color: colors.inkSoft, textAlign: "center", marginTop: 60 },
   card: {

@@ -628,6 +628,9 @@ export interface ApiTracking {
   currency: string;
   tableNumber: string | null;
   placedAt: string;
+  /** CASH orders: until when (ISO, server clock) the guest may cancel it
+   *  themselves — the venue's window. Null/absent ⇒ no cancel button. */
+  cashCancelUntil?: string | null;
   /** The complaint thread on this order, when one exists. Absent on a
    *  server that predates P7-10 ⇒ no problem has been reported. */
   issue?: { status: string; updatedAt: string } | null;
@@ -692,6 +695,10 @@ export async function fetchOrderStatus(orderId: string, token: string): Promise<
   const rawReview = body.review !== undefined ? body.review : order.review;
   return {
     ...order,
+    cashCancelUntil:
+      typeof order.cashCancelUntil === "string" && order.cashCancelUntil
+        ? order.cashCancelUntil
+        : null,
     issue: asIssueSummary(rawIssue),
     canReport: rawCanReport === true,
     review: asReview(rawReview),

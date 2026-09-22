@@ -241,6 +241,9 @@ const en = {
   openingPayment: "Opening payment…",
   simulatePayment: "Simulate payment (test)",
   cancelOrder: "Cancel order",
+  cashCancelLeft: "You can still cancel for {time}",
+  cashCancelAsk: "Cancel this order? The restaurant is told straight away.",
+  cashCancelClosed: "Too late to cancel — the restaurant is already on it. Please call them.",
   cancelOrderAsk: "Cancel this order? It hasn't been paid and the kitchen hasn't started it.",
   cancelOrderYes: "Yes, cancel order",
   cancelOrderKeep: "Keep order",
@@ -620,7 +623,7 @@ const en = {
   /* Cancelled orders (P7-17): a terminal, out-of-band status. */
   orderCancelledTitle: "Order cancelled",
   orderCancelledBody:
-    "The restaurant cancelled this order — nothing is being prepared. Anything you paid online will be refunded to you.",
+    "This order was cancelled — nothing is being prepared. Anything paid online will be refunded.",
   boardCancelTitle: "Cancel this order?",
   boardCancelBody: "The order stops here and the guest is told. This cannot be undone.",
   boardCancelKeep: "Keep order",
@@ -994,6 +997,9 @@ const de: Strings = {
   openingPayment: "Zahlung wird geöffnet…",
   simulatePayment: "Zahlung simulieren (Test)",
   cancelOrder: "Bestellung stornieren",
+  cashCancelLeft: "Stornieren noch {time} möglich",
+  cashCancelAsk: "Diese Bestellung stornieren? Das Restaurant wird sofort informiert.",
+  cashCancelClosed: "Zu spät zum Stornieren — das Restaurant ist schon dabei. Bitte ruf an.",
   cancelOrderAsk:
     "Diese Bestellung stornieren? Sie ist nicht bezahlt und die Küche hat noch nicht begonnen.",
   cancelOrderYes: "Ja, stornieren",
@@ -1367,7 +1373,7 @@ const de: Strings = {
   issueDaysAgo: "vor {n} Tg.",
   orderCancelledTitle: "Bestellung storniert",
   orderCancelledBody:
-    "Das Restaurant hat diese Bestellung storniert — es wird nichts zubereitet. Online bezahlte Beträge werden dir erstattet.",
+    "Diese Bestellung wurde storniert — es wird nichts zubereitet. Online bezahlte Beträge werden erstattet.",
   boardCancelTitle: "Bestellung stornieren?",
   boardCancelBody:
     "Die Bestellung endet hier und der Gast wird informiert. Das lässt sich nicht rückgängig machen.",
@@ -1735,6 +1741,9 @@ const fr: Strings = {
   openingPayment: "Ouverture du paiement…",
   simulatePayment: "Simuler le paiement (test)",
   cancelOrder: "Annuler la commande",
+  cashCancelLeft: "Annulation encore possible pendant {time}",
+  cashCancelAsk: "Annuler cette commande ? Le restaurant est prévenu immédiatement.",
+  cashCancelClosed: "Trop tard pour annuler — le restaurant s’en occupe déjà. Appelez-le.",
   cancelOrderAsk:
     "Annuler cette commande ? Elle n’est pas payée et la cuisine ne l’a pas commencée.",
   cancelOrderYes: "Oui, annuler",
@@ -2109,7 +2118,7 @@ const fr: Strings = {
   issueDaysAgo: "il y a {n} j",
   orderCancelledTitle: "Commande annulée",
   orderCancelledBody:
-    "Le restaurant a annulé cette commande — rien n'est en préparation. Tout paiement en ligne vous sera remboursé.",
+    "Cette commande a été annulée — rien n’est préparé. Tout montant payé en ligne sera remboursé.",
   boardCancelTitle: "Annuler cette commande ?",
   boardCancelBody: "La commande s'arrête ici et le client en est informé. C'est irréversible.",
   boardCancelKeep: "Conserver",
@@ -2477,6 +2486,9 @@ const it: Strings = {
   openingPayment: "Apertura del pagamento…",
   simulatePayment: "Simula il pagamento (test)",
   cancelOrder: "Annulla ordine",
+  cashCancelLeft: "Puoi ancora annullare per {time}",
+  cashCancelAsk: "Annullare questo ordine? Il ristorante viene avvisato subito.",
+  cashCancelClosed: "Troppo tardi per annullare: il ristorante ci sta già lavorando. Chiamalo.",
   cancelOrderAsk:
     "Annullare questo ordine? Non è stato pagato e la cucina non l'ha ancora iniziato.",
   cancelOrderYes: "Sì, annulla",
@@ -2850,7 +2862,7 @@ const it: Strings = {
   issueDaysAgo: "{n} g fa",
   orderCancelledTitle: "Ordine annullato",
   orderCancelledBody:
-    "Il ristorante ha annullato questo ordine: non verrà preparato nulla. Quanto hai pagato online ti verrà rimborsato.",
+    "Questo ordine è stato annullato: non viene preparato nulla. Quanto pagato online verrà rimborsato.",
   boardCancelTitle: "Annullare questo ordine?",
   boardCancelBody:
     "L'ordine si ferma qui e il cliente viene avvisato. L'operazione non è reversibile.",
@@ -3218,6 +3230,10 @@ const es: Strings = {
   openingPayment: "Abriendo el pago…",
   simulatePayment: "Simular pago (prueba)",
   cancelOrder: "Cancelar pedido",
+  cashCancelLeft: "Aún puedes cancelar durante {time}",
+  cashCancelAsk: "¿Cancelar este pedido? El restaurante recibe el aviso al instante.",
+  cashCancelClosed:
+    "Demasiado tarde para cancelar: el restaurante ya lo está preparando. Llámalos.",
   cancelOrderAsk: "¿Cancelar este pedido? No está pagado y la cocina aún no lo ha empezado.",
   cancelOrderYes: "Sí, cancelar",
   cancelOrderKeep: "Mantener pedido",
@@ -3589,7 +3605,7 @@ const es: Strings = {
   issueDaysAgo: "hace {n} d",
   orderCancelledTitle: "Pedido cancelado",
   orderCancelledBody:
-    "El restaurante canceló este pedido: no se está preparando nada. Lo que hayas pagado en línea se te devolverá.",
+    "Este pedido se ha cancelado: no se prepara nada. Lo pagado en línea se reembolsará.",
   boardCancelTitle: "¿Cancelar este pedido?",
   boardCancelBody: "El pedido termina aquí y se avisa al cliente. Esto no se puede deshacer.",
   boardCancelKeep: "Mantener",
@@ -3955,6 +3971,9 @@ const ar: Strings = {
   openingPayment: "جارٍ فتح صفحة الدفع…",
   simulatePayment: "محاكاة الدفع (اختبار)",
   cancelOrder: "إلغاء الطلب",
+  cashCancelLeft: "يمكنك الإلغاء خلال {time}",
+  cashCancelAsk: "هل تريد إلغاء هذا الطلب؟ سيتم إبلاغ المطعم فورًا.",
+  cashCancelClosed: "فات وقت الإلغاء — المطعم يعمل على طلبك. يرجى الاتصال بهم.",
   cancelOrderAsk: "هل تريد إلغاء هذا الطلب؟ لم يُدفع بعد ولم يبدأ المطبخ في تحضيره.",
   cancelOrderYes: "نعم، ألغِ الطلب",
   cancelOrderKeep: "الإبقاء على الطلب",
@@ -4318,7 +4337,7 @@ const ar: Strings = {
   issueHoursAgo: "قبل {n} ساعة",
   issueDaysAgo: "قبل {n} يوم",
   orderCancelledTitle: "أُلغي الطلب",
-  orderCancelledBody: "ألغى المطعم هذا الطلب، ولن يُحضَّر شيء. وسيُعاد إليك ما دفعته عبر الإنترنت.",
+  orderCancelledBody: "أُلغي هذا الطلب، ولن يُحضَّر شيء. وسيُعاد ما دُفع عبر الإنترنت.",
   boardCancelTitle: "إلغاء هذا الطلب؟",
   boardCancelBody: "ينتهي الطلب هنا ويُبلَّغ الضيف. لا يمكن التراجع عن ذلك.",
   boardCancelKeep: "الإبقاء عليه",

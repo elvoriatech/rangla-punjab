@@ -1497,6 +1497,32 @@ export default async function SettingsPage({
           </div>
 
           <div className="mt-4 border-t border-ink/10 pt-4">
+            <label className="block text-sm">
+              <span className="font-medium">Guests can cancel cash orders</span>
+              <span className="mt-0.5 block text-xs text-muted">
+                For this many minutes after placing a <strong>cash</strong> order, the guest sees a
+                &ldquo;Cancel order&rdquo; button in the app and on their order page — only while
+                the order is not ready yet. After that the button disappears. You get a push
+                notification when a guest cancels. <strong>0</strong> switches it off. Online-paid
+                orders are not affected.
+              </span>
+              <span className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  name="cashCancelMinutes"
+                  min={0}
+                  max={60}
+                  step={1}
+                  inputMode="numeric"
+                  defaultValue={ordering.config.cashCancelMinutes}
+                  className="w-24 border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                />
+                <span className="text-sm text-muted">minutes (0–60)</span>
+              </span>
+            </label>
+          </div>
+
+          <div className="mt-4 border-t border-ink/10 pt-4">
             <label className="flex cursor-pointer items-start gap-3 text-sm">
               <input
                 type="checkbox"

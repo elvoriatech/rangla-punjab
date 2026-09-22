@@ -386,6 +386,31 @@ export async function sendNewOrderPush(tenantId: string, orderId: string): Promi
 }
 
 /**
+ * "Order #12 cancelled by the guest" — a cash order the guest called off
+ * inside their cancel window. The kitchen already had it, so this is the
+ * cue to stop cooking.
+ */
+export async function sendGuestCancelPush(tenantId: string, orderId: string): Promise<void> {
+  try {
+    const order = await asTenant(tenantId, (tx) =>
+      tx.order.findFirst({
+        where: { id: orderId },
+        select: { orderNumber: true, orderType: true, totalCents: true, currency: true },
+      }),
+    );
+    if (!order) return;
+    const label = ORDER_TYPE_LABEL[order.orderType] ?? order.orderType;
+    await sendStaffPush(tenantId, {
+      title: `Order #${order.orderNumber} cancelled by the guest`,
+      body: `${label} · ${formatTotal(order.totalCents, order.currency)} · cash`,
+      data: { kind: "order", orderId },
+    });
+  } catch (err) {
+    captureException(err, { tenantId, orderId, where: "push-service" });
+  }
+}
+
+/**
  * "Problem reported on #12". Fired wherever the complaint email is — on the
  * first guest message and on every follow-up, because "they replied and are
  * still waiting" is as urgent as the original.

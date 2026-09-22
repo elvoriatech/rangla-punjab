@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { clientIp } from "@/lib/client-ip";
 import { cancelUnpaidOrderByGuest } from "@/lib/connect-service";
+import { cancelCashOrderByGuest } from "@/lib/cash-cancel";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { checkRateLimit, ORDER_IP } from "@/lib/rate-limit";
 import { verifyReceiptToken } from "@/lib/receipt-token";
@@ -34,6 +35,17 @@ export async function POST(
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 403 }));
   }
 
+  // A CASH order has its own, time-boxed exit (`cash-cancel.ts`); anything
+  // else is the stuck-online-payment exit, unchanged.
+  const cash = await cancelCashOrderByGuest(verified.tenantId, orderId);
+  if (cash.ok) {
+    return withCors(
+      NextResponse.json({ ok: true }, { headers: { "Cache-Control": "private, no-store" } }),
+    );
+  }
+  if (cash.error === "window_closed") {
+    return withCors(NextResponse.json({ error: "window_closed" }, { status: 409 }));
+  }
   const result = await cancelUnpaidOrderByGuest(verified.tenantId, orderId, parsed.data.token);
   if (!result.ok) {
     const status =

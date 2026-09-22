@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getOrderTracking } from "@/lib/order-service";
+import { cashCancelDeadline } from "@/lib/cash-cancel";
+import { parseOrderingConfig } from "@/lib/ordering-config";
 import { getGuestPaymentOptions } from "@/lib/connect-service";
 import { guestSteps, isCancelledStatus, statusChain, stepIndex } from "@/lib/order-status";
 import { getGuestIssueState } from "@/lib/issue-service";
@@ -104,6 +106,14 @@ export async function GET(
           tableNumber: order.tableNumber,
           requestedFor: order.requestedFor ? order.requestedFor.toISOString() : null,
           placedAt: order.createdAt.toISOString(),
+          // The guest's "Cancel order" on a CASH order: when the window
+          // closes (ISO, server clock), or null — no button. Clients draw
+          // it until this passes; the cancel route re-checks it.
+          cashCancelUntil:
+            cashCancelDeadline(
+              order,
+              parseOrderingConfig(order.venue.ordering).cashCancelMinutes,
+            )?.toISOString() ?? null,
         },
         // P7-10. Two fields rather than the whole thread: this is the
         // polling endpoint, and all a tracking screen needs to know is

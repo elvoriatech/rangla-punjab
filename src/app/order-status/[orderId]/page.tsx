@@ -10,8 +10,10 @@ import { asTenant } from "@/lib/tenant";
 import { getGuestIssueState } from "@/lib/issue-service";
 import { reviewPromptFor, trackedReviewUrl } from "@/lib/google-rating";
 import { OrderTrackerCard } from "./tracker-card";
+import { cashCancelDeadline } from "@/lib/cash-cancel";
+import { parseOrderingConfig } from "@/lib/ordering-config";
 import { IssueSection } from "./issue-section";
-import { reportIssueAction } from "./actions";
+import { cancelCashOrderAction, reportIssueAction } from "./actions";
 
 /**
  * Guest order tracker. Server-rendered, zero JS, token-authorized
@@ -53,7 +55,13 @@ export default async function OrderStatusPage({
   searchParams,
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ token?: string; locale?: string; issue?: string; compose?: string }>;
+  searchParams: Promise<{
+    token?: string;
+    locale?: string;
+    issue?: string;
+    compose?: string;
+    cancel?: string;
+  }>;
 }): Promise<React.ReactElement> {
   const { orderId } = await params;
   const {
@@ -61,6 +69,7 @@ export default async function OrderStatusPage({
     locale: localeParam,
     issue: issueResult,
     compose: composeParam,
+    cancel: cancelParam,
   } = await searchParams;
   // `?compose=1` is the guest opening the complaint box. It is also what
   // switches the tracker's 15-second meta refresh off, so a half-typed
@@ -109,6 +118,16 @@ export default async function OrderStatusPage({
         // it; `reviewPrompted` is what retires the ask once and for all.
         reviewUrl={review ? trackedReviewUrl(orderId, token) : null}
         reviewPrompted={review?.prompted ?? false}
+        cashCancel={{
+          until: cashCancelDeadline(
+            order,
+            parseOrderingConfig(order.venue.ordering).cashCancelMinutes,
+          ),
+          closed: cancelParam === "closed",
+          orderId,
+          token,
+          action: cancelCashOrderAction,
+        }}
         order={{
           orderNumber: order.orderNumber,
           status: order.status,

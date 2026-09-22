@@ -51,6 +51,7 @@ export function OrderTrackerCard({
   pauseRefresh = false,
   reviewUrl = null,
   reviewPrompted = false,
+  cashCancel = null,
 }: {
   order: TrackerOrder;
   locale: UiLocale;
@@ -69,6 +70,16 @@ export function OrderTrackerCard({
    *  is nagging, so the card simply stops drawing the button; the link
    *  above stays valid for anyone who reaches it another way. */
   reviewPrompted?: boolean;
+  /** The guest's cancel window on a CASH order (`cash-cancel.ts`): when it
+   *  closes, and the form plumbing. Null = no button. `closed` = a cancel
+   *  that came back too late, shown as a note. */
+  cashCancel?: {
+    until: Date | null;
+    closed: boolean;
+    orderId: string;
+    token: string;
+    action: (form: FormData) => Promise<void>;
+  } | null;
 }): React.ReactElement {
   const t = postOrderCopy(locale);
   const steps = guestSteps(order.orderType);
@@ -276,6 +287,47 @@ export function OrderTrackerCard({
 
         {/* The promise and the meta tag travel together — a paused page
             must not claim it refreshes itself. */}
+        {/* Cash orders: the guest's own way out, only inside the venue's
+            window. The page's 15-second refresh hides it once the time is
+            up; the server re-checks the deadline on submit. A <details>
+            is the confirm step — works with no JavaScript at all. */}
+        {cashCancel?.until && !cancelled ? (
+          <details className="mt-5 rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/20 p-3">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center rounded-lg px-3 text-sm font-semibold text-red-800 underline-offset-4 hover:underline dark:text-red-300">
+              {t.cashCancel}
+            </summary>
+            <p className="mt-2 text-center text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+              {t.cashCancelUntil.replace(
+                "{time}",
+                new Intl.DateTimeFormat(locale, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: order.timezone || "Europe/Berlin",
+                }).format(cashCancel.until),
+              )}
+            </p>
+            <form action={cashCancel.action} className="mt-3">
+              <input type="hidden" name="orderId" value={cashCancel.orderId} />
+              <input type="hidden" name="token" value={cashCancel.token} />
+              <input type="hidden" name="locale" value={locale} />
+              <button
+                type="submit"
+                className="flex min-h-11 w-full items-center justify-center rounded-lg bg-red-800 px-4 text-sm font-semibold text-white hover:bg-red-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+              >
+                {t.cashCancelConfirm}
+              </button>
+            </form>
+          </details>
+        ) : null}
+        {cashCancel?.closed && !cancelled ? (
+          <p
+            role="status"
+            className="mt-4 text-center text-sm text-[var(--menu-surface-text,var(--menu-text))]"
+          >
+            {t.cashCancelClosed}
+          </p>
+        ) : null}
+
         {live ? (
           <p className="mt-4 text-center text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
             {t.autoRefresh}

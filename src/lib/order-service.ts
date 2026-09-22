@@ -1022,6 +1022,8 @@ export interface OrderTracking {
     googleRating: unknown;
     googleRatingManual: unknown;
     googleRatingEnabled: boolean;
+    /** The venue's ordering settings — for the cash cancel window. */
+    ordering: unknown;
   };
 }
 
@@ -1064,6 +1066,7 @@ export async function getOrderTracking(
             googleRating: true,
             googleRatingManual: true,
             googleRatingEnabled: true,
+            ordering: true,
           },
         },
       },
