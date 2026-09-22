@@ -41,7 +41,7 @@ function iosUrlScheme(clientId) {
 
 /**
  * Apple Pay's merchant id, read at CONFIG time from the environment
- * (`APPLE_MERCHANT_ID=merchant.com.elvoria.ranglapunjab`). It is ⛔
+ * (`APPLE_MERCHANT_ID=merchant.de.ranglapunjabrestaurant.app`). It is ⛔
  * human-gated: creating the merchant id and uploading the Stripe
  * payment-processing certificate is an Apple Developer account job.
  *

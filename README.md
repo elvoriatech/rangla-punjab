@@ -227,8 +227,8 @@ One-tap needs a **native build** (EAS or `expo run:*`) plus the setup below.
 | Type | Fill in | Gives you |
 | --- | --- | --- |
 | **Web application** | Authorised redirect URI `https://<domain>/api/auth/customer/callback` | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (server) and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (app) |
-| **iOS** | Bundle ID `com.elvoria.ranglapunjab` (from `mobile/brand.generated.json`) | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` |
-| **Android** | Package `com.elvoria.ranglapunjab` + the release **SHA-1** from `cd mobile && npx eas-cli credentials -p android` | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` |
+| **iOS** | Bundle ID `de.ranglapunjabrestaurant.app` (from `mobile/brand.generated.json`) | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` |
+| **Android** | Package `de.ranglapunjabrestaurant.app` + the release **SHA-1** from `cd mobile && npx eas-cli credentials -p android` | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` |
 
 Android verifies the app by package + SHA-1 and signs in with the **web**
 client id, so the web client is the one that must not be skipped. For a

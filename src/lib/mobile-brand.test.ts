@@ -227,6 +227,16 @@ describe("deriveMobileBrand", () => {
     expect(brand.app.version).toBe("2.4.0");
   });
 
+  it("uses a whole store id when the venue owns one, over the prefix", () => {
+    const brand = deriveMobileBrand({
+      ...input,
+      bundlePrefix: "de.example",
+      bundleId: "de.ranglapunjabrestaurant.app",
+    });
+    expect(brand.app.iosBundleIdentifier).toBe("de.ranglapunjabrestaurant.app");
+    expect(brand.app.androidPackage).toBe("de.ranglapunjabrestaurant.app");
+  });
+
   it("never lets a numeric slug produce an illegal package name", () => {
     const brand = deriveMobileBrand({ ...input, slug: "24-hour-diner" });
     expect(brand.app.androidPackage).toBe("com.elvoria.v24hourdiner");

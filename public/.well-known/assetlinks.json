@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.elvoria.ranglapunjab",
+      "package_name": "de.ranglapunjabrestaurant.app",
       "sha256_cert_fingerprints": ["REPLACE_WITH_EAS_UPLOAD_KEY_SHA256"]
     }
   }

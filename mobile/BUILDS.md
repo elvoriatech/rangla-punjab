@@ -114,7 +114,7 @@ nothing regresses before the credentials exist.
 | Build var | Where it comes from | Used by |
 | --- | --- | --- |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google Cloud → OAuth client, type **Web** | Android sign-in + the ID token audience |
-| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | OAuth client, type **iOS** (bundle id `com.elvoria.ranglapunjab`) | iOS sign-in + the `iosUrlScheme` the config plugin registers |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | OAuth client, type **iOS** (bundle id `de.ranglapunjabrestaurant.app`) | iOS sign-in + the `iosUrlScheme` the config plugin registers |
 | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | OAuth client, type **Android** (package + release SHA-1) | recorded for completeness; Android reads the web id at runtime |
 
 They are placeholders (`""`) in every `eas.json` profile — fill them in
@@ -168,7 +168,7 @@ the **Google Pay & Wallet Console**:
 1. Create a Google Pay business profile (business name, support contact,
    logo).
 2. Submit an integration request for the release package name
-   `com.elvoria.ranglapunjab`, attaching screenshots of the whole payment
+   `de.ranglapunjabrestaurant.app`, attaching screenshots of the whole payment
    flow.
 3. Wait for approval, then switch the venue's Stripe key to a live key —
    `testEnv` follows the key (`pk_test_` ⇒ test), so there is nothing to
@@ -203,14 +203,14 @@ Stripe account.
 thing missing is the merchant id, and everything Apple-Pay-shaped stays
 invisible until it is set. To enable it:
 
-1. Create the merchant id `merchant.com.elvoria.ranglapunjab` in the Apple
+1. Create the merchant id `merchant.de.ranglapunjabrestaurant.app` in the Apple
    Developer account.
 2. Generate the Apple Pay payment-processing certificate from Stripe and
    upload it in the Apple Developer portal (Stripe Dashboard → Settings →
    Payments → Apple Pay).
 3. Build with the env var set — that is the **one** switch:
    ```bash
-   APPLE_MERCHANT_ID=merchant.com.elvoria.ranglapunjab npx expo run:ios …
+   APPLE_MERCHANT_ID=merchant.de.ranglapunjabrestaurant.app npx expo run:ios …
    ```
    or add it to the build profile's `env` block in `eas.json`.
 4. Rebuild and resubmit: the entitlement is part of the binary.
@@ -268,7 +268,7 @@ state; no code change is needed afterwards.
    personal-team local build below cannot carry the `aps-environment`
    entitlement.
 2. **Android — FCM service account.** Create a Firebase project for the
-   package `com.elvoria.ranglapunjab`, download the **service-account
+   package `de.ranglapunjabrestaurant.app`, download the **service-account
    JSON** (Project settings → Service accounts → Generate new private
    key) and upload it to EAS:
    ```bash
@@ -423,7 +423,7 @@ entitlement untouched.
 - If `expo run:ios` sits on "Connecting to: <phone>" after "Build Succeeded",
   stop it and install the built app directly:
   `xcrun devicectl device install app --device <UDID> …/Release-iphoneos/RanglaPunjab.app`
-  then `xcrun devicectl device process launch --terminate-existing --device <UDID> com.elvoria.ranglapunjab`.
+  then `xcrun devicectl device process launch --terminate-existing --device <UDID> de.ranglapunjabrestaurant.app`.
 - Pods are cached after the first run; a rebuild takes a few minutes, the
   first one closer to twenty (CocoaPods clones the Stripe iOS repo).
 
@@ -595,7 +595,7 @@ a signing credential:
 | Needed | For | Note |
 | --- | --- | --- |
 | Apple Developer Program | iOS build + submit | $99/yr |
-| App Store Connect app record | `eas submit -p ios` | bundle id `com.elvoria.ranglapunjab` |
+| App Store Connect app record | `eas submit -p ios` | bundle id `de.ranglapunjabrestaurant.app` |
 | Google Play Console account | Play submit | one-off $25 |
 | Play service-account JSON | `eas submit -p android` | goes in `submit.production.android.serviceAccountKeyPath` |
 | Store listing | both | screenshots, description, privacy-policy URL, content rating |
@@ -604,7 +604,7 @@ a signing credential:
 | Apple **App Privacy** labels | App Store | Same categories as above, entered in App Store Connect |
 | Stripe **live** keys on the server | both | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY` in `prod.env` (or Dashboard → Payments); webhook subscribed to `checkout.session.completed` + `payment_intent.succeeded`; one €0.50 live order before release |
 | Google Pay production access | Play | Google Pay & Wallet Console: register the app (package + release SHA-1), pass the integration review; until then Google Pay works only with test cards |
-| Apple Pay | App Store | Merchant ID `merchant.com.elvoria.ranglapunjab` + Apple Pay certificate in Stripe, then `merchantIdentifier` in `app.config.js` — see "Payments in the app" |
+| Apple Pay | App Store | Merchant ID `merchant.de.ranglapunjabrestaurant.app` + Apple Pay certificate in Stripe, then `merchantIdentifier` in `app.config.js` — see "Payments in the app" |
 | Google OAuth clients | both | Web + iOS + Android client ids in `eas.json`, `GOOGLE_MOBILE_CLIENT_IDS` on the server — see "One-tap Google sign-in"; without them the app uses browser sign-in |
 | PayPal live app | both | Live client id/secret + webhook id in Dashboard → Payments, `PAYPAL_ENV=live` |
 
@@ -624,19 +624,18 @@ a signing credential:
   the app, upload the first AAB, fill Data safety + content rating); after
   that `eas submit -p android --latest` works with the service-account JSON.
 - **App Store:** create the app record with bundle id
-  `com.elvoria.ranglapunjab`, upload screenshots for 6.7" and 6.1" iPhones,
+  `de.ranglapunjabrestaurant.app`, upload screenshots for 6.7" and 6.1" iPhones,
   set the age rating, then `eas submit -p ios --latest`.
 - **Review notes:** give both stores a test login and say the Cash option
   lets a reviewer place an order without paying.
 
-**Decide the publisher before the first submit.** Both ids are
-`com.elvoria.ranglapunjab` — the platform's prefix, not the restaurant's. A
-bundle id and its owning developer account cannot be changed after the first
+**The store id is the restaurant's own (decided 2026-09-22).** Both ids are
+`de.ranglapunjabrestaurant.app` (was the platform's `com.elvoria.ranglapunjab`).
+A bundle id and its owning developer account cannot be changed after the first
 release; republishing under a different one means a brand-new listing with no
-reviews or installs. If these apps should live under the restaurant's own
-developer account, regenerate with
-`pnpm brand:mobile --venue rangla-punjab --bundle-prefix <prefix>` before
-building.
+reviews or installs. Any future `pnpm brand:mobile` run must pass
+`--bundle-id de.ranglapunjabrestaurant.app --name "Rangla Punjab Restaurant"`,
+or it regenerates the platform-prefixed id.
 
 ## Local dev (what runs right now)
 - Web app must be running on :3000 (`pnpm dev` in the repo root).
@@ -691,7 +690,7 @@ holding two bags. Nothing breaks without it.
 ### Android — `assetlinks.json` (we can finish this ourselves)
 
 `public/.well-known/assetlinks.json` is already in the repo with the right
-package name (`com.elvoria.ranglapunjab`) and a placeholder fingerprint. To
+package name (`de.ranglapunjabrestaurant.app`) and a placeholder fingerprint. To
 activate it:
 
 1. Get the SHA-256 of the signing key the installed app is actually built
@@ -722,8 +721,8 @@ activate it:
    Google's verifier follows no redirects and accepts no 3xx.
 
 4. Verify on a device: `adb shell pm verify-app-links --re-verify
-   com.elvoria.ranglapunjab`, then
-   `adb shell pm get-app-links com.elvoria.ranglapunjab` — the domain must
+   de.ranglapunjabrestaurant.app`, then
+   `adb shell pm get-app-links de.ranglapunjabrestaurant.app` — the domain must
    read `verified`.
 
 Until step 2 is done the file is inert: Android simply fails verification
@@ -743,7 +742,7 @@ When the account exists:
    `ios.associatedDomains = ["applinks:<site>"]`.
 2. Serve `https://<site>/.well-known/apple-app-site-association` (no
    extension, `application/json`, no redirect) with the `appID`
-   `<TEAM_ID>.com.elvoria.ranglapunjab` and the path `/dispatch/*`.
+   `<TEAM_ID>.de.ranglapunjabrestaurant.app` and the path `/dispatch/*`.
 3. Rebuild — the entitlement is baked into the binary, so this needs a new
    build, not just a deploy.
 

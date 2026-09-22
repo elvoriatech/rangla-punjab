@@ -33,6 +33,7 @@
  *   --hero <path>           use a local image for the hero artwork
  *   --api-url <url>         record the production API base in extra.brand.apiUrl
  *   --bundle-prefix <id>    reverse-DNS prefix for store ids (default com.elvoria)
+ *   --bundle-id <id>        the whole store id, e.g. de.ranglapunjabrestaurant.app (wins over the prefix)
  *   --version <x.y.z>       app version written to the Expo config
  *   --mobile-dir <path>     Expo project root (default <repo>/mobile)
  *   --no-db                 skip the database entirely (needs --name/--slug/--theme)
@@ -100,6 +101,7 @@ interface Options {
   hero?: string;
   apiUrl?: string;
   bundlePrefix?: string;
+  bundleId?: string;
   version?: string;
   mobileDir: string;
   useDb: boolean;
@@ -156,6 +158,10 @@ function parseArgs(argv: string[]): Options {
         opts.bundlePrefix = value(i, arg);
         i++;
         break;
+      case "--bundle-id":
+        opts.bundleId = value(i, arg);
+        i++;
+        break;
       case "--version":
         opts.version = value(i, arg);
         i++;
@@ -194,6 +200,7 @@ function usage(): string {
     "  --hero <path>         use a local image for the hero artwork",
     "  --api-url <url>       record the production API base in extra.brand.apiUrl",
     "  --bundle-prefix <id>  reverse-DNS prefix for store ids (default com.elvoria)",
+    "  --bundle-id <id>      the whole store id (wins over --bundle-prefix)",
     "  --version <x.y.z>     app version written to the Expo config",
     "  --mobile-dir <path>   Expo project root (default <repo>/mobile)",
     "  --no-db               skip the database (needs --name/--slug/--theme)",
@@ -612,6 +619,7 @@ async function main(): Promise<void> {
     halal: venue.halal,
     apiUrl: opts.apiUrl ?? process.env.EXPO_PUBLIC_API_URL ?? null,
     bundlePrefix: opts.bundlePrefix,
+    bundleId: opts.bundleId,
     version: opts.version,
   };
 

@@ -83,6 +83,13 @@ export interface MobileBrandInput {
   apiUrl?: string | null;
   /** Reverse-DNS prefix for the store identifiers. */
   bundlePrefix?: string;
+  /**
+   * The WHOLE store identifier, when the venue owns one (e.g.
+   * `de.ranglapunjabrestaurant.app`). Wins over `bundlePrefix` + slug. Store
+   * ids are permanent once an app is published, so this is what keeps a
+   * rebrand run from silently switching an app to a new identity.
+   */
+  bundleId?: string;
   /** App version string written into the Expo config. */
   version?: string;
   /** False when the logo has no alpha channel, so no monochrome icon is emitted. */
@@ -443,8 +450,11 @@ export function deriveMobileBrand(input: MobileBrandInput): MobileBrand {
       slug,
       scheme: expoScheme(input.slug),
       version: input.version?.trim() || DEFAULT_APP_VERSION,
-      iosBundleIdentifier: `${prefix}.${bundleSegment(input.slug)}`,
-      androidPackage: `${prefix}.${bundleSegment(input.slug)}`.replace(/-/g, "_"),
+      iosBundleIdentifier: input.bundleId?.trim() || `${prefix}.${bundleSegment(input.slug)}`,
+      androidPackage: (input.bundleId?.trim() || `${prefix}.${bundleSegment(input.slug)}`).replace(
+        /-/g,
+        "_",
+      ),
     },
     colors,
     scrim: deriveScrim(colors, input.heroGroundHex?.trim() || "#ffffff"),

@@ -47,10 +47,10 @@
       "backgroundColor": "#8f1a1a"
     },
     "ios": {
-      "bundleIdentifier": "com.elvoria.ranglapunjab"
+      "bundleIdentifier": "de.ranglapunjabrestaurant.app"
     },
     "android": {
-      "package": "com.elvoria.ranglapunjab",
+      "package": "de.ranglapunjabrestaurant.app",
       "adaptiveIcon": {
         "backgroundColor": "#8f1a1a",
         "foregroundImage": "./assets/generated/adaptive-foreground.png",
