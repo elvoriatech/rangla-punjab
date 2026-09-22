@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +13,7 @@ import {
 } from "react-native";
 import * as ExpoLinking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
-import type { ApiMenu } from "../api";
+import { BASE_URL, type ApiMenu } from "../api";
 import { useAuth } from "../auth";
 import type { GiftCardProduct, GiftCardShop, GiftCardView } from "../gift-cards";
 import {
@@ -39,26 +38,31 @@ import {
 } from "../components";
 import { fill, useI18n } from "../i18n";
 import { useLayout, TOUCH_MIN } from "../layout";
-import { usePressScale } from "../motion";
 import { colors, fonts, money, radius } from "../theme";
 import { displayVenueName } from "../venue-name";
 
 /**
  * Buying a gift card.
  *
- * Three designs, an AMOUNT, a name and a message, and a payment — the
- * same machinery the cart uses, minus the basket. The order of the flow is
- * the same too, and for the same reason: the card is minted FIRST
+ * The venue's poster, an AMOUNT, a name and a message, and a payment —
+ * the same machinery the cart uses, minus the basket. The order of the
+ * flow is the same too, and for the same reason: the card is minted FIRST
  * (`pending_payment`) and paid second, so a declined card never loses
  * the guest's message, and an abandoned payment leaves a row nobody can
  * spend rather than a free gift card.
  *
- * The amount is the guest's to choose and is MANDATORY: a design no
- * longer carries a price, only a suggestion (its tile still shows one,
- * and it seeds the field's placeholder). Nothing is pre-filled, because
- * a pre-filled amount is one a guest buys by accident; the Buy button
- * stays disabled until the field holds a whole number of euros inside
- * the venue's bounds. The server re-checks and can still answer
+ * The row of fixed designs (25 / 50 / 100 €) is GONE as of 2026-09-22, at
+ * the owner's word: it was three ways of saying the same thing, and the
+ * two that were not the guest's own number were guesses at what they
+ * wanted to spend. What is left is the poster and one field — the guest
+ * loads the card with whatever they choose and buys it themselves. The
+ * designs live on in the dashboard as ARTWORK; the first active one is
+ * the face every card wears.
+ *
+ * The amount is therefore MANDATORY and never pre-filled, because a
+ * pre-filled amount is one a guest buys by accident; the Buy button stays
+ * disabled until the field holds a whole number of euros inside the
+ * venue's bounds. The server re-checks and can still answer
  * `invalid_amount`, which lands on the same message.
  *
  * Signed out, this screen does not grow a sign-in form. The account
@@ -66,6 +70,19 @@ import { displayVenueName } from "../venue-name";
  * keep working; the nudge points there instead — the same soft gate the
  * cart's "sign in and earn points" line uses.
  */
+
+/**
+ * The venue's gift-card poster, served from the site next to the app's
+ * home-slider banners rather than bundled in the binary — the owner
+ * replaces the artwork by replacing the file, with no store release.
+ *
+ * `BANNER_PERCENT` is the discount the poster PRINTS. It is a constant
+ * because it is baked into the image: the screen shows the poster only
+ * while the venue's live discount agrees with it (see the render), so the
+ * app can never advertise a number the checkout would not honour.
+ */
+const GIFT_CARD_BANNER = `${BASE_URL}/app-slider/giftcard-de.webp`;
+const BANNER_PERCENT = 5;
 
 /** Which sheet to open. There is no cash route: nobody sells a gift card
  *  the guest has not paid for. */
@@ -95,16 +112,6 @@ export function GiftCardsScreen({
   const layout = useLayout();
   const [shop, setShop] = useState<GiftCardShop | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [productId, setProductId] = useState<string | null>(null);
-  /** The guest typed their own value (no card matches it): neither card
-   *  is highlighted, and the card is issued on the first design's art. */
-  const [other, setOther] = useState(false);
-  const amountRef = useRef<TextInput>(null);
-  /** The tile row's measured width: the two cards split it exactly (less
-   *  the gap), so they are identical boxes whatever their text is. 0
-   *  until measured — natural width for that first frame. */
-  const [rowWidth, setRowWidth] = useState(0);
-  const tileWidth = rowWidth > 0 ? Math.floor((rowWidth - TILE_GAP) / 2) : undefined;
   /** Whole euros, as TYPED — the string, not a number, so "0" and ""
    *  stay distinguishable and a half-typed "1" is not yet an error. */
   const [amount, setAmount] = useState("");
@@ -137,17 +144,24 @@ export function GiftCardsScreen({
       if (!alive) return;
       setShop(next);
       setLoaded(true);
-      // Nothing is pre-selected (owner, 2026-09-22): a tap on a card
-      // fills its amount in, "Other amount" lets the guest type one, and
-      // Buy stays off until one of the two has happened.
+      // Nothing is pre-filled: the amount is the guest's to type, and Buy
+      // stays off until it holds a whole number of euros in range.
     });
     return () => {
       alive = false;
     };
   }, []);
 
-  const product: GiftCardProduct | null =
-    shop?.products.find((p) => p.id === productId) ?? shop?.products[0] ?? null;
+  /**
+   * The design the card is ISSUED on.
+   *
+   * The guest no longer picks one (owner, 2026-09-22): the fixed 25/50/100
+   * tiles are gone and the amount is theirs to type, so the venue's first
+   * active design is simply the artwork every card wears. Designs are
+   * still the owner's to manage in the dashboard — they set the card's
+   * face, not its price.
+   */
+  const product: GiftCardProduct | null = shop?.products[0] ?? null;
   const currency = shop?.currency ?? menu.venue.currency;
 
   // The venue's bounds, with the server's own defaults when it is older
@@ -432,33 +446,31 @@ export function GiftCardsScreen({
               <Text style={styles.lead}>{t.giftCardsLead}</Text>
               {notice ? <Text style={styles.discount}>{notice}</Text> : null}
 
-              {/* The two designs, side by side. Tapping one fills its value
-                  into the amount field; any other value is typed there. */}
-              <View
-                style={styles.tileRow}
-                accessibilityRole="radiogroup"
-                onLayout={(e) => setRowWidth(Math.round(e.nativeEvent.layout.width))}
-              >
-                {shop.products.map((p) => (
-                  <ProductTile
-                    key={p.id}
-                    product={p}
-                    currency={currency}
-                    discount={discount}
-                    width={tileWidth}
-                    selected={!other && productId === p.id}
-                    onPress={() => {
-                      // The card's own value goes straight into the
-                      // amount — the guest can still change it below.
-                      setProductId(p.id);
-                      setOther(false);
-                      setAmount(String(Math.round(p.priceCents / 100)));
-                      setAmountTouched(false);
-                      setError(null);
-                    }}
-                  />
-                ))}
-              </View>
+              {/* The venue's own gift-card poster, where the row of fixed
+                  designs used to be (owner, 2026-09-22). It is the same
+                  artwork the app's home slider carries, so the guest who
+                  tapped the poster on Home arrives at the poster here.
+
+                  It states the DISCOUNT, so it is only shown while the
+                  venue's discount is the one it prints — `BANNER_PERCENT`.
+                  Change the discount in the dashboard and the poster
+                  stands down rather than advertising a number the checkout
+                  will not honour; the live figure is always on the "you
+                  pay" line under the amount, which is computed.
+
+                  Decorative: everything it says is said in text below, so
+                  it is hidden from a screen reader rather than read out as
+                  a wall of marketing. */}
+              {discount === BANNER_PERCENT ? (
+                <Image
+                  source={{ uri: GIFT_CARD_BANNER }}
+                  style={styles.banner}
+                  resizeMode="cover"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  accessibilityIgnoresInvertColors
+                />
+              ) : null}
 
               {/* THE AMOUNT — the one required field on this form, so it
                   leads the three and wears the asterisk. The tiles above
@@ -468,7 +480,6 @@ export function GiftCardsScreen({
                 <FieldLabel label={t.giftCardAmount} required style={styles.label} />
                 <View style={[styles.amountBox, amountError ? styles.amountBoxError : null]}>
                   <TextInput
-                    ref={amountRef}
                     value={amount}
                     onChangeText={(next) => {
                       // Digits only, and capped at six so a fat-fingered
@@ -476,28 +487,14 @@ export function GiftCardsScreen({
                       const digits = next.replace(/[^0-9]/g, "").slice(0, 6);
                       setAmount(digits);
                       setError(null);
-                      // Keep the tiles honest about what is in the field:
-                      // a card's exact value selects that card, anything
-                      // else is the guest's own amount.
-                      const match = shop?.products.find(
-                        (p) => digits !== "" && p.priceCents === Number(digits) * 100,
-                      );
-                      if (match) {
-                        setProductId(match.id);
-                        setOther(false);
-                      } else if (digits !== "") {
-                        setProductId(null);
-                        setOther(true);
-                      }
                     }}
                     onBlur={() => setAmountTouched(true)}
                     keyboardType="number-pad"
                     inputMode="numeric"
                     maxLength={6}
-                    // The selected design's own price, as the hint of
-                    // what this venue considers a normal gift.
-                    // No grey "50": the field is filled only by a tap on
-                    // a card, or by the guest typing their own amount.
+                    // No grey suggestion: the amount is the guest's own,
+                    // and a pre-filled one is an amount someone buys by
+                    // accident. The range is spelled out under the field.
                     placeholderTextColor={colors.inkSoft}
                     // Bold ONLY once there is a real amount in it. The
                     // colour token is the app's placeholder grey and
@@ -659,112 +656,18 @@ export function GiftCardsScreen({
   );
 }
 
-/** The purchase discount, in the tile's top-left corner. */
-function DiscountBadge({ percent }: { percent: number }): React.ReactElement | null {
-  const { t } = useI18n();
-  if (percent <= 0) return null;
-  return (
-    <View style={styles.badge} pointerEvents="none">
-      <Text style={styles.badgeText} numberOfLines={1}>
-        {fill(t.giftCardDiscountBadge, { percent: String(percent) })}
-      </Text>
-    </View>
-  );
-}
-
-function ProductTile({
-  product,
-  currency,
-  discount,
-  width,
-  selected,
-  onPress,
-}: {
-  product: GiftCardProduct;
-  currency: string;
-  discount: number;
-  width: number | undefined;
-  selected: boolean;
-  onPress: () => void;
-}): React.ReactElement {
-  const press = usePressScale(0.96);
-  return (
-    // The wrapper scales, the Pressable inside takes the touch: a
-    // transform on the target itself fights the row's layout.
-    <Animated.View style={[press.style, styles.tileCell, width ? { width } : null]}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={press.onPressIn}
-        onPressOut={press.onPressOut}
-        accessibilityRole="radio"
-        accessibilityState={{ selected }}
-        accessibilityLabel={`${product.name} · ${money(product.priceCents, currency)}`}
-        style={[styles.tile, selected && styles.tileOn]}
-      >
-        {product.imageUrl ? (
-          <Image source={{ uri: product.imageUrl }} style={styles.tileArt} resizeMode="cover" />
-        ) : (
-          <View style={[styles.tileArt, styles.tileArtFallback]}>
-            <Ionicons name="gift-outline" size={28} color={colors.red} />
-          </View>
-        )}
-        <DiscountBadge percent={discount} />
-        {/* Name and value on one line: name at the start, value at the end. */}
-        <View style={styles.tileLine}>
-          <Text style={styles.tileName} numberOfLines={1}>
-            {product.name}
-          </Text>
-          <Text style={styles.tilePrice} numberOfLines={1}>
-            {money(product.priceCents, currency)}
-          </Text>
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-const TILE_GAP = 8;
-
 const styles = StyleSheet.create({
   lead: { color: colors.inkSoft, ...fonts.body, fontSize: 13.5, lineHeight: 19 },
   disabled: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13.5, marginTop: 24 },
   boughtTitle: { color: colors.ink, ...fonts.display, fontSize: 22 },
-  /** `stretch` gives both cards the taller one's height. */
-  tileRow: { flexDirection: "row", alignItems: "stretch", gap: TILE_GAP, paddingVertical: 4 },
-  /** Sized by the measured row (see `tileWidth`). */
-  tileCell: { minWidth: 0 },
-  tile: {
-    flex: 1,
-    backgroundColor: colors.creamCard,
-    borderWidth: 1.5,
-    borderColor: colors.line,
+  /** The poster, in the posters' own 2 : 1 shape (`aspectRatio`, so it
+   *  is right at every width — phone, tablet, capped content column). */
+  banner: {
+    width: "100%",
+    aspectRatio: 2,
     borderRadius: radius.lg,
-    padding: 10,
-    gap: 4,
+    backgroundColor: colors.creamCard,
   },
-  tileOn: { borderColor: colors.red },
-  /** Pinned over the artwork's top-left corner (`start`, so RTL mirrors). */
-  badge: {
-    position: "absolute",
-    top: 13,
-    start: 13,
-    backgroundColor: colors.red,
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderWidth: 1.5,
-    borderColor: colors.goldSoft,
-  },
-  badgeText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 12 },
-  tileArt: { width: "100%", height: 104, borderRadius: radius.md, backgroundColor: colors.line },
-  tileArtFallback: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.cream,
-  },
-  tileLine: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 2 },
-  tileName: { color: colors.ink, ...fonts.bodyBold, fontSize: 13.5, flexShrink: 1 },
-  tilePrice: { color: colors.red, ...fonts.bodyHeavy, fontSize: 15 },
   label: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
   hint: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The amount field is a ROW — the input plus a fixed unit — so the

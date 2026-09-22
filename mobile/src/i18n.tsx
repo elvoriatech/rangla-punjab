@@ -428,7 +428,7 @@ const en = {
   giftCardsSub: "Give a treat",
 
   giftCardsHeading: "Gift cards",
-  giftCardsLead: "Pick a card, add a message, and hand it to whoever deserves it.",
+  giftCardsLead: "Choose your own amount, add a message, and hand the card to whoever deserves it.",
   /** The amount the guest loads the card with — a required field, so the
    *  label wears the asterisk (`FieldLabel required`). The helper line
    *  and both errors are filled from the venue's own bounds. */
@@ -1178,12 +1178,12 @@ const de: Strings = {
   dispatchErrWrongState: "Diese Bestellung ist noch nicht zur Auslieferung bereit.",
   boardOnTheWaySince: "Unterwegs seit {time}",
 
-  giftCardsTitle: "Geschenkgutscheine",
+  giftCardsTitle: "Geschenk\u00ADgutscheine",
   giftCardsSub: "Verschenk etwas Gutes",
 
   giftCardsHeading: "Geschenkgutscheine",
   giftCardsLead:
-    "Wähl einen Geschenkgutschein, schreib eine Nachricht dazu und schenk ihn jemandem, der es verdient hat.",
+    "Wähl deinen Betrag selbst, schreib eine Nachricht dazu und schenk den Gutschein jemandem, der es verdient hat.",
   giftCardAmount: "Betrag",
   giftCardAmountHint: "{min} – {max}",
   giftCardDiscountBadge: "{percent} % Rabatt",
@@ -1928,7 +1928,7 @@ const fr: Strings = {
   giftCardsSub: "Faites plaisir",
 
   giftCardsHeading: "Cartes cadeaux",
-  giftCardsLead: "Choisissez une carte, ajoutez un message et offrez-la à qui le mérite.",
+  giftCardsLead: "Choisissez votre montant, ajoutez un message et offrez la carte à qui le mérite.",
   giftCardAmount: "Montant",
   giftCardAmountHint: "{min} – {max}",
   giftCardDiscountBadge: "-{percent} %",
@@ -2672,7 +2672,7 @@ const it: Strings = {
   giftCardsSub: "Fai un regalo",
 
   giftCardsHeading: "Carte regalo",
-  giftCardsLead: "Scegli una carta, aggiungi un messaggio e regalala a chi se lo merita.",
+  giftCardsLead: "Scegli tu l'importo, aggiungi un messaggio e regala la carta a chi se lo merita.",
   giftCardAmount: "Importo",
   giftCardAmountHint: "{min} – {max}",
   giftCardDiscountBadge: "Sconto {percent}%",
@@ -3416,7 +3416,7 @@ const es: Strings = {
   giftCardsSub: "Regala un capricho",
 
   giftCardsHeading: "Tarjetas regalo",
-  giftCardsLead: "Elige una tarjeta, añade un mensaje y dásela a quien se lo merezca.",
+  giftCardsLead: "Elige tú el importe, añade un mensaje y dale la tarjeta a quien se lo merezca.",
   giftCardAmount: "Importe",
   giftCardAmountHint: "{min} – {max}",
   giftCardDiscountBadge: "{percent}% de descuento",
@@ -4153,7 +4153,7 @@ const ar: Strings = {
   giftCardsSub: "اهدِ من تحب",
 
   giftCardsHeading: "بطاقات الهدايا",
-  giftCardsLead: "اختر بطاقة، أضف رسالة، وأهدِها لمن يستحق.",
+  giftCardsLead: "اختر المبلغ الذي تريده، أضف رسالة، وأهدِ البطاقة لمن يستحق.",
   giftCardAmount: "المبلغ",
   giftCardAmountHint: "{min} – {max}",
   giftCardDiscountBadge: "خصم {percent}%",
