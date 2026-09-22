@@ -9,7 +9,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useI18n } from "../i18n";
 import { GOOGLE_NATIVE, useAuth } from "../auth";
@@ -77,7 +76,6 @@ export function WelcomeScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   const auth = useAuth();
-  const insets = useSafeAreaInsets();
   const loading = variant === "loading";
   // "Rangla Punjab Restaurant" over "Konstanz" — one `venues.name` with
   // the " · " separator in it, set as a letterhead (see `venue-name.ts`).
@@ -239,7 +237,10 @@ export function WelcomeScreen({
           page. `left` rather than `start`: the corner is the corner in
           both reading directions — this is artwork, not a control. */}
       {brand.halal ? (
-        <View style={[styles.halal, { top: insets.top + 14 }]} pointerEvents="none">
+        // The app's root SafeAreaView already starts this screen below the
+        // status bar, so the mark sits just inside the red — adding
+        // `insets.top` again dropped it a whole status bar too low.
+        <View style={[styles.halal, { top: 10 }]} pointerEvents="none">
           <HalalMark />
         </View>
       ) : null}

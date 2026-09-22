@@ -96,6 +96,16 @@ export function GiftCardsScreen({
   const [shop, setShop] = useState<GiftCardShop | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
+  /** "Other amount" is chosen: the guest types their own value, and the
+   *  card is issued on the first design's artwork. */
+  const [other, setOther] = useState(false);
+  const amountRef = useRef<TextInput>(null);
+  /** The tile row's measured width: each of the three tiles gets exactly
+   *  a third (less the two gaps), so they are identical boxes whatever
+   *  their text is. 0 until measured — the row renders at natural width
+   *  for that first frame. */
+  const [rowWidth, setRowWidth] = useState(0);
+  const tileWidth = rowWidth > 0 ? Math.floor((rowWidth - 2 * TILE_GAP) / 3) : undefined;
   /** Whole euros, as TYPED — the string, not a number, so "0" and ""
    *  stay distinguishable and a half-typed "1" is not yet an error. */
   const [amount, setAmount] = useState("");
@@ -128,12 +138,9 @@ export function GiftCardsScreen({
       if (!alive) return;
       setShop(next);
       setLoaded(true);
-      // Pre-select the middle design when there are three: it is the one
-      // the venue prices as its normal gift, and an unselected shop makes
-      // the Buy button look broken.
-      const products = next?.products ?? [];
-      const middle = products[Math.floor(products.length / 2)] ?? products[0];
-      if (middle) setProductId(middle.id);
+      // Nothing is pre-selected (owner, 2026-09-22): a tap on a card
+      // fills its amount in, "Other amount" lets the guest type one, and
+      // Buy stays off until one of the two has happened.
     });
     return () => {
       alive = false;
@@ -426,24 +433,48 @@ export function GiftCardsScreen({
               <Text style={styles.lead}>{t.giftCardsLead}</Text>
               {notice ? <Text style={styles.discount}>{notice}</Text> : null}
 
-              {/* The designs, as a swipeable row of tiles. A radio group
-                  rather than a list: exactly one is bought. */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
+              {/* The two designs and "Other amount", side by side — all
+                  three in view, nothing hidden off-screen to swipe to. A
+                  radio group rather than a list: exactly one is bought. */}
+              <View
+                style={styles.tileRow}
                 accessibilityRole="radiogroup"
+                onLayout={(e) => setRowWidth(Math.round(e.nativeEvent.layout.width))}
               >
                 {shop.products.map((p) => (
                   <ProductTile
                     key={p.id}
                     product={p}
                     currency={currency}
-                    selected={product?.id === p.id}
-                    onPress={() => setProductId(p.id)}
+                    discount={discount}
+                    width={tileWidth}
+                    selected={!other && productId === p.id}
+                    onPress={() => {
+                      // The card's own value goes straight into the
+                      // amount — the guest can still change it below.
+                      setProductId(p.id);
+                      setOther(false);
+                      setAmount(String(Math.round(p.priceCents / 100)));
+                      setAmountTouched(false);
+                      setError(null);
+                    }}
                   />
                 ))}
-              </ScrollView>
+                <OtherAmountTile
+                  width={tileWidth}
+                  hint={`${Math.round(minCents / 100)} – ${Math.round(maxCents / 100)} ${currency === "EUR" ? "€" : currency}`}
+                  discount={discount}
+                  selected={other}
+                  onPress={() => {
+                    setOther(true);
+                    setProductId(null);
+                    setAmount("");
+                    setAmountTouched(false);
+                    setError(null);
+                    amountRef.current?.focus();
+                  }}
+                />
+              </View>
 
               {/* THE AMOUNT — the one required field on this form, so it
                   leads the three and wears the asterisk. The tiles above
@@ -453,12 +484,27 @@ export function GiftCardsScreen({
                 <FieldLabel label={t.giftCardAmount} required style={styles.label} />
                 <View style={[styles.amountBox, amountError ? styles.amountBoxError : null]}>
                   <TextInput
+                    ref={amountRef}
                     value={amount}
                     onChangeText={(next) => {
                       // Digits only, and capped at six so a fat-fingered
                       // paste cannot grow the field past any sane bound.
-                      setAmount(next.replace(/[^0-9]/g, "").slice(0, 6));
+                      const digits = next.replace(/[^0-9]/g, "").slice(0, 6);
+                      setAmount(digits);
                       setError(null);
+                      // Keep the tiles honest about what is in the field:
+                      // a card's exact value selects that card, anything
+                      // else is the guest's own amount.
+                      const match = shop?.products.find(
+                        (p) => digits !== "" && p.priceCents === Number(digits) * 100,
+                      );
+                      if (match) {
+                        setProductId(match.id);
+                        setOther(false);
+                      } else if (digits !== "") {
+                        setProductId(null);
+                        setOther(true);
+                      }
                     }}
                     onBlur={() => setAmountTouched(true)}
                     keyboardType="number-pad"
@@ -466,7 +512,8 @@ export function GiftCardsScreen({
                     maxLength={6}
                     // The selected design's own price, as the hint of
                     // what this venue considers a normal gift.
-                    placeholder={product ? String(Math.round(product.priceCents / 100)) : undefined}
+                    // No grey "50": the field is filled only by a tap on
+                    // a card, or by the guest typing their own amount.
                     placeholderTextColor={colors.inkSoft}
                     // Bold ONLY once there is a real amount in it. The
                     // colour token is the app's placeholder grey and
@@ -628,14 +675,71 @@ export function GiftCardsScreen({
   );
 }
 
+/** The purchase discount, in the tile's top-left corner. */
+function DiscountBadge({ percent }: { percent: number }): React.ReactElement | null {
+  const { t } = useI18n();
+  if (percent <= 0) return null;
+  return (
+    <View style={styles.badge} pointerEvents="none">
+      <Text style={styles.badgeText} numberOfLines={1}>
+        {fill(t.giftCardDiscountBadge, { percent: String(percent) })}
+      </Text>
+    </View>
+  );
+}
+
+/** The last tile: the guest names their own value. */
+function OtherAmountTile({
+  hint,
+  discount,
+  width,
+  selected,
+  onPress,
+}: {
+  hint: string;
+  discount: number;
+  width: number | undefined;
+  selected: boolean;
+  onPress: () => void;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const press = usePressScale(0.96);
+  return (
+    <Animated.View style={[press.style, styles.tileCell, width ? { width } : null]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+        accessibilityLabel={`${t.giftCardOtherAmount} · ${hint}`}
+        style={[styles.tile, selected && styles.tileOn]}
+      >
+        <View style={[styles.tileArt, styles.tileArtFallback]}>
+          <Ionicons name="create-outline" size={30} color={colors.red} />
+        </View>
+        <DiscountBadge percent={discount} />
+        <Text style={styles.tileName} numberOfLines={2}>
+          {t.giftCardOtherAmount}
+        </Text>
+        <Text style={styles.tilePrice}>{hint}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 function ProductTile({
   product,
   currency,
+  discount,
+  width,
   selected,
   onPress,
 }: {
   product: GiftCardProduct;
   currency: string;
+  discount: number;
+  width: number | undefined;
   selected: boolean;
   onPress: () => void;
 }): React.ReactElement {
@@ -643,7 +747,7 @@ function ProductTile({
   return (
     // The wrapper scales, the Pressable inside takes the touch: a
     // transform on the target itself fights the row's layout.
-    <Animated.View style={press.style}>
+    <Animated.View style={[press.style, styles.tileCell, width ? { width } : null]}>
       <Pressable
         onPress={onPress}
         onPressIn={press.onPressIn}
@@ -660,6 +764,7 @@ function ProductTile({
             <Ionicons name="gift-outline" size={28} color={colors.red} />
           </View>
         )}
+        <DiscountBadge percent={discount} />
         <Text style={styles.tileName} numberOfLines={2}>
           {product.name}
         </Text>
@@ -669,12 +774,19 @@ function ProductTile({
   );
 }
 
+const TILE_GAP = 8;
+
 const styles = StyleSheet.create({
   lead: { color: colors.inkSoft, ...fonts.body, fontSize: 13.5, lineHeight: 19 },
   disabled: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 13.5, marginTop: 24 },
   boughtTitle: { color: colors.ink, ...fonts.display, fontSize: 22 },
+  /** `stretch` gives all three the tallest one's height. */
+  tileRow: { flexDirection: "row", alignItems: "stretch", gap: TILE_GAP, paddingVertical: 4 },
+  /** A third of the row each, so all three always fit. The scaling
+   *  wrapper is the row's child, so IT takes the flex. */
+  tileCell: { minWidth: 0 },
   tile: {
-    width: 176,
+    flex: 1,
     backgroundColor: colors.creamCard,
     borderWidth: 1.5,
     borderColor: colors.line,
@@ -683,14 +795,27 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tileOn: { borderColor: colors.red },
-  tileArt: { width: "100%", height: 104, borderRadius: radius.md, backgroundColor: colors.line },
+  /** Pinned over the artwork's top-left corner (`start`, so RTL mirrors). */
+  badge: {
+    position: "absolute",
+    top: 13,
+    start: 13,
+    backgroundColor: colors.red,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1.5,
+    borderColor: colors.goldSoft,
+  },
+  badgeText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 11 },
+  tileArt: { width: "100%", height: 84, borderRadius: radius.md, backgroundColor: colors.line },
   tileArtFallback: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.cream,
   },
-  tileName: { color: colors.ink, ...fonts.bodyBold, fontSize: 13.5 },
-  tilePrice: { color: colors.red, ...fonts.bodyHeavy, fontSize: 15 },
+  tileName: { color: colors.ink, ...fonts.bodyBold, fontSize: 13 },
+  tilePrice: { color: colors.red, ...fonts.bodyHeavy, fontSize: 14 },
   label: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
   hint: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The amount field is a ROW — the input plus a fixed unit — so the
