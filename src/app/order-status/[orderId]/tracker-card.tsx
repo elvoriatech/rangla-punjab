@@ -281,11 +281,15 @@ export function OrderTrackerCard({
             {t.autoRefresh}
           </p>
         ) : null}
-        <p className="mt-2 text-center text-xs">
-          <Link href="/" className="underline underline-offset-4">
-            {t.backToMenu}
-          </Link>
-        </p>
+        {/* The way on, as a real button (owner, 2026-09-22): the guest's
+            next move after ordering is usually "one more drink", and a
+            12 px underlined line at the foot of the card went unseen. */}
+        <Link
+          href="/"
+          className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[var(--menu-surface-accent,var(--menu-accent))] px-4 py-3 text-base font-semibold text-[var(--menu-text)] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-accent,var(--menu-accent))]"
+        >
+          {t.backToMenu}
+        </Link>
       </div>
     </main>
   );

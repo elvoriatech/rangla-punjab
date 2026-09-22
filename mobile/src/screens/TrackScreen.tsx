@@ -28,7 +28,7 @@ import {
   payWithCard,
   payWithPaypal,
 } from "../payments";
-import { BrandHeader } from "../components";
+import { BrandHeader, PrimaryButton } from "../components";
 import { IssueSheet } from "../issue-sheet";
 import { CHEVRON_BACK, colors, fonts, money, radius } from "../theme";
 import { fill, localeTag, useI18n } from "../i18n";
@@ -67,6 +67,7 @@ export function TrackScreen({
   giftCardFailed,
   openIssue,
   onBack,
+  onOpenMenu,
 }: {
   orderId: string;
   token: string;
@@ -99,6 +100,9 @@ export function TrackScreen({
    *  opens with the screen instead of waiting to be found on it. */
   openIssue?: boolean;
   onBack: () => void;
+  /** Leaves the tracker for the Menu tab — "one more drink" is usually
+   *  the guest's next move after ordering. */
+  onOpenMenu?: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
   /** Step-rail wording in the guest's own language, keyed on the stable
@@ -618,6 +622,13 @@ export function TrackScreen({
             ) : null}
           </View>
         )}
+        {/* The way on, as a real button at the end of the receipt (owner,
+            2026-09-22) — the small "‹ Back" at the top went unseen. */}
+        {onOpenMenu ? (
+          <View style={{ marginTop: 18 }}>
+            <PrimaryButton label={t.trackBackToMenu} onPress={onOpenMenu} />
+          </View>
+        ) : null}
       </ScrollView>
 
       <IssueSheet

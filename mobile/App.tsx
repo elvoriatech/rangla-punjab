@@ -542,6 +542,11 @@ function Shell(): React.ReactElement {
         giftCardFailed={track.giftCardFailed}
         openIssue={track.issue}
         onBack={() => setTrack(null)}
+        onOpenMenu={() => {
+          setTrack(null);
+          setCategoryId(null);
+          setTab("menu");
+        }}
       />
     );
   }
