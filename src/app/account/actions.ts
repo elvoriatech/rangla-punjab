@@ -8,7 +8,9 @@ import {
   registerCustomerWithPassword,
   revokeCustomerToken,
   signInCustomerWithPassword,
+  verifyCustomerToken,
 } from "@/lib/customer-auth";
+import { deleteCustomerAccount } from "@/lib/customer-deletion";
 import { resolvePreviewContext } from "@/lib/preview-context";
 import { getRestaurantSlug } from "@/lib/restaurant";
 
@@ -48,6 +50,22 @@ export async function loginCustomerAction(formData: FormData): Promise<void> {
   if (!result.ok) redirect("/account?error=login");
   await setCustomerCookie(result.value.token);
   redirect("/account?welcome=1");
+}
+
+/** "Konto löschen" from the account page. The confirm checkbox is
+ *  `required` in the form; checked again here so a hand-built POST
+ *  cannot skip the one step that says this is permanent. */
+export async function deleteCustomerAccountAction(formData: FormData): Promise<void> {
+  if (formData.get("confirm") !== "yes") redirect("/account?delete=1#konto-loeschen");
+  const store = await cookies();
+  const context = await resolvePreviewContext(await getRestaurantSlug(), null);
+  const customer = context
+    ? await verifyCustomerToken(context.tenantId, store.get(CUSTOMER_COOKIE)?.value)
+    : null;
+  if (!context || !customer) redirect("/account?delete=1");
+  await deleteCustomerAccount(context.tenantId, customer.id);
+  store.set(CUSTOMER_COOKIE, "", { path: "/", maxAge: 0 });
+  redirect("/account?deleted=1");
 }
 
 /** Sign the customer out: revoke the token server-side, drop the cookie. */

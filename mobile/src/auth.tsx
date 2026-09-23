@@ -168,6 +168,10 @@ interface AuthApi {
   ) => Promise<"invalid" | "exists" | "failed" | null>;
   cancelLogin: () => void;
   logout: () => Promise<void>;
+  /** "Konto löschen": erases the account server-side, then signs this
+   *  device out. False when the server could not be reached or refused —
+   *  the guest stays signed in and can try again. */
+  deleteAccount: () => Promise<boolean>;
   fetchMyOrders: () => Promise<AccountOrder[]>;
   /** Remember the guest's language on their ACCOUNT, so it follows them
    *  to their next device. No-op when signed out. */
@@ -563,6 +567,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     }
   }, [token]);
 
+  const deleteAccount = useCallback(async (): Promise<boolean> => {
+    if (!token) return false;
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/me/account`, {
+        method: "DELETE",
+        headers: { "X-Customer-Token": token },
+      });
+      // 401: the session (and so the account) is already gone — the
+      // outcome the guest asked for, so fall through to the local sign-out.
+      if (!res.ok && res.status !== 401) return false;
+    } catch {
+      return false;
+    }
+    // The server already revoked every session; this only drops ours.
+    setToken(null);
+    setCustomer(null);
+    await clearToken();
+    return true;
+  }, [token]);
+
   const clearStaff = useCallback(() => {
     setStaffToken(null);
     setStaff(null);
@@ -645,6 +669,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       loginWithEmail,
       cancelLogin,
       logout,
+      deleteAccount,
       fetchMyOrders,
       saveLocale,
     }),
@@ -666,6 +691,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       loginWithEmail,
       cancelLogin,
       logout,
+      deleteAccount,
       fetchMyOrders,
       saveLocale,
     ],

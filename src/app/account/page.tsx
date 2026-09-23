@@ -15,7 +15,12 @@ import { postOrderCopy } from "@/lib/i18n/post-order";
 import { reviewPromptFor, trackedReviewUrl } from "@/lib/google-rating";
 import { parseContactConfig, publicContact } from "@/lib/contact-config";
 import { dirFor, isLocaleCode, uiLocale } from "@/lib/locales";
-import { loginCustomerAction, logoutCustomerAction, registerCustomerAction } from "./actions";
+import {
+  deleteCustomerAccountAction,
+  loginCustomerAction,
+  logoutCustomerAction,
+  registerCustomerAction,
+} from "./actions";
 import { RequiredLegend, RequiredMark } from "@/components/required-mark";
 
 /**
@@ -53,9 +58,23 @@ export default async function AccountPage({
     app?: string;
     locale?: string;
     reset?: string;
+    delete?: string;
+    deleted?: string;
   }>;
 }): Promise<React.ReactElement> {
-  const { welcome, error, app, locale: localeParam, reset } = await searchParams;
+  const {
+    welcome,
+    error,
+    app,
+    locale: localeParam,
+    reset,
+    delete: deleteParam,
+    deleted,
+  } = await searchParams;
+  // `/account/delete` lands here with `?delete=1` — the address the app
+  // stores list as "where to delete your account". It opens the delete
+  // section for a signed-in guest and explains the steps to everyone else.
+  const wantsDelete = Boolean(deleteParam);
   const slug = await getRestaurantSlug();
   const context = await resolvePreviewContext(slug, null);
   const store = await cookies();
@@ -176,6 +195,12 @@ export default async function AccountPage({
           text={`Willkommen! Du bist angemeldet.${app ? " Du kannst dieses Fenster schließen — die App ist jetzt angemeldet." : ""}`}
         />
       ) : null}
+      {deleted ? (
+        <FlashMessage
+          kind="success"
+          text="Dein Konto wurde gelöscht. / Your account has been deleted."
+        />
+      ) : null}
       {error ? (
         <FlashMessage
           kind="error"
@@ -204,6 +229,27 @@ export default async function AccountPage({
 
       {!customer ? (
         <section className="mt-8 space-y-3">
+          {wantsDelete ? (
+            <div id="konto-loeschen" className="border border-ink/15 bg-card px-5 py-4 text-sm">
+              <h2 className="font-serif text-2xl">
+                Konto löschen · Delete account – Rangla Punjab Restaurant
+              </h2>
+              <ol className="mt-3 list-decimal space-y-1 ps-5">
+                <li>
+                  Unten anmelden – mit demselben Konto wie in der App. / Sign in below with the
+                  account you use in the app.
+                </li>
+                <li>Ganz unten „Konto löschen“ öffnen. / Open “Delete account” at the bottom.</li>
+                <li>Bestätigen – fertig. / Confirm – done.</li>
+              </ol>
+              <p className="mt-3 text-muted">
+                Gelöscht werden Name, E-Mail, Telefonnummer, Lieferadresse und Treuepunkte.
+                Bestellungen bleiben aus steuerrechtlichen Gründen anonymisiert erhalten. / Your
+                name, email, phone, delivery address and points are deleted; orders are kept
+                anonymised as tax law requires.
+              </p>
+            </div>
+          ) : null}
           <p className="text-sm text-muted">
             Melde dich an, um deine Bestellungen auf allen Geräten zu sehen. / Sign in to see your
             orders on every device.
@@ -517,6 +563,42 @@ export default async function AccountPage({
               })}
             </ul>
           )}
+
+          {/* Collapsed and last on purpose: findable (the stores require
+              it) without inviting a mis-tap. <details> + a `required`
+              checkbox keep it a zero-JS flow like the rest of the page. */}
+          <details
+            id="konto-loeschen"
+            open={wantsDelete}
+            className="mt-10 border border-ink/15 bg-card px-5 py-4 text-sm"
+          >
+            <summary className="cursor-pointer font-semibold text-red-900">
+              Konto löschen / Delete account
+            </summary>
+            <p className="mt-3">
+              Gelöscht werden dein Name, deine E-Mail, Telefonnummer, Lieferadresse und deine
+              Treuepunkte. Du wirst auf allen Geräten abgemeldet. Bestellungen bleiben aus
+              steuerrechtlichen Gründen anonymisiert erhalten. Gekaufte Geschenkkarten bleiben mit
+              ihrem Code gültig – notiere dir die Codes vorher.
+            </p>
+            <p className="mt-2 text-muted">
+              Deletes your name, email, phone, delivery address and points, and signs you out
+              everywhere. Orders are kept anonymised as tax law requires. Gift cards you bought stay
+              valid with their code – note the codes first.
+            </p>
+            <form action={deleteCustomerAccountAction} className="mt-4 space-y-3">
+              <label className="flex items-start gap-2">
+                <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+                <span>Ja, mein Konto endgültig löschen. / Yes, permanently delete my account.</span>
+              </label>
+              <button
+                type="submit"
+                className="w-full bg-red-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-card hover:opacity-90"
+              >
+                Konto endgültig löschen / Delete permanently
+              </button>
+            </form>
+          </details>
         </section>
       )}
 

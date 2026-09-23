@@ -199,6 +199,24 @@ export function AccountScreen({
     return t.rewardsAdjust;
   };
 
+  // "Konto löschen" — required by both app stores. Always behind a
+  // native confirm that says what goes and what stays; the server call
+  // signs the device out itself once the account is gone.
+  const confirmDeleteAccount = (): void => {
+    Alert.alert(t.deleteAccountTitle, t.deleteAccountBody, [
+      { text: t.signInCancel, style: "cancel" },
+      {
+        text: t.deleteAccountConfirm,
+        style: "destructive",
+        onPress: () => {
+          void auth.deleteAccount().then((ok) => {
+            Alert.alert(ok ? t.deleteAccountDone : t.deleteAccountFailed);
+          });
+        },
+      },
+    ]);
+  };
+
   // Restaurant mode asks first: signing out takes the live orders board
   // off the counter's phone, which is not something to lose to a mis-tap.
   const confirmStaffSignOut = (): void => {
@@ -391,6 +409,16 @@ export function AccountScreen({
                   icon="log-out-outline"
                   onPress={() => void auth.logout()}
                 />
+                {/* A quiet text link under sign-out: findable, but never
+                    the thing a thumb lands on by accident. */}
+                <Pressable
+                  onPress={confirmDeleteAccount}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  style={styles.deleteAccount}
+                >
+                  <Text style={styles.signOut}>{t.deleteAccount}</Text>
+                </Pressable>
               </View>
             </>
           ) : auth.busyProvider && auth.busyProvider !== GOOGLE_NATIVE ? (
@@ -804,6 +832,7 @@ const styles = StyleSheet.create({
   profileMail: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 1 },
   signOut: { color: colors.red, fontSize: 13, ...fonts.bodyBold, marginTop: 8 },
   signOutBox: { marginTop: 16 },
+  deleteAccount: { alignSelf: "center", minHeight: 44, justifyContent: "center" },
   mutedText: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginBottom: 8 },
   loginBtn: {
     borderWidth: 1.5,
