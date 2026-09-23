@@ -6,7 +6,11 @@
       "policy": "appVersion"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "predictiveBackGestureEnabled": false
@@ -28,7 +32,8 @@
           "photosPermission": "The app uses your photos so you can attach a picture when you report a problem with an order.",
           "cameraPermission": "The app uses the camera so you can photograph a problem with your order instead of describing it."
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "extra": {
       "brand": {

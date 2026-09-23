@@ -29,7 +29,7 @@ import {
   walletsFromAccepted,
 } from "../payments";
 import { useCart } from "../cart";
-import { GOOGLE_NATIVE, useAuth } from "../auth";
+import { APPLE_NATIVE, GOOGLE_NATIVE, useAuth } from "../auth";
 import { fill, useI18n } from "../i18n";
 import { useVenueOpenNow, venueTimezone } from "../hours";
 import { armedVoucher, discountFor, pointsForFood, useLoyalty } from "../loyalty";
@@ -37,6 +37,7 @@ import type { GiftCardView } from "../gift-cards";
 import { fetchMyGiftCards, giftCardLast4, isSpendable, normalizeGiftCardCode } from "../gift-cards";
 import { rememberOrder } from "../orders-store";
 import { BrandHeader, FieldLabel, PrimaryButton, QtyStepper, RequiredLegend } from "../components";
+import { AppleButton } from "../apple-button";
 import { GoogleButton } from "../google-button";
 import { colors, fonts, money, radius } from "../theme";
 
@@ -488,6 +489,11 @@ export function CartScreen({
     if (outcome === "unavailable") await auth.login("google");
   }
 
+  async function startApple(): Promise<void> {
+    if (auth.busyProvider) return;
+    await auth.loginWithApple();
+  }
+
   /**
    * Place the order, then pay it.
    *
@@ -896,15 +902,24 @@ export function CartScreen({
                   ) : null}
                   {/* Signed out: one tap fills name, phone, email and
                       the last delivery address. Signed in, it's gone. */}
-                  {!auth.customer && auth.googleAvailable ? (
+                  {!auth.customer && (auth.googleAvailable || auth.appleAvailable) ? (
                     <View style={styles.signInNudge}>
                       <Text style={styles.fieldLabel}>{t.signInToPrefill}</Text>
-                      <GoogleButton
-                        compact
-                        label={t.continueWithGoogle}
-                        onPress={() => void startGoogle()}
-                        busy={auth.busyProvider === GOOGLE_NATIVE}
-                      />
+                      {auth.appleAvailable ? (
+                        <AppleButton
+                          compact
+                          onPress={() => void startApple()}
+                          busy={auth.busyProvider === APPLE_NATIVE}
+                        />
+                      ) : null}
+                      {auth.googleAvailable ? (
+                        <GoogleButton
+                          compact
+                          label={t.continueWithGoogle}
+                          onPress={() => void startGoogle()}
+                          busy={auth.busyProvider === GOOGLE_NATIVE}
+                        />
+                      ) : null}
                     </View>
                   ) : null}
                   <Field

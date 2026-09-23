@@ -97,6 +97,10 @@ const envSchema = z.object({
   // Public identifiers, not secrets — but they must be OURS, or anyone's
   // Google token would sign in. Human-provided (see prod.env.template).
   GOOGLE_MOBILE_CLIENT_IDS: z.string().min(1).optional(),
+  // Sign in with Apple (iOS app): the accepted `aud` of Apple ID tokens —
+  // the app's bundle identifier(s), comma-separated. Public, not secret.
+  // Unset ⇒ the store build's own bundle id (customer-auth.ts).
+  APPLE_SIGNIN_CLIENT_IDS: z.string().min(1).optional(),
   MICROSOFT_CLIENT_ID: z.string().min(1).optional(),
   MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
 

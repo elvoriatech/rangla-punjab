@@ -309,7 +309,15 @@ export async function signInCustomer(
       // Refresh display fields on every login — people rename themselves.
       // `phone` and `lastDeliveryAddress` are NOT touched: the IdP doesn't
       // know them, and the guest's own checkout data must survive a login.
-      update: { email: identity.email, name: identity.name, deletedAt: null },
+      //
+      // A provider may omit the email or name on a later sign-in (Apple
+      // sends the name only on the very first one), so an absent value
+      // leaves the stored one alone instead of wiping it.
+      update: {
+        email: identity.email || undefined,
+        name: identity.name ?? undefined,
+        deletedAt: null,
+      },
       select: customerProfileSelect,
     });
     const signedIn = await mintCustomerToken(tx, tenantId, customer);
@@ -597,6 +605,82 @@ export async function verifyGoogleIdToken(idToken: string): Promise<CustomerIden
     return { sub: claims.sub, email: claims.email, name: claims.name ?? null };
   } catch (error) {
     log.warn("customer_auth.google_id_token_rejected", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Sign in with Apple — ID token straight from the iPhone             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The iOS twin of {@link verifyGoogleIdToken}: the app's native Apple
+ * sheet hands back a signed identity token, checked here against Apple's
+ * published keys — signature, issuer, audience (our bundle id), expiry.
+ * App Store guideline 4.8 is why this exists: an app that offers Google
+ * sign-in must also offer a login that lets the guest hide their email.
+ *
+ * `email` can be an Apple relay address (…@privaterelay.appleid.com) and
+ * may be absent on a later sign-in; `sub` is stable per app, so the same
+ * Apple ID always lands on the same customer row. The name is never in
+ * the token — the app forwards it from the first sign-in only.
+ */
+const APPLE_ISSUER = "https://appleid.apple.com";
+const APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys";
+/** The store build's bundle id — the audience when the env names none. */
+const APPLE_DEFAULT_CLIENT_ID = "de.ranglapunjabrestaurant.app";
+
+let appleOverride: GoogleIdTokenConfig | null = null;
+export function setAppleIdTokenConfigForTests(config: GoogleIdTokenConfig | null): void {
+  if (env.NODE_ENV === "production") throw new Error("apple id-token test seam is dev-only");
+  appleOverride = config;
+}
+
+export function appleIdTokenAudiences(): string[] {
+  if (appleOverride) return appleOverride.audiences;
+  const ids = (env.APPLE_SIGNIN_CLIENT_IDS ?? APPLE_DEFAULT_CLIENT_ID)
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+let appleRemoteJwks: JWTVerifyGetKey | null = null;
+function appleKeys(): JWTVerifyGetKey {
+  if (appleOverride) return appleOverride.keys;
+  appleRemoteJwks ??= createRemoteJWKSet(new URL(APPLE_JWKS_URL));
+  return appleRemoteJwks;
+}
+
+export async function verifyAppleIdToken(
+  idToken: string,
+  name?: string | null,
+): Promise<CustomerIdentity | null> {
+  const audience = appleIdTokenAudiences();
+  if (!audience.length) return null;
+  try {
+    const { payload } = await jwtVerify(idToken, appleKeys(), {
+      issuer: APPLE_ISSUER,
+      audience,
+    });
+    const claims = payload as {
+      sub?: string;
+      email?: string;
+      email_verified?: boolean | string;
+    };
+    if (!claims.sub) return null;
+    // Apple only ever issues verified (or relay) addresses, but a token
+    // that says otherwise must not carry an email onto an account.
+    const verified = claims.email_verified === true || claims.email_verified === "true";
+    return {
+      sub: claims.sub,
+      email: claims.email && verified ? claims.email : "",
+      name: name?.trim() ? name.trim().slice(0, 120) : null,
+    };
+  } catch (error) {
+    log.warn("customer_auth.apple_id_token_rejected", {
       reason: error instanceof Error ? error.message : "unknown",
     });
     return null;

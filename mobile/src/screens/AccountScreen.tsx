@@ -14,7 +14,15 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import type { ApiContactEntry, ApiLoyaltyEntry, ApiMenu, ApiVenueContact } from "../api";
 import { BASE_URL, contactEntries, requestPasswordReset } from "../api";
-import { appReturnUrl, GOOGLE_NATIVE, RESET_STATUS, useAuth, type AccountOrder } from "../auth";
+import {
+  APPLE_NATIVE,
+  appReturnUrl,
+  GOOGLE_NATIVE,
+  RESET_STATUS,
+  useAuth,
+  type AccountOrder,
+} from "../auth";
+import { AppleButton } from "../apple-button";
 import { GoogleButton } from "../google-button";
 import { fill, LANGS, localeTag, useI18n } from "../i18n";
 import {
@@ -248,6 +256,17 @@ export function AccountScreen({
     setAuthError(t.authFailed);
   }
 
+  async function startApple(): Promise<void> {
+    if (authBusy || auth.busyProvider) return;
+    setAuthError(null);
+    const outcome = await auth.loginWithApple();
+    if (outcome === null) {
+      loadOrders();
+      return;
+    }
+    if (outcome !== "cancelled") setAuthError(t.authFailed);
+  }
+
   /**
    * Ask the server to mail a reset link. The answer is the same whether
    * or not that address has an account (no enumeration), so "sent" here
@@ -435,6 +454,14 @@ export function AccountScreen({
               {/* Google always shows: native one-tap in a real build,
                   the browser flow otherwise. The remaining providers are
                   whatever the server offers (the local dev login). */}
+              {/* iPhone: Apple first — guideline 4.8 wants it offered as an
+                  equal to Google, and Apple's HIG puts it on top. */}
+              {auth.appleAvailable ? (
+                <AppleButton
+                  onPress={() => void startApple()}
+                  busy={auth.busyProvider === APPLE_NATIVE}
+                />
+              ) : null}
               {auth.googleAvailable ? (
                 <GoogleButton
                   label={t.continueWithGoogle}

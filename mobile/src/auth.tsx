@@ -120,6 +120,9 @@ export type GoogleOutcome = "unavailable" | "cancelled" | "failed" | null;
  *  "we're waiting on another app to come back". */
 export const GOOGLE_NATIVE = "google-native";
 
+/** `busyProvider` while Apple's sign-in sheet is up (iPhone only). */
+export const APPLE_NATIVE = "apple-native";
+
 interface AuthApi {
   token: string | null;
   customer: CustomerProfile | null;
@@ -158,6 +161,11 @@ interface AuthApi {
   /** Native one-tap. Falls back to the device-code browser flow itself
    *  when the native module or the client ids are missing. */
   loginWithGoogle: () => Promise<GoogleOutcome>;
+  /** True once this iPhone confirmed Sign in with Apple works here. */
+  appleAvailable: boolean;
+  /** Apple's native sheet → our own customer token. Same outcomes as
+   *  Google's, minus "unavailable" ever meaning "try the browser". */
+  loginWithApple: () => Promise<GoogleOutcome>;
   /** Email/password sign-in or sign-up against the app's own account
    *  endpoints. Returns null on success, or an error key for the UI. */
   loginWithEmail: (
@@ -221,6 +229,20 @@ function loadGoogle(): GoogleModule | null {
   }
 }
 
+/** Sign in with Apple exists on iOS only (App Store guideline 4.8: an
+ *  app offering Google sign-in must also offer this). Required lazily for
+ *  the same reason as Google — a build without the module just hides it. */
+type AppleModule = typeof import("expo-apple-authentication");
+function loadApple(): AppleModule | null {
+  if (Platform.OS !== "ios") return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("expo-apple-authentication") as AppleModule;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * What goes in the staff secure-store slot: the token plus the two
  * display fields, so the header card is right the instant the app opens
@@ -266,6 +288,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   // (the account screen does, on mount) — deliberately not at boot: the
   // endpoint mints a Redis-backed device code on every call.
   const googleAvailable = googleReady || providers.some((p) => p.id === "google");
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    const mod = loadApple();
+    if (!mod) return;
+    mod
+      .isAvailableAsync()
+      .then(setAppleAvailable)
+      .catch(() => setAppleAvailable(false));
+  }, []);
 
   useEffect(() => {
     const guest = readToken()
@@ -493,6 +524,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     }
   }, [adopt]);
 
+  const loginWithApple = useCallback(async (): Promise<GoogleOutcome> => {
+    const mod = loadApple();
+    if (!mod) return "unavailable";
+    setBusyProvider(APPLE_NATIVE);
+    try {
+      const credential = await mod.signInAsync({
+        requestedScopes: [
+          mod.AppleAuthenticationScope.FULL_NAME,
+          mod.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) return "failed";
+      // Apple hands the name over on the FIRST sign-in only, never in the
+      // token — forward it so the account has one from the start.
+      const name = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean)
+        .join(" ");
+      const res = await fetch(`${BASE_URL}/api/auth/customer/apple`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: credential.identityToken, ...(name ? { name } : {}) }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        token?: string;
+        customer?: CustomerProfile;
+      };
+      if (!res.ok || !body.token) return "failed";
+      await adopt(body.token, body.customer);
+      return null;
+    } catch (error) {
+      // The guest closing the sheet is not an error worth a message.
+      const code = (error as { code?: string } | null)?.code;
+      return code === "ERR_REQUEST_CANCELED" ? "cancelled" : "failed";
+    } finally {
+      setBusyProvider(null);
+    }
+  }, [adopt]);
+
   const loginWithEmail = useCallback(
     async (
       mode: "login" | "register",
@@ -666,6 +735,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       refreshProviders,
       login,
       loginWithGoogle,
+      appleAvailable,
+      loginWithApple,
       loginWithEmail,
       cancelLogin,
       logout,
@@ -688,6 +759,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       refreshProviders,
       login,
       loginWithGoogle,
+      appleAvailable,
+      loginWithApple,
       loginWithEmail,
       cancelLogin,
       logout,
