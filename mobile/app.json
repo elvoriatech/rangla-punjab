@@ -10,7 +10,8 @@
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "NFHFDX372C"
     },
     "android": {
       "predictiveBackGestureEnabled": false
