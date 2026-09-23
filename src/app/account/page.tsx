@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FlashMessage } from "@/components/flash-message";
+import { GoogleLogo } from "@/components/google-logo";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { sanitizeAppReturnUrl } from "@/lib/app-return";
@@ -258,9 +259,14 @@ export default async function AccountPage({
             <a
               key={p.id}
               href={`/api/auth/customer/${p.id}/start`}
-              className="block w-full border border-ink/20 bg-card px-5 py-3.5 text-center text-sm font-semibold hover:border-ink/50"
+              className="flex w-full items-center justify-center gap-3 border border-ink/20 bg-card px-5 py-3.5 text-sm font-semibold hover:border-ink/50"
             >
-              {p.id === "google" ? "Mit Google anmelden" : null}
+              {p.id === "google" ? (
+                <>
+                  <GoogleLogo />
+                  Mit Google anmelden
+                </>
+              ) : null}
               {p.id === "dev" ? "Dev-Login (nur lokal)" : null}
             </a>
           ))}
