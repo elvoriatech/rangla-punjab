@@ -293,12 +293,12 @@ function HeaderPointsPill({
         <PulsingBorder style={styles.headerPointsRing} />
         <View style={styles.headerPointsBody}>
           <Animated.View style={wiggle}>
-            <Ionicons name="gift" size={22} color={colors.red} />
+            <Ionicons name="gift" size={16} color={colors.red} />
           </Animated.View>
           {/* `maxWidth` rather than a smaller size: the word is set as big
               as the square can hold and shrinks itself to fit, so the
               badge stays square whatever the language calls points. */}
-          <CartoonTitle text={t.pointsBadgeWord} size={12} maxWidth={POINTS_BADGE - 10} />
+          <CartoonTitle text={t.pointsBadgeWord} size={9} maxWidth={POINTS_BADGE - 10} />
         </View>
       </Pressable>
     </Animated.View>
@@ -752,21 +752,18 @@ const HEADER_CONTENT_HEIGHT = 98;
 const HEADER_SLOT = 44;
 /**
  * The mascot's size, and the width of BOTH side rails — kept equal so the
- * venue's name stays centred on the bar. 56 since 2026-09-24 (owner:
- * "make the logo bigger"); it was 42 in a 44 rail.
+ * venue's name stays centred on the bar. 64 since 2026-09-24 (owner:
+ * "make the logo bigger", twice); it was 42 in a 44 rail.
  */
-const HEADER_LOGO = 56;
+const HEADER_LOGO = 64;
 /** The venue mascot with its white card removed — see
  *  `scripts/cut-out-logo.mjs`. */
 const LOGO_CUTOUT = require("../assets/logo-cutout.png");
 
-/** The POINTS badge: a square. It was a 65 × 42 card, then a wide
- *  one-row pill (both read as a second title), then a 42 pt square.
- *  Since 2026-09-24 it is the MASCOT's size — 56, `HEADER_LOGO` below —
- *  so the two stand on one line top and bottom: centred, a smaller box
- *  always looked higher than the mascot's feet (owner: "both should
- *  start from the same line"). */
-const POINTS_BADGE = 56;
+/** The POINTS badge: a small square (owner, 2026-09-24: "make the box
+ *  small and the logo bigger"). It stands on the same line as the
+ *  mascot's feet — see `headerEndCentred`. */
+const POINTS_BADGE = 42;
 /** What the name is fitted to before the first layout: the narrowest
  *  middle slot there is (a 360 pt phone, less the 16 pt insets, the two
  *  56 pt rails and the two 8 pt gaps). Never wider than the real one, so
@@ -851,11 +848,11 @@ const styles = StyleSheet.create({
    *  not part of the venue's row. */
   headerEndCentred: {
     justifyContent: "flex-start",
-    // Centred on the mascot beside it (owner, 2026-09-24: the two belong
-    // on one line, the box lower than the mascot's top). The mascot is
-    // centred in its rail, so centring the badge on the bar's height puts
-    // the two middles level.
-    paddingTop: (HEADER_CONTENT_HEIGHT - POINTS_BADGE) / 2,
+    // Standing on the same line as the mascot's feet (owner, 2026-09-24:
+    // "logo and box should start from the same line" — a smaller box
+    // centred on it looked higher). The mascot is centred in its rail, so
+    // its bottom is half the leftover height up from the bar's bottom.
+    paddingTop: (HEADER_CONTENT_HEIGHT - HEADER_LOGO) / 2 + HEADER_LOGO - POINTS_BADGE,
   },
   /** White card on the red, as in the owner's mock. */
   /**
@@ -877,7 +874,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.creamCard,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: colors.goldSoft,
     shadowColor: "#000",
@@ -887,7 +884,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   /** The pulsing ring, drawn ON the badge's own gold edge. */
-  headerPointsRing: { borderRadius: 14 },
+  headerPointsRing: { borderRadius: 12 },
   /** The gift over the word, in a SQUARE (owner, 2026-09-22: a badge as
    *  wide as a sentence read as a button for something else). */
   headerPointsBody: { alignItems: "center", gap: 1 },
