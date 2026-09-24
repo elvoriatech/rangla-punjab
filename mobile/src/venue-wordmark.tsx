@@ -293,6 +293,11 @@ export function VenueWordmark({
           answer is the text's width and not the container's. */}
       <View style={styles.rulerBox} pointerEvents="none">
         <Text
+          // The SVG lettering never follows the phone's Text Size setting,
+          // so its rulers must not either: on a smaller text size the box
+          // was sized for narrower letters and the mark lost its first and
+          // last letters (owner's phone, 2026-09-24).
+          allowFontScaling={false}
           style={[styles.ruler, { fontSize: size, letterSpacing: size * TRACK1 }]}
           onTextLayout={(e) =>
             report(
@@ -309,6 +314,7 @@ export function VenueWordmark({
         </Text>
         {bottom ? (
           <Text
+            allowFontScaling={false}
             style={[styles.ruler, { fontSize: size2, letterSpacing: size2 * TRACK2 }]}
             onTextLayout={(e) =>
               report(

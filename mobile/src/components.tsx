@@ -19,7 +19,7 @@ import { HalalMark } from "./halal-mark";
 import { CartoonTitle } from "./cartoon-title";
 import { VenueWordmark } from "./venue-wordmark";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
-import { useBumpOnChange, usePressScale, usePulse } from "./motion";
+import { useBumpOnChange, useGiftWiggle, usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
 
 /**
@@ -156,6 +156,14 @@ export function BrandHeader({
   const { t } = useI18n();
   /** The middle slot's measured width — what the name is fitted to. */
   const [center, setCenter] = React.useState(0);
+  /**
+   * Where the venue's mark sits, top to bottom, inside the bar — the
+   * POINTS badge is centred on THIS (owner, 2026-09-24: "logo up, points
+   * box down — put them in the same place"). Measured rather than
+   * computed, because the mark's height depends on the name and the
+   * phone's width, and a rating line under it moves it up.
+   */
+  const [markMid, setMarkMid] = React.useState<number | null>(null);
   return (
     <View style={styles.headerWrap}>
       <View style={styles.header}>
@@ -201,15 +209,19 @@ export function BrandHeader({
               first layout the cap is the narrowest case, so the name is
               never drawn too wide and then snapped back. */}
           {sticker ? (
-            <VenueWordmark
-              name={title}
-              // Past any phone's middle slot on purpose: `maxWidth` does
-              // the sizing, so the mark always spans the room the two
-              // rails leave it instead of sitting at a fixed size with
-              // air either side (owner, 2026-09-22 — "stretch the name").
-              size={60}
-              maxWidth={Math.min(center > 0 ? center : HEADER_TITLE_MIN, HEADER_TITLE_MAX)}
-            />
+            <View
+              onLayout={(e) => setMarkMid(e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}
+            >
+              <VenueWordmark
+                name={title}
+                // Past any phone's middle slot on purpose: `maxWidth` does
+                // the sizing, so the mark always spans the room the two
+                // rails leave it instead of sitting at a fixed size with
+                // air either side (owner, 2026-09-22 — "stretch the name").
+                size={60}
+                maxWidth={Math.min(center > 0 ? center : HEADER_TITLE_MIN, HEADER_TITLE_MAX)}
+              />
+            </View>
           ) : (
             <Text
               style={styles.headerTitle}
@@ -226,7 +238,15 @@ export function BrandHeader({
             area rather than centred on it. The slot itself is always
             there — an empty one on the screens without a burger — so the
             centred title keeps symmetric gutters either way. */}
-        <View style={[styles.headerEnd, onPoints && styles.headerEndCentred]}>
+        <View
+          style={[
+            styles.headerEnd,
+            onPoints && styles.headerEndCentred,
+            onPoints && markMid !== null && sticker
+              ? { paddingTop: Math.max(0, markMid - POINTS_BADGE / 2) }
+              : null,
+          ]}
+        >
           {onPoints ? <HeaderPointsPill points={points ?? null} onPress={onPoints} /> : null}
           {onMenu ? (
             <Pressable
@@ -268,6 +288,7 @@ function HeaderPointsPill({
 }): React.ReactElement {
   const { t } = useI18n();
   const bump = useBumpOnChange(points ?? 0);
+  const wiggle = useGiftWiggle();
   return (
     <Animated.View style={bump}>
       <Pressable
@@ -286,8 +307,14 @@ function HeaderPointsPill({
             drawn by whatever font the OS ships and changed size, colour
             and even shape between iOS and Android. A vector glyph is one
             picture everywhere and takes the brand's colour. */}
+        {/* The breathing ember ring the Offers tile wears — the app's one
+            "look here" signal, so the badge borrows it rather than
+            inventing a second (owner, 2026-09-24). */}
+        <PulsingBorder style={styles.headerPointsRing} />
         <View style={styles.headerPointsBody}>
-          <Ionicons name="gift" size={15} color={colors.red} />
+          <Animated.View style={wiggle}>
+            <Ionicons name="gift" size={15} color={colors.red} />
+          </Animated.View>
           {/* `maxWidth` rather than a smaller size: the word is set as big
               as the square can hold and shrinks itself to fit, so the
               badge stays square whatever the language calls points. */}
@@ -764,9 +791,11 @@ const HEADER_TITLE_MIN = 224;
  * tall, so its width IS the bar's height: uncapped, a 430 pt phone would
  * give the mark 294 pt and a 73 pt box while a 360 pt one gave it 58,
  * and `HEADER_CONTENT_HEIGHT` is a single number for every device. 260
- * is the widest that still fits that number.
+ * is the widest that still fits that number — and since 2026-09-24 the
+ * cap IS 260 (it was 225): the owner wanted the mark bigger, level with
+ * the POINTS badge beside it.
  */
-const HEADER_TITLE_MAX = 225;
+const HEADER_TITLE_MAX = 260;
 
 const styles = StyleSheet.create({
   /** The asterisk on a required field, and the line that explains it.
@@ -867,6 +896,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
+  /** The pulsing ring, drawn ON the badge's own gold edge. */
+  headerPointsRing: { borderRadius: 12 },
   /** The gift over the word, in a SQUARE (owner, 2026-09-22: a badge as
    *  wide as a sentence read as a button for something else). */
   headerPointsBody: { alignItems: "center", gap: 1 },

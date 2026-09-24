@@ -179,6 +179,59 @@ export function useFireFlicker(maxScale = 1.15): MotionStyle {
 }
 
 /**
+ * "Your points are here": a short wiggle of the header badge's gift,
+ * repeated every `everyMs` (owner, 2026-09-24 — the badge needed some
+ * movement so a guest understands where their points live).
+ *
+ * A shake rather than a pulse on purpose: the ring around the badge
+ * already breathes (`PulsingBorder`), and a gift that trembles now and
+ * then reads as "something inside for you" without the whole corner
+ * throbbing. Long rests between shakes keep it from becoming noise on a
+ * screen the guest spends minutes on. Reduced motion: perfectly still.
+ */
+export function useGiftWiggle(everyMs = 3500): MotionStyle {
+  const reduced = useReducedMotion();
+  const turn = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    const step = (toValue: number, duration: number) =>
+      Animated.timing(turn, {
+        toValue,
+        duration,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: NATIVE,
+      });
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(everyMs),
+        step(1, 90),
+        step(-1, 140),
+        step(0.6, 120),
+        step(-0.35, 110),
+        step(0, 100),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [turn, reduced, everyMs]);
+  const style = useMemo<MotionStyle>(
+    () => ({
+      transform: [
+        { rotate: turn.interpolate({ inputRange: [-1, 1], outputRange: ["-16deg", "16deg"] }) },
+        {
+          scale: turn.interpolate({
+            inputRange: [-1, 0, 1],
+            outputRange: [1.12, 1, 1.12],
+          }),
+        },
+      ],
+    }),
+    [turn],
+  );
+  return reduced ? STILL : style;
+}
+
+/**
  * A spring pop for a number that has just changed underneath the guest — the
  * points balance, a tab badge's count.
  *

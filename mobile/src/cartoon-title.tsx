@@ -138,6 +138,11 @@ export function CartoonTitle({
           Text inside it shrink-wrap the line rather than fill it. */}
       <View style={styles.rulerBox} pointerEvents="none">
         <Text
+          // The SVG lettering never follows the phone's Text Size setting,
+          // so its ruler must not either: a guest on a smaller text size
+          // otherwise gets a box sized for narrower letters and the mark
+          // clipped at both ends (owner's phone, 2026-09-24).
+          allowFontScaling={false}
           style={[
             styles.ruler,
             { fontFamily: CARTOON_FONT, fontSize: size, letterSpacing: trackingFor(size) },
