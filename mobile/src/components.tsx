@@ -293,12 +293,12 @@ function HeaderPointsPill({
         <PulsingBorder style={styles.headerPointsRing} />
         <View style={styles.headerPointsBody}>
           <Animated.View style={wiggle}>
-            <Ionicons name="gift" size={15} color={colors.red} />
+            <Ionicons name="gift" size={22} color={colors.red} />
           </Animated.View>
           {/* `maxWidth` rather than a smaller size: the word is set as big
               as the square can hold and shrinks itself to fit, so the
               badge stays square whatever the language calls points. */}
-          <CartoonTitle text={t.pointsBadgeWord} size={9} maxWidth={POINTS_BADGE - 10} />
+          <CartoonTitle text={t.pointsBadgeWord} size={12} maxWidth={POINTS_BADGE - 10} />
         </View>
       </Pressable>
     </Animated.View>
@@ -760,11 +760,13 @@ const HEADER_LOGO = 56;
  *  `scripts/cut-out-logo.mjs`. */
 const LOGO_CUTOUT = require("../assets/logo-cutout.png");
 
-/** The POINTS badge: a square, and a small one. It was a 65 × 42 card,
- *  then briefly a wide one-row pill; both read as a second title
- *  competing with the venue's name. 40 keeps it inside the 44 pt rail the
- *  burger already reserves, and `hitSlop` carries the touch target. */
-const POINTS_BADGE = 42;
+/** The POINTS badge: a square. It was a 65 × 42 card, then a wide
+ *  one-row pill (both read as a second title), then a 42 pt square.
+ *  Since 2026-09-24 it is the MASCOT's size — 56, `HEADER_LOGO` below —
+ *  so the two stand on one line top and bottom: centred, a smaller box
+ *  always looked higher than the mascot's feet (owner: "both should
+ *  start from the same line"). */
+const POINTS_BADGE = 56;
 /** What the name is fitted to before the first layout: the narrowest
  *  middle slot there is (a 360 pt phone, less the 16 pt insets, the two
  *  56 pt rails and the two 8 pt gaps). Never wider than the real one, so
@@ -875,7 +877,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.creamCard,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: colors.goldSoft,
     shadowColor: "#000",
@@ -885,7 +887,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   /** The pulsing ring, drawn ON the badge's own gold edge. */
-  headerPointsRing: { borderRadius: 12 },
+  headerPointsRing: { borderRadius: 14 },
   /** The gift over the word, in a SQUARE (owner, 2026-09-22: a badge as
    *  wide as a sentence read as a button for something else). */
   headerPointsBody: { alignItems: "center", gap: 1 },
