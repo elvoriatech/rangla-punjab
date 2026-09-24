@@ -97,8 +97,31 @@ function siteHost() {
  */
 const appleUniversalLinks = (process.env.APPLE_UNIVERSAL_LINKS ?? "").trim() === "1";
 
+/**
+ * The name under the app ICON (owner, 2026-09-24: "Rangla Punjab" must
+ * be fully readable once installed). The full venue name — "Rangla Punjab
+ * Restaurant" — is ~24 characters and a home screen shows about 12–14,
+ * so iOS printed "RanglaPunjabRe…". The short brand name is set as the
+ * launcher label on both platforms; the store listings, the in-app
+ * lockup and everything else keep the full name.
+ */
+function withHomeScreenName(config, name) {
+  const { withStringsXml, AndroidConfig } = require("expo/config-plugins");
+  return withStringsXml(config, (c) => {
+    c.modResults = AndroidConfig.Strings.setStringItem(
+      [AndroidConfig.Resources.buildResourceItem({ name: "app_name", value: name })],
+      c.modResults,
+    );
+    return c;
+  });
+}
+
 module.exports = ({ config }) => {
   const generated = brand.expo ?? {};
+  const homeScreenName =
+    { ...config.extra, ...generated.extra }.brand?.venueName?.trim() ||
+    generated.name ||
+    config.name;
   const android = { ...config.android, ...generated.android };
   // The generated adaptive icon replaces the static one wholesale — mixing a
   // generated foreground with a stale monochrome layer would ship two
@@ -107,6 +130,7 @@ module.exports = ({ config }) => {
 
   const plugins = [
     ...(config.plugins ?? []),
+    (c) => withHomeScreenName(c, homeScreenName),
     // The launch screen. Since SDK 52 the root `splash` key is ignored —
     // without this plugin iOS pointed at a splash image that was never
     // generated and Android fell back to a system default, so guests saw
@@ -190,6 +214,7 @@ module.exports = ({ config }) => {
   // ⛔ See `appleUniversalLinks` above: without the paid Apple account
   // this stays absent, and the entitlement is never written.
   const ios = { ...config.ios, ...generated.ios };
+  ios.infoPlist = { ...ios.infoPlist, CFBundleDisplayName: homeScreenName };
   if (host && appleUniversalLinks) {
     ios.associatedDomains = [
       ...(ios.associatedDomains ?? []),
