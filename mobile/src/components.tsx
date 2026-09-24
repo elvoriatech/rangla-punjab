@@ -156,14 +156,6 @@ export function BrandHeader({
   const { t } = useI18n();
   /** The middle slot's measured width — what the name is fitted to. */
   const [center, setCenter] = React.useState(0);
-  /**
-   * Where the venue's mark sits, top to bottom, inside the bar — the
-   * POINTS badge is centred on THIS (owner, 2026-09-24: "logo up, points
-   * box down — put them in the same place"). Measured rather than
-   * computed, because the mark's height depends on the name and the
-   * phone's width, and a rating line under it moves it up.
-   */
-  const [markMid, setMarkMid] = React.useState<number | null>(null);
   return (
     <View style={styles.headerWrap}>
       <View style={styles.header}>
@@ -209,19 +201,15 @@ export function BrandHeader({
               first layout the cap is the narrowest case, so the name is
               never drawn too wide and then snapped back. */}
           {sticker ? (
-            <View
-              onLayout={(e) => setMarkMid(e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}
-            >
-              <VenueWordmark
-                name={title}
-                // Past any phone's middle slot on purpose: `maxWidth` does
-                // the sizing, so the mark always spans the room the two
-                // rails leave it instead of sitting at a fixed size with
-                // air either side (owner, 2026-09-22 — "stretch the name").
-                size={60}
-                maxWidth={Math.min(center > 0 ? center : HEADER_TITLE_MIN, HEADER_TITLE_MAX)}
-              />
-            </View>
+            <VenueWordmark
+              name={title}
+              // Past any phone's middle slot on purpose: `maxWidth` does
+              // the sizing, so the mark always spans the room the two
+              // rails leave it instead of sitting at a fixed size with
+              // air either side (owner, 2026-09-22 — "stretch the name").
+              size={60}
+              maxWidth={Math.min(center > 0 ? center : HEADER_TITLE_MIN, HEADER_TITLE_MAX)}
+            />
           ) : (
             <Text
               style={styles.headerTitle}
@@ -238,15 +226,7 @@ export function BrandHeader({
             area rather than centred on it. The slot itself is always
             there — an empty one on the screens without a burger — so the
             centred title keeps symmetric gutters either way. */}
-        <View
-          style={[
-            styles.headerEnd,
-            onPoints && styles.headerEndCentred,
-            onPoints && markMid !== null && sticker
-              ? { paddingTop: Math.max(0, markMid - POINTS_BADGE / 2) }
-              : null,
-          ]}
-        >
+        <View style={[styles.headerEnd, onPoints && styles.headerEndCentred]}>
           {onPoints ? <HeaderPointsPill points={points ?? null} onPress={onPoints} /> : null}
           {onMenu ? (
             <Pressable
@@ -770,6 +750,12 @@ const HEADER_CONTENT_HEIGHT = 98;
  *  centred title always has the same gutter left and right. 44 is the
  *  minimum touch target, which the burger now fills exactly. */
 const HEADER_SLOT = 44;
+/**
+ * The mascot's size, and the width of BOTH side rails — kept equal so the
+ * venue's name stays centred on the bar. 56 since 2026-09-24 (owner:
+ * "make the logo bigger"); it was 42 in a 44 rail.
+ */
+const HEADER_LOGO = 56;
 /** The venue mascot with its white card removed — see
  *  `scripts/cut-out-logo.mjs`. */
 const LOGO_CUTOUT = require("../assets/logo-cutout.png");
@@ -779,13 +765,11 @@ const LOGO_CUTOUT = require("../assets/logo-cutout.png");
  *  competing with the venue's name. 40 keeps it inside the 44 pt rail the
  *  burger already reserves, and `hitSlop` carries the touch target. */
 const POINTS_BADGE = 42;
-/** How far below the bar's middle the badge sits. */
-const POINTS_BADGE_DROP = 10;
 /** What the name is fitted to before the first layout: the narrowest
  *  middle slot there is (a 360 pt phone, less the 16 pt insets, the two
- *  44 pt slots and the two 8 pt gaps). Never wider than the real one, so
+ *  56 pt rails and the two 8 pt gaps). Never wider than the real one, so
  *  the lettering only ever grows into place, never jumps back. */
-const HEADER_TITLE_MIN = 224;
+const HEADER_TITLE_MIN = 200;
 /**
  * …and the widest it may get. The lockup is 4.66 times as wide as it is
  * tall, so its width IS the bar's height: uncapped, a 430 pt phone would
@@ -849,13 +833,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   /** The back arrow keeps its old vertical centring. */
-  headerStart: { width: HEADER_SLOT, justifyContent: "center", alignItems: "flex-start" },
+  headerStart: { width: HEADER_LOGO, justifyContent: "center", alignItems: "flex-start" },
   /** The mascot, cut out of its white card and given the rail's full
    *  width. No circle, no fill: on the red bar it is the figure itself. */
-  headerLogo: { width: 42, height: 42 },
+  headerLogo: { width: HEADER_LOGO, height: HEADER_LOGO },
   /** The burger rides the TOP of the content area (owner's ask), flush
    *  with the slab's own 16 pt inset on the end side. */
-  headerEnd: { width: HEADER_SLOT, justifyContent: "flex-start", alignItems: "flex-end" },
+  headerEnd: { width: HEADER_LOGO, justifyContent: "flex-start", alignItems: "flex-end" },
   /** The POINTS badge sits a little BELOW the mascot's top rather than
    *  level with it (owner, 2026-09-22): the mascot's art runs to the
    *  edges of its box and the badge is a solid white card, so matching
@@ -865,7 +849,11 @@ const styles = StyleSheet.create({
    *  not part of the venue's row. */
   headerEndCentred: {
     justifyContent: "flex-start",
-    paddingTop: (HEADER_CONTENT_HEIGHT - POINTS_BADGE) / 2 + POINTS_BADGE_DROP,
+    // Centred on the mascot beside it (owner, 2026-09-24: the two belong
+    // on one line, the box lower than the mascot's top). The mascot is
+    // centred in its rail, so centring the badge on the bar's height puts
+    // the two middles level.
+    paddingTop: (HEADER_CONTENT_HEIGHT - POINTS_BADGE) / 2,
   },
   /** White card on the red, as in the owner's mock. */
   /**
