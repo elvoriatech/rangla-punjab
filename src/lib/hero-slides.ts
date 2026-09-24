@@ -55,11 +55,23 @@ const BANNER_PREFIX = "banner:";
  * BACK after it has been removed, and for whatever is added here next.
  */
 export const BUILT_IN_SLIDES = [
-  { name: "points-de", label: "Points banner (German)", kind: "banner" },
-  { name: "welcome-de", label: "Welcome banner (German)", kind: "banner" },
-  { name: "giftcard-de", label: "Gift-card banner (German)", kind: "banner" },
-  { name: "service-de", label: "Service promise banner (German)", kind: "banner" },
-] as const satisfies readonly { name: string; label: string; kind: HeroSlideKind }[];
+  { name: "points-de", label: "Points banner (German)", kind: "banner", rev: 2 },
+  { name: "welcome-de", label: "Welcome banner (German)", kind: "banner", rev: 1 },
+  { name: "giftcard-de", label: "Gift-card banner (German)", kind: "banner", rev: 1 },
+  { name: "service-de", label: "Service promise banner (German)", kind: "banner", rev: 1 },
+] as const satisfies readonly {
+  name: string;
+  label: string;
+  kind: HeroSlideKind;
+  /**
+   * Bump when the poster FILE is replaced under the same name. The app's
+   * image cache keys on the URL and never revalidates, so a new file at
+   * an old address stays invisible on every phone that already saw the
+   * old one; `?v=` gives the new artwork a new address. Rev 1 has no
+   * query, so posters that never changed keep the URLs phones cached.
+   */
+  rev: number;
+}[];
 
 /** A venue that never touched its slider starts with the four German
  *  posters, in order — so the owner sees them, and can keep, reorder or
@@ -111,7 +123,7 @@ export function heroSlideKind(key: string): HeroSlideKind {
 /** Site-relative image URL for a slide key, `width` px wide. */
 export function heroSlideUrl(key: string, width: number): string {
   const b = builtIn(key);
-  if (b) return `/app-slider/${b.name}.webp`;
+  if (b) return `/app-slider/${b.name}.webp${b.rev > 1 ? `?v=${b.rev}` : ""}`;
   const storageKey = key.startsWith(BANNER_PREFIX) ? key.slice(BANNER_PREFIX.length) : key;
   return uploadedImageUrl(storageKey, width);
 }

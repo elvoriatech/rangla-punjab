@@ -106,15 +106,20 @@ export async function POST(request: Request): Promise<NextResponse> {
     // recorded no-op, and it must never be able to fail an order.
     const { sendNewOrderPush } = await import("@/lib/push-service");
     void sendNewOrderPush(context.tenantId, result.value.orderId);
-    // A voucher-settled order never passes through markOrderPaid and is
-    // already "paid", so the kitchen's "done" transition won't credit it
-    // either. Ask here, on the same fire-and-forget terms: the charged
-    // total is what the threshold sees, so a €0 bill earns nothing unless
-    // the owner set no minimum at all.
-    if (settledNow) {
-      const { creditOrderIfEligible } = await import("@/lib/loyalty-service");
-      void creditOrderIfEligible(context.tenantId, result.value.orderId).catch(() => undefined);
-    }
+    // Loyalty. A voucher- or gift-card-settled order never passes through
+    // markOrderPaid, and a CASH order has no settlement at all — so both
+    // are credited here, at placement (owner, 2026-09-24: a guest must see
+    // their points the moment they order, not whenever the kitchen gets
+    // round to ticking the order "done"). Cancelling gives them back:
+    // staff cancels and the guest's own cash-cancel both call
+    // `reverseOrderCredit`. The charged total is what the threshold sees,
+    // so a €0 bill earns nothing unless the owner set no minimum.
+    //
+    // Awaited, unlike the mails above: the app refreshes the balance as
+    // soon as this response lands, and a credit still in flight would
+    // show the guest yesterday's number. It can never fail the order.
+    const { creditOrderIfEligible } = await import("@/lib/loyalty-service");
+    await creditOrderIfEligible(context.tenantId, result.value.orderId).catch(() => undefined);
   }
 
   log.info(result.value.replayed ? "order.replayed" : "order.placed", {

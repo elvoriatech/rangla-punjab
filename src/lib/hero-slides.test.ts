@@ -55,6 +55,8 @@ describe("heroSlidesOf", () => {
 describe("heroSlideUrl", () => {
   it("serves built-ins from /app-slider and uploads through /img", () => {
     expect(heroSlideUrl("builtin:giftcard-de", 1280)).toBe("/app-slider/giftcard-de.webp");
+    // A replaced poster carries its revision, so cached phones refetch it.
+    expect(heroSlideUrl("builtin:points-de", 1280)).toBe("/app-slider/points-de.webp?v=2");
     expect(heroSlideUrl("t/uploads/x", 480)).toBe("/img/t%2Fuploads%2Fx?w=480");
     expect(builtInLabel("builtin:giftcard-de")).toBe("Gift-card banner (German)");
     expect(builtInLabel("t/uploads/x")).toBeNull();
