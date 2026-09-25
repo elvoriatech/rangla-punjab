@@ -28,6 +28,7 @@ import {
   GIFT_CARD_STEP_CENTS,
 } from "../gift-cards";
 import { GiftCardCard } from "../gift-card-card";
+import { PaymentMarks } from "../payment-marks";
 import { openPayPage, payIntentWithCard, walletsFromAccepted } from "../payments";
 import {
   BrandHeader,
@@ -600,9 +601,14 @@ export function GiftCardsScreen({
                           size={20}
                           color={selected ? colors.red : colors.inkSoft}
                         />
-                        <Text style={[styles.payRowText, selected && { color: colors.red }]}>
+                        <Text
+                          style={[styles.payRowText, selected && { color: colors.red }]}
+                          numberOfLines={1}
+                        >
                           {option.label}
                         </Text>
+                        {/* The same marks as the checkout's rows. */}
+                        <PaymentMarks method={option.key} />
                       </Pressable>
                     );
                   })}
@@ -719,20 +725,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   messageInput: { minHeight: 90, textAlignVertical: "top" },
+  /** Same row as the checkout's payment choice (CartScreen `payRow`), so
+   *  choosing how to pay looks the same wherever the guest pays. */
   payRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    minHeight: TOUCH_MIN,
-    backgroundColor: colors.creamCard,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: radius.md,
+    paddingVertical: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    minHeight: 52,
+    backgroundColor: colors.creamCard,
   },
-  payRowActive: { borderColor: colors.red },
-  payRowText: { flex: 1, color: colors.ink, ...fonts.bodySemi, fontSize: 14 },
+  payRowActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
+  payRowText: { flex: 1, color: colors.ink, fontSize: 14, ...fonts.bodyBold },
   error: { color: colors.danger, ...fonts.bodySemi, fontSize: 13 },
   /** The button and the one line explaining why, as one unit. */
   signInBlock: { gap: 8, marginTop: 4 },
