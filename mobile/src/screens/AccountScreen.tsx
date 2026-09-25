@@ -45,6 +45,8 @@ import {
 } from "../components";
 import { CartoonTitle } from "../cartoon-title";
 import { CHEVRON_FORWARD, colors, fonts, money, radius } from "../theme";
+import { useLayout } from "../layout";
+import { Row, useColumn } from "../responsive";
 
 /**
  * Konto / Account — language, sign-in (one-tap Google, the browser device
@@ -84,6 +86,8 @@ export function AccountScreen({
   onOpenOwnerMenu?: () => void;
 }): React.ReactElement {
   const { t, lang, setLang, available, deferReload } = useI18n();
+  const { wide } = useLayout();
+  const column = useColumn();
   const auth = useAuth();
   const [orders, setOrders] = useState<AccountOrder[]>([]);
   const [authEmail, setAuthEmail] = useState("");
@@ -329,7 +333,7 @@ export function AccountScreen({
           badge here (this IS where the balance lives, further down) and
           no rating line (the Home screen is where a guest is deciding). */}
       <BrandHeader title={venueLines.line1} sticker onMenu={onOpenOwnerMenu} />
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}>
+      <ScrollView contentContainerStyle={[{ padding: 16, gap: 12, paddingBottom: 32 }, column]}>
         {/* Language */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t.language}</Text>
@@ -456,19 +460,22 @@ export function AccountScreen({
                   whatever the server offers (the local dev login). */}
               {/* iPhone: Apple first — guideline 4.8 wants it offered as an
                   equal to Google, and Apple's HIG puts it on top. */}
-              {auth.appleAvailable ? (
-                <AppleButton
-                  onPress={() => void startApple()}
-                  busy={auth.busyProvider === APPLE_NATIVE}
-                />
-              ) : null}
-              {auth.googleAvailable ? (
-                <GoogleButton
-                  label={t.continueWithGoogle}
-                  onPress={() => void startGoogle()}
-                  busy={auth.busyProvider === GOOGLE_NATIVE}
-                />
-              ) : null}
+              {/* Tablet: the two side by side, halves of one line. */}
+              <Row gap={wide ? 10 : 0}>
+                {auth.appleAvailable ? (
+                  <AppleButton
+                    onPress={() => void startApple()}
+                    busy={auth.busyProvider === APPLE_NATIVE}
+                  />
+                ) : null}
+                {auth.googleAvailable ? (
+                  <GoogleButton
+                    label={t.continueWithGoogle}
+                    onPress={() => void startGoogle()}
+                    busy={auth.busyProvider === GOOGLE_NATIVE}
+                  />
+                ) : null}
+              </Row>
               {auth.providers
                 .filter((p) => p.id !== "google")
                 .map((p) => (

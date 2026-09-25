@@ -39,6 +39,8 @@ import { BrandHeader, FieldLabel, PrimaryButton, QtyStepper, RequiredLegend } fr
 import { AppleButton } from "../apple-button";
 import { GoogleButton } from "../google-button";
 import { PaymentMarks } from "../payment-marks";
+import { useLayout } from "../layout";
+import { ACTION_MAX, Action, Row as SideBySide, useColumn } from "../responsive";
 import { colors, fonts, money, radius } from "../theme";
 
 /** How the guest chose to pay, decided BEFORE the order is placed. */
@@ -111,6 +113,8 @@ export function CartScreen({
   const cart = useCart();
   const auth = useAuth();
   const { t, lang } = useI18n();
+  const { wide } = useLayout();
+  const column = useColumn();
   const allowed = useMemo(() => {
     const types: { key: OrderType; label: string; emoji: string }[] = [];
     if (menu.ordering.dineIn) types.push({ key: "dine_in", label: t.dineIn, emoji: "🍽️" });
@@ -709,7 +713,7 @@ export function CartScreen({
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}>
+        <ScrollView contentContainerStyle={[{ padding: 16, paddingBottom: 40, gap: 10 }, column]}>
           {placing ? (
             /* The order is in flight. Everything interactive is gone —
                no stepper, no fields, no payment cards, no button — but the
@@ -1285,7 +1289,7 @@ export function CartScreen({
                     }}
                     disabled={missing || busy}
                     borderRadius={radius.md}
-                    style={styles.walletButton}
+                    style={[styles.walletButton, wide && styles.walletButtonWide]}
                   />
                   {/* Only when there IS another way below to choose. */}
                   {payOptions.length > 1 ? (
@@ -1300,18 +1304,13 @@ export function CartScreen({
               {payOptions.length > 1 && !fullyCovered ? (
                 <View style={{ gap: 8, marginTop: 4 }}>
                   <Text style={styles.fieldLabel}>{t.paymentMethod}</Text>
-                  <View style={{ gap: 8 }}>
+                  {/* Tablet: the options side by side as tiles — a choice
+                      among peers, read across one line. */}
+                  <SideBySide gap={8}>
                     {payOptions.map((option) => {
                       const selected = payMethod === option.key;
-                      return (
-                        <Pressable
-                          key={option.key}
-                          onPress={() => setPayMethod(option.key)}
-                          accessibilityRole="radio"
-                          accessibilityState={{ selected }}
-                          accessibilityLabel={option.label}
-                          style={[styles.payRow, selected && styles.payRowActive]}
-                        >
+                      const radioAndLabel = (
+                        <>
                           <Ionicons
                             name={selected ? "radio-button-on" : "radio-button-off"}
                             size={20}
@@ -1323,40 +1322,69 @@ export function CartScreen({
                           >
                             {option.label}
                           </Text>
-                          <PaymentMarks method={option.key} />
+                        </>
+                      );
+                      return (
+                        <Pressable
+                          key={option.key}
+                          onPress={() => setPayMethod(option.key)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                          accessibilityLabel={option.label}
+                          style={[
+                            styles.payRow,
+                            wide && styles.payTile,
+                            selected && styles.payRowActive,
+                          ]}
+                        >
+                          {wide ? (
+                            <>
+                              <View style={styles.payTileTop}>{radioAndLabel}</View>
+                              <PaymentMarks method={option.key} />
+                            </>
+                          ) : (
+                            <>
+                              {radioAndLabel}
+                              <PaymentMarks method={option.key} />
+                            </>
+                          )}
                         </Pressable>
                       );
                     })}
-                  </View>
+                  </SideBySide>
                 </View>
               ) : null}
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <PrimaryButton
-                label={
-                  coveredByReward
-                    ? fill(t.cartPlaceWithReward, {
-                        total: money(0, menu.venue.currency),
-                      })
-                    : // The card settles the whole bill: the server marks
-                      // the order paid on placement, so this button
-                      // PLACES rather than pays and no sheet follows.
-                      coveredByGiftCard
-                      ? t.cartPlaceWithGiftCard
-                      : payMethod === "cash"
-                        ? `${t.placeOrder} · ${money(chargedTotal, menu.venue.currency)}`
-                        : giftCode !== ""
-                          ? fill(t.cartPayRemaining, {
-                              total: money(chargedTotal, menu.venue.currency),
-                            })
-                          : `${t.payNow} ${money(chargedTotal, menu.venue.currency)}`
-                }
-                busyLabel={paying ? t.openingPayment : undefined}
-                tone="red"
-                onPress={() => void submit()}
-                disabled={missing}
-                busy={busy}
-              />
+              {/* Tablet: the one call to action, alone and centred —
+                  not a bar across the whole screen. */}
+              <Action style={wide ? { marginTop: 18 } : undefined}>
+                <PrimaryButton
+                  label={
+                    coveredByReward
+                      ? fill(t.cartPlaceWithReward, {
+                          total: money(0, menu.venue.currency),
+                        })
+                      : // The card settles the whole bill: the server marks
+                        // the order paid on placement, so this button
+                        // PLACES rather than pays and no sheet follows.
+                        coveredByGiftCard
+                        ? t.cartPlaceWithGiftCard
+                        : payMethod === "cash"
+                          ? `${t.placeOrder} · ${money(chargedTotal, menu.venue.currency)}`
+                          : giftCode !== ""
+                            ? fill(t.cartPayRemaining, {
+                                total: money(chargedTotal, menu.venue.currency),
+                              })
+                            : `${t.payNow} ${money(chargedTotal, menu.venue.currency)}`
+                  }
+                  busyLabel={paying ? t.openingPayment : undefined}
+                  tone="red"
+                  onPress={() => void submit()}
+                  disabled={missing}
+                  busy={busy}
+                />
+              </Action>
               {/* Name the instrument that actually covered the bill. A
                   gift card is money the guest PAID for, and saying
                   "your reward covers this" at the moment they are being
@@ -1555,9 +1583,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
   },
   payRowActive: { borderColor: colors.red, backgroundColor: "#fdeee6" },
+  // The tablet tile: radio + label on top, the marks under them, so a
+  // third of a line never has to squeeze a label past its card logos.
+  payTile: { flexDirection: "column", alignItems: "flex-start", gap: 8, minHeight: 76 },
+  payTileTop: { flexDirection: "row", alignItems: "center", gap: 10, alignSelf: "stretch" },
   payRowText: { flex: 1, color: colors.ink, fontSize: 14, ...fonts.bodyBold },
   // Stripe draws the wallet button itself; we only own the box it fills.
   walletButton: { height: 48, width: "100%" },
+  // Tablet: an action, so centred at the width of the pay button below.
+  walletButtonWide: { maxWidth: ACTION_MAX, alignSelf: "center" },
   walletDivider: {
     color: colors.inkSoft,
     ...fonts.body,

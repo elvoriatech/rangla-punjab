@@ -18,6 +18,8 @@ import type { StaffHoursWeek, StaffOrdering } from "../staff";
 import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
 import { useVenueOpenNow, venueTimezone } from "../hours";
 import { BrandHeader, DishRow, PulsingBorder, SectionTitle, VenueStatePill } from "../components";
+import { Grid } from "../responsive";
+import { useLayout } from "../layout";
 import { useFireFlicker, usePressScale } from "../motion";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 import { fill, useI18n } from "../i18n";
@@ -250,6 +252,9 @@ export function HomeScreen({
   onMenuChanged?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  // Tablet: the tiles and category medallions grow with the glass.
+  const { wide } = useLayout();
+  const emoji = [styles.modeEmoji, wide && styles.modeEmojiWide];
   const { staffToken, clearStaff } = useAuth();
   const restaurant = staffToken !== null;
   /**
@@ -403,7 +408,7 @@ export function HomeScreen({
               <View style={styles.modeRow}>
                 {menu.ordering.delivery ? (
                   <ActionCard
-                    icon={<Text style={styles.modeEmoji}>🛵</Text>}
+                    icon={<Text style={emoji}>🛵</Text>}
                     title={t.delivery}
                     subtitle={t.deliverySub}
                     onPress={() => onStartOrder("delivery")}
@@ -411,7 +416,7 @@ export function HomeScreen({
                 ) : null}
                 {menu.ordering.takeaway ? (
                   <ActionCard
-                    icon={<Text style={styles.modeEmoji}>🛍️</Text>}
+                    icon={<Text style={emoji}>🛍️</Text>}
                     title={t.pickup}
                     subtitle={t.pickupSub}
                     onPress={() => onStartOrder("takeaway")}
@@ -419,7 +424,7 @@ export function HomeScreen({
                 ) : null}
                 {menu.ordering.reservations ? (
                   <ActionCard
-                    icon={<TableForGuestsIcon size={18} />}
+                    icon={<TableForGuestsIcon size={wide ? 32 : 18} />}
                     title={t.reserveShort}
                     subtitle={t.reserveSub}
                     onPress={() => setReserveOpen(true)}
@@ -436,7 +441,7 @@ export function HomeScreen({
             <View style={styles.modeRow}>
               {giftCardsOn ? (
                 <ActionCard
-                  icon={<Text style={styles.modeEmoji}>🎁</Text>}
+                  icon={<Text style={emoji}>🎁</Text>}
                   title={t.giftCardsTitle}
                   subtitle={t.giftCardsSub}
                   onPress={onOpenGiftCards}
@@ -446,7 +451,7 @@ export function HomeScreen({
                 <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
               ) : null}
               <ActionCard
-                icon={<Text style={styles.modeEmoji}>💬</Text>}
+                icon={<Text style={emoji}>💬</Text>}
                 title={t.complainShort}
                 subtitle={t.complainSub}
                 onPress={onComplain}
@@ -482,15 +487,24 @@ export function HomeScreen({
           contentContainerStyle={{ gap: 14 }}
         >
           {menu.categories.map((cat) => (
-            <Pressable key={cat.id} style={styles.catChip} onPress={() => onOpenCategory(cat.id)}>
+            <Pressable
+              key={cat.id}
+              style={[styles.catChip, wide && styles.catChipWide]}
+              onPress={() => onOpenCategory(cat.id)}
+            >
               {cat.photoUrl ? (
-                <Image source={{ uri: cat.photoUrl }} style={styles.catPhoto} />
+                <Image
+                  source={{ uri: cat.photoUrl }}
+                  style={[styles.catPhoto, wide && styles.catPhotoWide]}
+                />
               ) : (
-                <View style={[styles.catPhoto, styles.catFallback]}>
-                  <Text style={{ ...fonts.body, fontSize: 24 }}>{cat.icon ?? "🍛"}</Text>
+                <View style={[styles.catPhoto, wide && styles.catPhotoWide, styles.catFallback]}>
+                  <Text style={{ ...fonts.body, fontSize: wide ? 34 : 24 }}>
+                    {cat.icon ?? "🍛"}
+                  </Text>
                 </View>
               )}
-              <Text style={styles.catName} numberOfLines={1}>
+              <Text style={[styles.catName, wide && styles.catNameWide]} numberOfLines={1}>
                 {cat.name}
               </Text>
             </Pressable>
@@ -502,11 +516,11 @@ export function HomeScreen({
             <SectionTitle action={t.showAll} onAction={onBrowseAll}>
               {t.popular}
             </SectionTitle>
-            <View style={{ gap: 10 }}>
+            <Grid>
               {popular.map((item) => (
                 <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
               ))}
-            </View>
+            </Grid>
           </>
         )}
       </ScrollView>
@@ -565,6 +579,7 @@ function ActionCard({
   onPress: () => void;
 }): React.ReactElement {
   const press = usePressScale(0.97);
+  const { wide } = useLayout();
   return (
     // The wrapper carries the row's horizontal flex and the press
     // transform; it states no height of its own, so the row's `stretch`
@@ -576,16 +591,20 @@ function ActionCard({
         onPressOut={press.onPressOut}
         accessibilityRole="button"
         accessibilityLabel={`${title} — ${subtitle}`}
-        style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.9 }]}
+        style={({ pressed }) => [
+          styles.actionCard,
+          wide && styles.actionCardWide,
+          pressed && { opacity: 0.9 },
+        ]}
       >
-        <View style={styles.actionIcon}>{icon}</View>
+        <View style={[styles.actionIcon, wide && styles.actionIconWide]}>{icon}</View>
         {/* TWO lines allowed, because a third of a 360 pt row is ~103 pt
             of usable width and "Geschenkgutscheine" cannot be had on one
             line at any size worth reading. `adjustsFontSizeToFit` stays
             as the shrink-before-truncate net for the words that do not
             fit even two lines. */}
         <Text
-          style={styles.actionTitle}
+          style={[styles.actionTitle, wide && styles.actionTitleWide]}
           numberOfLines={2}
           adjustsFontSizeToFit
           minimumFontScale={0.82}
@@ -636,6 +655,7 @@ function OffersCard({
   // bigger swell pushes the flame's box into the label under it.
   const fire = useFireFlicker(1.1);
   const press = usePressScale(0.97);
+  const { wide } = useLayout();
   const countLabel = count === 1 ? t.offersCardCountOne : fill(t.offersCardCount, { n: count });
   return (
     <Animated.View style={[styles.actionWrap, press.style]}>
@@ -649,7 +669,12 @@ function OffersCard({
             ? `${t.offersCardTitle} — ${countLabel} — ${names}`
             : `${t.offersCardTitle} — ${countLabel}`
         }
-        style={({ pressed }) => [styles.actionCard, styles.offersCard, pressed && { opacity: 0.9 }]}
+        style={({ pressed }) => [
+          styles.actionCard,
+          wide && styles.actionCardWide,
+          styles.offersCard,
+          pressed && { opacity: 0.9 },
+        ]}
       >
         <PulsingBorder inset={2} style={styles.offersRing} />
         {/* The count, as a pill in the corner. Hidden from the reader —
@@ -666,11 +691,13 @@ function OffersCard({
         {/* The flame sits in the same bare icon band as its neighbours'
             emoji, so the row reads as three tiles of one family — what
             marks this one out is that the flame MOVES. */}
-        <View style={styles.actionIcon}>
-          <Animated.Text style={[styles.offersEmoji, fire]}>🔥</Animated.Text>
+        <View style={[styles.actionIcon, wide && styles.actionIconWide]}>
+          <Animated.Text style={[styles.offersEmoji, wide && styles.modeEmojiWide, fire]}>
+            🔥
+          </Animated.Text>
         </View>
         <Text
-          style={styles.actionTitle}
+          style={[styles.actionTitle, wide && styles.actionTitleWide]}
           numberOfLines={2}
           adjustsFontSizeToFit
           minimumFontScale={0.82}
@@ -970,6 +997,15 @@ const styles = StyleSheet.create({
    *  an emoji occupies is the same on web as on the devices, which is
    *  what `actionIcon`'s 22 is measured from. */
   modeEmoji: { ...fonts.body, fontSize: 18, lineHeight: 22 },
+  // Tablet sizes. A third of a 1032 pt row is ~330 pt: at phone sizes the
+  // icon and label sat in the middle of a mostly empty plate.
+  modeEmojiWide: { fontSize: 32, lineHeight: 38 },
+  actionCardWide: { minHeight: 96, paddingVertical: 14 },
+  actionIconWide: { minHeight: 38 },
+  actionTitleWide: { fontSize: 16, lineHeight: 20 },
+  catChipWide: { width: 100 },
+  catPhotoWide: { width: 84, height: 84, borderRadius: 42 },
+  catNameWide: { fontSize: 14, marginTop: 7 },
   reserveChevron: { color: colors.inkSoft, ...fonts.body, fontSize: 20 },
   rewardBanner: {
     flexDirection: "row",

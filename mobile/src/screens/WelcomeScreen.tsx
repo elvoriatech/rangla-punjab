@@ -18,6 +18,8 @@ import { GoogleButton } from "../google-button";
 import { HalalMark } from "../halal-mark";
 import { displayVenueName, venueNameLines } from "../venue-name";
 import { brand, colors, fonts, hero, radius, scrim } from "../theme";
+import { useLayout } from "../layout";
+import { Row } from "../responsive";
 
 /**
  * The launch screen — the mockup's red Willkommen page, element for
@@ -81,6 +83,7 @@ export function WelcomeScreen({
   onAccount?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  const { wide, content: column } = useLayout();
   const auth = useAuth();
   const loading = variant === "loading";
   // "Rangla Punjab Restaurant" over "Konstanz" — one `venues.name` with
@@ -216,39 +219,64 @@ export function WelcomeScreen({
             <Text style={styles.loadingText}>{t.bootLoading}</Text>
           </View>
         ) : (
-          <>
-            <Pressable
-              onPress={onStart}
-              disabled={!ready}
-              style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
-            >
-              {ready ? (
-                <Text style={styles.primaryText}>{t.startOrdering}</Text>
-              ) : (
-                <ActivityIndicator color={colors.ink} />
-              )}
-            </Pressable>
-            {auth.customer || !auth.googleAvailable ? null : (
-              <View style={styles.googleSlot}>
-                <GoogleButton
-                  label={t.continueWithGoogle}
-                  onPress={() => void startGoogle()}
-                  disabled={!ready}
-                  busy={auth.busyProvider === GOOGLE_NATIVE}
-                />
+          (() => {
+            const start = (
+              <Pressable
+                key="start"
+                onPress={onStart}
+                disabled={!ready}
+                style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
+              >
+                {ready ? (
+                  <Text style={styles.primaryText}>{t.startOrdering}</Text>
+                ) : (
+                  <ActivityIndicator color={colors.ink} />
+                )}
+              </Pressable>
+            );
+            const google =
+              auth.customer || !auth.googleAvailable ? null : (
+                <View key="google" style={wide ? null : styles.googleSlot}>
+                  <GoogleButton
+                    label={t.continueWithGoogle}
+                    onPress={() => void startGoogle()}
+                    disabled={!ready}
+                    busy={auth.busyProvider === GOOGLE_NATIVE}
+                  />
+                </View>
+              );
+            const account = (
+              <Pressable
+                key="account"
+                onPress={onAccount}
+                disabled={!ready}
+                style={({ pressed }) => [
+                  styles.secondaryBtn,
+                  wide && { marginTop: 0 },
+                  (!ready || pressed) && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={styles.secondaryText}>{t.signInRegister}</Text>
+              </Pressable>
+            );
+            // A tablet: one line, the way forward on the right, in the
+            // reading column rather than across the whole glass.
+            return wide ? (
+              <View style={[column, { alignSelf: "center" }]}>
+                <Row>
+                  {account}
+                  {google}
+                  {start}
+                </Row>
               </View>
-            )}
-            <Pressable
-              onPress={onAccount}
-              disabled={!ready}
-              style={({ pressed }) => [
-                styles.secondaryBtn,
-                (!ready || pressed) && { opacity: 0.7 },
-              ]}
-            >
-              <Text style={styles.secondaryText}>{t.signInRegister}</Text>
-            </Pressable>
-          </>
+            ) : (
+              <>
+                {start}
+                {google}
+                {account}
+              </>
+            );
+          })()
         )}
       </ScrollView>
       {/* The owner's mock: the mark in the top-left corner, over the red,

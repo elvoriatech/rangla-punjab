@@ -5,6 +5,7 @@ import { DIET_ICONS, useI18n } from "./i18n";
 import { colors, fonts, money, radius } from "./theme";
 import { DishBadges } from "./components";
 import { HalalMark } from "./halal-mark";
+import { SHEET_MAX } from "./layout";
 
 /**
  * Dish details. The list rows are deliberately uniform — one line of name,
@@ -142,6 +143,10 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(20,10,5,0.5)" },
   sheet: {
     maxHeight: "88%",
+    // Capped and centred on a tablet, like the other sheets.
+    width: "100%",
+    maxWidth: SHEET_MAX,
+    alignSelf: "center",
     backgroundColor: colors.cream,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,

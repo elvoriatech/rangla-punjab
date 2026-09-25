@@ -6,7 +6,7 @@
       "policy": "appVersion"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false

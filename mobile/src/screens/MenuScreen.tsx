@@ -21,6 +21,7 @@ import {
 } from "../staff";
 import { BrandHeader, DishRow } from "../components";
 import { useLayout } from "../layout";
+import { Grid } from "../responsive";
 import { DishSheet } from "../dish-sheet";
 import type { PhotoOutcome } from "../staff-menu";
 import { StaffDishRow, StaffItemSheet, staffViewOfGuestMenu } from "../staff-menu";
@@ -293,9 +294,11 @@ export function MenuScreen({
               />
             ))
           ) : (
-            (offers as ApiItem[]).map((item) => (
-              <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
-            ))
+            <Grid>
+              {(offers as ApiItem[]).map((item) => (
+                <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
+              ))}
+            </Grid>
           )
         ) : staffMode ? (
           (staffCategories ?? [])
@@ -320,9 +323,11 @@ export function MenuScreen({
             .map((cat) => (
               <View key={cat.id} style={{ gap: 10 }}>
                 {allActive ? <Text style={styles.catHeading}>{cat.name}</Text> : null}
-                {cat.items.map((item) => (
-                  <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
-                ))}
+                <Grid>
+                  {cat.items.map((item) => (
+                    <DishRow key={item.id} item={item} onAdd={onAdd} onOpen={setOpenDish} />
+                  ))}
+                </Grid>
               </View>
             ))
         )}
@@ -356,16 +361,31 @@ function Chip({
   active: boolean;
   onPress: () => void;
 }): React.ReactElement {
+  // Tablet: a bigger thumb and label, so the rail reads at arm's length.
+  const { wide } = useLayout();
   return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        wide && styles.chipWide,
+        active && styles.chipActive,
+        active && wide && { borderRadius: 24, borderEndEndRadius: 0 },
+      ]}
+    >
       {/* Owner-uploaded category photo, when there is one — tiny round
           thumb so the rail stays a text rail, just richer. */}
       {photoUrl ? (
-        <Image source={{ uri: photoUrl }} style={styles.chipPhoto} />
+        <Image
+          source={{ uri: photoUrl }}
+          style={[styles.chipPhoto, wide && styles.chipPhotoWide]}
+        />
       ) : icon ? (
-        <Text style={styles.chipIcon}>{icon}</Text>
+        <Text style={[styles.chipIcon, wide && styles.chipIconWide]}>{icon}</Text>
       ) : null}
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+      <Text style={[styles.chipText, wide && styles.chipTextWide, active && styles.chipTextActive]}>
+        {label}
+      </Text>
       {active ? (
         // The mockup bubble's tail: hangs off the bottom-right, its top
         // edge curving INWARD (concave) out to a long sharp point.
@@ -402,6 +422,10 @@ const styles = StyleSheet.create({
   },
   chipPhoto: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.line },
   chipIcon: { fontSize: 16, marginEnd: 6 },
+  chipWide: { paddingHorizontal: 18, paddingVertical: 11, gap: 10 },
+  chipPhotoWide: { width: 34, height: 34, borderRadius: 17 },
+  chipIconWide: { fontSize: 24 },
+  chipTextWide: { fontSize: 17 },
   chipActive: {
     backgroundColor: colors.red,
     borderRadius: 18,

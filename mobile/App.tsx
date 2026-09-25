@@ -40,7 +40,7 @@ import { useBumpOnChange } from "./src/motion";
 import { openInAppBrowser, walletsFromAccepted } from "./src/payments";
 import { colors, fonts } from "./src/theme";
 import { displayVenueName } from "./src/venue-name";
-import { TAB_BAR_MAX } from "./src/layout";
+import { TAB_BAR_MAX, useLayout } from "./src/layout";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { MenuScreen } from "./src/screens/MenuScreen";
 import { CartScreen } from "./src/screens/CartScreen";
@@ -153,6 +153,7 @@ function Shell(): React.ReactElement {
   const auth = useAuth();
   const { t, lang, applyVenueLocales } = useI18n();
   const insets = useSafeAreaInsets();
+  const { wide: wideLayout } = useLayout();
   const restaurant = auth.staff !== null;
   const [openOrders, setOpenOrders] = useState(0);
   /** Complaints the restaurant still owes an answer or a verdict on —
@@ -722,7 +723,7 @@ function Shell(): React.ReactElement {
           resolves inside it — a maxWidth plus a horizontal margin would
           overflow by exactly the margin on a narrow phone. */}
       <View style={[styles.tabBarWrap, { marginBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={styles.tabBar}>
+        <View style={[styles.tabBar, wideLayout && styles.tabBarWide]}>
           <TabButton
             label={t.tabStart}
             icon="home"
@@ -870,12 +871,13 @@ function TabButton({
   // changes too, and it deliberately does not fire on mount: every tab
   // bouncing at launch would say "new" about a basket from yesterday.
   const bump = useBumpOnChange(badge ?? 0);
+  const { wide } = useLayout();
   return (
     <Pressable onPress={onPress} style={styles.tabBtn} accessibilityLabel={label}>
       <View>
         <Ionicons
           name={name}
-          size={22}
+          size={wide ? 30 : 22}
           color={active ? colors.goldSoft : colors.onRed}
           style={!active && { opacity: 0.7 }}
         />
@@ -885,7 +887,9 @@ function TabButton({
           </Animated.View>
         ) : null}
       </View>
-      <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
+      <Text style={[styles.tabLabel, wide && styles.tabLabelWide, active && styles.tabLabelActive]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -953,7 +957,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
+  // Tablet: a bigger bar with bigger marks — the phone sizes read as a
+  // toy at arm's length on 13 inches of glass.
+  tabBarWide: { maxWidth: 720, borderRadius: 34, paddingTop: 16, paddingBottom: 18 },
   tabBtn: { flex: 1, alignItems: "center", gap: 3 },
+  tabLabelWide: { fontSize: 13 },
   tabLabel: { color: colors.onRed, opacity: 0.6, ...fonts.body, fontSize: 10 },
   tabLabelActive: { opacity: 1, ...fonts.bodyBold },
   badge: {

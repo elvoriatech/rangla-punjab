@@ -21,6 +21,7 @@ import { VenueWordmark } from "./venue-wordmark";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
 import { useBumpOnChange, useGiftWiggle, usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
+import { useLayout } from "./layout";
 
 /**
  * A form field's label, with the asterisk when the field is REQUIRED.
@@ -620,19 +621,29 @@ export function DishRow({
 }): React.ReactElement {
   const { t } = useI18n();
   const add = usePressScale();
+  // Tablet: a bigger card — photo, name and ⊕ all a size up.
+  const { wide } = useLayout();
   return (
-    <Pressable style={styles.dishRow} onPress={() => onOpen?.(item)} accessibilityLabel={item.name}>
-      <View style={styles.dishPhotoBox}>
-        <Image source={{ uri: item.photoUrl }} style={styles.dishPhoto} resizeMode="cover" />
+    <Pressable
+      style={[styles.dishRow, wide && styles.dishRowWide]}
+      onPress={() => onOpen?.(item)}
+      accessibilityLabel={item.name}
+    >
+      <View style={[styles.dishPhotoBox, wide && styles.dishPhotoWide]}>
+        <Image
+          source={{ uri: item.photoUrl }}
+          style={[styles.dishPhoto, wide && styles.dishPhotoWide]}
+          resizeMode="cover"
+        />
         <DishBadges item={item} max={3} size="sm" />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.dishName} numberOfLines={1}>
+        <Text style={[styles.dishName, wide && styles.dishNameWide]} numberOfLines={1}>
           {item.name}
         </Text>
-        <View style={styles.dishDescBox}>
+        <View style={[styles.dishDescBox, wide && styles.dishDescBoxWide]}>
           {item.description ? (
-            <Text style={styles.dishDesc} numberOfLines={2}>
+            <Text style={[styles.dishDesc, wide && styles.dishDescWide]} numberOfLines={2}>
               {item.description}
             </Text>
           ) : null}
@@ -648,7 +659,9 @@ export function DishRow({
               </Text>
             </>
           ) : null}
-          <Text style={styles.dishPrice}>{money(item.priceCents, item.currency)}</Text>
+          <Text style={[styles.dishPrice, wide && styles.dishPriceWide]}>
+            {money(item.priceCents, item.currency)}
+          </Text>
           {item.isAvailable ? (
             // The wrapper, not the button, carries the auto margin: a
             // transform cannot push a sibling, so the ⊕ has to be pinned to
@@ -660,9 +673,13 @@ export function DishRow({
                 onPressOut={add.onPressOut}
                 hitSlop={10}
                 accessibilityLabel={`${t.dishAdd} — ${item.name}`}
-                style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.8 }]}
+                style={({ pressed }) => [
+                  styles.addBtn,
+                  wide && styles.addBtnWide,
+                  pressed && { opacity: 0.8 },
+                ]}
               >
-                <Text style={styles.addBtnText}>+</Text>
+                <Text style={[styles.addBtnText, wide && styles.addBtnTextWide]}>+</Text>
               </Pressable>
             </Animated.View>
           ) : (
@@ -1062,6 +1079,15 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
   },
   dishName: { color: colors.ink, fontSize: 15.5, lineHeight: 20, ...fonts.bodyBold },
+  // Tablet dish card, a size up from the phone's.
+  dishRowWide: { height: 138, padding: 12, gap: 16 },
+  dishPhotoWide: { width: 112, height: 112 },
+  dishNameWide: { fontSize: 18, lineHeight: 24 },
+  dishDescBoxWide: { height: 44 },
+  dishDescWide: { fontSize: 14.5, lineHeight: 22 },
+  dishPriceWide: { fontSize: 17 },
+  addBtnWide: { width: 36, height: 36, borderRadius: 11 },
+  addBtnTextWide: { fontSize: 28, lineHeight: 31 },
   dishDesc: { color: colors.inkSoft, ...fonts.body, fontSize: 12.5, lineHeight: 18 },
   dishPrice: { color: colors.red, fontSize: 14, ...fonts.bodyBold },
   dishBasePrice: {
