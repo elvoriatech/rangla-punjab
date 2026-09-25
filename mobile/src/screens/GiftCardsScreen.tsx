@@ -638,15 +638,23 @@ export function GiftCardsScreen({
                    required — but the form for it lives on the Account
                    tab, and duplicating it here would be a second
                    sign-in to keep working. */
-                <Pressable
-                  onPress={onOpenAccount}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.giftCardSignIn}
-                  style={({ pressed }) => [styles.signIn, pressed && { opacity: 0.75 }]}
-                >
-                  <Ionicons name="person-circle-outline" size={20} color={colors.red} />
-                  <Text style={styles.signInText}>{t.giftCardSignIn}</Text>
-                </Pressable>
+                // A short label on the button and the reason under it
+                // (owner, 2026-09-25): the whole sentence in the pill
+                // wrapped to two lines and no longer read as a button.
+                <View style={styles.signInBlock}>
+                  <Pressable
+                    onPress={onOpenAccount}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.giftCardSignIn}
+                    style={({ pressed }) => [styles.signIn, pressed && { opacity: 0.75 }]}
+                  >
+                    <Ionicons name="person-circle-outline" size={20} color={colors.onRed} />
+                    <Text style={styles.signInText} numberOfLines={1}>
+                      {t.giftCardSignInButton}
+                    </Text>
+                  </Pressable>
+                  <Text style={styles.signInHint}>{t.giftCardSignIn}</Text>
+                </View>
               )}
             </>
           )}
@@ -726,19 +734,29 @@ const styles = StyleSheet.create({
   payRowActive: { borderColor: colors.red },
   payRowText: { flex: 1, color: colors.ink, ...fonts.bodySemi, fontSize: 14 },
   error: { color: colors.danger, ...fonts.bodySemi, fontSize: 13 },
+  /** The button and the one line explaining why, as one unit. */
+  signInBlock: { gap: 8, marginTop: 4 },
+  /** Filled brand red, like the buy button it stands in for: this IS the
+   *  screen's main action for a signed-out guest. */
   signIn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
     minHeight: TOUCH_MIN,
-    borderWidth: 1.5,
-    borderColor: colors.red,
+    backgroundColor: colors.red,
     borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
   },
-  signInText: { color: colors.red, ...fonts.bodyBold, fontSize: 14.5 },
+  signInText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 16 },
+  signInHint: {
+    color: colors.inkSoft,
+    ...fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
+  },
   payingBox: { alignItems: "center", gap: 12, marginTop: 32 },
   payingText: { color: colors.inkSoft, ...fonts.body, fontSize: 13.5 },
 });

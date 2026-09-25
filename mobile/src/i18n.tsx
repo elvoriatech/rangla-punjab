@@ -455,6 +455,7 @@ const en = {
   giftCardMessage: "Your message (optional)",
   giftCardBuy: "Buy · {price}",
   giftCardSignIn: "Sign in to buy a gift card",
+  giftCardSignInButton: "Sign in",
   giftCardBuyFailed: "That purchase didn't go through.",
   giftCardsDisabled: "Gift cards aren't available right now.",
 
@@ -1215,6 +1216,7 @@ const de: Strings = {
   giftCardMessage: "Deine Nachricht (optional)",
   giftCardBuy: "Kaufen · {price}",
   giftCardSignIn: "Melde dich an, um einen Geschenkgutschein zu kaufen",
+  giftCardSignInButton: "Anmelden",
   giftCardBuyFailed: "Der Kauf hat nicht geklappt.",
   giftCardsDisabled: "Geschenkgutscheine sind gerade nicht verfügbar.",
 
@@ -1967,6 +1969,7 @@ const fr: Strings = {
   giftCardMessage: "Votre message (facultatif)",
   giftCardBuy: "Acheter · {price}",
   giftCardSignIn: "Connectez-vous pour acheter une carte cadeau",
+  giftCardSignInButton: "Se connecter",
   giftCardBuyFailed: "L'achat n'a pas abouti.",
   giftCardsDisabled: "Les cartes cadeaux ne sont pas disponibles pour le moment.",
 
@@ -2718,6 +2721,7 @@ const it: Strings = {
   giftCardMessage: "Il tuo messaggio (facoltativo)",
   giftCardBuy: "Acquista · {price}",
   giftCardSignIn: "Accedi per acquistare una carta regalo",
+  giftCardSignInButton: "Accedi",
   giftCardBuyFailed: "L'acquisto non è andato a buon fine.",
   giftCardsDisabled: "Le carte regalo non sono disponibili al momento.",
 
@@ -3469,6 +3473,7 @@ const es: Strings = {
   giftCardMessage: "Tu mensaje (opcional)",
   giftCardBuy: "Comprar · {price}",
   giftCardSignIn: "Inicia sesión para comprar una tarjeta regalo",
+  giftCardSignInButton: "Iniciar sesión",
   giftCardBuyFailed: "La compra no se ha completado.",
   giftCardsDisabled: "Las tarjetas regalo no están disponibles ahora mismo.",
 
@@ -4213,6 +4218,7 @@ const ar: Strings = {
   giftCardMessage: "رسالتك (اختياري)",
   giftCardBuy: "شراء · {price}",
   giftCardSignIn: "سجّل الدخول لشراء بطاقة هدايا",
+  giftCardSignInButton: "تسجيل الدخول",
   giftCardBuyFailed: "لم تتم عملية الشراء.",
   giftCardsDisabled: "بطاقات الهدايا غير متاحة حاليًا.",
 
