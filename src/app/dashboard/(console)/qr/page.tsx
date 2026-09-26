@@ -110,7 +110,12 @@ export default async function QrPage(): Promise<React.ReactElement> {
             <p className="font-serif text-xl">Where a scan goes right now</p>
             <ul className="mt-3 space-y-2 text-sm">
               <StoreStatus platform="iPhone / iPad" url={links.ios} store="App Store" />
-              <StoreStatus platform="Android" url={links.android} store="Google Play" />
+              <StoreStatus
+                platform="Android"
+                url={links.android}
+                store="Google Play"
+                fallback={links.apk ? "→ page with the direct APK download" : undefined}
+              />
             </ul>
             <Link
               href="/dashboard/settings#app-links"
@@ -141,10 +146,13 @@ function StoreStatus({
   platform,
   url,
   store,
+  fallback,
 }: {
   platform: string;
   url: string | null;
   store: string;
+  /** What a scan shows when there is no store link (default: coming soon). */
+  fallback?: string;
 }): React.ReactElement {
   return (
     <li className="flex flex-wrap items-baseline justify-between gap-2">
@@ -154,7 +162,7 @@ function StoreStatus({
           → {store}
         </a>
       ) : (
-        <span className="text-muted">→ “Coming soon” + order online</span>
+        <span className="text-muted">{fallback ?? "→ “Coming soon” + order online"}</span>
       )}
     </li>
   );
