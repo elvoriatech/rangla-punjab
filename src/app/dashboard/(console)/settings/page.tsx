@@ -852,10 +852,15 @@ export default async function SettingsPage({
       {/* "Get the app" — App Store, Google Play, direct APK. One form,
           three boxes: they are one decision ("can a guest get our app?"),
           and every box left empty simply hides its own button. */}
-      <form action={saveAppLinksAction} className="mt-6 border border-ink/15 bg-card px-6 py-5">
+      <form
+        id="app-links"
+        action={saveAppLinksAction}
+        className="mt-6 scroll-mt-24 border border-ink/15 bg-card px-6 py-5"
+      >
         <p className="text-sm font-medium">App</p>
         <p className="mt-1 text-xs text-muted">
-          Shown in the website footer and header once set. Leave empty to hide.
+          Shown in the website footer and header once set, and where the app QR code (QR codes page)
+          sends each phone. Leave empty to hide.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <label className="block text-sm">

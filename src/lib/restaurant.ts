@@ -1,5 +1,7 @@
 import { cache } from "react";
 import { prisma } from "./db";
+import { parseAppLinksConfig, type AppLinksConfig } from "./app-links-config";
+import { asTenantRead } from "./tenant";
 
 /**
  * Single-restaurant deploy: this build serves exactly one restaurant, so
@@ -62,4 +64,24 @@ export const getRestaurantIdentity = cache(async (): Promise<RestaurantIdentity 
     backdrop: str(b.backdrop),
     headingColor: str(b.headingColor),
   };
+});
+
+/**
+ * The single restaurant's saved app links (Dashboard → Settings → App), for
+ * the public `/app` QR redirect and its fallback page. A guest scanning a
+ * brochure has no session, so this takes the public menu's path: slug →
+ * tenant through the SECURITY DEFINER `resolve_public_venue`, then a read
+ * under that tenant's RLS. Only the three published URLs leave the row.
+ */
+export const getRestaurantAppLinks = cache(async (): Promise<AppLinksConfig> => {
+  const slug = await getRestaurantSlug();
+  const rows = await prisma.$queryRaw<{ venue_id: string; tenant_id: string }[]>`
+    SELECT * FROM resolve_public_venue(${slug})
+  `;
+  const row = rows[0];
+  if (!row) return parseAppLinksConfig(null);
+  const venue = await asTenantRead(row.tenant_id, (tx) =>
+    tx.venue.findFirst({ where: { id: row.venue_id }, select: { appLinks: true } }),
+  );
+  return parseAppLinksConfig(venue?.appLinks);
 });
