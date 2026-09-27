@@ -130,6 +130,12 @@ case "${1:-}" in
   seed)
     [ -n "${ADMIN_EMAIL:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ] || {
       echo "set ADMIN_EMAIL and ADMIN_PASSWORD in the environment first"; exit 1; }
+    # The seed scripts run on the HOST (tsx), so the host needs its own
+    # generated Prisma client. pnpm skips Prisma's install script, and a
+    # fresh server has none — the first deploy to 87.106.27.235 failed here
+    # with "Cannot find module '.prisma/client/default'" (2026-09-27).
+    DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+      pnpm exec prisma generate >/dev/null
     DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
     APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
       pnpm exec tsx scripts/seed-platform-admin.ts
