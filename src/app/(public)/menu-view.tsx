@@ -522,7 +522,7 @@ export function MenuView({
         <div
           id="menu"
           className={`mx-auto max-w-7xl scroll-mt-28 px-4 py-8 sm:px-8 sm:py-10 lg:px-12 ${
-            sideNav ? "lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10" : ""
+            sideNav ? "lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10" : ""
           }`}
         >
           {sideNav ? (
@@ -2406,7 +2406,10 @@ function SideRail({
   // Modern rail: a soft translucent surface so the labels are readable
   // over ANY artwork/gradient; the active category is the app's red
   // bubble with the sharp bottom-right corner.
-  const linkBase = "block rounded-xl px-3.5 py-2 text-[13px] leading-snug transition-colors";
+  // One line per category: icon pinned, the name clipped to "…" when it
+  // outgrows the rail (full name stays in `title` for hover).
+  const linkBase =
+    "flex items-center whitespace-nowrap rounded-xl px-3.5 py-2 text-[13px] leading-snug transition-colors";
   const railActive =
     "bg-[var(--menu-surface-accent,var(--menu-accent))] font-semibold text-[var(--menu-surface,#fffdf8)] [border-end-end-radius:3px]";
   const railIdle =
@@ -2441,11 +2444,16 @@ function SideRail({
                 idleClass={`${linkBase} ${railIdle}`}
               >
                 {showIcons ? (
-                  <span aria-hidden="true" className="me-1.5 text-sm normal-case tracking-normal">
+                  <span
+                    aria-hidden="true"
+                    className="me-1.5 shrink-0 text-sm normal-case tracking-normal"
+                  >
                     {c.id === OFFERS_CATEGORY_ID ? OFFERS_ICON : categoryIcon(c.name)}
                   </span>
                 ) : null}
-                {c.name}
+                <span title={c.name} className="min-w-0 truncate">
+                  {c.name}
+                </span>
               </CategoryLink>
             </li>
           ))}
