@@ -1189,7 +1189,14 @@ export async function getPublicVenueAccess(
   tenantId: string,
   venueId: string,
 ): Promise<PublicVenueAccess> {
-  return asTenant(tenantId, async (tx) => {
+  // The platform settings below are read OUTSIDE the tenant transaction:
+  // each is its own query on its own pool connection, and asking for a
+  // second connection while holding the transaction's first deadlocked the
+  // pool as soon as enough guests loaded the menu at once — every request
+  // held one connection and waited for another until the 30 s limit
+  // (P2028, seen on the app's menu API on 2026-09-27).
+  const { feeMode } = await getOperatorSettings();
+  const { tenant, venue } = await asTenant(tenantId, async (tx) => {
     const [tenant, venue] = await Promise.all([
       tx.tenant.findFirstOrThrow({
         select: {
@@ -1211,31 +1218,31 @@ export async function getPublicVenueAccess(
         select: { ordering: true, loyalty: true },
       }),
     ]);
-    const access = resolveTenantAccess(tenant);
-    // Single-restaurant build: card payment is offered whenever SOME Stripe
-    // account can take a direct charge — keys pasted in Dashboard →
-    // Payments, the deployment's STRIPE_* keys, or (legacy) a Connect
-    // account with charges enabled. Same for PayPal with its own keys or
-    // the PAYPAL_* env pair. Only a fake provider in production is hidden.
-    const ownStripe = tenant.stripeOwnEnabled && Boolean(tenant.stripeOwnSecretEnc);
-    // The Billing "Enable" tick is the master switch for card payments in
-    // own-keys mode: off hides the card option on the website and in the
-    // app even when prod.env carries STRIPE_* keys (owner, 2026-09-21).
-    // Connect mode has no such tick, so it is not gated by it.
-    const { feeMode } = await getOperatorSettings();
-    const cardSwitchOff = feeMode === "upfront" && !tenant.stripeOwnEnabled;
-    return {
-      menuVisible: access.menuVisible,
-      modes: effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering)),
-      onlinePayment:
-        !cardSwitchOff &&
-        (tenant.stripeChargesEnabled || ownStripe || (await stripeDirectChargeAvailable(false))),
-      // Billing's PayPal "Enable" is the master switch (2026-09-21): off
-      // hides PayPal everywhere, even with PAYPAL_* keys in prod.env.
-      paypalPayment:
-        tenant.paypalOwnEnabled &&
-        paypalAvailable(Boolean(tenant.paypalClientIdEnc && tenant.paypalSecretEnc)),
-      loyalty: parseLoyaltyConfig(venue.loyalty),
-    };
+    return { tenant, venue };
   });
+  const access = resolveTenantAccess(tenant);
+  // Single-restaurant build: card payment is offered whenever SOME Stripe
+  // account can take a direct charge — keys pasted in Dashboard →
+  // Payments, the deployment's STRIPE_* keys, or (legacy) a Connect
+  // account with charges enabled. Same for PayPal with its own keys or
+  // the PAYPAL_* env pair. Only a fake provider in production is hidden.
+  const ownStripe = tenant.stripeOwnEnabled && Boolean(tenant.stripeOwnSecretEnc);
+  // The Billing "Enable" tick is the master switch for card payments in
+  // own-keys mode: off hides the card option on the website and in the
+  // app even when prod.env carries STRIPE_* keys (owner, 2026-09-21).
+  // Connect mode has no such tick, so it is not gated by it.
+  const cardSwitchOff = feeMode === "upfront" && !tenant.stripeOwnEnabled;
+  return {
+    menuVisible: access.menuVisible,
+    modes: effectiveOrdering(access.entitlements, parseOrderingConfig(venue.ordering)),
+    onlinePayment:
+      !cardSwitchOff &&
+      (tenant.stripeChargesEnabled || ownStripe || (await stripeDirectChargeAvailable(false))),
+    // Billing's PayPal "Enable" is the master switch (2026-09-21): off
+    // hides PayPal everywhere, even with PAYPAL_* keys in prod.env.
+    paypalPayment:
+      tenant.paypalOwnEnabled &&
+      paypalAvailable(Boolean(tenant.paypalClientIdEnc && tenant.paypalSecretEnc)),
+    loyalty: parseLoyaltyConfig(venue.loyalty),
+  };
 }
