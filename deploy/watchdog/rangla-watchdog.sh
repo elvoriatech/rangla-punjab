@@ -7,6 +7,11 @@
 #                        the PUBLIC site from outside — so a dead app server
 #                        is reported by the DB server, and vice versa.
 #
+# Self-healing: Docker already restarts a container that EXITS. It does not
+# restart one that is running but "unhealthy" (hung) — for those, a check
+# with a heal_<id> function below gets ONE automatic restart per incident,
+# and the email says whether that worked.
+#
 # Email (Resend) goes out only on a CHANGE: after FAIL_AFTER consecutive
 # failed runs ("DOWN"), again every REMIND_MIN minutes while still down, and
 # once when it recovers ("OK again"). A restart blip of one minute stays quiet.
@@ -35,9 +40,10 @@ send_mail() { # subject, body
 # check <id> <human name> <command…>  — records the result and alerts on change.
 check() {
   local id=$1 name=$2; shift 2
-  local out f="$STATE/$id" fails=0 alerted=0 last=0 now
+  local out f="$STATE/$id" fails=0 alerted=0 last=0 healed=0 now heal_note=""
   now=$(date +%s)
-  [ -f "$f" ] && read -r fails alerted last < "$f"
+  [ -f "$f" ] && read -r fails alerted last healed < "$f"
+  healed=${healed:-0}
   if out=$("$@" 2>&1); then
     if [ "$alerted" = 1 ]; then
       send_mail "✅ OK again: $name ($ROLE $HOST)" \
@@ -45,9 +51,15 @@ check() {
 Check: $name
 Server: $ROLE server $HOST" >/dev/null
     fi
-    echo "0 0 0" > "$f"
+    echo "0 0 0 0" > "$f"
   else
     fails=$((fails + 1))
+    local heal="heal_${id//-/_}"
+    if [ "$fails" -ge "$FAIL_AFTER" ] && [ "$healed" = 0 ] && declare -F "$heal" >/dev/null; then
+      if "$heal" >/dev/null 2>&1; then heal_note="Automatic restart: done — it should be back within a minute."
+      else heal_note="Automatic restart: FAILED — needs a person."; fi
+      healed=1
+    fi
     if [ "$fails" -ge "$FAIL_AFTER" ] && { [ "$alerted" = 0 ] || [ $((now - last)) -ge $((REMIND_MIN * 60)) ]; }; then
       local tag="DOWN"; [ "$alerted" = 1 ] && tag="STILL DOWN"
       send_mail "🔴 $tag: $name ($ROLE $HOST)" \
@@ -55,6 +67,7 @@ Server: $ROLE server $HOST" >/dev/null
 Check: $name
 Server: $ROLE server $HOST
 Details: ${out:-no output}
+${heal_note}
 
 Live logs: https://$DOMAIN/logs
 Health:    https://$DOMAIN/admin/system
@@ -62,7 +75,7 @@ Health:    https://$DOMAIN/admin/system
 You will get one more email when it is OK again (and a reminder every $REMIND_MIN min while it stays down)." >/dev/null
       alerted=1; last=$now
     fi
-    echo "$fails $alerted $last" > "$f"
+    echo "$fails $alerted $last $healed" > "$f"
   fi
 }
 
@@ -96,6 +109,12 @@ backup_ok() {
   newest=$(find /var/backups/rangla -name 'rangla_database-*.dump' -mmin -1560 | head -1)
   [ -n "$newest" ] && return 0; echo "no database backup newer than 26 h in /var/backups/rangla"; return 1
 }
+
+# ---------- automatic repairs (one attempt per incident) ----------
+heal_app_container()   { docker restart rangla-prod-app-1; }
+heal_caddy_container() { docker restart rangla-prod-caddy-1; }
+heal_redis_container() { docker restart rangla-prod-redis-1; }
+heal_postgres()        { systemctl restart postgresql@18-main; }
 
 case "$ROLE" in
   app)
