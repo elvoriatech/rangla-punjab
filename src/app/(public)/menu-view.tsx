@@ -2240,11 +2240,13 @@ function DishCard({
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={dishHeadingId(item.id, idPrefix)}
-      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[104px_minmax(0,1fr)] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-5"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[104px_minmax(0,1fr)] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-5 lg:grid-cols-[104px_minmax(0,1fr)] lg:gap-4 xl:grid-cols-[160px_minmax(0,1fr)] xl:gap-5"
     >
       {/* Every photo the same square, whatever its upload's proportions or
           the length of the text beside it (owner, 2026-09-28): the frame
-          no longer stretches to the card's height. */}
+          no longer stretches to the card's height. 104px on phones and in
+          the cramped two-column-plus-side-rail band (lg), 160px wherever
+          the card has room (sm, xl). */}
       <div className="relative self-start">
         <DishPhoto item={item} priority={priority} />
         <div className="absolute start-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
@@ -2257,8 +2259,8 @@ function DishCard({
             id={dishHeadingId(item.id, idPrefix)}
             className={
               item.isAvailable
-                ? "font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))] sm:text-xl"
-                : "font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-xl"
+                ? "min-w-0 hyphens-auto break-words font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))] sm:text-xl"
+                : "min-w-0 hyphens-auto break-words font-serif text-lg leading-tight text-[var(--menu-surface-text,var(--menu-text))]/60 line-through sm:text-xl"
             }
           >
             {item.name}
@@ -2308,39 +2310,44 @@ function DishCard({
             ))}
           </ul>
         ) : null}
-        <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-          {/* The offer line (badge, old price, new price) may wrap between
-              its parts on a narrow card — never through a price — so the
-              add button always stays inside the card. */}
-          <p
-            aria-label={t.badges.price}
-            className="min-w-0 text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
-          >
-            {item.offer ? (
-              <>
-                <span className="rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
-                  {t.badges.offer}
-                </span>{" "}
-                <s className="whitespace-nowrap text-[0.85em] font-normal opacity-55">
-                  <span className="sr-only">{t.badges.regularPrice} </span>
-                  {formatPrice(item.offer.basePriceCents, item.currency, locale)}
-                </s>{" "}
-                <span className="sr-only">{t.badges.offerPrice} </span>
-              </>
-            ) : null}
-            <span className="whitespace-nowrap">
-              {formatPrice(item.priceCents, item.currency, locale)}
+        <div className="mt-auto pt-3">
+          {/* The offer tag gets its own line above the price, and the old
+              and new price stay together on one line — so the row never
+              stacks into three lines on a wide card. The add button only
+              drops below the price when the card really is too narrow. */}
+          {item.offer ? (
+            <span className="mb-1.5 inline-block rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+              {t.badges.offer}
             </span>
-          </p>
-          {ordering && item.isAvailable ? (
-            <AddToOrderButton
-              slug={slug}
-              itemId={item.id}
-              name={item.name}
-              labels={addToOrderLabels(locale, item.name)}
-              priceCents={item.priceCents}
-            />
           ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <p
+              aria-label={t.badges.price}
+              className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
+            >
+              {item.offer ? (
+                <>
+                  <s className="me-2 text-[0.8em] font-normal opacity-55">
+                    <span className="sr-only">{t.badges.regularPrice} </span>
+                    {formatPrice(item.offer.basePriceCents, item.currency, locale)}
+                  </s>
+                  <span className="sr-only">{t.badges.offerPrice} </span>
+                </>
+              ) : null}
+              {formatPrice(item.priceCents, item.currency, locale)}
+            </p>
+            {ordering && item.isAvailable ? (
+              <div className="ms-auto">
+                <AddToOrderButton
+                  slug={slug}
+                  itemId={item.id}
+                  name={item.name}
+                  labels={addToOrderLabels(locale, item.name)}
+                  priceCents={item.priceCents}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </article>
