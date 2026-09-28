@@ -2234,6 +2234,14 @@ function DishCard({
   t,
   idPrefix,
 }: DishProps): React.ReactElement {
+  // The offer tag sits on the description's "More" line, opposite "More"
+  // (owner, 2026-09-28); a dish without a description shows it above the
+  // add button instead. Either way an offer adds no line to the card.
+  const offerTag = item.offer ? (
+    <span className="shrink-0 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+      {t.badges.offer}
+    </span>
+  ) : null;
   return (
     <article
       // The reveal script mutates class/style before hydration; React
@@ -2287,6 +2295,7 @@ function DishCard({
             dishName={item.name}
             labels={dishLabels(locale, item.name)}
             className="mt-1 text-sm leading-relaxed text-[var(--menu-surface-text,var(--menu-text))]"
+            aside={offerTag}
           />
         ) : null}
         <MobileAllergenLine
@@ -2310,11 +2319,9 @@ function DishCard({
             ))}
           </ul>
         ) : null}
-        {/* Price left, add button right. The offer tag sits right above
-            the add button (owner, 2026-09-28) — in the space beside the
-            description, not as an extra line — and old + new price stay
-            together on one line. The button only drops below the price
-            when the card really is too narrow. */}
+        {/* Price left, add button right; old + new price stay together on
+            one line. The button only drops below the price when the card
+            really is too narrow. */}
         <div className="mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-3">
           <p
             aria-label={t.badges.price}
@@ -2331,13 +2338,9 @@ function DishCard({
             ) : null}
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
-          {item.offer || (ordering && item.isAvailable) ? (
+          {(item.offer && !item.description) || (ordering && item.isAvailable) ? (
             <div className="ms-auto flex flex-col items-end gap-1.5">
-              {item.offer ? (
-                <span className="rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
-                  {t.badges.offer}
-                </span>
-              ) : null}
+              {item.description ? null : offerTag}
               {ordering && item.isAvailable ? (
                 <AddToOrderButton
                   slug={slug}

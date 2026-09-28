@@ -52,9 +52,12 @@ export function AddToOrderButton({
       }}
       className={
         // Phones get a compact round "+" — the label appears from sm up.
+        // Hover fills with the CARD's accent and writes in the card's own
+        // colour: the page's --menu-accent/--menu-bg pair is two near-equal
+        // reds on dark-card themes, which made the label vanish on hover.
         justAdded
           ? "add-cta inline-flex h-8 w-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-[var(--menu-positive)]/60 bg-[var(--menu-positive)]/10 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--menu-positive)] transition sm:h-auto sm:w-auto sm:px-3.5 sm:py-1.5"
-          : "add-cta inline-flex h-8 w-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-[var(--menu-surface-accent,var(--menu-accent))]/60 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--menu-surface-accent,var(--menu-accent))] transition hover:bg-[var(--menu-accent)] active:scale-90 hover:text-[var(--menu-bg)] sm:h-auto sm:w-auto sm:px-3.5 sm:py-1.5"
+          : "add-cta inline-flex h-8 w-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-[var(--menu-surface-accent,var(--menu-accent))]/60 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--menu-surface-accent,var(--menu-accent))] transition hover:bg-[var(--menu-surface-accent,var(--menu-accent))] hover:text-[var(--menu-surface,var(--menu-bg))] focus-visible:bg-[var(--menu-surface-accent,var(--menu-accent))] focus-visible:text-[var(--menu-surface,var(--menu-bg))] active:scale-90 sm:h-auto sm:w-auto sm:px-3.5 sm:py-1.5"
       }
     >
       <span aria-hidden="true" className="block text-base leading-none tracking-normal sm:hidden">

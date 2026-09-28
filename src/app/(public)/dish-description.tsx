@@ -24,17 +24,24 @@ export interface DishDescriptionLabels {
  * only after hydration, so a no-JS reader loses nothing. The button shows
  * only when the text actually overflows two lines, measured — a short
  * description never grows a pointless "More".
+ *
+ * `aside` (optional) is set at the end of the "More" line — the dish card
+ * puts its offer tag there, opposite "More", so an offer costs the card no
+ * extra line. With no "More" (short text, or before hydration) it still
+ * gets that line to itself, right-aligned.
  */
 export function DishDescription({
   text,
   dishName,
   labels,
   className,
+  aside,
 }: {
   text: string;
   dishName: string;
   labels: DishDescriptionLabels;
   className: string;
+  aside?: React.ReactNode;
 }): React.ReactElement {
   const ref = useRef<HTMLParagraphElement>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -72,26 +79,35 @@ export function DishDescription({
     };
   }, [open]);
 
+  const moreButton = (): React.ReactElement => (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-haspopup="dialog"
+      aria-label={labels.moreAbout}
+      className="mt-0.5 inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-text,var(--menu-text))]"
+    >
+      {labels.more}
+      {/* Directional glyph: mirrored under `dir="rtl"` so it still
+              points away from the label instead of back into it. */}
+      <span aria-hidden="true" className="inline-block rtl:-scale-x-100">
+        ›
+      </span>
+    </button>
+  );
+
   return (
     <>
       <p ref={ref} className={className + (hydrated ? " line-clamp-2" : "")}>
         {text}
       </p>
-      {overflows ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
-          aria-label={labels.moreAbout}
-          className="mt-0.5 inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--menu-surface-accent,var(--menu-accent))] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--menu-surface-text,var(--menu-text))]"
-        >
-          {labels.more}
-          {/* Directional glyph: mirrored under `dir="rtl"` so it still
-              points away from the label instead of back into it. */}
-          <span aria-hidden="true" className="inline-block rtl:-scale-x-100">
-            ›
-          </span>
-        </button>
+      {aside ? (
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          {overflows ? moreButton() : <span />}
+          {aside}
+        </div>
+      ) : overflows ? (
+        moreButton()
       ) : null}
       {open
         ? createPortal(
