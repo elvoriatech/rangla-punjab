@@ -2366,9 +2366,12 @@ function DishPhoto({
   priority?: boolean;
 }): React.ReactElement {
   // Uploaded photo (resized via /img) or a stable styled default from
-  // /public — same dish, same picture, on every visit.
-  const src = menuImageUrl(item.photoKey, item.id, 480);
-  const srcSet = menuImageSrcSet(item.photoKey, item.id, 480);
+  // /public — same dish, same picture, on every visit. The frame is a
+  // fixed square of at most 160 CSS px, so ask for exactly that: a
+  // server-cropped 160 square, 320 on retina (a 3x phone's 104px frame
+  // needs 312). The wide 480/960 renders cost ~3-5x the bytes.
+  const src = menuImageUrl(item.photoKey, item.id, 160, { square: true });
+  const srcSet = menuImageSrcSet(item.photoKey, item.id, 160, { square: true });
   return (
     <div
       aria-hidden="true"

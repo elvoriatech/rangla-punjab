@@ -21,9 +21,14 @@ export const DEFAULT_DISH_IMAGES = [
   "/dish_5_sq",
 ] as const;
 
-/** Resized, cacheable URL for an uploaded image. */
-export function uploadedImageUrl(storageKey: string, width: number): string {
-  return `/img/${encodeURIComponent(storageKey)}?w=${width}`;
+/** Resized, cacheable URL for an uploaded image. `square` asks the proxy
+ *  for a centred square crop (see `IMAGE_CROPS`). */
+export function uploadedImageUrl(
+  storageKey: string,
+  width: number,
+  opts?: { square?: boolean },
+): string {
+  return `/img/${encodeURIComponent(storageKey)}?w=${width}${opts?.square ? "&crop=sq" : ""}`;
 }
 
 /** Deterministic default from /public for entities without an upload. */
@@ -49,12 +54,15 @@ export function menuImageSrcSet(
   storageKey: string | null | undefined,
   seed: string,
   width: number,
+  opts?: { square?: boolean },
 ): string {
   if (storageKey) {
-    return `${uploadedImageUrl(storageKey, width)} 1x, ${uploadedImageUrl(storageKey, width * 2)} 2x`;
+    return `${uploadedImageUrl(storageKey, width, opts)} 1x, ${uploadedImageUrl(storageKey, width * 2, opts)} 2x`;
   }
   const base = defaultDishBase(seed);
-  return `${base}-320.webp 1x, ${base}-640.webp 2x`;
+  // The placeholders are already square; a frame of 160px or less is
+  // sharp at 2x from the 320 file, so it never pulls the 640.
+  return `${base}-320.webp 1x, ${base}-${width * 2 <= 320 ? 320 : 640}.webp 2x`;
 }
 
 /** One entry of a Next `metadata.icons` list. */
@@ -138,6 +146,7 @@ export function menuImageUrl(
   storageKey: string | null | undefined,
   seed: string,
   width: number,
+  opts?: { square?: boolean },
 ): string {
-  return storageKey ? uploadedImageUrl(storageKey, width) : defaultDishImage(seed);
+  return storageKey ? uploadedImageUrl(storageKey, width, opts) : defaultDishImage(seed);
 }

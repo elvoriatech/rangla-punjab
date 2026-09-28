@@ -67,21 +67,42 @@ if (Number.isFinite(configuredConcurrency) && configuredConcurrency > 0) {
   sharp.concurrency(configuredConcurrency);
 }
 
+/**
+ * Optional crop. `sq` = a centred `w`×`w` square — what the dish cards
+ * show anyway (`object-cover` in a square frame), so the pixels the
+ * browser would crop away are never encoded or sent. A 4:3 photo at the
+ * same width is a third smaller, and the card can ask for exactly its
+ * own size instead of a wide render tall enough to fill the square.
+ */
+export const IMAGE_CROPS = ["sq"] as const;
+export type ImageCrop = (typeof IMAGE_CROPS)[number];
+
 export const imgRequestSchema = z.object({
   w: z.coerce.number().int().refine(isAllowedWidth, { message: "unsupported width" }),
   fmt: z.enum(AVAILABLE_FORMATS).optional().default("webp"),
+  crop: z.enum(IMAGE_CROPS).optional(),
 });
 
 export type ImgRequest = z.infer<typeof imgRequestSchema>;
 
 /**
  * Resize `src` to fit within `width` (never upscaling) and encode as
- * `fmt`. EXIF orientation is baked in first so nothing rotates.
+ * `fmt` — or, with `crop: "sq"`, to a centred `width`×`width` square.
+ * EXIF orientation is baked in first so nothing rotates.
  */
-export async function resizeImage(src: Buffer, width: number, fmt: ImageFormat): Promise<Buffer> {
+export async function resizeImage(
+  src: Buffer,
+  width: number,
+  fmt: ImageFormat,
+  crop?: ImageCrop,
+): Promise<Buffer> {
   let pipeline = sharp(src, { limitInputPixels: MAX_INPUT_PIXELS })
     .rotate()
-    .resize({ width, withoutEnlargement: true });
+    .resize(
+      crop === "sq"
+        ? { width, height: width, fit: "cover", position: "centre", withoutEnlargement: true }
+        : { width, withoutEnlargement: true },
+    );
 
   if (fmt === "avif") pipeline = pipeline.avif({ quality: 50 });
   else if (fmt === "webp") pipeline = pipeline.webp({ quality: 80 });

@@ -111,3 +111,40 @@ describe("resizeImage", () => {
     await expect(resizeImage(Buffer.from("not-an-image"), 480, "webp")).rejects.toThrow();
   });
 });
+
+describe("square crop", () => {
+  it("accepts crop=sq and nothing else", () => {
+    expect(imgRequestSchema.parse({ w: "160", crop: "sq" }).crop).toBe("sq");
+    expect(imgRequestSchema.parse({ w: "160" }).crop).toBeUndefined();
+    expect(imgRequestSchema.safeParse({ w: "160", crop: "wide" }).success).toBe(false);
+  });
+
+  it("renders a landscape photo as a centred w×w square", async () => {
+    const out = await resizeImage(await testImage(960, 720), 320, "webp", "sq");
+    const meta = await sharp(out).metadata();
+    expect([meta.width, meta.height]).toEqual([320, 320]);
+  });
+
+  it("renders a portrait photo as a square too", async () => {
+    const out = await resizeImage(await testImage(600, 900), 160, "avif", "sq");
+    const meta = await sharp(out).metadata();
+    expect([meta.width, meta.height]).toEqual([160, 160]);
+  });
+
+  it("is far smaller than the 960 render the dish card used to fetch at 2x", async () => {
+    const src = await sharp({
+      create: {
+        width: 960,
+        height: 720,
+        channels: 3,
+        background: { r: 0, g: 0, b: 0 },
+        noise: { type: "gaussian", mean: 128, sigma: 40 },
+      },
+    })
+      .jpeg()
+      .toBuffer();
+    const before = await resizeImage(src, 960, "webp");
+    const after = await resizeImage(src, 320, "webp", "sq");
+    expect(after.length).toBeLessThan(before.length / 3);
+  });
+});

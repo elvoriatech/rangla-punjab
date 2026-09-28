@@ -354,7 +354,10 @@ describe("MenuView", () => {
     const withPhoto = structuredClone(fixture);
     withPhoto.categories[0]!.items[0]!.photoKey = "tenant-a/uploads/abc";
     const html = renderToStaticMarkup(<MenuView menu={withPhoto} />);
-    expect(html).toContain(`/img/${encodeURIComponent("tenant-a/uploads/abc")}?w=480`);
+    // The dish card asks for exactly its square frame: 160, 320 at 2x.
+    const key = encodeURIComponent("tenant-a/uploads/abc");
+    expect(html).toContain(`/img/${key}?w=160&amp;crop=sq`);
+    expect(html).toContain(`/img/${key}?w=320&amp;crop=sq 2x`);
   });
 
   it("locale switcher renders an anchor per enabled locale, current one plain-text", () => {

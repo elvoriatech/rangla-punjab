@@ -4,7 +4,7 @@ import { imgRequestSchema, resizeImage } from "@/lib/image-resize";
 import { getOrCreateVariant } from "@/lib/image-cache";
 
 /**
- * `/img/[key]?w=<width>&fmt=<format>` — resized public URL for a stored
+ * `/img/[key]?w=<width>&fmt=<format>&crop=sq` — resized public URL for a stored
  * image. Serves the variant from the on-disk cache, rendering it with
  * sharp on the first request only, and streams it with a long-TTL
  * Cache-Control so any HTTP cache absorbs repeat hits too.
@@ -34,21 +34,25 @@ export async function GET(
   const parsed = imgRequestSchema.safeParse({
     w: url.searchParams.get("w") ?? undefined,
     fmt: pinnedFmt ?? (acceptsAvif ? "avif" : undefined),
+    crop: url.searchParams.get("crop") ?? undefined,
   });
   if (!parsed.success || !decodedKey) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
 
-  const { w, fmt } = parsed.data;
+  const { w, fmt, crop } = parsed.data;
+  // A cropped render is a different file: its tag rides the cache's
+  // format slot (`320.sq.avif` beside `320.avif`), still one bounded set.
+  const cacheFmt = crop ? `${crop}.${fmt}` : fmt;
 
   let out: Buffer;
   try {
     // Cache hit short-circuits before we touch the original at all — the
     // stored master is 0.2–0.8 MB and a hit has no reason to read it.
-    out = await getOrCreateVariant(decodedKey, w, fmt, async () => {
+    out = await getOrCreateVariant(decodedKey, w, cacheFmt, async () => {
       const original = await readUpload(decodedKey);
       if (!original) throw new MissingOriginal();
-      return resizeImage(original, w, fmt);
+      return resizeImage(original, w, fmt, crop);
     });
   } catch (err) {
     // A typed sentinel rather than a captured flag: under de-duplication
