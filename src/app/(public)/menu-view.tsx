@@ -2240,9 +2240,12 @@ function DishCard({
       // must not warn about (or fight) those attribute differences.
       suppressHydrationWarning
       aria-labelledby={dishHeadingId(item.id, idPrefix)}
-      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[minmax(0,104px)_1fr] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[minmax(0,180px)_1fr] sm:gap-5"
+      className="dish-card text-[var(--menu-surface-text,var(--menu-text))] group relative grid grid-cols-[104px_minmax(0,1fr)] gap-4 overflow-hidden rounded-md border border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] p-3 transition-all duration-300 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.6)] sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-5"
     >
-      <div className="relative self-stretch">
+      {/* Every photo the same square, whatever its upload's proportions or
+          the length of the text beside it (owner, 2026-09-28): the frame
+          no longer stretches to the card's height. */}
+      <div className="relative self-start">
         <DishPhoto item={item} priority={priority} />
         <div className="absolute start-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-hidden">
           <PhotoDietBadges dietary={item.dietary} t={t} />
@@ -2306,23 +2309,28 @@ function DishCard({
           </ul>
         ) : null}
         <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+          {/* The offer line (badge, old price, new price) may wrap between
+              its parts on a narrow card — never through a price — so the
+              add button always stays inside the card. */}
           <p
             aria-label={t.badges.price}
-            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
+            className="min-w-0 text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
             {item.offer ? (
               <>
-                <span className="me-1.5 rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
+                <span className="rounded-full bg-[var(--menu-surface-accent,var(--menu-accent))] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wider text-[var(--menu-surface)]">
                   {t.badges.offer}
-                </span>
-                <s className="me-1.5 text-[0.85em] font-normal opacity-55">
+                </span>{" "}
+                <s className="whitespace-nowrap text-[0.85em] font-normal opacity-55">
                   <span className="sr-only">{t.badges.regularPrice} </span>
                   {formatPrice(item.offer.basePriceCents, item.currency, locale)}
-                </s>
+                </s>{" "}
                 <span className="sr-only">{t.badges.offerPrice} </span>
               </>
             ) : null}
-            {formatPrice(item.priceCents, item.currency, locale)}
+            <span className="whitespace-nowrap">
+              {formatPrice(item.priceCents, item.currency, locale)}
+            </span>
           </p>
           {ordering && item.isAvailable ? (
             <AddToOrderButton
@@ -2353,7 +2361,7 @@ function DishPhoto({
   return (
     <div
       aria-hidden="true"
-      className="dish-photo relative flex h-full min-h-[120px] items-center justify-center overflow-hidden rounded-sm bg-[var(--menu-line)] sm:min-h-[150px]"
+      className="dish-photo relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-sm bg-[var(--menu-line)]"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
