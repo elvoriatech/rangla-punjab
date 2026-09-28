@@ -16,6 +16,7 @@ import { getVenueForUser } from "@/lib/venue-service";
 import { getTranslationsForCategory } from "@/lib/translation-service";
 import { dirFor, localeEntry } from "@/lib/locales";
 import { SubmitButton } from "@/components/submit-button";
+import { ALL_DAYS, DAY_SHORT, formatDays, isEveryDay } from "@/lib/item-days";
 
 const ALLERGENS = [
   "gluten",
@@ -35,6 +36,47 @@ const ALLERGENS = [
 ] as const;
 
 /**
+ * The weekdays a dish is on the menu — seven ticked boxes in one row, so
+ * "every day" is the default and a Mondays-only Thali is six clicks. Plain
+ * check-boxes posting `days=0..6` (Monday-first): works without JS.
+ */
+function DaysField({
+  checked,
+  size = "md",
+}: {
+  checked: readonly number[];
+  size?: "sm" | "md";
+}): React.ReactElement {
+  return (
+    <fieldset>
+      <legend className={size === "sm" ? "text-xs font-medium" : "text-sm font-medium"}>
+        Available on
+      </legend>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {DAY_SHORT.map((label, day) => (
+          <label
+            key={label}
+            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 border border-brand-green/25 bg-white px-2.5 text-sm has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-green"
+          >
+            <input
+              type="checkbox"
+              name="days"
+              value={day}
+              defaultChecked={checked.includes(day)}
+              className="accent-brand-green"
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-brand-green/60">
+        Guests only see the dish on the ticked days (restaurant time). Keep at least one ticked.
+      </p>
+    </fieldset>
+  );
+}
+
+/**
  * Category-detail admin page: lists items in this category and offers a
  * minimal add-item form (name + euro price + allergen check-boxes +
  * availability toggle). Variants, dietary flags, and spice level go through
@@ -51,10 +93,17 @@ export default async function CategoryDetailPage({
     saved?: string;
     photo?: string;
     translations?: string;
+    days?: string;
   }>;
 }): Promise<React.ReactElement> {
   const { id } = await params;
-  const { edit, saved, photo: photoRejected, translations: translationFlash } = await searchParams;
+  const {
+    edit,
+    saved,
+    photo: photoRejected,
+    translations: translationFlash,
+    days: daysFlash,
+  } = await searchParams;
   const base = `/dashboard`;
   const userId = await getSessionUserId();
   if (!userId) redirect("/login");
@@ -110,7 +159,12 @@ export default async function CategoryDetailPage({
           ← All categories
         </Link>
       </div>
-      {translationFlash ? (
+      {daysFlash === "none" ? (
+        <FlashMessage
+          kind="error"
+          text="Not saved — tick at least one day. To take a dish off the menu completely, untick Available instead."
+        />
+      ) : translationFlash ? (
         <FlashMessage
           kind={translationFlash === "saved" ? "success" : "error"}
           text={
@@ -253,6 +307,7 @@ export default async function CategoryDetailPage({
             className="mt-2 block w-full text-sm file:mr-3 file:border file:border-brand-green/30 file:bg-brand-cream file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-wider"
           />
         </label>
+        <DaysField checked={ALL_DAYS} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="isAvailable" defaultChecked className="accent-brand-green" />
           <span>Available on the menu</span>
@@ -292,6 +347,7 @@ export default async function CategoryDetailPage({
                   € {(item.priceCents / 100).toFixed(2)}
                   {item.allergens.length > 0 ? ` · ${item.allergens.join(", ")}` : ""}
                   {item.isAvailable ? "" : " · unavailable"}
+                  {isEveryDay(item.availableDays) ? "" : ` · ${formatDays(item.availableDays)}`}
                 </p>
                 {edit === item.id ? (
                   <form
@@ -371,6 +427,7 @@ export default async function CategoryDetailPage({
                       Der Angebotspreis muss unter dem regulären Preis liegen. Leer lassen = kein
                       Angebot. Ohne Datum gilt das Angebot dauerhaft.
                     </p>
+                    <DaysField checked={item.availableDays} size="sm" />
                     <div className="flex flex-wrap items-center gap-4">
                       <label className="block">
                         <span className="text-xs font-medium">Neues Foto (optional)</span>

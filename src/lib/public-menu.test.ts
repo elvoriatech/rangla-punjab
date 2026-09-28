@@ -7,6 +7,7 @@ import { asTenant, asUser } from "./tenant";
 import { createCategory } from "./categories-service";
 import { createItem } from "./items-service";
 import { publishDraft } from "./menu-versions-service";
+import { WEEKDAYS, localDayMinutes } from "./opening-hours";
 import { resolvePreviewContext } from "./preview-context";
 import {
   formatPrice,
@@ -461,6 +462,59 @@ describe("public menu loader", () => {
     const menu = await loadPublicMenu(context!);
     expect(menu?.categories.map((c) => c.name)).toEqual(["Mains"]);
     expect(menu?.categories.flatMap((c) => c.items.map((i) => i.name))).toEqual(["Risotto"]);
+  });
+
+  it("leaves a dish off the guest menu on the weekdays it is not set for (DAYS-1)", async () => {
+    const { tenantId, venueSlug } = await seedPublishedMenu();
+    const context = await resolvePreviewContext(venueSlug, null);
+    const { timezone } = await asTenant(tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { timezone: true } }),
+    );
+    const today = WEEKDAYS.indexOf(localDayMinutes(timezone, new Date()).day);
+    const everyDayButToday = [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== today);
+    await asTenant(tenantId, (tx) =>
+      tx.item.updateMany({
+        where: { name: "Burrata", category: { menuVersion: { status: "published" } } },
+        data: { availableDays: everyDayButToday },
+      }),
+    );
+    const offToday = await loadPublicMenu(context!);
+    expect(offToday?.categories.flatMap((c) => c.items.map((i) => i.name))).toEqual(["Risotto"]);
+    expect(offToday?.categories.map((c) => c.name)).toEqual(["Mains"]);
+
+    await asTenant(tenantId, (tx) =>
+      tx.item.updateMany({
+        where: { name: "Burrata", category: { menuVersion: { status: "published" } } },
+        data: { availableDays: [today] },
+      }),
+    );
+    const onToday = await loadPublicMenu(context!);
+    expect(onToday?.categories.flatMap((c) => c.items.map((i) => i.name))).toEqual([
+      "Burrata",
+      "Risotto",
+    ]);
+  });
+
+  it("carries a dish's weekdays through publish (DAYS-1)", async () => {
+    const { userId, tenantId } = await seedPublishedMenu();
+    const cat = await createCategory(userId, { name: "Thali" });
+    if (!cat.ok) throw new Error("category failed");
+    const made = await createItem(userId, {
+      categoryId: cat.value.id,
+      name: "Thali Montag",
+      priceCents: 1050,
+      availableDays: [0],
+      variants: [],
+    });
+    expect(made.ok && made.value.availableDays).toEqual([0]);
+    if (!(await publishDraft(userId)).ok) throw new Error("publish failed");
+    const published = await asTenant(tenantId, (tx) =>
+      tx.item.findFirstOrThrow({
+        where: { name: "Thali Montag", category: { menuVersion: { status: "published" } } },
+        select: { availableDays: true },
+      }),
+    );
+    expect(published.availableDays).toEqual([0]);
   });
 
   it("preview context loads the DRAFT tree, not the published one", async () => {

@@ -413,6 +413,10 @@ model Item {
   /// {days: int[0..6], start: "HH:MM", end: "HH:MM"}, venue-local.
   offerWeekly     Json?     @map("offer_weekly")
 
+  /// Weekdays the dish is on the menu, Monday-first (0 = Mon … 6 = Sun),
+  /// venue-local. Default every day. CHECK: 1–7 entries, each 0..6.
+  availableDays   Int[]     @default([0, 1, 2, 3, 4, 5, 6]) @map("available_days")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? @map("deleted_at")

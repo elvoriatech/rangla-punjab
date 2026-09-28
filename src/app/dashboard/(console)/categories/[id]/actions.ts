@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUserId } from "@/lib/auth";
 import { createItem, softDeleteItem, updateItem } from "@/lib/items-service";
+import { daysFromForm } from "@/lib/item-days";
 import { saveUploadedImage } from "@/lib/media-service";
 import {
   saveCategoryTranslations,
@@ -31,6 +32,10 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
   const dietary = form.getAll("dietary").map(String);
   const isAvailable = form.get("isAvailable") === "on";
   if (!name || Number.isNaN(priceEuros) || priceEuros < 0) return;
+  // Every day is pre-ticked; unticking all of them is refused rather than
+  // saved as a dish that never appears — switching it off is the toggle.
+  const availableDays = daysFromForm(form.getAll("days"));
+  if (!availableDays) redirect(`/dashboard/categories/${categoryId}?days=none`);
 
   // Optional dish photo. A rejected upload (wrong type / too big) still
   // creates the item — but the rejection is SURFACED via ?photo=<reason>
@@ -56,6 +61,7 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
     dietary: dietary as never,
     spice: 0,
     isAvailable,
+    availableDays,
     photoMediaId,
     variants: [],
   });
@@ -64,7 +70,8 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
 }
 
 /**
- * Edit an existing item — name, description, price, availability, photo,
+ * Edit an existing item — name, description, price, availability (incl.
+ * the weekdays it is on the menu), photo,
  * and the offer ("Angebot"): a reduced price with an optional date window.
  * An offer at or above the regular price is refused here AND by the DB
  * CHECK — a struck-through "was" price must always be a real reduction.
@@ -78,6 +85,8 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
   const isAvailable = form.get("isAvailable") === "on";
   if (!id || !name || Number.isNaN(priceEuros) || priceEuros < 0) return;
   const priceCents = Math.round(priceEuros * 100);
+  const availableDays = daysFromForm(form.getAll("days"));
+  if (!availableDays) redirect(`/dashboard/categories/${categoryId}?edit=${id}&days=none`);
 
   const offerRaw = String(form.get("offerEuros") ?? "").trim();
   const offerCents = offerRaw ? Math.round(Number(offerRaw) * 100) : null;
@@ -104,6 +113,7 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
     description: description || undefined,
     priceCents,
     isAvailable,
+    availableDays,
     ...(photoMediaId ? { photoMediaId } : {}),
     offerPriceCents: validOffer ? offerCents : null,
     offerStartsAt,

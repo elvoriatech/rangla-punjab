@@ -49,6 +49,7 @@ const snapshotSourceSelect = {
       offerWeekly: true,
       currency: true,
       isAvailable: true,
+      availableDays: true,
       allergens: true,
       traces: true,
       dietary: true,
@@ -111,6 +112,9 @@ function snapshotCategories(
         currency: item.currency,
         orderIndex: (ii + 1) * SNAPSHOT_ORDER_STEP,
         isAvailable: item.isAvailable,
+        // Like the offer: a dish's weekdays must survive the copy, or a
+        // "Mondays only" Thali would be back on every day after publish.
+        availableDays: item.availableDays,
         allergens: item.allergens,
         traces: item.traces,
         dietary: item.dietary,

@@ -37,6 +37,14 @@ export const variantSchema = z.object({
   priceDeltaCents: z.number().int().min(-1_000_000).max(1_000_000),
 });
 
+/** Weekdays a dish is on the menu, Monday-first (0 = Mon … 6 = Sun). At
+ *  least one — "no day" is what `isAvailable` is for; the DB CHECK agrees. */
+const availableDaysSchema = z
+  .array(z.number().int().min(0).max(6))
+  .min(1)
+  .max(7)
+  .transform((days) => [...new Set(days)].sort((a, b) => a - b));
+
 export const createItemSchema = z.object({
   categoryId: z.string().min(1),
   name: z.string().trim().min(1).max(120),
@@ -48,6 +56,7 @@ export const createItemSchema = z.object({
   dietary: z.array(z.enum(DIETARY)).max(6).default([]),
   spice: z.number().int().min(0).max(5).default(0),
   isAvailable: z.boolean().default(true),
+  availableDays: availableDaysSchema.default([0, 1, 2, 3, 4, 5, 6]),
   photoMediaId: z.string().min(1).optional(),
   variants: z.array(variantSchema).max(20).default([]),
   offerPriceCents: z.number().int().min(1).max(1_000_000).nullable().optional(),
@@ -64,6 +73,7 @@ export const updateItemSchema = z.object({
   dietary: z.array(z.enum(DIETARY)).max(6).optional(),
   spice: z.number().int().min(0).max(5).optional(),
   isAvailable: z.boolean().optional(),
+  availableDays: availableDaysSchema.optional(),
   photoMediaId: z.string().min(1).nullable().optional(),
   offerPriceCents: z.number().int().min(1).max(1_000_000).nullable().optional(),
   offerStartsAt: z.coerce.date().nullable().optional(),
@@ -79,6 +89,8 @@ export interface ItemRow {
   currency: string;
   orderIndex: number;
   isAvailable: boolean;
+  /** Monday-first weekday indexes the dish is on the menu. */
+  availableDays: number[];
   allergens: string[];
   traces: string[];
   dietary: string[];
@@ -104,6 +116,7 @@ const itemSelect = {
   currency: true,
   orderIndex: true,
   isAvailable: true,
+  availableDays: true,
   allergens: true,
   traces: true,
   dietary: true,
@@ -194,6 +207,7 @@ export async function createItem(
         dietary: input.dietary,
         spice: input.spice,
         isAvailable: input.isAvailable,
+        availableDays: input.availableDays,
         orderIndex: nextOrder,
         photoMediaId: input.photoMediaId,
         variants: {

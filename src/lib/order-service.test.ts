@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "./db";
 import { signupUser } from "./auth-service";
 import { asTenant } from "./tenant";
+import { OFFER_GRACE_MINUTES } from "./offer-pricing";
+import { WEEKDAYS, localDayMinutes } from "./opening-hours";
 import {
   GIFT_CARD_PROVIDER,
   advanceOrderStatus,
@@ -360,6 +362,36 @@ describe("order-service (guest self-ordering)", () => {
     const order = await getOrderForReceipt(fx.tenantId, r.value.orderId);
     expect(order?.items).toHaveLength(1);
     expect(order?.items[0]?.quantity).toBe(3);
+  });
+
+  it("rejects a dish on a weekday it is not on the menu (DAYS-1)", async () => {
+    const fx = await fixtureVenue();
+    const { timezone } = await asTenant(fx.tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { timezone: true } }),
+    );
+    // Exclude today AND the day ten minutes ago, so the midnight grace
+    // cannot let it through whenever this test happens to run.
+    const now = Date.now();
+    const offDays = new Set(
+      [now, now - OFFER_GRACE_MINUTES * 60_000].map((t) =>
+        WEEKDAYS.indexOf(localDayMinutes(timezone, new Date(t)).day),
+      ),
+    );
+    await asTenant(fx.tenantId, (tx) =>
+      tx.item.update({
+        where: { id: fx.itemIds.naan },
+        data: { availableDays: [0, 1, 2, 3, 4, 5, 6].filter((d) => !offDays.has(d)) },
+      }),
+    );
+    const r = await placeOrder(fx, { items: [{ itemId: fx.itemIds.naan, quantity: 1 }] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("unknown_items");
+
+    await asTenant(fx.tenantId, (tx) =>
+      tx.item.update({ where: { id: fx.itemIds.naan }, data: { availableDays: [...offDays] } }),
+    );
+    const ok = await placeOrder(fx, { items: [{ itemId: fx.itemIds.naan, quantity: 1 }] });
+    expect(ok.ok).toBe(true);
   });
 
   it("rejects unknown and unavailable items, and prices from the client are ignored", async () => {

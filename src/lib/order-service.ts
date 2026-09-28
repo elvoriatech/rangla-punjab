@@ -3,6 +3,7 @@ import { z } from "zod";
 import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer-auth";
 import { TERMINAL_STATUSES, canTransition, isOrderStatus } from "./order-status";
 import { OFFER_GRACE_MINUTES, effectiveItemPrice } from "./offer-pricing";
+import { availableOnDayAt } from "./item-days";
 import { paypalAvailable } from "./paypal";
 import { getOperatorSettings } from "./operator-settings";
 import { stripeDirectChargeAvailable } from "./stripe";
@@ -324,6 +325,7 @@ export async function placeOrder(
         offerEndsAt: true,
         offerWeekly: true,
         currency: true,
+        availableDays: true,
       },
     });
     // Every requested id must resolve to an orderable published item —
@@ -342,6 +344,15 @@ export async function placeOrder(
     ).timezone;
     const nowInstant = new Date();
     const graceInstant = new Date(nowInstant.getTime() - OFFER_GRACE_MINUTES * 60_000);
+    // DAYS-1 — a dish that is not on today's menu cannot be ordered. Same
+    // grace as offers: a page loaded just before midnight may still order
+    // what it showed. Reported like any other item that left the menu.
+    const offToday = items.some(
+      (item) =>
+        !availableOnDayAt(item.availableDays, venueTz, nowInstant) &&
+        !availableOnDayAt(item.availableDays, venueTz, graceInstant),
+    );
+    if (offToday) return { ok: false, error: "unknown_items" as const };
     const priceOf = (item: (typeof items)[number]): { unit: number; base: number | null } => {
       const now = effectiveItemPrice(item, venueTz, nowInstant);
       const grace = effectiveItemPrice(item, venueTz, graceInstant);

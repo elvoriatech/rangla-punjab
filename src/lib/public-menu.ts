@@ -2,6 +2,7 @@ import { readDb } from "./db";
 import { asTenantRead } from "./tenant";
 import { resolveCategoryParam } from "./dietary-filter";
 import { effectiveItemPrice } from "./offer-pricing";
+import { availableOnDayAt } from "./item-days";
 import { currentOpenState } from "./opening-hours";
 import { parseOpeningHours } from "./opening-hours-schema";
 import { publicRating, scheduleVenueRatingRefresh, type PublicRating } from "./google-rating";
@@ -258,6 +259,7 @@ export async function loadPublicMenu(
             offerWeekly: true,
             currency: true,
             isAvailable: true,
+            availableDays: true,
             allergens: true,
             traces: true,
             dietary: true,
@@ -283,10 +285,22 @@ export async function loadPublicMenu(
        disagree about whether an offer window is on. */
     const now = new Date();
 
-    // A category whose every dish is switched off would be an empty
-    // heading; guests don't see it (the preview keeps it).
-    const shown =
-      context.mode === "preview" ? categories : categories.filter((c) => c.items.length > 0);
+    // DAYS-1 — a dish set to certain weekdays is simply not on the menu on
+    // the others (same rule as switched off). Read in the venue's timezone.
+    // The owner's preview keeps every dish, as it does for switched-off ones.
+    const onToday =
+      context.mode === "preview"
+        ? categories
+        : categories.map((c) => ({
+            ...c,
+            items: c.items.filter((item) =>
+              availableOnDayAt(item.availableDays, venue.timezone, now),
+            ),
+          }));
+
+    // A category whose every dish is switched off (or off today) would be an
+    // empty heading; guests don't see it (the preview keeps it).
+    const shown = context.mode === "preview" ? onToday : onToday.filter((c) => c.items.length > 0);
     const localisedCategories: PublicCategory[] = shown.map((cat) => ({
       id: cat.id,
       name: translated(translations, "category", cat.id, "name") ?? cat.name,
