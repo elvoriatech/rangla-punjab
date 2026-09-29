@@ -10,20 +10,25 @@ import {
   Text,
   View,
 } from "react-native";
-import { RequiredLegend } from "./components";
-import type { ApiMenu } from "./api";
-import { BASE_URL, createCateringRequest } from "./api";
-import { localeTag, useI18n } from "./i18n";
-import { Field, Picker, ReserveCalendar, sheetStyles as s } from "./reserve-sheet";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
-import { colors, fonts, radius } from "./theme";
+import { BrandHeader, RequiredLegend } from "../components";
+import type { ApiMenu } from "../api";
+import { BASE_URL, createCateringRequest } from "../api";
+import { localeTag, useI18n } from "../i18n";
+import { useLayout } from "../layout";
+import { Field, Picker, ReserveCalendar, sheetStyles as s } from "../reserve-sheet";
+import { colors, fonts, radius } from "../theme";
 
 /**
  * Catering — "cook for our party" (owner, 2026-09-29).
  *
- * The same sheet as "Reserve a table", on purpose: a guest who has booked
- * a table already knows how this one works. What differs is the owner's
- * rules for catering —
+ * A full PAGE, built like the gift-card page — the red bar with a back
+ * arrow, and the poster, title and form in ONE scroll (owner, 2026-09-29).
+ * It started as a bottom sheet like "Reserve a table", but a sheet with a
+ * 2 : 1 poster and eight fields is taller than the screen, and its inner
+ * scroll inside a tap-to-close backdrop felt stuck on a phone. The fields
+ * are still the reservation sheet's own, so a guest who has booked a
+ * table knows how they work. The owner's rules for catering —
  *
  * - the date runs from TOMORROW to four months out, on a calendar that
  *   offers every day (catering is cooked for an event, so the venue's
@@ -76,17 +81,18 @@ export function cateringDates(now = new Date()): string[] {
   return out;
 }
 
-export function CateringSheet({
+export function CateringScreen({
   menu,
-  visible,
-  onClose,
+  onBack,
 }: {
   menu: ApiMenu;
-  visible: boolean;
-  onClose: () => void;
+  onBack: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
-  const dates = useMemo(() => (visible ? cateringDates() : []), [visible]);
+  const layout = useLayout();
+  // Drawn once per visit: a guest who opens the page at 23:59 and picks a
+  // date at 00:01 is caught by the server's own check.
+  const dates = useMemo(() => cateringDates(), []);
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -147,160 +153,145 @@ export function CateringSheet({
     setDone(true);
   }
 
-  const close = (): void => {
-    // A sent request clears the form; a half-filled one is kept, so a
-    // guest who closes the sheet to check a date doesn't retype it all.
-    if (done) {
-      setDate("");
-      setTime("");
-      setGuests("");
-      setLocation("");
-      setMessage("");
-    }
-    setDone(false);
-    setError(null);
-    setPicker(null);
-    onClose();
-  };
-
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
-      <Pressable style={s.backdrop} onPress={close} accessibilityLabel={t.close}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={s.sheetWrap}
+    <View style={{ flex: 1, backgroundColor: colors.cream }}>
+      <BrandHeader title={t.cateringShort} onBack={onBack} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{
+            padding: layout.pad,
+            paddingBottom: 40,
+            gap: 12,
+            ...layout.content,
+          }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
-          <Pressable style={s.sheet} onPress={() => {}}>
-            <View style={s.header}>
-              <View style={styles.titleRow}>
-                {/* Raised so the chef stands on the title's BASELINE rather
-                    than hanging to the bottom of its line box (owner,
-                    2026-09-29: "starting on the same line from bottom"). */}
-                <View style={styles.titleIcon}>
-                  <ChefIcon size={28} />
-                </View>
-                <Text style={s.title}>{t.cateringTitle}</Text>
-              </View>
-              <Pressable onPress={close} hitSlop={10} accessibilityLabel={t.close}>
-                <Text style={s.close}>×</Text>
+          {bannerOk ? (
+            <Image
+              source={{ uri: CATERING_BANNER }}
+              style={styles.banner}
+              resizeMode="cover"
+              onError={() => setBannerOk(false)}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              accessibilityIgnoresInvertColors
+            />
+          ) : null}
+          <View style={styles.titleRow}>
+            {/* Raised so the chef stands on the title's BASELINE rather
+                than hanging to the bottom of its line box (owner,
+                2026-09-29: "starting on the same line from bottom"). */}
+            <View style={styles.titleIcon}>
+              <ChefIcon size={28} />
+            </View>
+            <Text style={s.title} accessibilityRole="header">
+              {t.cateringTitle}
+            </Text>
+          </View>
+
+          {done ? (
+            <View style={s.doneBox}>
+              <Text style={s.doneTick}>✓</Text>
+              <Text style={s.doneTitle}>{t.cateringDoneTitle}</Text>
+              <Text style={s.doneMeta}>
+                {dateLabel(date)}
+                {time ? ` · ${time}` : ""} · {guestCount} {guestCount === 1 ? t.guest : t.guests}
+              </Text>
+              <Text style={s.doneSub}>{t.cateringDoneSub}</Text>
+              <Pressable style={[s.cta, s.ctaStretch]} onPress={onBack}>
+                <Text style={s.ctaText}>{t.resDoneBtn}</Text>
               </Pressable>
             </View>
-
-            {done ? (
-              <View style={s.doneBox}>
-                <Text style={s.doneTick}>✓</Text>
-                <Text style={s.doneTitle}>{t.cateringDoneTitle}</Text>
-                <Text style={s.doneMeta}>
-                  {dateLabel(date)}
-                  {time ? ` · ${time}` : ""} · {guestCount} {guestCount === 1 ? t.guest : t.guests}
-                </Text>
-                <Text style={s.doneSub}>{t.cateringDoneSub}</Text>
-                <Pressable style={[s.cta, s.ctaStretch]} onPress={close}>
-                  <Text style={s.ctaText}>{t.resDoneBtn}</Text>
-                </Pressable>
+          ) : (
+            <>
+              <Text style={s.lead}>{t.cateringLead}</Text>
+              <RequiredLegend />
+              <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-end" }}>
+                <Picker
+                  label={t.cateringDate}
+                  value={date ? dateLabel(date) : "—"}
+                  onPress={() => setPicker("date")}
+                  style={{ flex: 1 }}
+                  required
+                />
+                <Picker
+                  label={t.cateringTime}
+                  value={time || "—"}
+                  onPress={() => setPicker("time")}
+                  style={{ flex: 1 }}
+                />
               </View>
-            ) : (
-              <ScrollView
-                contentContainerStyle={{ gap: 12, paddingBottom: 8 }}
-                keyboardShouldPersistTaps="handled"
+
+              <View style={{ gap: 4 }}>
+                <Field
+                  label={t.cateringGuests}
+                  value={guests}
+                  // Digits only, capped at four: the server's guard is
+                  // 5000, and no one types a party size past that.
+                  onChange={(next) => setGuests(next.replace(/[^0-9]/g, "").slice(0, 4))}
+                  placeholder="80"
+                  keyboardType="number-pad"
+                  required
+                />
+                <Text style={styles.hint}>{t.cateringGuestsHint}</Text>
+              </View>
+
+              <Field
+                label={t.name}
+                value={name}
+                onChange={setName}
+                placeholder={t.namePlaceholder}
+                required
+              />
+              <Field
+                label={t.phone}
+                value={phone}
+                onChange={setPhone}
+                placeholder="+49 …"
+                keyboardType="phone-pad"
+                required
+              />
+              <Field
+                label={t.cateringEmail}
+                value={email}
+                onChange={setEmail}
+                placeholder="name@mail.de"
+                keyboardType="email-address"
+              />
+              <Field
+                label={t.cateringLocation}
+                value={location}
+                onChange={setLocation}
+                placeholder={t.cateringLocationPlaceholder}
+              />
+              <Field
+                label={t.cateringMessage}
+                value={message}
+                onChange={setMessage}
+                placeholder={t.cateringMessagePlaceholder}
+                multiline
+              />
+
+              {error ? <Text style={s.error}>{error}</Text> : null}
+
+              <Pressable
+                style={[s.cta, (missing || busy) && { opacity: 0.5 }]}
+                onPress={() => void submit()}
+                disabled={missing || busy}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: missing || busy }}
               >
-                {bannerOk ? (
-                  <Image
-                    source={{ uri: CATERING_BANNER }}
-                    style={styles.banner}
-                    resizeMode="cover"
-                    onError={() => setBannerOk(false)}
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    accessibilityIgnoresInvertColors
-                  />
-                ) : null}
-                <Text style={s.lead}>{t.cateringLead}</Text>
-                <RequiredLegend />
-
-                <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-end" }}>
-                  <Picker
-                    label={t.cateringDate}
-                    value={date ? dateLabel(date) : "—"}
-                    onPress={() => setPicker("date")}
-                    style={{ flex: 1 }}
-                    required
-                  />
-                  <Picker
-                    label={t.cateringTime}
-                    value={time || "—"}
-                    onPress={() => setPicker("time")}
-                    style={{ flex: 1 }}
-                  />
-                </View>
-
-                <View style={{ gap: 4 }}>
-                  <Field
-                    label={t.cateringGuests}
-                    value={guests}
-                    // Digits only, capped at four: the server's guard is
-                    // 5000, and no one types a party size past that.
-                    onChange={(next) => setGuests(next.replace(/[^0-9]/g, "").slice(0, 4))}
-                    placeholder="80"
-                    keyboardType="number-pad"
-                    required
-                  />
-                  <Text style={styles.hint}>{t.cateringGuestsHint}</Text>
-                </View>
-
-                <Field
-                  label={t.name}
-                  value={name}
-                  onChange={setName}
-                  placeholder={t.namePlaceholder}
-                  required
-                />
-                <Field
-                  label={t.phone}
-                  value={phone}
-                  onChange={setPhone}
-                  placeholder="+49 …"
-                  keyboardType="phone-pad"
-                  required
-                />
-                <Field
-                  label={t.cateringEmail}
-                  value={email}
-                  onChange={setEmail}
-                  placeholder="name@mail.de"
-                  keyboardType="email-address"
-                />
-                <Field
-                  label={t.cateringLocation}
-                  value={location}
-                  onChange={setLocation}
-                  placeholder={t.cateringLocationPlaceholder}
-                />
-                <Field
-                  label={t.cateringMessage}
-                  value={message}
-                  onChange={setMessage}
-                  placeholder={t.cateringMessagePlaceholder}
-                  multiline
-                />
-
-                {error ? <Text style={s.error}>{error}</Text> : null}
-
-                <Pressable
-                  style={[s.cta, (missing || busy) && { opacity: 0.5 }]}
-                  onPress={() => void submit()}
-                  disabled={missing || busy}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: missing || busy }}
-                >
-                  <Text style={s.ctaText}>{busy ? t.cateringSending : t.cateringSubmit}</Text>
-                </Pressable>
-                <Text style={s.footnote}>{t.cateringFootnote}</Text>
-              </ScrollView>
-            )}
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
+                <Text style={s.ctaText}>{busy ? t.cateringSending : t.cateringSubmit}</Text>
+              </Pressable>
+              <Text style={s.footnote}>{t.cateringFootnote}</Text>
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={picker !== null} transparent animationType="fade">
         <Pressable style={s.pickerBackdrop} onPress={() => setPicker(null)}>
@@ -343,7 +334,7 @@ export function CateringSheet({
           </Pressable>
         </Pressable>
       </Modal>
-    </Modal>
+    </View>
   );
 }
 
@@ -405,7 +396,7 @@ export function ChefIcon({ size = 24 }: { size?: number }): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   /** Measured on the iPhone 17 Pro Max at the 22 pt title: centred, the
    *  icon's foot sat 7 pt below the letters' baseline. */
   titleIcon: { transform: [{ translateY: -7 }] },

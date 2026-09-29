@@ -35,7 +35,7 @@ import { headlineVoucher, useLoyalty } from "../loyalty";
 import type { GiftCardShop } from "../gift-cards";
 import { fetchGiftCardShop } from "../gift-cards";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
-import { CateringSheet, ChefIcon } from "../catering-sheet";
+import { ChefIcon } from "./CateringScreen";
 import { displayVenueName, venueNameLines } from "../venue-name";
 import { DishSheet } from "../dish-sheet";
 
@@ -233,6 +233,7 @@ export function HomeScreen({
   onOpenAccount,
   onOpenPoints,
   onOpenGiftCards,
+  onOpenCatering,
   onComplain,
   onOpenOwnerMenu,
   onMenuChanged,
@@ -251,6 +252,8 @@ export function HomeScreen({
   /** Opens the gift-card shop. Only reachable while the venue has the
    *  feature on and at least one active design (see `giftShop`). */
   onOpenGiftCards: () => void;
+  /** Opens the catering request page. */
+  onOpenCatering: () => void;
   /** Opens the complaint flow on the guest's most recent stored order,
    *  or explains that there isn't one yet. */
   onComplain: () => void;
@@ -339,7 +342,6 @@ export function HomeScreen({
   }, []);
   const giftCardsOn = !restaurant && Boolean(giftShop?.enabled);
   const [reserveOpen, setReserveOpen] = useState(false);
-  const [cateringOpen, setCateringOpen] = useState(false);
   const [openDish, setOpenDish] = useState<ApiItem | null>(null);
   const popular = menu.categories
     .flatMap((c) => c.items)
@@ -466,7 +468,7 @@ export function HomeScreen({
                 icon={<ChefIcon size={wide ? 32 : 22} />}
                 title={t.cateringShort}
                 subtitle={t.cateringSub}
-                onPress={() => setCateringOpen(true)}
+                onPress={onOpenCatering}
               />
             </View>
           </>
@@ -541,7 +543,6 @@ export function HomeScreen({
         )}
       </ScrollView>
       <ReserveSheet menu={menu} visible={reserveOpen} onClose={() => setReserveOpen(false)} />
-      <CateringSheet menu={menu} visible={cateringOpen} onClose={() => setCateringOpen(false)} />
       <DishSheet item={openDish} onClose={() => setOpenDish(null)} onAdd={onAdd} />
     </View>
   );

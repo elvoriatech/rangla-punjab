@@ -54,6 +54,7 @@ import { RatingOwnerScreen } from "./src/screens/RatingOwnerScreen";
 import { HoursOwnerScreen } from "./src/screens/HoursOwnerScreen";
 import { ContactOwnerScreen } from "./src/screens/ContactOwnerScreen";
 import { GiftCardsScreen } from "./src/screens/GiftCardsScreen";
+import { CateringScreen } from "./src/screens/CateringScreen";
 import { PointsScreen } from "./src/screens/PointsScreen";
 import { MyGiftCardsScreen } from "./src/screens/MyGiftCardsScreen";
 import { RedeemGiftCardScreen } from "./src/screens/RedeemGiftCardScreen";
@@ -97,6 +98,8 @@ type Tab =
   | "points"
   /** Guest: the shop window. */
   | "giftcards"
+  /** Guest: ask the restaurant to cater an event. */
+  | "catering"
   /** Guest: the cards this account has bought. */
   | "mygiftcards"
   /** Restaurant: take a card at the counter. */
@@ -595,6 +598,7 @@ function Shell(): React.ReactElement {
             onOpenAccount={() => setTab("info")}
             onOpenPoints={() => setTab("points")}
             onOpenGiftCards={() => setTab("giftcards")}
+            onOpenCatering={() => setTab("catering")}
             onComplain={onComplain}
           />
         ) : null}
@@ -677,6 +681,9 @@ function Shell(): React.ReactElement {
             // Account tab, and this is the soft gate that points there.
             onOpenAccount={() => setTab("info")}
           />
+        ) : null}
+        {menuCurrent && tab === "catering" && !restaurant ? (
+          <CateringScreen menu={menu} onBack={() => setTab("home")} />
         ) : null}
         {menuCurrent && tab === "mygiftcards" && !restaurant ? (
           <MyGiftCardsScreen
