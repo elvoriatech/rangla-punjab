@@ -125,7 +125,7 @@ function HeroCarousel({
         scroller.current?.scrollTo({ x: next * width, animated: true });
         return next;
       });
-    }, 3500);
+    }, SLIDE_MS);
     return () => clearInterval(id);
   }, [width, count]);
 
@@ -829,6 +829,10 @@ function useCountPop(): MotionStyle {
   if (reduced) return {};
   return { transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] }) }] };
 }
+
+/** How long each slider poster stays up before the next slides in —
+ *  5 s (owner, 2026-09-29; it was 3.5 s, too quick to read a poster). */
+const SLIDE_MS = 5000;
 
 /** Width of the light band the shine sweeps across the Offers tile. */
 const SHINE_W = 26;
