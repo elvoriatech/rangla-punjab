@@ -35,7 +35,7 @@ import { headlineVoucher, useLoyalty } from "../loyalty";
 import type { GiftCardShop } from "../gift-cards";
 import { fetchGiftCardShop } from "../gift-cards";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
-import { CateringSheet } from "../catering-sheet";
+import { CateringSheet, ChefIcon } from "../catering-sheet";
 import { displayVenueName, venueNameLines } from "../venue-name";
 import { DishSheet } from "../dish-sheet";
 
@@ -463,7 +463,7 @@ export function HomeScreen({
                 <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
               ) : null}
               <ActionCard
-                icon={<Text style={emoji}>👨‍🍳</Text>}
+                icon={<ChefIcon size={wide ? 32 : 22} />}
                 title={t.cateringShort}
                 subtitle={t.cateringSub}
                 onPress={() => setCateringOpen(true)}
@@ -729,12 +729,12 @@ function OffersCard({
 }
 
 /**
- * The Offers tile's YELLOW GLOW (owner, 2026-09-29: "more lively, it
- * should catch the eye as the app opens" — the yellow of the two mock
- * variations).
+ * The Offers tile's RED GLOW (owner, 2026-09-29: "more lively, it should
+ * catch the eye as the app opens" — first yellow, then red on seeing it
+ * on the phone).
  *
- * Two layers, like `PulsingBorder`: a steady amber ring that is always
- * there, and a brighter ring with a wide golden halo whose OPACITY
+ * Two layers, like `PulsingBorder`: a steady red ring that is always
+ * there, and a brighter ring with a wide red halo whose OPACITY
  * breathes on the shared ~1.6 s pulse. Opacity is the one property the
  * native driver can loop, so the whole glow runs off the JS thread.
  *
@@ -1194,10 +1194,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md + 2,
     borderWidth: 2.5,
   },
-  glowSteady: { borderColor: "#f0a500" },
+  glowSteady: { borderColor: "#c81e24" },
   glowBright: {
-    borderColor: "#ffd21f",
-    boxShadow: "0px 0px 14px 4px rgba(255, 200, 0, 0.85)",
+    borderColor: "#ff3b30",
+    boxShadow: "0px 0px 14px 4px rgba(255, 40, 40, 0.8)",
   },
   /** The shine's window: the card's padding box, clipped to its corners. */
   shineClip: {

@@ -15,6 +15,7 @@ import type { ApiMenu } from "./api";
 import { BASE_URL, createCateringRequest } from "./api";
 import { localeTag, useI18n } from "./i18n";
 import { Field, Picker, ReserveCalendar, sheetStyles as s } from "./reserve-sheet";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { colors, fonts, radius } from "./theme";
 
 /**
@@ -171,7 +172,10 @@ export function CateringSheet({
         >
           <Pressable style={s.sheet} onPress={() => {}}>
             <View style={s.header}>
-              <Text style={s.title}>👨‍🍳 {t.cateringTitle}</Text>
+              <View style={styles.titleRow}>
+                <ChefIcon size={28} />
+                <Text style={s.title}>{t.cateringTitle}</Text>
+              </View>
               <Pressable onPress={close} hitSlop={10} accessibilityLabel={t.close}>
                 <Text style={s.close}>×</Text>
               </Pressable>
@@ -338,7 +342,65 @@ export function CateringSheet({
   );
 }
 
+/**
+ * The Catering mark: a chef in a RED uniform (owner, 2026-09-29 — "make
+ * the chef uniform red"). Drawn rather than the 👨‍🍳 emoji because an
+ * emoji's colours belong to the phone's font: the jacket is white on
+ * every platform and cannot be tinted. As an SVG it wears the house red,
+ * sits in the same icon band as the table mark beside it, and looks the
+ * same on iOS and Android.
+ */
+export function ChefIcon({ size = 24 }: { size?: number }): React.ReactElement {
+  const ink = "#3a160c";
+  return (
+    <Svg width={size} height={size} viewBox="4 1.3 24 30.7" accessibilityElementsHidden>
+      {/* jacket — the red uniform — with its white double-breasted buttons */}
+      <Path d="M5.5 32 C5.5 24.2 10 20.8 16 20.8 C22 20.8 26.5 24.2 26.5 32 Z" fill="#d42a2a" />
+      <Path
+        d="M5.5 32 C5.5 24.2 10 20.8 16 20.8 C22 20.8 26.5 24.2 26.5 32"
+        fill="none"
+        stroke={ink}
+        strokeWidth="0.8"
+      />
+      <Path
+        d="M12.6 21.3 L16 25.4 L19.4 21.3 Z"
+        fill="#ffffff"
+        stroke={ink}
+        strokeWidth="0.6"
+        strokeLinejoin="round"
+      />
+      <Circle cx="14" cy="27.4" r="0.95" fill="#ffffff" />
+      <Circle cx="18" cy="27.4" r="0.95" fill="#ffffff" />
+      <Circle cx="14" cy="30.3" r="0.95" fill="#ffffff" />
+      <Circle cx="18" cy="30.3" r="0.95" fill="#ffffff" />
+      {/* face, with the house mascot's moustache */}
+      <Circle cx="16" cy="16" r="5.3" fill="#f3c48d" stroke={ink} strokeWidth="0.7" />
+      <Circle cx="14.1" cy="15.2" r="0.7" fill={ink} />
+      <Circle cx="17.9" cy="15.2" r="0.7" fill={ink} />
+      <Path
+        d="M12.6 18.1 Q14.4 16.7 16 18 Q17.6 16.7 19.4 18.1 Q17.6 19.1 16 18.4 Q14.4 19.1 12.6 18.1 Z"
+        fill={ink}
+      />
+      {/* toque: three puffs over a band */}
+      <Circle cx="12.3" cy="7.4" r="3.3" fill="#ffffff" stroke="#b9b1a8" strokeWidth="0.7" />
+      <Circle cx="19.7" cy="7.4" r="3.3" fill="#ffffff" stroke="#b9b1a8" strokeWidth="0.7" />
+      <Circle cx="16" cy="5.6" r="3.9" fill="#ffffff" stroke="#b9b1a8" strokeWidth="0.7" />
+      <Rect
+        x="10.6"
+        y="8.6"
+        width="10.8"
+        height="3.2"
+        rx="0.8"
+        fill="#ffffff"
+        stroke="#b9b1a8"
+        strokeWidth="0.7"
+      />
+    </Svg>
+  );
+}
+
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
   /** The venue's 2:1 poster, as on the gift-card screen. */
   banner: {
     width: "100%",

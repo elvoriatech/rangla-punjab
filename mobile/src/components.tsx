@@ -789,6 +789,9 @@ const LOGO_CUTOUT = require("../assets/logo-cutout.png");
  *  than the name's full height, bottom level with the mascot). It still
  *  fits the 64 pt rail, so the name stays centred on the bar. */
 const POINTS_BADGE = 52;
+/** How far the badge sits below the mascot's baseline — see
+ *  `headerEndCentred`. The bar is 98 pt tall and the badge ends at 85. */
+const POINTS_DROP = 4;
 /** What the name is fitted to before the first layout: the narrowest
  *  middle slot there is (a 360 pt phone, less the 16 pt insets, the two
  *  56 pt rails and the two 8 pt gaps). Never wider than the real one, so
@@ -877,7 +880,12 @@ const styles = StyleSheet.create({
     // "logo and box should start from the same line" — a smaller box
     // centred on it looked higher). The mascot is centred in its rail, so
     // its bottom is half the leftover height up from the bar's bottom.
-    paddingTop: (HEADER_CONTENT_HEIGHT - HEADER_LOGO) / 2 + HEADER_LOGO - POINTS_BADGE,
+    //
+    // Plus a small drop (owner, 2026-09-29: "bring the box down a little")
+    // — the mascot's figure is visually heavier at its feet than the
+    // badge's straight edge, so level boxes read as the badge riding high.
+    paddingTop:
+      (HEADER_CONTENT_HEIGHT - HEADER_LOGO) / 2 + HEADER_LOGO - POINTS_BADGE + POINTS_DROP,
   },
   /** White card on the red, as in the owner's mock. */
   /**
