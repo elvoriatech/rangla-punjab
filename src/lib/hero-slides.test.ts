@@ -13,12 +13,12 @@ import {
 } from "./hero-slides";
 
 describe("heroSlidesOf", () => {
-  it("starts an untouched venue on the four German posters", () => {
+  it("starts an untouched venue on the four German posters, catering third", () => {
     expect(heroSlidesOf(undefined)).toEqual([
       "builtin:points-de",
       "builtin:welcome-de",
+      "builtin:catering-de",
       "builtin:giftcard-de",
-      "builtin:service-de",
     ]);
     expect(DEFAULT_HERO_SLIDES.length).toBeLessThanOrEqual(MAX_HERO_SLIDES);
   });
@@ -82,14 +82,17 @@ describe("slide kinds", () => {
 
 describe("the built-in picker", () => {
   it("offers exactly the posters the slider isn't already carrying", () => {
-    // The catalogue IS the default set today, so an untouched slider has
-    // nothing left to offer and the picker stays out of the page.
-    expect(unusedBuiltInSlides([...DEFAULT_HERO_SLIDES])).toEqual([]);
+    // The service promise left the defaults (2026-09-29), so it is the
+    // one poster an untouched slider can still be offered back.
+    expect(unusedBuiltInSlides([...DEFAULT_HERO_SLIDES]).map((b) => b.name)).toEqual([
+      "service-de",
+    ]);
     expect(unusedBuiltInSlides([])).toHaveLength(BUILT_IN_SLIDES.length);
     expect(unusedBuiltInSlides(["builtin:points-de"]).map((b) => b.name)).toEqual([
       "welcome-de",
       "giftcard-de",
       "service-de",
+      "catering-de",
     ]);
     // An upload never hides a built-in from the picker.
     expect(unusedBuiltInSlides(["t/uploads/x"])).toHaveLength(BUILT_IN_SLIDES.length);
