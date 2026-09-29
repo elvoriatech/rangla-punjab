@@ -250,7 +250,8 @@ describe("GET /api/v1/menu — ?locale", () => {
     expect(defaults.map((s) => s.kind)).toEqual(["banner", "banner", "banner", "banner"]);
     // The points poster was replaced once (rev 2), so it carries `?v=2`.
     expect(defaults[0]!.url).toMatch(/^https?:\/\/.+\/app-slider\/points-de\.webp\?v=2$/);
-    expect(defaults[2]!.url).toMatch(/\/app-slider\/giftcard-de\.webp$/);
+    expect(defaults[2]!.url).toMatch(/\/app-slider\/catering-de\.webp$/);
+    expect(defaults[3]!.url).toMatch(/\/app-slider\/giftcard-de\.webp$/);
 
     await asTenant(fx.tenantId, (tx) =>
       tx.venue.updateMany({

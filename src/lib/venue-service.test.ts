@@ -176,8 +176,8 @@ describe("venue-service (owner dashboard)", () => {
     expect(r.ok && r.value.branding.heroSlides).toEqual([
       "builtin:points-de",
       "builtin:welcome-de",
+      "builtin:catering-de",
       "builtin:giftcard-de",
-      "builtin:service-de",
     ]);
     await updateVenueHeroSlides(userId, { op: "remove", key: "builtin:giftcard-de" });
     await updateVenueHeroSlides(userId, { op: "add", key: "t/new" });
@@ -185,7 +185,7 @@ describe("venue-service (owner dashboard)", () => {
     expect(after.ok && after.value.branding.heroSlides).toEqual([
       "builtin:points-de",
       "builtin:welcome-de",
-      "builtin:service-de",
+      "builtin:catering-de",
       "t/new",
     ]);
   });
@@ -193,7 +193,7 @@ describe("venue-service (owner dashboard)", () => {
   it("updateVenueHeroSlides adds, reorders and removes slides in order", async () => {
     const { userId } = await signupWithVenue();
     // Start from an empty slider so the order under test is ours alone.
-    for (const d of ["points-de", "welcome-de", "giftcard-de", "service-de"]) {
+    for (const d of ["points-de", "welcome-de", "catering-de", "giftcard-de"]) {
       await updateVenueHeroSlides(userId, { op: "remove", key: `builtin:${d}` });
     }
     for (const key of ["t/a", "t/b", "t/c"]) {
@@ -243,8 +243,8 @@ describe("venue-service (owner dashboard)", () => {
     const r = await getVenueForUser(userId);
     expect(r.ok && r.value.branding.heroSlides).toEqual([
       "builtin:points-de",
+      "builtin:catering-de",
       "builtin:giftcard-de",
-      "builtin:service-de",
       "t/keep",
     ]);
   });

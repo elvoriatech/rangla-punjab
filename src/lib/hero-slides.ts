@@ -48,17 +48,18 @@ const BANNER_PREFIX = "banner:";
  * the points programme, the gift-card discount, the service promise — and
  * it is the owner's own artwork rather than a stock plate on red.
  *
- * All four are German: the venue serves a German high street, and the
+ * All are German: the venue serves a German high street, and the
  * English points poster it used to carry went with the dish plates
- * (owner, 2026-09-22). The catalogue and the defaults are therefore the
- * same list today — the picker in the dashboard exists for putting one
- * BACK after it has been removed, and for whatever is added here next.
+ * (owner, 2026-09-22). The catalogue holds one more than the defaults —
+ * the service promise, dropped for catering on 2026-09-29 — and the
+ * picker in the dashboard exists for putting any of them BACK.
  */
 export const BUILT_IN_SLIDES = [
   { name: "points-de", label: "Points banner (German)", kind: "banner", rev: 2 },
   { name: "welcome-de", label: "Welcome banner (German)", kind: "banner", rev: 1 },
   { name: "giftcard-de", label: "Gift-card banner (German)", kind: "banner", rev: 1 },
   { name: "service-de", label: "Service promise banner (German)", kind: "banner", rev: 1 },
+  { name: "catering-de", label: "Catering banner (German)", kind: "banner", rev: 1 },
 ] as const satisfies readonly {
   name: string;
   label: string;
@@ -73,14 +74,16 @@ export const BUILT_IN_SLIDES = [
   rev: number;
 }[];
 
-/** A venue that never touched its slider starts with the four German
+/** A venue that never touched its slider starts with four German
  *  posters, in order — so the owner sees them, and can keep, reorder or
- *  remove each. */
+ *  remove each. Since 2026-09-29 (owner): catering third, gift card
+ *  fourth, and the service-promise poster out of the defaults (it stays
+ *  in the catalogue, so it can be put back from the dashboard). */
 export const DEFAULT_HERO_SLIDES: readonly string[] = [
   "points-de",
   "welcome-de",
+  "catering-de",
   "giftcard-de",
-  "service-de",
 ].map((name) => `${BUILTIN_PREFIX}${name}`);
 
 function builtIn(key: string): (typeof BUILT_IN_SLIDES)[number] | null {
