@@ -173,7 +173,12 @@ export function CateringSheet({
           <Pressable style={s.sheet} onPress={() => {}}>
             <View style={s.header}>
               <View style={styles.titleRow}>
-                <ChefIcon size={28} />
+                {/* Raised so the chef stands on the title's BASELINE rather
+                    than hanging to the bottom of its line box (owner,
+                    2026-09-29: "starting on the same line from bottom"). */}
+                <View style={styles.titleIcon}>
+                  <ChefIcon size={28} />
+                </View>
                 <Text style={s.title}>{t.cateringTitle}</Text>
               </View>
               <Pressable onPress={close} hitSlop={10} accessibilityLabel={t.close}>
@@ -401,6 +406,9 @@ export function ChefIcon({ size = 24 }: { size?: number }): React.ReactElement {
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
+  /** Measured on the iPhone 17 Pro Max at the 22 pt title: centred, the
+   *  icon's foot sat 7 pt below the letters' baseline. */
+  titleIcon: { transform: [{ translateY: -7 }] },
   /** The venue's 2:1 poster, as on the gift-card screen. */
   banner: {
     width: "100%",
