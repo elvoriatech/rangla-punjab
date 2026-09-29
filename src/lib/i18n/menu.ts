@@ -90,7 +90,7 @@ const en = {
     vegetarian: "Vegetarian",
     gluten_free: "Gluten-free",
     dairy_free: "Dairy-free",
-    halal: "Helal",
+    halal: "Halal",
     kosher: "Kosher",
   } as DietLabels,
   allergens: {
@@ -282,7 +282,7 @@ const de: MenuCopy = {
     vegetarian: "Vegetarisch",
     gluten_free: "Glutenfrei",
     dairy_free: "Milchfrei",
-    halal: "Helal",
+    halal: "Halal",
     kosher: "Koscher",
   },
   allergens: {
@@ -446,7 +446,7 @@ const fr: MenuCopy = {
     vegetarian: "Végétarien",
     gluten_free: "Sans gluten",
     dairy_free: "Sans produits laitiers",
-    halal: "Helal",
+    halal: "Halal",
     kosher: "Casher",
   },
   allergens: {
@@ -608,7 +608,7 @@ const es: MenuCopy = {
     vegetarian: "Vegetariano",
     gluten_free: "Sin gluten",
     dairy_free: "Sin lácteos",
-    halal: "Helal",
+    halal: "Halal",
     kosher: "Kosher",
   },
   allergens: {
@@ -770,7 +770,7 @@ const it: MenuCopy = {
     vegetarian: "Vegetariano",
     gluten_free: "Senza glutine",
     dairy_free: "Senza lattosio",
-    halal: "Helal",
+    halal: "Halal",
     kosher: "Kosher",
   },
   allergens: {

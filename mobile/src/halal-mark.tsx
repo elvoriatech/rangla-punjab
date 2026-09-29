@@ -3,11 +3,12 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-na
 import { colors, fonts } from "./theme";
 
 /**
- * The halal mark: حلال set in naskh calligraphy, with "Helal" beneath it.
+ * The halal mark: حلال set in naskh calligraphy, with "Halal" beneath it.
  *
- * The Latin spelling is "Helal", not "Halal" (owner, 2026-09-22) — the
- * spelling the venue's own signage and its German-Turkish guests use.
- * Only the WORD changes: the code's own names (`HalalMark`,
+ * The Latin spelling is "Halal" (owner, 2026-09-29). It was "Helal" from
+ * 2026-09-22 — the spelling some of the venue's German-Turkish guests use
+ * — until the owner asked for the common spelling back, the one the
+ * restaurant's own banner prints. The code's own names (`HalalMark`,
  * `branding.halalFilter`, the `halal` diet key) stay as they are, because
  * they are the schema's spelling and renaming them would touch the
  * database, the API and every stored menu row for a caption.
@@ -30,19 +31,19 @@ import { colors, fonts } from "./theme";
  * TWO sizes, because those are the two jobs:
  *
  *  - `"badge"` — the welcome screen's corner mark: the calligraphy with
- *    the Latin "Helal" under it (so a guest who cannot read Arabic still
+ *    the Latin "Halal" under it (so a guest who cannot read Arabic still
  *    gets the word). Set STRAIGHT, and the two words at the SAME visual
  *    size (owner, 2026-09-21) — it used to be a small caption under a
  *    large word, tilted like a stamp.
  *  - `"chip"` — inline in a dish's diet chip. No caption, because the chip
- *    already prints "Helal" next to it in the guest's own language, and
+ *    already prints "Halal" next to it in the guest's own language, and
  *    no rotation either.
  *
  * `writingDirection: "rtl"` is stated rather than left to the layout: the
  * app runs LTR on five of its six locales, and an Arabic string in an LTR
  * paragraph is at the mercy of the bidi algorithm for its trailing marks.
  *
- * One accessibility node for the whole thing ("Helal"), because two — the
+ * One accessibility node for the whole thing ("Halal"), because two — the
  * Arabic and the caption — would have a screen reader say it twice, once
  * in a language the reader may not have a voice for.
  */
@@ -71,7 +72,7 @@ export function HalalMark({
     <View
       style={[badge ? styles.badge : styles.chip, style]}
       accessibilityRole="image"
-      accessibilityLabel="Helal"
+      accessibilityLabel="Halal"
     >
       <Text
         // The RN-typed spelling of HTML's `lang`: it tells the platform's
@@ -93,7 +94,7 @@ export function HalalMark({
           accessibilityElementsHidden
           importantForAccessibility="no"
         >
-          Helal
+          Halal
         </Text>
       ) : null}
     </View>

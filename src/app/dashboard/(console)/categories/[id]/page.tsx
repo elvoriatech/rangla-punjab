@@ -289,7 +289,7 @@ export default async function CategoryDetailPage({
           {halalOffered ? (
             <p className="mt-1.5 text-xs text-brand-green/60">
               {halalDefault
-                ? "Helal is pre-checked for dishes — untick it for exceptions."
+                ? "Halal is pre-checked for dishes — untick it for exceptions."
                 : "Drinks aren't halal-marked by default — tick it if it applies."}
             </p>
           ) : null}

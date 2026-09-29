@@ -163,8 +163,8 @@ const MESSAGES: Record<string, { saved?: string; error?: string }> = {
     error: "Couldn't save loyalty — check the points and amounts and try again.",
   },
   halal: {
-    saved: "Saved. The Helal filter and badge now match your choice on the public menu.",
-    error: "Couldn't save the Helal setting — try again.",
+    saved: "Saved. The Halal filter and badge now match your choice on the public menu.",
+    error: "Couldn't save the Halal setting — try again.",
   },
   // Gift cards. The switch and the three designs save separately, so each
   // says which of the two took — an owner who has just uploaded a picture
@@ -1965,7 +1965,7 @@ export default async function SettingsPage({
         <p className="text-sm font-medium">Diet filters</p>
         <p className="mt-1 text-xs text-muted">
           Vegetarian, vegan, gluten-free, and dairy-free filters are always available to guests.
-          Helal is your call — enable it only if your kitchen can stand behind it.
+          Halal is your call — enable it only if your kitchen can stand behind it.
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input
@@ -1975,7 +1975,7 @@ export default async function SettingsPage({
             className="accent-orange"
           />
           <span>
-            Offer the Helal filter and badge <span className="text-muted">(حلال)</span>
+            Offer the Halal filter and badge <span className="text-muted">(حلال)</span>
           </span>
         </label>
         <SubmitButton
