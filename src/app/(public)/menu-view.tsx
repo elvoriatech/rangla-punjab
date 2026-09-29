@@ -19,7 +19,7 @@ import type { EffectiveOrdering } from "@/lib/ordering-config";
 import type { LoyaltyConfig } from "@/lib/loyalty-config";
 import type { OpeningHours, OpenState } from "@/lib/opening-hours";
 import { acceptedPaymentIds, PaymentMarks } from "./payment-marks";
-import { AppStoreBadge, GooglePlayBadge } from "./app-badges";
+import { AndroidBadge, AppStoreBadge, GooglePlayBadge } from "./app-badges";
 import { bannerSrcSet, uploadedImageUrl } from "@/lib/menu-images";
 import { AddToOrderButton, type AddToOrderLabels } from "./order/add-button";
 import { CartDrawer } from "./order/cart-lazy";
@@ -760,22 +760,25 @@ export function MenuView({
                     </li>
                   ) : null}
                   {appLinks.apk ? (
-                    /* Deliberately a plain button, not a third badge: a
-                       file the venue hosts itself is not a store listing,
-                       and dressing it as one would be the wrong promise.
-                       The "Android will ask you to allow the install"
-                       hint used to be a paragraph under the row; it is
-                       the anchor's `title` now, so the warning still
-                       reaches the guest without costing the footer a
-                       line. */
+                    /* A badge like the stores' so the row reads as icons,
+                       but it says "Android", never "Google Play": a file
+                       the venue hosts itself is not a store listing. The
+                       full "Download Android app (.apk)" is the anchor's
+                       accessible name, and the "Android will ask you to
+                       allow the install" warning stays its `title`. */
                     <li>
                       <a
                         href={appLinks.apk}
                         download
                         title={t.app.apkHint}
-                        className="inline-flex h-[38px] items-center rounded-[9px] border border-current/45 px-4 text-xs font-semibold no-underline"
+                        aria-label={t.app.apk}
+                        className="inline-flex"
                       >
-                        {t.app.apk}
+                        <AndroidBadge
+                          topLine={t.app.apkTop}
+                          storeName="Android"
+                          className="h-[38px] w-[127px]"
+                        />
                       </a>
                     </li>
                   ) : null}

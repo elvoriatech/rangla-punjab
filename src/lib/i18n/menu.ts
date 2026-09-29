@@ -208,6 +208,8 @@ const en = {
     storeAria: (badge: string): string => `${badge} (opens in a new tab)`,
     /** The direct download, for guests with no Play Store on the phone. */
     apk: "Download Android app (.apk)",
+    /** Top line of the APK badge; "Android" is its (untranslated) name. */
+    apkTop: "Download for",
     /** Said before they tap, not after: an unexplained Android warning is
      *  what makes someone abandon the install. */
     apkHint: "Android will ask you to allow the install.",
@@ -372,6 +374,7 @@ const de: MenuCopy = {
     androidName: "Google Play",
     storeAria: (badge) => `${badge} (öffnet in einem neuen Tab)`,
     apk: "Android-App herunterladen (.apk)",
+    apkTop: "Herunterladen für",
     apkHint: "Android fragt Sie, ob die Installation erlaubt werden soll.",
   },
   hero: {
@@ -535,6 +538,7 @@ const fr: MenuCopy = {
     androidName: "Google Play",
     storeAria: (badge) => `${badge} (s'ouvre dans un nouvel onglet)`,
     apk: "Télécharger l'application Android (.apk)",
+    apkTop: "Télécharger pour",
     apkHint: "Android vous demandera d'autoriser l'installation.",
   },
   hero: {
@@ -696,6 +700,7 @@ const es: MenuCopy = {
     androidName: "Google Play",
     storeAria: (badge) => `${badge} (se abre en una pestaña nueva)`,
     apk: "Descargar la app de Android (.apk)",
+    apkTop: "Descargar para",
     apkHint: "Android le pedirá permiso para instalarla.",
   },
   hero: {
@@ -857,6 +862,7 @@ const it: MenuCopy = {
     androidName: "Google Play",
     storeAria: (badge) => `${badge} (si apre in una nuova scheda)`,
     apk: "Scarica l'app Android (.apk)",
+    apkTop: "Scarica per",
     apkHint: "Android vi chiederà di autorizzare l'installazione.",
   },
   hero: {
@@ -1030,6 +1036,7 @@ const ar: MenuCopy = {
     androidName: "Google Play",
     storeAria: (badge) => `${badge} (يفتح في تبويب جديد)`,
     apk: "تنزيل تطبيق أندرويد (.apk)",
+    apkTop: "تنزيل لـ",
     apkHint: "سيطلب منكم أندرويد السماح بالتثبيت.",
   },
   hero: {

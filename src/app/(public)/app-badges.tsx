@@ -112,3 +112,27 @@ export function GooglePlayBadge(props: BadgeProps): React.ReactElement {
     </Badge>
   );
 }
+
+/**
+ * Direct-download (APK) badge. Glyph: the Android robot's head — the
+ * robot is Google's CC BY-licensed mascot, free to use, unlike the Play
+ * logo — so a guest recognises "this is the Android app" at a glance.
+ */
+export function AndroidBadge(props: BadgeProps): React.ReactElement {
+  return (
+    <Badge {...props}>
+      {/* Head with the eyes cut out (evenodd), so they show whatever
+          theme sits behind the badge. */}
+      <path
+        fillRule="evenodd"
+        d="M17 34a12 12 0 0 1 24 0Z M26.1 29a1.6 1.6 0 1 0-3.2 0a1.6 1.6 0 1 0 3.2 0Z M35.1 29a1.6 1.6 0 1 0-3.2 0a1.6 1.6 0 1 0 3.2 0Z"
+      />
+      <path
+        d="m20.5 21.5-3-4.5m17 4.5 3-4.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Badge>
+  );
+}
