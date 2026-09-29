@@ -265,7 +265,7 @@ export function HomeScreen({
 }): React.ReactElement {
   const { t } = useI18n();
   // Tablet: the tiles and category medallions grow with the glass.
-  const { wide } = useLayout();
+  const { wide, width: screenWidth } = useLayout();
   const emoji = [styles.modeEmoji, wide && styles.modeEmojiWide];
   const { staffToken, clearStaff } = useAuth();
   const restaurant = staffToken !== null;
@@ -383,7 +383,17 @@ export function HomeScreen({
         onPoints={!restaurant && menu.loyalty?.enabled ? onOpenPoints : undefined}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <HeroCarousel text={t.heroLine} openNow={openNow} photos={menu.venue.heroSlides ?? []} />
+        {/* Keyed on the screen width so turning an iPad REMOUNTS the
+            slider: its measured width, page offset and 2 : 1 height all
+            belong to one orientation, and carried across a rotation they
+            left a collapsed strip under the header (seen on the 13" iPad,
+            portrait → landscape). */}
+        <HeroCarousel
+          key={screenWidth}
+          text={t.heroLine}
+          openNow={openNow}
+          photos={menu.venue.heroSlides ?? []}
+        />
 
         {/* The counter's own controls: which services are taking orders
             right now. Guests never see this — they see the RESULT, as
