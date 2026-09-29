@@ -12,6 +12,11 @@ is generated from that venue's row. Run this in the repo root before any build:
 pnpm brand:mobile --venue <slug>
 ```
 
+⚠ **Pass the store version.** Without `--version` the script writes the
+default `1.0.0`. Rangla Punjab is at **1.1.0** (App Store, 2026-09-29), so:
+`pnpm brand:mobile --venue rangla-punjab --version 1.1.0` — a store upload
+with a version lower than the live one is rejected.
+
 It reads `venues.branding` (menu theme, logo, banner, backdrop) and writes:
 
 | Output | Consumed by |
