@@ -180,6 +180,10 @@ export const RESERVATION_IP: RateLimitConfig = {
   limit: 5,
   windowSec: 3600,
 };
+// Catering enquiries: a guest sends one, maybe corrects it once — the
+// same budget as table requests is plenty and keeps a form spammer off
+// the owner's phone list.
+export const CATERING_IP: RateLimitConfig = { scope: "catering:ip", limit: 5, windowSec: 3600 };
 // Reading a reservation back is a poll, not a write: the app refreshes
 // the status card while a guest waits for the restaurant to call, and a
 // family may have several phones open behind one restaurant IP. 60/min

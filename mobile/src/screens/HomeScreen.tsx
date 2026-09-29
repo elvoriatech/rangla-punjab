@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Easing,
   Image,
   ImageBackground,
   type ImageSourcePropType,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,16 +19,23 @@ import { useAuth } from "../auth";
 import type { StaffHoursWeek, StaffOrdering } from "../staff";
 import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
 import { useVenueOpenNow, venueTimezone } from "../hours";
-import { BrandHeader, DishRow, PulsingBorder, SectionTitle, VenueStatePill } from "../components";
+import { BrandHeader, DishRow, SectionTitle, VenueStatePill } from "../components";
 import { Grid } from "../responsive";
 import { useLayout } from "../layout";
-import { useFireFlicker, usePressScale } from "../motion";
+import {
+  type MotionStyle,
+  useFireFlicker,
+  usePressScale,
+  usePulse,
+  useReducedMotion,
+} from "../motion";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
 import { fill, useI18n } from "../i18n";
 import { headlineVoucher, useLoyalty } from "../loyalty";
 import type { GiftCardShop } from "../gift-cards";
 import { fetchGiftCardShop } from "../gift-cards";
 import { ReserveSheet, TableForGuestsIcon } from "../reserve-sheet";
+import { CateringSheet } from "../catering-sheet";
 import { displayVenueName, venueNameLines } from "../venue-name";
 import { DishSheet } from "../dish-sheet";
 
@@ -330,6 +339,7 @@ export function HomeScreen({
   }, []);
   const giftCardsOn = !restaurant && Boolean(giftShop?.enabled);
   const [reserveOpen, setReserveOpen] = useState(false);
+  const [cateringOpen, setCateringOpen] = useState(false);
   const [openDish, setOpenDish] = useState<ApiItem | null>(null);
   const popular = menu.categories
     .flatMap((c) => c.items)
@@ -433,11 +443,13 @@ export function HomeScreen({
               </View>
             ) : null}
 
-            {/* Row B. Complaint is always here, whatever else is on: a
-                guest with a problem must always be able to find the way
-                to say so. Offers is the only cell on this screen allowed
-                to move, so the movement still means something, and it is
-                absent entirely when the count is 0 (P7-12). */}
+            {/* Row B. Catering took Complaint's cell (owner, 2026-09-29);
+                Complaint did not go away — it is the pill beside
+                "Categories" below, so a guest with a problem can still
+                always find the way to say so. Offers is the only cell on
+                this screen allowed to move, so the movement still means
+                something, and it is absent entirely when the count is 0
+                (P7-12). */}
             <View style={styles.modeRow}>
               {giftCardsOn ? (
                 <ActionCard
@@ -451,10 +463,10 @@ export function HomeScreen({
                 <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
               ) : null}
               <ActionCard
-                icon={<Text style={emoji}>💬</Text>}
-                title={t.complainShort}
-                subtitle={t.complainSub}
-                onPress={onComplain}
+                icon={<Text style={emoji}>👨‍🍳</Text>}
+                title={t.cateringShort}
+                subtitle={t.cateringSub}
+                onPress={() => setCateringOpen(true)}
               />
             </View>
           </>
@@ -478,7 +490,11 @@ export function HomeScreen({
           </Pressable>
         ) : null}
 
-        <SectionTitle action={t.showAll} onAction={onBrowseAll}>
+        <SectionTitle
+          action={t.showAll}
+          onAction={onBrowseAll}
+          middle={restaurant ? null : <ComplaintPill onPress={onComplain} />}
+        >
           {t.categories}
         </SectionTitle>
         <ScrollView
@@ -525,6 +541,7 @@ export function HomeScreen({
         )}
       </ScrollView>
       <ReserveSheet menu={menu} visible={reserveOpen} onClose={() => setReserveOpen(false)} />
+      <CateringSheet menu={menu} visible={cateringOpen} onClose={() => setCateringOpen(false)} />
       <DishSheet item={openDish} onClose={() => setOpenDish(null)} onAdd={onAdd} />
     </View>
   );
@@ -655,6 +672,7 @@ function OffersCard({
   // bigger swell pushes the flame's box into the label under it.
   const fire = useFireFlicker(1.1);
   const press = usePressScale(0.97);
+  const pop = useCountPop();
   const { wide } = useLayout();
   const countLabel = count === 1 ? t.offersCardCountOne : fill(t.offersCardCount, { n: count });
   return (
@@ -676,18 +694,19 @@ function OffersCard({
           pressed && { opacity: 0.9 },
         ]}
       >
-        <PulsingBorder inset={2} style={styles.offersRing} />
+        <GlowRing />
+        <ShineSweep />
         {/* The count, as a pill in the corner. Hidden from the reader —
             the Pressable's own label already says "3 Angebote" in words,
             and a bare "3" read out after it is noise. */}
-        <View
-          style={styles.offersCount}
+        <Animated.View
+          style={[styles.offersCount, pop]}
           accessibilityElementsHidden
           importantForAccessibility="no"
           pointerEvents="none"
         >
           <Text style={styles.offersCountText}>{count}</Text>
-        </View>
+        </Animated.View>
         {/* The flame sits in the same bare icon band as its neighbours'
             emoji, so the row reads as three tiles of one family — what
             marks this one out is that the flame MOVES. */}
@@ -706,6 +725,135 @@ function OffersCard({
         </Text>
       </Pressable>
     </Animated.View>
+  );
+}
+
+/**
+ * The Offers tile's YELLOW GLOW (owner, 2026-09-29: "more lively, it
+ * should catch the eye as the app opens" — the yellow of the two mock
+ * variations).
+ *
+ * Two layers, like `PulsingBorder`: a steady amber ring that is always
+ * there, and a brighter ring with a wide golden halo whose OPACITY
+ * breathes on the shared ~1.6 s pulse. Opacity is the one property the
+ * native driver can loop, so the whole glow runs off the JS thread.
+ *
+ * The halo is a `boxShadow`, which takes a colour on BOTH platforms
+ * under the new architecture — the old iOS-only `shadowColor` could not
+ * glow on Android, which is why the ember ring used to be a hairline
+ * there. With Reduce Motion on, `usePulse` parks at 1: the tile keeps
+ * the full glow and simply stops breathing.
+ */
+function GlowRing(): React.ReactElement {
+  const pulse = usePulse();
+  return (
+    <>
+      <View pointerEvents="none" style={[styles.glowRing, styles.glowSteady]} />
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.glowRing, styles.glowBright, { opacity: pulse }]}
+      />
+    </>
+  );
+}
+
+/** A soft band of light that crosses the tile every few seconds — the
+ *  "shine" of the mock. Clipped to the card's own corners by its box;
+ *  absent entirely with Reduce Motion on. */
+function ShineSweep(): React.ReactElement | null {
+  const reduced = useReducedMotion();
+  const [width, setWidth] = useState(0);
+  const x = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced || width === 0) return;
+    x.setValue(0);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(1600),
+        Animated.timing(x, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.timing(x, { toValue: 0, duration: 0, useNativeDriver: Platform.OS !== "web" }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, width, x]);
+  if (reduced) return null;
+  const translateX = x.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-SHINE_W * 2, width + SHINE_W],
+  });
+  return (
+    <View
+      pointerEvents="none"
+      style={styles.shineClip}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      <Animated.View style={[styles.shine, { transform: [{ translateX }, { skewX: "-18deg" }] }]} />
+    </View>
+  );
+}
+
+/** The count badge pops (to 1.3×) once every couple of seconds, so the
+ *  number reads as live. A still badge with Reduce Motion on. */
+function useCountPop(): MotionStyle {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    const native = Platform.OS !== "web";
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(1800),
+        Animated.timing(v, {
+          toValue: 1,
+          duration: 160,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: native,
+        }),
+        Animated.timing(v, {
+          toValue: 0,
+          duration: 240,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: native,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, v]);
+  if (reduced) return {};
+  return { transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] }) }] };
+}
+
+/** Width of the light band the shine sweeps across the Offers tile. */
+const SHINE_W = 26;
+
+/**
+ * Complaint, as a small pill beside "Categories" (owner, 2026-09-29): it
+ * gave its tile to Catering but stays one tap from Home, so a guest with
+ * a problem never has to hunt for it. The pill's box is ~30 pt; the
+ * hitSlop carries it past the 44 pt target.
+ */
+function ComplaintPill({ onPress }: { onPress: () => void }): React.ReactElement {
+  const { t } = useI18n();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      accessibilityRole="button"
+      accessibilityLabel={`${t.complainShort} — ${t.complainSub}`}
+      style={({ pressed }) => [styles.complainPill, pressed && { opacity: 0.7 }]}
+    >
+      <Text style={styles.complainEmoji}>💬</Text>
+      <Text style={styles.complainText} numberOfLines={1}>
+        {t.complainShort}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -1035,8 +1183,53 @@ const styles = StyleSheet.create({
    * movement there.
    */
   offersCard: { borderWidth: 2, borderColor: "transparent", elevation: 3 },
-  /** The ring traces the card's OUTER edge, so it takes the outer radius. */
-  offersRing: { borderRadius: radius.lg },
+  /** The glow rings trace the card's OUTER edge (the 2 pt transparent
+   *  border's outside), so they sit at -2 and take the outer radius. */
+  glowRing: {
+    position: "absolute",
+    top: -2,
+    bottom: -2,
+    start: -2,
+    end: -2,
+    borderRadius: radius.md + 2,
+    borderWidth: 2.5,
+  },
+  glowSteady: { borderColor: "#f0a500" },
+  glowBright: {
+    borderColor: "#ffd21f",
+    boxShadow: "0px 0px 14px 4px rgba(255, 200, 0, 0.85)",
+  },
+  /** The shine's window: the card's padding box, clipped to its corners. */
+  shineClip: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    start: 0,
+    end: 0,
+    borderRadius: radius.md,
+    overflow: "hidden",
+  },
+  shine: {
+    position: "absolute",
+    top: -10,
+    bottom: -10,
+    width: SHINE_W,
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
+  },
+  complainPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  complainEmoji: { fontSize: 13, lineHeight: 17 },
+  complainText: { color: colors.ink, ...fonts.bodyBold, fontSize: 13, lineHeight: 17 },
   /** 16 — a shade under its neighbours' 18, because the flicker scales it
    *  at the top of its cycle and the 22 pt icon slot has to hold that
    *  without nudging the label. */

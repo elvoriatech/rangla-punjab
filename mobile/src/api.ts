@@ -1482,6 +1482,40 @@ export async function createReservation(
   }
 }
 
+/** A catering enquiry (owner, 2026-09-29): like a table request, but any
+ *  guest count, a date up to four months out, and optional time, email,
+ *  event venue and message. The restaurant calls back to plan it. */
+export interface CateringInput {
+  slug: string;
+  name: string;
+  phone: string;
+  email?: string;
+  guests: number;
+  date: string;
+  time?: string;
+  location?: string;
+  message?: string;
+}
+
+/** POST /api/catering. Never throws; `error` is the server's word
+ *  (`invalid_date`, `rate_limited`, …) or `network`. */
+export async function createCateringRequest(
+  input: CateringInput,
+): Promise<{ ok: true; id: string | null } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/catering`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!res.ok) return { ok: false, error: String(body?.error ?? `http_${res.status}`) };
+    return { ok: true, id: typeof body?.id === "string" ? body.id : null };
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
 /**
  * One reservation, read with the token this device stored when it was
  * filed. Null for every "nothing to show" case — 403/404 (withdrawn or a

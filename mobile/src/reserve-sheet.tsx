@@ -135,39 +135,39 @@ export function ReserveSheet({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
       {/* Tap-away closes; the panel swallows its own touches. */}
-      <Pressable style={styles.backdrop} onPress={close} accessibilityLabel={t.close}>
+      <Pressable style={sheetStyles.backdrop} onPress={close} accessibilityLabel={t.close}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.sheetWrap}
+          style={sheetStyles.sheetWrap}
         >
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            <View style={styles.header}>
-              <Text style={styles.title}>{t.reserveTitle}</Text>
+          <Pressable style={sheetStyles.sheet} onPress={() => {}}>
+            <View style={sheetStyles.header}>
+              <Text style={sheetStyles.title}>{t.reserveTitle}</Text>
               <Pressable onPress={close} hitSlop={10}>
-                <Text style={styles.close}>×</Text>
+                <Text style={sheetStyles.close}>×</Text>
               </Pressable>
             </View>
 
             {done ? (
-              <View style={styles.doneBox}>
-                <Text style={styles.doneTick}>✓</Text>
-                <Text style={styles.doneTitle}>{t.resDoneTitle}</Text>
-                <Text style={styles.doneMeta}>
+              <View style={sheetStyles.doneBox}>
+                <Text style={sheetStyles.doneTick}>✓</Text>
+                <Text style={sheetStyles.doneTitle}>{t.resDoneTitle}</Text>
+                <Text style={sheetStyles.doneMeta}>
                   {dateLabel(date)} · {time} · {guests} {guests === 1 ? t.guest : t.guests}
                 </Text>
-                <Text style={styles.doneSub}>{t.resDoneSub}</Text>
-                <Text style={styles.doneWhere}>{t.resDoneWhere}</Text>
-                <Pressable style={[styles.cta, styles.ctaStretch]} onPress={close}>
-                  <Text style={styles.ctaText}>{t.resDoneBtn}</Text>
+                <Text style={sheetStyles.doneSub}>{t.resDoneSub}</Text>
+                <Text style={sheetStyles.doneWhere}>{t.resDoneWhere}</Text>
+                <Pressable style={[sheetStyles.cta, sheetStyles.ctaStretch]} onPress={close}>
+                  <Text style={sheetStyles.ctaText}>{t.resDoneBtn}</Text>
                 </Pressable>
               </View>
             ) : slots.length === 0 ? (
-              <View style={styles.doneBox}>
-                <Text style={styles.doneSub}>{t.resNoSlots}</Text>
+              <View style={sheetStyles.doneBox}>
+                <Text style={sheetStyles.doneSub}>{t.resNoSlots}</Text>
               </View>
             ) : (
               <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
-                <Text style={styles.lead}>{t.reserveLead}</Text>
+                <Text style={sheetStyles.lead}>{t.reserveLead}</Text>
                 <RequiredLegend />
 
                 <View style={{ flexDirection: "row", gap: 10 }}>
@@ -190,9 +190,9 @@ export function ReserveSheet({
                 {/* Party size: plus / minus, one tap per guest (1–20, the
                     server's bounds), instead of a list to scroll. */}
                 <View style={{ gap: 4 }}>
-                  <Text style={styles.fieldLabel}>{t.resGuests}</Text>
-                  <View style={styles.guestsRow}>
-                    <Text style={styles.guestsValue}>
+                  <Text style={sheetStyles.fieldLabel}>{t.resGuests}</Text>
+                  <View style={sheetStyles.guestsRow}>
+                    <Text style={sheetStyles.guestsValue}>
                       {guests} {guests === 1 ? t.guest : t.guests}
                     </Text>
                     <QtyStepper
@@ -224,16 +224,16 @@ export function ReserveSheet({
                   placeholder={t.resNotePlaceholder}
                 />
 
-                {error ? <Text style={styles.error}>{error}</Text> : null}
+                {error ? <Text style={sheetStyles.error}>{error}</Text> : null}
 
                 <Pressable
-                  style={[styles.cta, (missing || busy) && { opacity: 0.5 }]}
+                  style={[sheetStyles.cta, (missing || busy) && { opacity: 0.5 }]}
                   onPress={() => void submit()}
                   disabled={missing || busy}
                 >
-                  <Text style={styles.ctaText}>{busy ? t.resSending : t.resSubmit}</Text>
+                  <Text style={sheetStyles.ctaText}>{busy ? t.resSending : t.resSubmit}</Text>
                 </Pressable>
-                <Text style={styles.footnote}>{t.resFootnote}</Text>
+                <Text style={sheetStyles.footnote}>{t.resFootnote}</Text>
               </ScrollView>
             )}
           </Pressable>
@@ -242,10 +242,10 @@ export function ReserveSheet({
 
       {/* Date = calendar, time = option list (the cart's picker pattern). */}
       <Modal visible={picker !== null} transparent animationType="fade">
-        <Pressable style={styles.pickerBackdrop} onPress={() => setPicker(null)}>
+        <Pressable style={sheetStyles.pickerBackdrop} onPress={() => setPicker(null)}>
           {/* The sheet swallows its own touches, or tapping a day would
               also hit the backdrop and close the picker. */}
-          <Pressable style={styles.pickerSheet} onPress={() => {}}>
+          <Pressable style={sheetStyles.pickerSheet} onPress={() => {}}>
             <ScrollView style={{ maxHeight: 460 }}>
               {picker === "date" ? (
                 <ReserveCalendar
@@ -263,9 +263,11 @@ export function ReserveSheet({
                       onPress={() => choose(o.value)}
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
-                      style={[styles.option, selected && styles.optionActive]}
+                      style={[sheetStyles.option, selected && sheetStyles.optionActive]}
                     >
-                      <Text style={[styles.optionText, selected && styles.optionTextActive]}>
+                      <Text
+                        style={[sheetStyles.optionText, selected && sheetStyles.optionTextActive]}
+                      >
                         {o.label}
                       </Text>
                       {selected ? <Text style={{ color: colors.red }}>✓</Text> : null}
@@ -291,19 +293,23 @@ export function ReserveSheet({
  * `dates` is already the server's own answer (`reservationSlots`), so
  * "available" here needs no opening-hours maths in the app.
  */
-function ReserveCalendar({
+export function ReserveCalendar({
   dates,
   value,
   tag,
   onSelect,
+  monthCount = 2,
 }: {
   dates: readonly string[];
   value: string;
   /** BCP-47 tag for the month and weekday names. */
   tag: string;
   onSelect: (date: string) => void;
+  /** How many month grids to stack — two for a table (60 days), five
+   *  for catering (tomorrow … four months on). */
+  monthCount?: number;
 }): React.ReactElement {
-  const months = useMemo(() => reservationMonths(dates), [dates]);
+  const months = useMemo(() => reservationMonths(dates, null, monthCount), [dates, monthCount]);
   const weekdays = useMemo(() => weekdayNames(tag, "narrow"), [tag]);
   const dayName = (iso: string): string => {
     const at = new Date(`${iso}T12:00:00Z`);
@@ -323,19 +329,19 @@ function ReserveCalendar({
     <View style={{ gap: 14, paddingHorizontal: 4, paddingBottom: 6 }}>
       {months.map((month) => (
         <View key={month.key} style={{ gap: 4 }}>
-          <Text style={styles.calMonth}>{monthTitle(month.at, tag)}</Text>
-          <View style={styles.calRow}>
+          <Text style={sheetStyles.calMonth}>{monthTitle(month.at, tag)}</Text>
+          <View style={sheetStyles.calRow}>
             {weekdays.map((name, i) => (
-              <Text key={i} style={styles.calWeekday}>
+              <Text key={i} style={sheetStyles.calWeekday}>
                 {name}
               </Text>
             ))}
           </View>
           {month.weeks.map((week, w) => (
-            <View key={w} style={styles.calRow}>
+            <View key={w} style={sheetStyles.calRow}>
               {week.map((cell, d) =>
                 cell.date === null ? (
-                  <View key={`${w}-${d}`} style={styles.calCell} />
+                  <View key={`${w}-${d}`} style={sheetStyles.calCell} />
                 ) : (
                   <Pressable
                     key={cell.date}
@@ -347,23 +353,23 @@ function ReserveCalendar({
                       selected: cell.date === value,
                       disabled: !cell.available,
                     }}
-                    style={styles.calCell}
+                    style={sheetStyles.calCell}
                   >
                     {/* The plate sits inside the 44pt target with a 2pt
                         inset, so adjacent bookable days read as separate
                         keys rather than one solid block. */}
                     <View
                       style={[
-                        styles.calPlate,
-                        cell.available && styles.calPlateFree,
-                        cell.date === value && styles.calPlateOn,
+                        sheetStyles.calPlate,
+                        cell.available && sheetStyles.calPlateFree,
+                        cell.date === value && sheetStyles.calPlateOn,
                       ]}
                     >
                       <Text
                         style={[
-                          styles.calDay,
-                          !cell.available && styles.calDayOff,
-                          cell.date === value && styles.calDayOn,
+                          sheetStyles.calDay,
+                          !cell.available && sheetStyles.calDayOff,
+                          cell.date === value && sheetStyles.calDayOn,
                         ]}
                       >
                         {cell.day}
@@ -380,7 +386,7 @@ function ReserveCalendar({
   );
 }
 
-function Picker({
+export function Picker({
   label,
   value,
   onPress,
@@ -397,49 +403,57 @@ function Picker({
 }): React.ReactElement {
   return (
     <View style={[{ gap: 4 }, style]}>
-      <FieldLabel label={label} required={required} style={styles.fieldLabel} />
-      <Pressable style={[styles.dropdown, dim && { opacity: 0.5 }]} onPress={onPress}>
-        <Text style={styles.dropdownValue} numberOfLines={1}>
+      <FieldLabel label={label} required={required} style={sheetStyles.fieldLabel} />
+      <Pressable style={[sheetStyles.dropdown, dim && { opacity: 0.5 }]} onPress={onPress}>
+        <Text style={sheetStyles.dropdownValue} numberOfLines={1}>
           {value}
         </Text>
-        <Text style={styles.chevron}>▾</Text>
+        <Text style={sheetStyles.chevron}>▾</Text>
       </Pressable>
     </View>
   );
 }
 
-function Field({
+export function Field({
   label,
   value,
   onChange,
   placeholder,
   keyboardType,
   required = false,
+  multiline = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-  keyboardType?: "phone-pad";
+  keyboardType?: "phone-pad" | "email-address" | "number-pad";
   /** Set only where `missing` above blocks the request on this field. */
   required?: boolean;
+  /** A free-text box (the catering sheet's "tell us more"). */
+  multiline?: boolean;
 }): React.ReactElement {
   return (
     <View style={{ gap: 4 }}>
-      <FieldLabel label={label} required={required} style={styles.fieldLabel} />
+      <FieldLabel label={label} required={required} style={sheetStyles.fieldLabel} />
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={colors.inkSoft}
         keyboardType={keyboardType}
-        style={styles.input}
+        autoCapitalize={keyboardType === "email-address" ? "none" : undefined}
+        multiline={multiline}
+        textAlignVertical={multiline ? "top" : undefined}
+        style={[sheetStyles.input, multiline && sheetStyles.inputMultiline]}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+/** Shared with the catering sheet, which is the same sheet with other
+ *  fields — one look for both requests. */
+export const sheetStyles = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(20,10,5,0.5)" },
   sheetWrap: { maxHeight: "92%" },
   sheet: {
@@ -478,6 +492,7 @@ const styles = StyleSheet.create({
     ...fonts.body,
     fontSize: 15,
   },
+  inputMultiline: { minHeight: 92, paddingTop: 11 },
   cta: {
     backgroundColor: colors.red,
     borderRadius: radius.pill,

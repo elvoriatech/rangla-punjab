@@ -274,32 +274,32 @@ function HeaderPointsPill({
     <Animated.View style={bump}>
       <Pressable
         onPress={onPress}
-        // The badge's own box is ~23 pt tall now, so the slop is what
-        // carries it past the 44 pt target WCAG 2.5.5 asks for: 23 + 2×12
-        // = 47 vertically, and the same idea sideways.
-        hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
+        // The badge is 52 pt square, past the 44 pt target on its own;
+        // the slop just forgives a thumb that lands on its edge.
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         accessibilityRole="button"
         accessibilityLabel={
           points === null ? t.pointsScreenTitle : fill(t.pointsBadgeLabel, { points })
         }
         style={({ pressed }) => [styles.headerPoints, pressed && { opacity: 0.8 }]}
       >
-        {/* A gift in the venue's own red, not the platform's emoji: 🎁 is
-            drawn by whatever font the OS ships and changed size, colour
-            and even shape between iOS and Android. A vector glyph is one
-            picture everywhere and takes the brand's colour. */}
         {/* The breathing ember ring the Offers tile wears — the app's one
             "look here" signal, so the badge borrows it rather than
             inventing a second (owner, 2026-09-24). */}
         <PulsingBorder style={styles.headerPointsRing} />
         <View style={styles.headerPointsBody}>
           <Animated.View style={wiggle}>
-            <Ionicons name="gift" size={16} color={colors.red} />
+            {/* The colour gift of the owner's approved mock (2026-09-29),
+                in place of the red outline glyph: at this size the
+                wrapped box reads as a present, the outline as an icon. */}
+            <Text style={styles.headerPointsGift} allowFontScaling={false}>
+              🎁
+            </Text>
           </Animated.View>
           {/* `maxWidth` rather than a smaller size: the word is set as big
               as the square can hold and shrinks itself to fit, so the
               badge stays square whatever the language calls points. */}
-          <CartoonTitle text={t.pointsBadgeWord} size={9} maxWidth={POINTS_BADGE - 10} />
+          <CartoonTitle text={t.pointsBadgeWord} size={11} maxWidth={POINTS_BADGE - 8} />
         </View>
       </Pressable>
     </Animated.View>
@@ -406,14 +406,20 @@ export function SectionTitle({
   children,
   action,
   onAction,
+  middle,
 }: {
   children: string;
   action?: string;
   onAction?: () => void;
+  /** Something that sits BETWEEN the title and its action — the Home
+   *  screen parks the Complaint pill here (owner, 2026-09-29). The row
+   *  is `space-between`, so it lands centred in the gap. */
+  middle?: React.ReactNode;
 }): React.ReactElement {
   return (
-    <View style={styles.sectionRow}>
+    <View style={[styles.sectionRow, middle ? styles.sectionRowMiddle : null]}>
       <Text style={styles.sectionTitle}>{children}</Text>
+      {middle}
       {action && onAction ? (
         <Pressable onPress={onAction} hitSlop={8}>
           <Text style={styles.sectionAction}>{action}</Text>
@@ -777,10 +783,12 @@ const HEADER_LOGO = 64;
  *  `scripts/cut-out-logo.mjs`. */
 const LOGO_CUTOUT = require("../assets/logo-cutout.png");
 
-/** The POINTS badge: a small square (owner, 2026-09-24: "make the box
- *  small and the logo bigger"). It stands on the same line as the
- *  mascot's feet — see `headerEndCentred`. */
-const POINTS_BADGE = 42;
+/** The POINTS badge: a square that stands on the same line as the
+ *  mascot's feet — see `headerEndCentred`. 52 since 2026-09-29 (owner's
+ *  approved mock: bigger than the 42 of 2026-09-24, "a little smaller"
+ *  than the name's full height, bottom level with the mascot). It still
+ *  fits the 64 pt rail, so the name stays centred on the bar. */
+const POINTS_BADGE = 52;
 /** What the name is fitted to before the first layout: the narrowest
  *  middle slot there is (a 360 pt phone, less the 16 pt insets, the two
  *  56 pt rails and the two 8 pt gaps). Never wider than the real one, so
@@ -891,8 +899,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.creamCard,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    borderWidth: 2,
     borderColor: colors.goldSoft,
     shadowColor: "#000",
     shadowOpacity: 0.22,
@@ -901,7 +909,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   /** The pulsing ring, drawn ON the badge's own gold edge. */
-  headerPointsRing: { borderRadius: 12 },
+  headerPointsRing: { borderRadius: 14 },
+  /** The gift: 22 pt, a line height of its own so the emoji's font box
+   *  doesn't push the word below the square. */
+  headerPointsGift: { fontSize: 22, lineHeight: 26 },
   /** The gift over the word, in a SQUARE (owner, 2026-09-22: a badge as
    *  wide as a sentence read as a button for something else). */
   headerPointsBody: { alignItems: "center", gap: 1 },
@@ -993,6 +1004,9 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 10,
   },
+  /** With a pill in the middle, `baseline` would hang the pill off the
+   *  title's text line; centring keeps all three on one axis. */
+  sectionRowMiddle: { alignItems: "center", gap: 8 },
   sectionTitle: { color: colors.ink, fontSize: 18, ...fonts.bodyBold },
   sectionAction: { color: colors.red, fontSize: 13, ...fonts.bodySemi },
   primaryBtn: {
