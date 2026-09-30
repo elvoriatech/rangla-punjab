@@ -3,7 +3,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { readIssuePhoto } from "@/lib/issue-service";
 import { verifyReceiptToken } from "@/lib/receipt-token";
-import { staffFromRequest } from "@/lib/staff-auth";
+import { staffCan, staffFromRequest } from "@/lib/staff-auth";
 import { can, getAccess } from "@/lib/team-access";
 
 /**
@@ -53,7 +53,8 @@ async function resolveTenant(req: NextRequest, orderId: string): Promise<string 
     // Re-checks the owner membership per request, so revoking access
     // shuts this door on the very next image load.
     const staff = await staffFromRequest(req);
-    return staff ? staff.tenantId : null;
+    // A team login sees complaint photos only with Orders ticked.
+    return staff && staffCan(staff, "orders") ? staff.tenantId : null;
   }
 
   // `cookies()` throws outside a request scope (a direct call from a test,

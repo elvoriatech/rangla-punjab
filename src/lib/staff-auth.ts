@@ -6,6 +6,7 @@ import { asTenant } from "./tenant";
 import { resolvePreviewContext } from "./preview-context";
 import { getRestaurantSlug } from "./restaurant";
 import { createLogger } from "./logger";
+import { normalizePermissions, type Permission } from "./team-permissions";
 
 const log = createLogger();
 
@@ -37,6 +38,17 @@ const log = createLogger();
 export interface StaffPrincipal {
   userId: string;
   tenantId: string;
+  /** The restaurant's owner — every screen. */
+  isOwner: boolean;
+  /** A team member's ticked areas (owner, 2026-09-30); ignored for the
+   *  owner. Same list as the dashboard's — see `team-permissions.ts`. */
+  permissions: Permission[];
+}
+
+/** May this principal use an area? The owner always may. */
+export function staffCan(staff: StaffPrincipal, area: Permission | "owner"): boolean {
+  if (staff.isOwner) return true;
+  return area !== "owner" && staff.permissions.includes(area);
 }
 
 /** The single venue this deploy serves, as (tenantId, venueId). */
@@ -45,14 +57,25 @@ async function restaurantContext(): Promise<{ tenantId: string; venueId: string 
   return context ? { tenantId: context.tenantId, venueId: context.venueId } : null;
 }
 
-/** Does this user hold the `owner` membership for this venue's tenant?
- *  Read under the tenant GUC, so RLS is the second pair of eyes on the
- *  `tenantId` we resolved. */
-async function isOwnerOf(tenantId: string, userId: string): Promise<boolean> {
-  const membership = await asTenant(tenantId, (tx) =>
-    tx.membership.findFirst({ where: { userId, role: "owner" }, select: { id: true } }),
+/**
+ * This user's membership of THIS venue's tenant — the owner, or a team
+ * member the owner created (2026-09-30) — or null. Read under the tenant
+ * GUC, so RLS is the second pair of eyes on the `tenantId` we resolved,
+ * and a login from another restaurant is simply not found.
+ */
+async function membershipOf(
+  tenantId: string,
+  userId: string,
+): Promise<{ isOwner: boolean; permissions: Permission[] } | null> {
+  const m = await asTenant(tenantId, (tx) =>
+    tx.membership.findFirst({
+      where: { userId },
+      orderBy: [{ role: "asc" }],
+      select: { role: true, permissions: true },
+    }),
   );
-  return membership !== null;
+  if (!m) return null;
+  return { isOwner: m.role === "owner", permissions: normalizePermissions(m.permissions) };
 }
 
 /**
@@ -70,6 +93,8 @@ export interface SignedInRestaurant {
   token: string;
   name: string;
   email: string;
+  isOwner: boolean;
+  permissions: Permission[];
 }
 
 export async function signInRestaurant(
@@ -80,10 +105,11 @@ export async function signInRestaurant(
   const email = emailRaw.trim();
   const login = await loginUser(email, password);
   if (!login.ok) return null;
-  if (!(await isOwnerOf(context.tenantId, login.userId))) {
-    // Correct password, but not this restaurant's owner — an employee's
-    // dashboard-less account, or an owner of some other deploy's tenant.
-    log.warn("staff_auth.not_owner", { userId: login.userId });
+  const member = await membershipOf(context.tenantId, login.userId);
+  if (!member) {
+    // Correct password, but no membership here — an account of some
+    // other deploy's tenant.
+    log.warn("staff_auth.not_member", { userId: login.userId });
     return null;
   }
   const venue = await asTenant(context.tenantId, (tx) =>
@@ -95,6 +121,8 @@ export async function signInRestaurant(
     token: signSession(login.userId),
     name: venue?.name ?? "",
     email,
+    isOwner: member.isOwner,
+    permissions: member.permissions,
   };
 }
 
@@ -116,6 +144,7 @@ export async function staffFromRequest(req: NextRequest): Promise<StaffPrincipal
   if (!session) return null;
   const context = await restaurantContext();
   if (!context) return null;
-  if (!(await isOwnerOf(context.tenantId, session.userId))) return null;
-  return { userId: session.userId, tenantId: context.tenantId };
+  const member = await membershipOf(context.tenantId, session.userId);
+  if (!member) return null;
+  return { userId: session.userId, tenantId: context.tenantId, ...member };
 }

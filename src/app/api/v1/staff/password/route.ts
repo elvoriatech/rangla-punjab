@@ -46,7 +46,7 @@ function refuse(error: Refusal): NextResponse {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "owner");
   if (!gate.ok) return gate.response;
 
   const rl = await checkRateLimit(PASSWORD_CHANGE_IP, clientIp(req));

@@ -75,6 +75,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         kind: "restaurant",
         token: restaurant.token,
         restaurant: { name: restaurant.name, email: restaurant.email },
+        // What this login may open in the app — the owner everything, a
+        // team member the boxes the owner ticked (owner, 2026-09-30).
+        access: { owner: restaurant.isOwner, permissions: restaurant.permissions },
       }),
     );
   }

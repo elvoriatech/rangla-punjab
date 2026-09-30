@@ -17,7 +17,7 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * touch both halves of the pair.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "menu");
   if (!gate.ok) return gate.response;
 
   const categories = await listStaffMenu(gate.staff.tenantId);

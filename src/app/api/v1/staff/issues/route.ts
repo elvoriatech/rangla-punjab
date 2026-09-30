@@ -16,7 +16,7 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * list renders. The messages come from `/issues/{id}`.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "orders");
   if (!gate.ok) return gate.response;
 
   const all = req.nextUrl.searchParams.get("all") === "1";

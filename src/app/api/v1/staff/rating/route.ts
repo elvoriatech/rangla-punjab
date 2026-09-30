@@ -44,14 +44,14 @@ function noVenue(): NextResponse {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "settings");
   if (!gate.ok) return gate.response;
 
   return staffRatingResponse(gate.staff.userId);
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "settings");
   if (!gate.ok) return gate.response;
 
   const body: unknown = await req.json().catch(() => null);

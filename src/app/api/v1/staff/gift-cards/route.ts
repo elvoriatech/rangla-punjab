@@ -24,7 +24,7 @@ import { STAFF_NO_STORE, requireStaff } from "@/lib/staff-request";
  * can tell the guest why rather than "not found".
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "giftcards");
   if (!gate.ok) return gate.response;
 
   const code = req.nextUrl.searchParams.get("code");

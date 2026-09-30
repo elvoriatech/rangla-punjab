@@ -35,7 +35,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "settings");
   if (!gate.ok) return gate.response;
 
   const body = await req.json().catch(() => null);

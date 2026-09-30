@@ -267,7 +267,7 @@ export function HomeScreen({
   // Tablet: the tiles and category medallions grow with the glass.
   const { wide, width: screenWidth } = useLayout();
   const emoji = [styles.modeEmoji, wide && styles.modeEmojiWide];
-  const { staffToken, clearStaff } = useAuth();
+  const { staffToken, clearStaff, staffCan } = useAuth();
   const restaurant = staffToken !== null;
   /**
    * Behind the counter the hero's pill should be LIVE: the owner has
@@ -398,7 +398,7 @@ export function HomeScreen({
         {/* The counter's own controls: which services are taking orders
             right now. Guests never see this — they see the RESULT, as
             entry points that are simply there or not. */}
-        {restaurant ? <ServiceSwitches onChanged={onMenuChanged} /> : null}
+        {restaurant && staffCan("settings") ? <ServiceSwitches onChanged={onMenuChanged} /> : null}
 
         {/* THE ACTION SET — a 3-UP GRID: six cells, two rows, every cell
             the same 58 pt tile of icon-over-label.

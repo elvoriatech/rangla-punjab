@@ -158,6 +158,9 @@ function Shell(): React.ReactElement {
   const insets = useSafeAreaInsets();
   const { wide: wideLayout } = useLayout();
   const restaurant = auth.staff !== null;
+  // A team login without Orders has no board — it starts on Home and its
+  // middle tab is hidden (owner, 2026-09-30).
+  const canBoard = auth.staffCan("orders");
   const [openOrders, setOpenOrders] = useState(0);
   /** Complaints the restaurant still owes an answer or a verdict on —
    *  the owner menu's badge. Same 30 s loop as the board's count. */
@@ -313,11 +316,13 @@ function Shell(): React.ReactElement {
     if (restaurant) {
       // The counter tablet has no use for the welcome splash.
       setWelcomed(true);
-      setTab((current) => (current === "menu" || current === "info" ? current : "board"));
+      setTab((current) =>
+        current === "menu" || current === "info" ? current : canBoard ? "board" : "home",
+      );
     } else {
       setTab((current) => (OWNER_ONLY.includes(current) ? "home" : current));
     }
-  }, [restaurant]);
+  }, [restaurant, canBoard]);
 
   // Opening the app when there is already a session — the owner's counter
   // tablet, or a guest who signed in on an earlier run — goes straight to
@@ -617,7 +622,7 @@ function Shell(): React.ReactElement {
         {menuCurrent && tab === "orders" && !restaurant ? (
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
-        {menuCurrent && tab === "board" && restaurant ? (
+        {menuCurrent && tab === "board" && restaurant && canBoard ? (
           <BoardScreen refreshKey={boardRefresh} onOpenOwnerMenu={() => setOwnerMenu(true)} />
         ) : null}
         {menuCurrent && tab === "loyalty" && restaurant ? (
@@ -749,13 +754,15 @@ function Shell(): React.ReactElement {
           {/* The middle of the bar is whichever job this device has: the
             guest's basket + receipts, or the restaurant's board. */}
           {restaurant ? (
-            <TabButton
-              label={t.tabBoard}
-              icon="restaurant"
-              badge={openOrders > 0 ? openOrders : undefined}
-              active={tab === "board"}
-              onPress={() => setTab("board")}
-            />
+            canBoard ? (
+              <TabButton
+                label={t.tabBoard}
+                icon="restaurant"
+                badge={openOrders > 0 ? openOrders : undefined}
+                active={tab === "board"}
+                onPress={() => setTab("board")}
+              />
+            ) : null
           ) : (
             <>
               <TabButton

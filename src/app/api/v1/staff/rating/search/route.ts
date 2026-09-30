@@ -17,7 +17,7 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * as `not_found` without any call going out.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "settings");
   if (!gate.ok) return gate.response;
 
   const limited = await googleLookupLimit(req);

@@ -15,7 +15,7 @@ export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "orders");
   if (!gate.ok) return gate.response;
 
   const { id } = await ctx.params;

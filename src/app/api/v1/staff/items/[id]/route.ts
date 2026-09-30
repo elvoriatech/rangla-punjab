@@ -25,7 +25,7 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "menu");
   if (!gate.ok) return gate.response;
 
   const { id } = await ctx.params;

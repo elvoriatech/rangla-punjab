@@ -106,9 +106,48 @@ export interface AccountOrder {
 
 /** The restaurant behind a staff session. Name + email only: everything
  *  else the board needs comes from the staff routes. */
+/**
+ * What a restaurant login may open (owner, 2026-09-30): the owner every
+ * screen, a team member only the boxes the owner ticked on the website's
+ * Team page. Same names as the server's `team-permissions.ts`. The server
+ * checks every request; this only decides which screens the app offers.
+ */
+export type StaffArea =
+  | "overview"
+  | "orders"
+  | "reservations"
+  | "catering"
+  | "kitchen"
+  | "qr"
+  | "menu"
+  | "giftcards"
+  | "appearance"
+  | "reports"
+  | "settings";
+
+export interface StaffAccess {
+  owner: boolean;
+  permissions: string[];
+}
+
+/** Sessions saved before team logins existed could only be the owner's. */
+const OWNER_ACCESS: StaffAccess = { owner: true, permissions: [] };
+
 export interface StaffProfile {
   name: string;
   email: string;
+  access?: StaffAccess;
+}
+
+function readAccess(raw: unknown): StaffAccess {
+  if (!raw || typeof raw !== "object") return OWNER_ACCESS;
+  const a = raw as { owner?: unknown; permissions?: unknown };
+  return {
+    owner: a.owner === true,
+    permissions: Array.isArray(a.permissions)
+      ? a.permissions.filter((p): p is string => typeof p === "string")
+      : [],
+  };
 }
 
 /** Why a Google sign-in didn't produce a session. "unavailable" is the
@@ -137,6 +176,9 @@ interface AuthApi {
   staff: StaffProfile | null;
   /** Bearer for `X-Staff-Token`; null whenever `staff` is. */
   staffToken: string | null;
+  /** May this restaurant login use an area — or, with "owner", is it the
+   *  owner? False when signed out. */
+  staffCan: (area: StaffArea | "owner") => boolean;
   /** Ends the restaurant session: tells the server (failures ignored —
    *  the token is useless to this device either way) and drops the key. */
   logoutStaff: () => Promise<void>;
@@ -263,6 +305,7 @@ function decodeStaffSession(raw: string | null): StaffSession | null {
           token: parsed.token,
           name: typeof parsed.name === "string" ? parsed.name : "",
           email: typeof parsed.email === "string" ? parsed.email : "",
+          access: readAccess(parsed.access),
         };
       }
     } catch {
@@ -311,7 +354,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         const session = decodeStaffSession(saved);
         if (!session) return;
         setStaffToken(session.token);
-        setStaff({ name: session.name, email: session.email });
+        setStaff({ name: session.name, email: session.email, access: session.access });
       })
       .catch(() => {});
     // `ready` flips only once BOTH slots have been looked at, and always
@@ -587,6 +630,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
           token?: string;
           customer?: CustomerProfile;
           restaurant?: { name?: string; email?: string };
+          access?: unknown;
           error?: string;
         };
         if (!res.ok || !body.token) {
@@ -606,6 +650,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
           await adoptStaff(body.token, {
             name: body.restaurant?.name ?? "",
             email: body.restaurant?.email ?? email,
+            // A server from before team logins sends no `access` — only
+            // owners could sign in then, so that reads as the owner.
+            access: readAccess(body.access),
           });
           return null;
         }
@@ -719,6 +766,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     [token],
   );
 
+  const staffCan = useCallback(
+    (area: StaffArea | "owner"): boolean => {
+      if (!staff) return false;
+      const access = staff.access ?? OWNER_ACCESS;
+      if (access.owner) return true;
+      return area !== "owner" && access.permissions.includes(area);
+    },
+    [staff],
+  );
+
   const api = useMemo<AuthApi>(
     () => ({
       token,
@@ -726,6 +783,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       ready,
       staff,
       staffToken,
+      staffCan,
       logoutStaff,
       clearStaff,
       replaceStaffToken,
@@ -750,6 +808,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       ready,
       staff,
       staffToken,
+      staffCan,
       logoutStaff,
       clearStaff,
       replaceStaffToken,

@@ -403,10 +403,23 @@ describe("/api/v1/staff/*", () => {
   });
 
   it("shuts the door the moment the owner membership is gone", async () => {
+    // Demoted to a team member with nothing ticked: still a member of the
+    // restaurant, but the board is Orders — 403 (team logins, 2026-09-30).
     await asTenant(tenantId, (tx) => tx.membership.updateMany({ data: { role: "staff" } }));
+    const demoted = await GET(request("/api/v1/staff/orders", staffToken));
+    expect(demoted.status).toBe(403);
+    expect(await demoted.json()).toEqual({ ok: false, error: "forbidden" });
+    await asTenant(tenantId, (tx) => tx.membership.updateMany({ data: { role: "owner" } }));
+  });
+
+  it("answers 401 once there is no membership at all", async () => {
+    const saved = await asTenant(tenantId, (tx) =>
+      tx.membership.findMany({ select: { userId: true, tenantId: true, role: true } }),
+    );
+    await asTenant(tenantId, (tx) => tx.membership.deleteMany({}));
     const res = await GET(request("/api/v1/staff/orders", staffToken));
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ ok: false, error: "unauthorized" });
-    await asTenant(tenantId, (tx) => tx.membership.updateMany({ data: { role: "owner" } }));
+    await asTenant(tenantId, (tx) => tx.membership.createMany({ data: saved }));
   });
 });

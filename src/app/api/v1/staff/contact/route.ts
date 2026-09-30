@@ -39,7 +39,7 @@ function noVenue(): NextResponse {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "settings");
   if (!gate.ok) return gate.response;
 
   const result = await getVenueContact(gate.staff.userId);
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "settings");
   if (!gate.ok) return gate.response;
 
   const body: unknown = await req.json().catch(() => null);

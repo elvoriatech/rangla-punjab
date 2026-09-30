@@ -22,7 +22,7 @@ import { refreshVenueGoogleRating } from "@/lib/venue-service";
  * different things done about them.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "settings");
   if (!gate.ok) return gate.response;
 
   const limited = await googleLookupLimit(req);

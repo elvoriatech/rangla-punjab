@@ -16,7 +16,7 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * always a safe answer, a 400 mid-service is not.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "orders");
   if (!gate.ok) return gate.response;
 
   const raw = req.nextUrl.searchParams.get("since");

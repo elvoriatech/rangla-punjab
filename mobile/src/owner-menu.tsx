@@ -53,7 +53,7 @@ export function OwnerMenuSheet({
   openIssues?: number;
 }): React.ReactElement {
   const { t } = useI18n();
-  const { logoutStaff } = useAuth();
+  const { logoutStaff, staffCan } = useAuth();
 
   // Same confirm as the Account screen's: signing out takes the live
   // board off the counter's phone, which is not a mis-tap's to decide.
@@ -89,32 +89,60 @@ export function OwnerMenuSheet({
             </Pressable>
           </View>
 
-          <Row icon="restaurant-outline" label={t.ownerBoard} onPress={() => go(onBoard)} />
-          <Row
-            icon="fast-food-outline"
-            label={t.ownerMenuManage}
-            onPress={() => go(onManageMenu)}
-          />
-          <Row icon="gift-outline" label={t.ownerLoyalty} onPress={() => go(onLoyalty)} />
+          {/* Each row is there only for a login that may use it — the
+              owner sees them all, a team member the boxes the owner
+              ticked (owner, 2026-09-30). The server refuses the rest
+              anyway; hiding them is so nobody taps into a "no access". */}
+          {staffCan("orders") ? (
+            <Row icon="restaurant-outline" label={t.ownerBoard} onPress={() => go(onBoard)} />
+          ) : null}
+          {staffCan("menu") ? (
+            <Row
+              icon="fast-food-outline"
+              label={t.ownerMenuManage}
+              onPress={() => go(onManageMenu)}
+            />
+          ) : null}
+          {staffCan("settings") ? (
+            <Row icon="gift-outline" label={t.ownerLoyalty} onPress={() => go(onLoyalty)} />
+          ) : null}
           {/* `card-outline`, not another gift: Loyalty already owns the
               gift glyph above, and two identical icons in one column is
               how a cashier taps the wrong row mid-service. */}
-          <Row
-            icon="card-outline"
-            label={t.ownerRedeemGiftCard}
-            onPress={() => go(onRedeemGiftCard)}
-          />
-          <Row icon="pricetags-outline" label={t.ownerGiftCards} onPress={() => go(onGiftCards)} />
-          <Row
-            icon="alert-circle-outline"
-            label={t.ownerIssues}
-            badge={openIssues}
-            onPress={() => go(onIssues)}
-          />
-          <Row icon="star-outline" label={t.ownerRating} onPress={() => go(onRating)} />
-          <Row icon="time-outline" label={t.ownerHours} onPress={() => go(onHours)} />
-          <Row icon="call-outline" label={t.ownerContact} onPress={() => go(onContact)} />
-          <Row icon="key-outline" label={t.ownerPassword} onPress={() => go(onPassword)} />
+          {staffCan("giftcards") ? (
+            <>
+              <Row
+                icon="card-outline"
+                label={t.ownerRedeemGiftCard}
+                onPress={() => go(onRedeemGiftCard)}
+              />
+              <Row
+                icon="pricetags-outline"
+                label={t.ownerGiftCards}
+                onPress={() => go(onGiftCards)}
+              />
+            </>
+          ) : null}
+          {staffCan("orders") ? (
+            <Row
+              icon="alert-circle-outline"
+              label={t.ownerIssues}
+              badge={openIssues}
+              onPress={() => go(onIssues)}
+            />
+          ) : null}
+          {staffCan("settings") ? (
+            <>
+              <Row icon="star-outline" label={t.ownerRating} onPress={() => go(onRating)} />
+              <Row icon="time-outline" label={t.ownerHours} onPress={() => go(onHours)} />
+              <Row icon="call-outline" label={t.ownerContact} onPress={() => go(onContact)} />
+            </>
+          ) : null}
+          {/* The password the owner set for a team member stays theirs to
+              change; only the owner changes their own from here. */}
+          {staffCan("owner") ? (
+            <Row icon="key-outline" label={t.ownerPassword} onPress={() => go(onPassword)} />
+          ) : null}
           <View style={styles.rule} />
           <Row icon="log-out-outline" label={t.signOutStaff} danger onPress={confirmSignOut} />
         </Pressable>

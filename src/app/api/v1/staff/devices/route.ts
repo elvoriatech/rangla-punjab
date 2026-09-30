@@ -34,7 +34,7 @@ const unregisterSchema = z.object({
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req);
+  const gate = await requireStaff(req, "orders");
   if (!gate.ok) return gate.response;
 
   const parsed = registerSchema.safeParse(await req.json().catch(() => null));
