@@ -16,34 +16,29 @@ function shell(brand: Brand): string {
   );
 }
 
-describe("EmailShell header", () => {
-  it("puts the banner behind the header and the logo on top of it", () => {
-    const html = shell({ name: "Rangla Punjab", logoUrl: LOGO, bannerUrl: BANNER, accent: null });
-    // The photo is a BACKGROUND, both ways, so every client gets one.
-    expect(html).toContain(`background="${BANNER}"`);
-    expect(html).toMatch(/background-image:\s*url\(https:\/\/elvoria\.eu\/img\/banner-abc\.jpg\)/);
-    // The logo medallion still renders, with its alt text.
-    expect(html).toContain(`src="${LOGO}"`);
-    expect(html).toContain('alt="Rangla Punjab"');
-    // …and the banner is no longer a standalone <img>, which is what used
-    // to push the coloured band down into a second header band.
-    expect(html).not.toContain(`<img src="${BANNER}"`);
-    expect(html).not.toMatch(
-      new RegExp(`<img[^>]+${BANNER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
-    );
-  });
-
-  it("keeps the coloured band when there is no banner", () => {
+describe("EmailShell — the green frame every notification shares", () => {
+  it("opens with the brand header image, not the venue's photo banner", () => {
     const html = shell({
       name: "Rangla Punjab",
       logoUrl: LOGO,
-      bannerUrl: null,
+      bannerUrl: BANNER,
       accent: "#123456",
     });
+    // The same header image as the order confirmation, named for image-blocking clients.
+    expect(html).toMatch(/<img[^>]+src="[^"]*\/brand\/email-header\.png"/);
+    expect(html).toContain('alt="Rangla Punjab"');
+    // One look for every email (owner, 2026-09-30): no photo banner, no
+    // per-venue colour band, the confirmation's green instead.
+    expect(html).not.toContain(BANNER);
     expect(html).not.toContain("background-image");
-    expect(html).toContain("background-color:#123456");
-    expect(html).toContain(`src="${LOGO}"`);
-    expect(html).toContain("Rangla Punjab");
+    expect(html).not.toContain("#123456");
+    expect(html).toContain("background-color:#f3f5ef");
+  });
+
+  it("keeps each email's own content inside the frame", () => {
+    const html = shell({ name: "Rangla Punjab", logoUrl: null, bannerUrl: null });
+    expect(html).toContain("<p>Body</p>");
+    expect(html).not.toContain("Thank You");
   });
 });
 

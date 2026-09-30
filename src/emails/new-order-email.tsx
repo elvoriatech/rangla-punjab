@@ -2,7 +2,7 @@ import type { ReceiptOrder } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
 import { newOrderCopy } from "@/lib/i18n/emails";
 import { dirFor, type UiLocale } from "@/lib/locales";
-import { Button, EmailShell, Pill, styles, venueBrand } from "./layout";
+import { Button, EmailShell, Pill, styles, venueBrand, EMAIL } from "./layout";
 
 /**
  * The owner's "new order" alert — the kitchen ticket in an inbox. Built to
@@ -91,7 +91,7 @@ export function NewOrderEmail({
             icon: "📞",
             label: t.phone,
             value: (
-              <a href={`tel:${order.customerPhone}`} style={{ color: "#8f1a1a" }}>
+              <a href={`tel:${order.customerPhone}`} style={{ color: EMAIL.accent }}>
                 {order.customerPhone}
               </a>
             ),
@@ -180,11 +180,13 @@ export function NewOrderEmail({
             </tr>
           ) : null}
           <tr>
-            <td style={{ ...styles.totalCell, borderTop: "2px solid #360a0a" }}>{t.total}</td>
+            <td style={{ ...styles.totalCell, borderTop: `2px solid ${EMAIL.accentDark}` }}>
+              {t.total}
+            </td>
             <td
               style={{
                 ...styles.totalCell,
-                borderTop: "2px solid #360a0a",
+                borderTop: `2px solid ${EMAIL.accentDark}`,
                 textAlign: amountAlign,
                 whiteSpace: "nowrap",
               }}

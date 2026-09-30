@@ -16,7 +16,7 @@
 import { BRAND } from "@/lib/brand";
 import { guestResetCopy, type GuestResetCopy } from "@/lib/i18n/emails";
 import { dirFor, uiLocale, type UiLocale } from "@/lib/locales";
-import { Button, EmailShell, platformBrand, styles, type Brand } from "./layout";
+import { Button, EmailShell, platformBrand, styles, type Brand, EMAIL } from "./layout";
 
 export interface ResetPasswordEmailProps {
   resetUrl: string;
@@ -66,7 +66,7 @@ export function ResetPasswordEmail({
       <Button href={resetUrl} label={t.cta} />
       <p style={{ ...styles.muted, fontSize: 12, wordBreak: "break-all" }}>
         {t.orPaste}{" "}
-        <a href={resetUrl} style={{ color: "#8f1a1a" }}>
+        <a href={resetUrl} style={{ color: EMAIL.accent }}>
           {resetUrl}
         </a>
       </p>

@@ -4,7 +4,7 @@
  * expires — enough time for the owner to come back, review, and add a card.
  */
 import { BRAND } from "@/lib/brand";
-import { Button, EmailShell, platformBrand, styles } from "./layout";
+import { Button, EmailShell, platformBrand, styles, EMAIL } from "./layout";
 
 export interface TrialEndingEmailProps {
   tenantName: string;
@@ -34,7 +34,7 @@ export function TrialEndingEmail({
       </p>
       <Button href={portalUrl} label="Add a payment method" />
       <p style={{ ...styles.muted, fontSize: 12, wordBreak: "break-all" }}>
-        <a href={portalUrl} style={{ color: "#8f1a1a" }}>
+        <a href={portalUrl} style={{ color: EMAIL.accent }}>
           {portalUrl}
         </a>
       </p>

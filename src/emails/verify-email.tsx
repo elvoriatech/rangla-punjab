@@ -2,7 +2,7 @@
  * Account verification email, in the shared branded shell.
  */
 import { BRAND } from "@/lib/brand";
-import { Button, EmailShell, platformBrand, styles } from "./layout";
+import { Button, EmailShell, platformBrand, styles, EMAIL } from "./layout";
 
 export interface VerifyEmailProps {
   verifyUrl: string;
@@ -23,7 +23,7 @@ export function VerifyEmail({ verifyUrl }: VerifyEmailProps): React.ReactElement
       <Button href={verifyUrl} label="Confirm email" />
       <p style={{ ...styles.muted, fontSize: 12, wordBreak: "break-all" }}>
         Or paste this link into your browser:{" "}
-        <a href={verifyUrl} style={{ color: "#8f1a1a" }}>
+        <a href={verifyUrl} style={{ color: EMAIL.accent }}>
           {verifyUrl}
         </a>
       </p>

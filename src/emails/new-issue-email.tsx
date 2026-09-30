@@ -1,6 +1,6 @@
 import { newIssueCopy } from "@/lib/i18n/emails";
 import { dirFor, type UiLocale } from "@/lib/locales";
-import { Button, EmailShell, Pill, styles, venueBrand } from "./layout";
+import { Button, EmailShell, Pill, styles, venueBrand, EMAIL } from "./layout";
 
 /**
  * "A guest says their food was cold." The owner's alert for a complaint
@@ -58,7 +58,7 @@ export function NewIssueEmail({ issue, locale, issueUrl }: NewIssueEmailProps): 
             icon: "📞",
             label: t.phone,
             value: (
-              <a href={`tel:${issue.customerPhone}`} style={{ color: "#8f1a1a" }}>
+              <a href={`tel:${issue.customerPhone}`} style={{ color: EMAIL.accent }}>
                 {issue.customerPhone}
               </a>
             ),
@@ -111,8 +111,8 @@ export function NewIssueEmail({ issue, locale, issueUrl }: NewIssueEmailProps): 
         style={{
           margin: 0,
           padding: "12px 16px",
-          borderInlineStart: "3px solid #e8c15c",
-          backgroundColor: "#fdf4e0",
+          borderInlineStart: `3px solid ${EMAIL.gold}`,
+          backgroundColor: EMAIL.cream,
           borderRadius: 8,
           fontSize: 16,
           whiteSpace: "pre-wrap",
