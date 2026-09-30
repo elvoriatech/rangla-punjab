@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
 import { getMenuStatus } from "@/lib/menu-versions-service";
 import { getMenuCounts, getOrderingSettings, getVenueForUser } from "@/lib/venue-service";
 import { getOrderStats } from "@/lib/order-service";
@@ -9,6 +8,7 @@ import { siteHost } from "@/lib/site-url";
 import { resolveMenuTexture, resolveMenuTheme } from "@/lib/menu-themes";
 import { publishMenuAction } from "./categories/actions";
 import { SubmitButton } from "@/components/submit-button";
+import { can, getAccess, requireOverview, type Permission } from "@/lib/team-access";
 
 /**
  * Owner overview — the "front desk" of the dashboard. Visual hierarchy:
@@ -21,8 +21,12 @@ const CARD =
   "border border-ink/10 bg-card shadow-[0_1px_2px_rgba(42,26,14,0.04),0_12px_32px_-24px_rgba(42,26,14,0.25)]";
 
 export default async function DashboardPage(): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requireOverview();
+  // A team member sees the Publish button and the Manage cards only for
+  // the areas the owner ticked for them.
+  const teamAccess = await getAccess(userId);
+  const may = (p: Permission | "owner"): boolean =>
+    p === "owner" ? Boolean(teamAccess?.isOwner) : can(teamAccess, p);
 
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");
@@ -110,14 +114,16 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
                 : "Guests see nothing until you publish. Finish the menu, then press Publish."}
             </p>
           </div>
-          <form action={publishMenuAction}>
-            <SubmitButton
-              pendingLabel="Publishing…"
-              className="bg-orange px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-card shadow-[0_8px_16px_-8px_rgba(194,90,34,0.5)] transition-colors hover:bg-orange-dark"
-            >
-              Publish menu
-            </SubmitButton>
-          </form>
+          {may("menu") ? (
+            <form action={publishMenuAction}>
+              <SubmitButton
+                pendingLabel="Publishing…"
+                className="bg-orange px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-card shadow-[0_8px_16px_-8px_rgba(194,90,34,0.5)] transition-colors hover:bg-orange-dark"
+              >
+                Publish menu
+              </SubmitButton>
+            </form>
+          ) : null}
         </div>
       </section>
 
@@ -231,36 +237,48 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
       <section aria-label="Manage" className="mt-12 pb-4">
         <SectionHeading title="Manage" />
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <ManageCard
-            href={`${base}/categories`}
-            title="Edit the menu"
-            body="Categories, dishes, prices, and allergens."
-          />
-          <ManageCard
-            href={`${base}/orders`}
-            title="Kitchen orders"
-            body="Live tickets from guests — leave it open in the kitchen."
-          />
-          <ManageCard
-            href={`${base}/appearance`}
-            title="Appearance"
-            body={`${theme.label} theme · ${texture.label} texture.`}
-          />
-          <ManageCard
-            href={`${base}/qr`}
-            title="QR codes"
-            body="Print-ready codes for table tents, windows, and flyers."
-          />
-          <ManageCard
-            href={`${base}/settings`}
-            title="Settings"
-            body="Name, logo, currency, languages, and diet filters."
-          />
-          <ManageCard
-            href={`${base}/billing`}
-            title="Billing"
-            body="Your plan, invoices, and payment method."
-          />
+          {may("menu") ? (
+            <ManageCard
+              href={`${base}/categories`}
+              title="Edit the menu"
+              body="Categories, dishes, prices, and allergens."
+            />
+          ) : null}
+          {may("orders") ? (
+            <ManageCard
+              href={`${base}/orders`}
+              title="Kitchen orders"
+              body="Live tickets from guests — leave it open in the kitchen."
+            />
+          ) : null}
+          {may("appearance") ? (
+            <ManageCard
+              href={`${base}/appearance`}
+              title="Appearance"
+              body={`${theme.label} theme · ${texture.label} texture.`}
+            />
+          ) : null}
+          {may("qr") ? (
+            <ManageCard
+              href={`${base}/qr`}
+              title="QR codes"
+              body="Print-ready codes for table tents, windows, and flyers."
+            />
+          ) : null}
+          {may("settings") ? (
+            <ManageCard
+              href={`${base}/settings`}
+              title="Settings"
+              body="Name, logo, currency, languages, and diet filters."
+            />
+          ) : null}
+          {may("owner") ? (
+            <ManageCard
+              href={`${base}/billing`}
+              title="Billing"
+              body="Your plan, invoices, and payment method."
+            />
+          ) : null}
         </div>
       </section>
     </main>

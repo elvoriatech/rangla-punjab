@@ -1,4 +1,7 @@
+import { requireOwner } from "@/lib/team-access";
+
 export default async function VenuePage({ params }: { params: Promise<{ venueId: string }> }) {
+  await requireOwner();
   const { venueId } = await params;
   return (
     <main className="mx-auto max-w-3xl p-8">

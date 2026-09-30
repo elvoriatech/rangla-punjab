@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSessionUserId } from "@/lib/auth";
 import { createItem, softDeleteItem, updateItem } from "@/lib/items-service";
 import { daysFromForm } from "@/lib/item-days";
 import { saveUploadedImage } from "@/lib/media-service";
@@ -10,11 +9,10 @@ import {
   saveCategoryTranslations,
   type SaveCategoryTranslationsInput,
 } from "@/lib/translation-service";
+import { requirePermission } from "@/lib/team-access";
 
 async function requireUser(): Promise<string> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  return userId;
+  return requirePermission("menu");
 }
 
 /**

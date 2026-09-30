@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
 import { getConnectStatus, refreshConnectStatus } from "@/lib/connect-service";
 import { getStripeProvider } from "@/lib/stripe";
 import { siteUrl } from "@/lib/site-url";
@@ -15,6 +13,7 @@ import {
 import { SubmitButton } from "@/components/submit-button";
 import { paypalAvailable } from "@/lib/paypal";
 import { SaveChangesButton } from "@/components/save-changes-button";
+import { requireOwner } from "@/lib/team-access";
 
 /**
  * `/dashboard/billing` — online-payment payouts (Stripe Connect or
@@ -38,8 +37,7 @@ export default async function BillingPage({
     paypal?: string;
   }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requireOwner();
   const { connect, error, ownkeys, paypal } = await searchParams;
   // Payout method follows the operator's fee mode: upfront/flat plan ⇒ the
   // restaurant charges with their OWN keys (keeps 100%); percentage/commission

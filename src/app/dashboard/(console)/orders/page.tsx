@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
 import { reconcilePendingPayments } from "@/lib/connect-service";
-import { getSessionUserId } from "@/lib/auth";
 import { resolveActiveTenantId } from "@/lib/tenant";
 import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
 import { fulfilmentLines } from "@/lib/ordering-config";
@@ -20,6 +18,7 @@ import { NewOrderChime } from "../../../kitchen/new-order-chime";
 import { AutoPrint } from "./auto-print";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Kitchen screen: newest orders first, big and scannable from arm's
@@ -154,8 +153,7 @@ export default async function OrdersPage({
   searchParams: Promise<{ page?: string; size?: string }>;
 }): Promise<React.ReactElement> {
   const base = `/dashboard`;
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("orders");
 
   // Open orders always show in full; the completed list paginates.
   // listRecentOrders caps at 100 — history beyond that ages out of this

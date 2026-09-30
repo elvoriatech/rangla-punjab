@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
 import { FlashMessage } from "@/components/flash-message";
-import { getSessionUserId } from "@/lib/auth";
 import { listCateringRequests, type CateringRow } from "@/lib/catering-service";
 import { setCateringStatusAction } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Catering enquiries from the app, soonest event first. Same working
@@ -141,8 +140,7 @@ export default async function CateringPage({
 }: {
   searchParams: Promise<{ saved?: string; error?: string }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("catering");
   const { saved, error } = await searchParams;
 
   const rows = await listCateringRequests(userId);

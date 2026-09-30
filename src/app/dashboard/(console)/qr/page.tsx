@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import { siteUrl } from "@/lib/public-menu";
 import { getVenueAppLinks } from "@/lib/venue-service";
 import { APP_DOWNLOAD_PATH } from "@/lib/app-download";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * QR codes page — the physical half of the product. One big scannable
@@ -13,8 +13,7 @@ import { APP_DOWNLOAD_PATH } from "@/lib/app-download";
  */
 
 export default async function QrPage(): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("qr");
 
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");

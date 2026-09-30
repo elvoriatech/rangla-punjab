@@ -21,6 +21,7 @@ import {
   ReceiptText,
   Rocket,
   Settings,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { logoutAction, setActiveVenueAction } from "./actions";
@@ -45,21 +46,35 @@ interface RailItem {
   newTab?: boolean;
   /** Attention chip (unresolved complaints on Orders). 0 = no chip. */
   count?: number;
+  /** The area this link opens — a team permission, or "owner". */
+  need: string;
 }
 
 function buildNav(base: string, openIssues: number): RailItem[] {
   return [
-    { href: base, label: "Overview", icon: LayoutDashboard, exact: true },
-    { href: `${base}/orders`, label: "Orders", icon: ReceiptText, count: openIssues },
-    { href: `${base}/reservations`, label: "Reservations", icon: CalendarCheck },
-    { href: `${base}/catering`, label: "Catering", icon: ConciergeBell },
-    { href: "/kitchen", label: "Kitchen", icon: ChefHat, newTab: true },
-    { href: `${base}/categories`, label: "Menu", icon: BookOpenText },
-    { href: `${base}/appearance`, label: "Appearance", icon: Palette },
-    { href: `${base}/gift-cards`, label: "Gift cards", icon: Gift },
-    { href: `${base}/qr`, label: "QR codes", icon: QrCode },
-    { href: `${base}/settings`, label: "Settings", icon: Settings },
-    { href: `${base}/billing`, label: "Payments", icon: CreditCard },
+    { href: base, label: "Overview", icon: LayoutDashboard, exact: true, need: "overview" },
+    {
+      href: `${base}/orders`,
+      label: "Orders",
+      icon: ReceiptText,
+      count: openIssues,
+      need: "orders",
+    },
+    {
+      href: `${base}/reservations`,
+      label: "Reservations",
+      icon: CalendarCheck,
+      need: "reservations",
+    },
+    { href: `${base}/catering`, label: "Catering", icon: ConciergeBell, need: "catering" },
+    { href: "/kitchen", label: "Kitchen", icon: ChefHat, newTab: true, need: "kitchen" },
+    { href: `${base}/categories`, label: "Menu", icon: BookOpenText, need: "menu" },
+    { href: `${base}/appearance`, label: "Appearance", icon: Palette, need: "appearance" },
+    { href: `${base}/gift-cards`, label: "Gift cards", icon: Gift, need: "giftcards" },
+    { href: `${base}/qr`, label: "QR codes", icon: QrCode, need: "qr" },
+    { href: `${base}/settings`, label: "Settings", icon: Settings, need: "settings" },
+    { href: `${base}/billing`, label: "Payments", icon: CreditCard, need: "owner" },
+    { href: `${base}/team`, label: "Team", icon: Users, need: "owner" },
   ];
 }
 
@@ -73,7 +88,11 @@ export function DashboardRail({
   venues,
   activeVenueId,
   openIssues = 0,
+  allowed,
 }: {
+  /** What this login may open: its ticked areas, plus "owner" for the
+   *  owner. The server checks every page anyway; this only hides links. */
+  allowed: readonly string[];
   base: string;
   venueName: string;
   logoUrl: string | null;
@@ -119,7 +138,8 @@ export function DashboardRail({
     });
   };
 
-  const NAV = buildNav(base, openIssues);
+  const NAV = buildNav(base, openIssues).filter((i) => allowed.includes(i.need));
+  const canEditMenu = allowed.includes("menu");
   const itemBase = collapsed
     ? "flex items-center justify-center px-0 py-2.5"
     : "flex items-center gap-3 border-l-2 px-3 py-2";
@@ -211,36 +231,38 @@ export function DashboardRail({
             </form>
           </div>
         ) : null}
-        <div className="px-3 pt-4">
-          <form
-            action={publishMenuAction}
-            onSubmit={() => setPublishing(true)}
-            title={
-              canPublish
-                ? "Make your draft changes live for guests"
-                : everPublished
-                  ? "Everything is published — no unpublished changes"
-                  : "Add categories and dishes first"
-            }
-          >
-            <button
-              type="submit"
-              disabled={!canPublish || publishing}
-              className={`flex w-full items-center justify-center gap-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
-                canPublish && !publishing
-                  ? "bg-[var(--menu-accent)] text-[var(--menu-bg)] shadow-[0_10px_24px_-12px_var(--menu-accent)] hover:opacity-90 active:scale-[0.98]"
-                  : "cursor-not-allowed border border-[var(--menu-line)] text-[var(--menu-text-soft)] opacity-50"
-              } ${collapsed ? "px-0" : "px-3"}`}
+        {canEditMenu ? (
+          <div className="px-3 pt-4">
+            <form
+              action={publishMenuAction}
+              onSubmit={() => setPublishing(true)}
+              title={
+                canPublish
+                  ? "Make your draft changes live for guests"
+                  : everPublished
+                    ? "Everything is published — no unpublished changes"
+                    : "Add categories and dishes first"
+              }
             >
-              <Rocket className="h-4 w-4 shrink-0" aria-hidden />
-              {collapsed ? (
-                <span className="sr-only">Publish menu</span>
-              ) : (
-                <span>{publishing ? "Publishing…" : canPublish ? "Publish" : "Published"}</span>
-              )}
-            </button>
-          </form>
-        </div>
+              <button
+                type="submit"
+                disabled={!canPublish || publishing}
+                className={`flex w-full items-center justify-center gap-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
+                  canPublish && !publishing
+                    ? "bg-[var(--menu-accent)] text-[var(--menu-bg)] shadow-[0_10px_24px_-12px_var(--menu-accent)] hover:opacity-90 active:scale-[0.98]"
+                    : "cursor-not-allowed border border-[var(--menu-line)] text-[var(--menu-text-soft)] opacity-50"
+                } ${collapsed ? "px-0" : "px-3"}`}
+              >
+                <Rocket className="h-4 w-4 shrink-0" aria-hidden />
+                {collapsed ? (
+                  <span className="sr-only">Publish menu</span>
+                ) : (
+                  <span>{publishing ? "Publishing…" : canPublish ? "Publish" : "Published"}</span>
+                )}
+              </button>
+            </form>
+          </div>
+        ) : null}
         <nav aria-label="Dashboard" className="px-3 py-4">
           <ul className="space-y-1">
             {NAV.map(({ href, label, icon: Icon, exact, newTab, count }) => {

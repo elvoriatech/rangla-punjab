@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import { renderQrPng, renderQrSvg } from "@/lib/qr";
 import { siteUrl } from "@/lib/public-menu";
 import { APP_DOWNLOAD_PATH } from "@/lib/app-download";
+import { permittedUserId } from "@/lib/team-access";
 
 // Brand logo composited over the QR centre. `H`-level error correction
 // leaves 30 % redundancy, so the 20 % overlay never breaks scanning.
@@ -38,8 +38,14 @@ async function brandLogoDataUrl(): Promise<string | undefined> {
  * laminated, wine-splashed table tent still scan in candlelight.
  */
 export async function GET(request: Request): Promise<NextResponse> {
-  const userId = await getSessionUserId();
-  if (!userId) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  const gate = await permittedUserId("qr");
+  if ("error" in gate) {
+    return NextResponse.json(
+      { error: gate.error === 401 ? "unauthenticated" : "forbidden" },
+      { status: gate.error },
+    );
+  }
+  const userId = gate.userId;
 
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) return NextResponse.json({ error: "no_venue" }, { status: 404 });

@@ -10,7 +10,7 @@ import type { DayHours, Weekday } from "@/lib/opening-hours";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSessionUserId, setSessionCookie } from "@/lib/auth";
+import { setSessionCookie } from "@/lib/auth";
 import { changeUserPassword } from "@/lib/auth-service";
 import { clientIp } from "@/lib/client-ip";
 import { saveUploadedImage } from "@/lib/media-service";
@@ -38,11 +38,10 @@ import {
   updateVenueName,
   venueAdminBase,
 } from "@/lib/venue-service";
+import { requireOwner, requirePermission } from "@/lib/team-access";
 
 async function requireUser(): Promise<string> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  return userId;
+  return requirePermission("settings");
 }
 
 async function finish(userId: string, ok: boolean, flag: string): Promise<never> {
@@ -87,7 +86,7 @@ async function finishAccount(userId: string, ok: boolean, flag: string): Promise
  * promises.
  */
 export async function changePasswordAction(form: FormData): Promise<void> {
-  const userId = await requireUser();
+  const userId = await requireOwner();
 
   // Per-IP ceiling on top of the session check: the form takes the
   // current password, so an unattended dashboard is otherwise a guessing

@@ -4,7 +4,7 @@ import { corsPreflight, withCors } from "@/lib/cors";
 import { readIssuePhoto } from "@/lib/issue-service";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { staffFromRequest } from "@/lib/staff-auth";
-import { resolveActiveTenantId } from "@/lib/tenant";
+import { can, getAccess } from "@/lib/team-access";
 
 /**
  * The ONLY way a complaint photo's bytes leave the server.
@@ -61,10 +61,10 @@ async function resolveTenant(req: NextRequest, orderId: string): Promise<string 
   // credential, so it collapses to null rather than a 500.
   const userId = await getSessionUserId().catch(() => null);
   if (!userId) return null;
-  // Membership IS the check: `resolve_active_tenant` answers nothing for
-  // a user who holds none, which is the same gate every dashboard read
-  // passes through.
-  return resolveActiveTenantId(userId);
+  // A team login sees complaint photos only with the Orders area ticked;
+  // the owner always does. No access reads as "not found", like no login.
+  const access = await getAccess(userId);
+  return can(access, "orders") ? (access?.tenantId ?? null) : null;
 }
 
 export async function GET(

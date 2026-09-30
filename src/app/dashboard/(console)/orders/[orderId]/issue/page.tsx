@@ -1,12 +1,12 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getSessionUserId } from "@/lib/auth";
 import { getStaffIssueByOrder } from "@/lib/issue-service";
 import { ORDER_TYPE_LABELS, type OrderType } from "@/lib/ordering-config";
 import { formatPrice } from "@/lib/public-menu";
 import { SubmitButton } from "@/components/submit-button";
 import { replyIssueAction, resolveIssueAction } from "../../actions";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * One complaint, end to end: what the guest said, what we answered, and
@@ -42,8 +42,7 @@ export default async function OrderIssuePage({
 }: {
   params: Promise<{ orderId: string }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("orders");
   const { orderId } = await params;
 
   // Membership-scoped: another tenant's order is simply not found.

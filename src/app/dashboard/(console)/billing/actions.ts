@@ -2,12 +2,10 @@
 
 import { venueAdminBase } from "@/lib/venue-service";
 import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
+import { requireOwner } from "@/lib/team-access";
 
 async function requireUser(): Promise<string> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  return userId;
+  return requireOwner();
 }
 
 /** "Set up payouts" — start (or resume) Stripe Connect onboarding for

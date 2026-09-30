@@ -1,10 +1,9 @@
-import { redirect } from "next/navigation";
 import { FlashMessage } from "@/components/flash-message";
-import { getSessionUserId } from "@/lib/auth";
 import { listReservations } from "@/lib/reservation-service";
 import { getOrderingSettings } from "@/lib/venue-service";
 import { setReservationStatusAction } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Front-of-house reservations: what guests requested from the menu,
@@ -31,8 +30,7 @@ export default async function ReservationsPage({
 }: {
   searchParams: Promise<{ saved?: string; error?: string }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("reservations");
   const { saved, error } = await searchParams;
 
   const orderingResult = await getOrderingSettings(userId);

@@ -1,7 +1,6 @@
 import { BRAND } from "@/lib/brand";
 import { FlashMessage } from "@/components/flash-message";
 import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
 import {
   getGiftCardSettings,
   getLoyaltySettings,
@@ -67,6 +66,7 @@ import {
 } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
 import { RequiredLegend, RequiredMark } from "@/components/required-mark";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Venue settings: name, logo, currency, and menu languages. Every form is
@@ -375,8 +375,7 @@ export default async function SettingsPage({
     google_q?: string;
   }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("settings");
 
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");

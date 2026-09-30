@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { FlashMessage } from "@/components/flash-message";
-import { getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import {
   MENU_THEMES,
@@ -17,6 +16,7 @@ import {
 import { signPreviewToken } from "@/lib/preview-token";
 import { saveAppearanceAction } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Appearance — how the public menu looks. Each theme card is a miniature
@@ -30,8 +30,7 @@ export default async function AppearancePage({
 }: {
   searchParams: Promise<{ saved?: string; error?: string }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("appearance");
 
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");

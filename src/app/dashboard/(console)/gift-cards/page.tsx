@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FlashMessage } from "@/components/flash-message";
 import { SubmitButton } from "@/components/submit-button";
-import { getSessionUserId } from "@/lib/auth";
 import { formatPrice } from "@/lib/public-menu";
 import {
   GIFT_CARD_STATUS_FILTERS,
@@ -13,6 +12,7 @@ import {
 } from "@/lib/gift-card-service";
 import { getVenueForUser, getVenueHours } from "@/lib/venue-service";
 import { redeemGiftCardAction } from "./actions";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Gift cards — every card this venue has sold, and the counter's redeem
@@ -71,8 +71,7 @@ export default async function GiftCardsPage({
 }: {
   searchParams: Promise<{ status?: string; saved?: string; error?: string }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("giftcards");
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");
   const venue = venueResult.value;

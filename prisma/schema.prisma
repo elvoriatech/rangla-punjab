@@ -228,6 +228,12 @@ model Membership {
   userId   String @map("user_id")
   tenantId String @map("tenant_id")
   role     Role   @default(staff)
+  /// What a `staff` member may open in the dashboard — see
+  /// src/lib/team-access.ts for the list. Ignored for `owner`, who has
+  /// everything. Empty = nothing (deny by default).
+  permissions String[] @default([])
+  /// The owner's label for this person ("Ali — kitchen"). Owners: null.
+  displayName String?  @map("display_name")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

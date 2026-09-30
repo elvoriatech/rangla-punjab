@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionUserId } from "@/lib/auth";
 import { deleteCategory, renameCategory } from "@/lib/categories-service";
+import { permittedUserId } from "@/lib/team-access";
 
 const patchSchema = z.object({ name: z.string().trim().min(1).max(80) });
 
 async function requireUser(): Promise<string | NextResponse> {
-  const userId = await getSessionUserId();
-  if (!userId) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  const gate = await permittedUserId("menu");
+  if ("error" in gate) {
+    return NextResponse.json(
+      { error: gate.error === 401 ? "unauthenticated" : "forbidden" },
+      { status: gate.error },
+    );
+  }
+  const userId = gate.userId;
   return userId;
 }
 

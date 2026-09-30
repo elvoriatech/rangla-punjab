@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { FlashMessage } from "@/components/flash-message";
 import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
 import { listCategories } from "@/lib/categories-service";
 import { listActiveTemplates } from "@/lib/menu-template-service";
 import { ensureDraft, getMenuStatus } from "@/lib/menu-versions-service";
@@ -11,6 +10,7 @@ import { ApplyTemplateButton } from "./apply-template-button";
 import { CategoryPhotoButton } from "./category-photo-button";
 import { addCategoryAction, deleteCategoryAction, moveCategoryAction } from "./actions";
 import { SubmitButton } from "@/components/submit-button";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Categories admin page. Server component: reads the list, renders it, wires
@@ -25,8 +25,7 @@ export default async function CategoriesPage({
   searchParams: Promise<{ saved?: string; error?: string }>;
 }): Promise<React.ReactElement> {
   const base = `/dashboard`;
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("menu");
   const { saved, error } = await searchParams;
 
   // A restaurant provisioned straight to a published version has no draft

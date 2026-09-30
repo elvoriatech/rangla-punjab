@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionUserId } from "@/lib/auth";
 import { asUser } from "@/lib/tenant";
 import { signPreviewToken } from "@/lib/preview-token";
+import { permittedUserId } from "@/lib/team-access";
 
 const bodySchema = z.object({ venueId: z.string().min(1) });
 
@@ -13,8 +13,14 @@ const bodySchema = z.object({ venueId: z.string().min(1) });
  * gets a 404, not a signed token for someone else's menu.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  const userId = await getSessionUserId();
-  if (!userId) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  const gate = await permittedUserId("menu");
+  if ("error" in gate) {
+    return NextResponse.json(
+      { error: gate.error === 401 ? "unauthenticated" : "forbidden" },
+      { status: gate.error },
+    );
+  }
+  const userId = gate.userId;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });

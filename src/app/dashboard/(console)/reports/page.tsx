@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
 import { rangeLabel, resolveReportRange, type ReportPreset } from "@/lib/report-range";
 import { getVenueReport } from "@/lib/report-service";
 import { SubmitButton } from "@/components/submit-button";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Berichte / Statements — the restaurant's financial & operations report.
@@ -25,8 +25,7 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ preset?: string; from?: string; to?: string }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("reports");
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");
   const venue = venueResult.value;

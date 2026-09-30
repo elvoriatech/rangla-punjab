@@ -9,6 +9,7 @@ import { menuThemeStyle } from "@/lib/menu-themes";
 import { prisma } from "@/lib/db";
 import { getMenuStatus } from "@/lib/menu-versions-service";
 import { countOpenIssues } from "@/lib/issue-service";
+import { getAccess, PERMISSIONS } from "@/lib/team-access";
 import { DashboardRail } from "./rail";
 import { MobileNav } from "./mobile-nav";
 import { ImpersonationBanner } from "./impersonation";
@@ -24,16 +25,19 @@ import { VerifyEmailBanner } from "./verify-banner";
 
 function buildNav(base: string, openIssues: number) {
   return [
-    { href: base, label: "Overview", exact: true },
-    { href: `${base}/orders`, label: "Orders", count: openIssues },
-    { href: "/kitchen", label: "Kitchen", newTab: true },
-    { href: `${base}/categories`, label: "Menu" },
-    { href: `${base}/appearance`, label: "Appearance" },
-    { href: `${base}/reports`, label: "Reports" },
-    { href: `${base}/gift-cards`, label: "Gift cards" },
-    { href: `${base}/qr`, label: "QR codes" },
-    { href: `${base}/settings`, label: "Settings" },
-    { href: `${base}/billing`, label: "Billing" },
+    { href: base, label: "Overview", exact: true, need: "overview" },
+    { href: `${base}/orders`, label: "Orders", count: openIssues, need: "orders" },
+    { href: `${base}/reservations`, label: "Reservations", need: "reservations" },
+    { href: `${base}/catering`, label: "Catering", need: "catering" },
+    { href: "/kitchen", label: "Kitchen", newTab: true, need: "kitchen" },
+    { href: `${base}/categories`, label: "Menu", need: "menu" },
+    { href: `${base}/appearance`, label: "Appearance", need: "appearance" },
+    { href: `${base}/reports`, label: "Reports", need: "reports" },
+    { href: `${base}/gift-cards`, label: "Gift cards", need: "giftcards" },
+    { href: `${base}/qr`, label: "QR codes", need: "qr" },
+    { href: `${base}/settings`, label: "Settings", need: "settings" },
+    { href: `${base}/billing`, label: "Billing", need: "owner" },
+    { href: `${base}/team`, label: "Team", need: "owner" },
   ] as const;
 }
 
@@ -73,7 +77,14 @@ export default async function DashboardLayout({
   // Complaints waiting on the restaurant — the rail's Orders chip. A
   // failure here must not take the whole console down.
   const openIssues = await countOpenIssues(userId).catch(() => 0);
-  const NAV = buildNav("/dashboard", openIssues);
+  // What this login may open — the owner everything, a team member the
+  // areas ticked for them. Pages check again on the server; this only
+  // decides which links the rail and the mobile menu show.
+  const access = await getAccess(userId);
+  const allowed: string[] = access?.isOwner
+    ? ["owner", ...PERMISSIONS]
+    : [...(access?.permissions ?? [])];
+  const NAV = buildNav("/dashboard", openIssues).filter((i) => allowed.includes(i.need));
   // The rail dresses itself in the venue's chosen menu theme.
   const railStyle = menuThemeStyle(venue.branding.theme, venue.branding.texture);
   const logoUrl = venue.branding.logoKey ? uploadedImageUrl(venue.branding.logoKey, 96) : null;
@@ -102,6 +113,7 @@ export default async function DashboardLayout({
           venues={venues}
           activeVenueId={activeVenueId}
           openIssues={openIssues}
+          allowed={allowed}
         />
 
         {/* Mobile top bar — hamburger toggles the nav drawer. */}

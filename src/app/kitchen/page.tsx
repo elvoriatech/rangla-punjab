@@ -1,5 +1,4 @@
-import { notFound, redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
+import { notFound } from "next/navigation";
 import { getOrderingSettings, getVenueForUser } from "@/lib/venue-service";
 import { BRAND } from "@/lib/brand";
 import { fulfilmentLines } from "@/lib/ordering-config";
@@ -13,6 +12,7 @@ import { NewOrderChime } from "./new-order-chime";
 import { NewOrderFlash } from "./new-order-flash";
 import { ServedDrawer } from "./served-drawer";
 import { WakeLock } from "./wake-lock";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Kitchen display (KDS): a dark, high-contrast board meant to run full
@@ -46,8 +46,7 @@ function isScheduled(order: { requestedFor: Date | null }): boolean {
 }
 
 export default async function KitchenPage(): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("kitchen");
 
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) notFound();

@@ -1,14 +1,12 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSessionUserId } from "@/lib/auth";
 import { advanceOrderStatus, markOrderDone } from "@/lib/order-service";
 import { replyToIssue, resolveIssue } from "@/lib/issue-service";
+import { requirePermission } from "@/lib/team-access";
 
 export async function markDoneAction(form: FormData): Promise<void> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("orders");
 
   const orderId = String(form.get("orderId") ?? "");
   if (orderId) await markOrderDone(userId, orderId);
@@ -18,8 +16,7 @@ export async function markDoneAction(form: FormData): Promise<void> {
 
 /** Advance an order one step (or skip ahead) along the lifecycle. */
 export async function advanceOrderAction(form: FormData): Promise<void> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("orders");
 
   const orderId = String(form.get("orderId") ?? "");
   const to = String(form.get("to") ?? "");
@@ -38,8 +35,7 @@ function revalidateIssue(orderId: string): void {
 
 /** The restaurant's answer on a complaint thread (status → answered). */
 export async function replyIssueAction(form: FormData): Promise<void> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("orders");
 
   const issueId = String(form.get("issueId") ?? "");
   const orderId = String(form.get("orderId") ?? "");
@@ -53,8 +49,7 @@ export async function replyIssueAction(form: FormData): Promise<void> {
 /** Close the thread. The guest can still read it; only the restaurant
  *  may write on it afterwards. */
 export async function resolveIssueAction(form: FormData): Promise<void> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("orders");
 
   const issueId = String(form.get("issueId") ?? "");
   const orderId = String(form.get("orderId") ?? "");

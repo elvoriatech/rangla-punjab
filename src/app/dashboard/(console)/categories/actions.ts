@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSessionUserId } from "@/lib/auth";
 import {
   createCategory,
   createSchema,
@@ -12,6 +11,7 @@ import {
 } from "@/lib/categories-service";
 import { publishDraft } from "@/lib/menu-versions-service";
 import { saveUploadedImage } from "@/lib/media-service";
+import { requirePermission } from "@/lib/team-access";
 
 /**
  * Server actions used by the admin categories page. Each one:
@@ -27,9 +27,7 @@ import { saveUploadedImage } from "@/lib/media-service";
 const path = "/dashboard/categories";
 
 async function requireUser(): Promise<string> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  return userId;
+  return requirePermission("menu");
 }
 
 export async function addCategoryAction(form: FormData): Promise<void> {

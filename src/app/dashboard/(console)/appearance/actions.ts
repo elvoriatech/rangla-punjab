@@ -2,9 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSessionUserId } from "@/lib/auth";
 import { updateVenueAppearance, venueAdminBase } from "@/lib/venue-service";
 import { createLogger } from "@/lib/logger";
+import { requirePermission } from "@/lib/team-access";
 
 const log = createLogger();
 
@@ -14,8 +14,7 @@ const log = createLogger();
  * value can't land in the branding JSON.
  */
 export async function saveAppearanceAction(form: FormData): Promise<void> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("appearance");
 
   const theme = String(form.get("theme") ?? "");
   const texture = String(form.get("texture") ?? "");

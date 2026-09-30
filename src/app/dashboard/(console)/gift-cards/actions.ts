@@ -2,9 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getSessionUserId } from "@/lib/auth";
 import { redeemGiftCardAtCounter } from "@/lib/gift-card-service";
 import { getVenueForUser } from "@/lib/venue-service";
+import { requirePermission } from "@/lib/team-access";
 
 const path = "/dashboard/gift-cards";
 
@@ -24,8 +24,7 @@ const path = "/dashboard/gift-cards";
  * card it happened to.
  */
 export async function redeemGiftCardAction(form: FormData): Promise<void> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("giftcards");
 
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) redirect("/dashboard");

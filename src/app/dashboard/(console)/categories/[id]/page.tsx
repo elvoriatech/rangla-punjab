@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
-import { getSessionUserId } from "@/lib/auth";
 import { listCategories } from "@/lib/categories-service";
 import { listItems, type ItemRow } from "@/lib/items-service";
 import {
@@ -17,6 +16,7 @@ import { getTranslationsForCategory } from "@/lib/translation-service";
 import { dirFor, localeEntry } from "@/lib/locales";
 import { SubmitButton } from "@/components/submit-button";
 import { ALL_DAYS, DAY_SHORT, formatDays, isEveryDay } from "@/lib/item-days";
+import { requirePermission } from "@/lib/team-access";
 
 const ALLERGENS = [
   "gluten",
@@ -105,8 +105,7 @@ export default async function CategoryDetailPage({
     days: daysFlash,
   } = await searchParams;
   const base = `/dashboard`;
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("menu");
 
   // Look up the category by listing them (RLS keeps this tenant-scoped)
   // and finding ours. Cheap enough at N < ~50, and reuses the read a

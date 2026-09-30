@@ -1,5 +1,4 @@
-import { notFound, redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
+import { notFound } from "next/navigation";
 import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
@@ -7,6 +6,7 @@ import { renderQrSvg } from "@/lib/qr";
 import { ticketAddressLine } from "@/lib/ticket-html";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { PrintControls } from "./print-controls";
+import { requirePermission } from "@/lib/team-access";
 
 // Material icon paths (24×24) for the ticket's info rows.
 const GLYPHS = {
@@ -43,8 +43,7 @@ export default async function OrderTicketPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ auto?: string }>;
 }): Promise<React.ReactElement> {
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
+  const userId = await requirePermission("orders");
 
   const { id } = await params;
   const { auto } = await searchParams;
