@@ -1,3 +1,10 @@
+import {
+  ETA_ACCEPT_MAX_SECONDS,
+  ETA_ACCEPT_MIN_SECONDS,
+  ETA_MAX_MINUTES,
+  ETA_MIN_MINUTES,
+  ETA_STEP_MINUTES,
+} from "@/lib/ordering-config";
 import { PasswordInput } from "@/components/password-input";
 import { BRAND } from "@/lib/brand";
 import { FlashMessage } from "@/components/flash-message";
@@ -1574,6 +1581,66 @@ export default async function SettingsPage({
               </span>
             </label>
           </div>
+
+          <fieldset className="mt-4 border-t border-ink/10 pt-4">
+            <legend className="float-left w-full text-sm font-medium">
+              Expected time for new orders
+            </legend>
+            <p className="clear-both pt-1 text-xs text-muted">
+              For delivery and pickup orders placed for &quot;as soon as possible&quot;. When a new
+              order arrives you can change the time with − and + and accept it; if nobody does
+              within the time below, this default applies and the guest sees it. Planned orders keep
+              the time the guest chose.
+            </p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-3">
+              <label className="block text-sm">
+                <span className="font-medium">Delivery default</span>
+                <span className="mt-1 flex items-center gap-2">
+                  <input
+                    type="number"
+                    name="etaDeliveryMinutes"
+                    min={ETA_MIN_MINUTES}
+                    max={ETA_MAX_MINUTES}
+                    step={ETA_STEP_MINUTES}
+                    defaultValue={ordering.config.etaDeliveryMinutes}
+                    className="w-24 border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                  />
+                  <span className="text-sm text-muted">minutes</span>
+                </span>
+              </label>
+              <label className="block text-sm">
+                <span className="font-medium">Pickup default</span>
+                <span className="mt-1 flex items-center gap-2">
+                  <input
+                    type="number"
+                    name="etaPickupMinutes"
+                    min={ETA_MIN_MINUTES}
+                    max={ETA_MAX_MINUTES}
+                    step={ETA_STEP_MINUTES}
+                    defaultValue={ordering.config.etaPickupMinutes}
+                    className="w-24 border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                  />
+                  <span className="text-sm text-muted">minutes</span>
+                </span>
+              </label>
+              <label className="block text-sm">
+                <span className="font-medium">Time to change it</span>
+                <span className="mt-1 flex items-center gap-2">
+                  <input
+                    type="number"
+                    name="etaAcceptSeconds"
+                    min={ETA_ACCEPT_MIN_SECONDS}
+                    max={ETA_ACCEPT_MAX_SECONDS}
+                    defaultValue={ordering.config.etaAcceptSeconds}
+                    className="w-24 border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                  />
+                  <span className="text-sm text-muted">
+                    seconds ({ETA_ACCEPT_MIN_SECONDS}–{ETA_ACCEPT_MAX_SECONDS})
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
           <div className="mt-4 border-t border-ink/10 pt-4">
             <label className="flex cursor-pointer items-start gap-3 text-sm">

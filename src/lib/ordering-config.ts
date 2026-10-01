@@ -131,6 +131,36 @@ const appCancelEnabledField = z.preprocess(
   z.boolean().catch(false),
 );
 
+/** The time a restaurant promises when it does not set one itself. */
+export const DEFAULT_ETA_DELIVERY_MINUTES = 50;
+export const DEFAULT_ETA_PICKUP_MINUTES = 20;
+export const ETA_MIN_MINUTES = 5;
+export const ETA_MAX_MINUTES = 180;
+export const ETA_STEP_MINUTES = 5;
+
+/** Snap whatever arrives to the stepper's grid: a multiple of 5 in 5–180. */
+export function clampEtaMinutes(raw: unknown, fallback: number): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  const snapped = Math.round(n / ETA_STEP_MINUTES) * ETA_STEP_MINUTES;
+  return Math.min(ETA_MAX_MINUTES, Math.max(ETA_MIN_MINUTES, snapped));
+}
+
+/** How long the restaurant has to set the time on a new order, in
+ *  seconds. The owner's setting; 30 unless changed. */
+export const DEFAULT_ETA_ACCEPT_SECONDS = 30;
+export const ETA_ACCEPT_MIN_SECONDS = 10;
+export const ETA_ACCEPT_MAX_SECONDS = 300;
+
+export function clampAcceptSeconds(raw: unknown): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_ETA_ACCEPT_SECONDS;
+  return Math.min(ETA_ACCEPT_MAX_SECONDS, Math.max(ETA_ACCEPT_MIN_SECONDS, Math.round(n)));
+}
+
+const etaField = (fallback: number) =>
+  z.preprocess((v) => clampEtaMinutes(v, fallback), z.number().int());
+
 export const orderingConfigSchema = z.object({
   dineIn: z.boolean().default(true),
   takeaway: z.boolean().default(true),
@@ -157,6 +187,13 @@ export const orderingConfigSchema = z.object({
   // Owner-side only, and web-only to SET: the app reads it (to know
   // whether to draw a cancel button) but may never turn it on.
   appCancelEnabled: appCancelEnabledField.default(false),
+  // The default promise for an ASAP order, per type (owner, 2026-10-01).
+  // The restaurant may change it per order inside the accept window.
+  etaDeliveryMinutes: etaField(DEFAULT_ETA_DELIVERY_MINUTES).default(DEFAULT_ETA_DELIVERY_MINUTES),
+  etaPickupMinutes: etaField(DEFAULT_ETA_PICKUP_MINUTES).default(DEFAULT_ETA_PICKUP_MINUTES),
+  etaAcceptSeconds: z
+    .preprocess((v) => clampAcceptSeconds(v), z.number().int())
+    .default(DEFAULT_ETA_ACCEPT_SECONDS),
   // Owner-side, read by the guest's tracker through its own route (see
   // `cash-cancel.ts`) — the public menu never needs it.
   cashCancelMinutes: cashCancelMinutesField.default(DEFAULT_CASH_CANCEL_MINUTES),

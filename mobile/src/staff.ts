@@ -33,6 +33,29 @@ export interface StaffAddress {
   note: string;
 }
 
+export interface StaffOrderEta {
+  minutes: number;
+  /** ISO — the promise as a clock time. */
+  expectedAt: string;
+  /** The restaurant chose it (true) or the venue default applied. */
+  accepted: boolean;
+  adjustableUntil: string | null;
+}
+
+function asEta(raw: unknown): StaffOrderEta | null {
+  if (!raw || typeof raw !== "object") return null;
+  const e = raw as Record<string, unknown>;
+  const expectedAt = typeof e.expectedAt === "string" ? e.expectedAt : "";
+  const minutes = typeof e.minutes === "number" ? e.minutes : 0;
+  if (!expectedAt || minutes <= 0) return null;
+  return {
+    minutes,
+    expectedAt,
+    accepted: e.accepted === true,
+    adjustableUntil: typeof e.adjustableUntil === "string" ? e.adjustableUntil : null,
+  };
+}
+
 export interface StaffOrder {
   id: string;
   orderNumber: number;
@@ -51,6 +74,13 @@ export interface StaffOrder {
    *  and on a non-delivery order. Written by whichever route moved it —
    *  the board's own button, the ticket QR, or the staff app. */
   outForDeliveryAt: string | null;
+  /**
+   * The promised time of an ASAP delivery / pickup order; null on planned
+   * and dine-in orders, and from a server that predates it.
+   * `adjustableUntil` (ISO) is set only while the restaurant may still
+   * choose the minutes and accept — after that the promise is fixed.
+   */
+  eta: StaffOrderEta | null;
   createdAt: string;
   updatedAt: string;
   paymentStatus: string;
@@ -175,6 +205,7 @@ export function asStaffOrder(raw: unknown): StaffOrder | null {
     discountCents: num(o.discountCents),
     discountPoints: num(o.discountPoints),
     outForDeliveryAt: nullableStr(o.outForDeliveryAt),
+    eta: asEta(o.eta),
     giftCardDiscountCents: num(o.giftCardDiscountCents),
     giftCardLast4: nullableStr(o.giftCardLast4),
     currency: str(o.currency, "EUR"),
@@ -286,6 +317,27 @@ export async function advanceStaffOrder(
   }
   // A server that answers 200 without echoing the order is fine: the next
   // poll carries the truth.
+  return { ok: true, data: asStaffOrder(res.body.order) };
+}
+
+/**
+ * Accept a new order with the time the restaurant promises. A 409 means
+ * the accept window closed (or another device answered first): the
+ * caller re-reads the board and the card comes back with its plain step
+ * button and the default time.
+ */
+export async function acceptStaffOrder(
+  token: string,
+  orderId: string,
+  minutes: number,
+): Promise<StaffAdvanceResult> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/orders/${encodeURIComponent(orderId)}/accept`,
+    { method: "POST", body: { minutes } },
+  );
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
   return { ok: true, data: asStaffOrder(res.body.order) };
 }
 

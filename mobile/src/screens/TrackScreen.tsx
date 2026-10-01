@@ -367,6 +367,19 @@ export function TrackScreen({
     });
   })();
 
+  // The restaurant's promised time, in the restaurant's own clock.
+  const expectedAt = ((): string => {
+    const iso = tracking?.expectedAt;
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString(localeTag(lang), {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: venueTimezone() ?? undefined,
+    });
+  })();
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader title={t.trackTitle} />
@@ -394,6 +407,17 @@ export function TrackScreen({
               <Text style={styles.meta}>
                 {t.table} {tracking.tableNumber}
               </Text>
+            ) : null}
+            {/* Shown only once the restaurant's promise is fixed. */}
+            {expectedAt && !cancelled ? (
+              <View style={styles.expected}>
+                <Text style={styles.expectedText}>
+                  {fill(
+                    tracking.orderType === "delivery" ? t.etaExpectedDelivery : t.etaExpectedPickup,
+                    { time: expectedAt },
+                  )}
+                </Text>
+              </View>
             ) : null}
 
             {cancelled ? (
@@ -786,6 +810,17 @@ export function TrackScreen({
 }
 
 const styles = StyleSheet.create({
+  expected: {
+    alignSelf: "stretch",
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.creamCard,
+  },
+  expectedText: { color: colors.red, ...fonts.bodyBold, fontSize: 16, textAlign: "center" },
   cashCancelBox: { marginTop: 16, gap: 8 },
   cashCancelBtn: {
     borderWidth: 1.5,

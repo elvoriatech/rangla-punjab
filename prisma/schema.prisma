@@ -635,6 +635,13 @@ model Order {
   /// inventing one.
   outForDeliveryAt DateTime? @map("out_for_delivery_at")
 
+  /// Minutes the restaurant accepted the order with (delivery / pickup,
+  /// ASAP only). NULL = not answered inside the accept window → the
+  /// venue's default applies. See `src/lib/order-eta.ts`.
+  etaMinutes Int?      @map("eta_minutes")
+  /// When an online order was settled, i.e. reached the board.
+  paidAt     DateTime? @map("paid_at")
+
   /// When the guest followed the "Rate us on Google" link for this order.
   /// A TAP, not a review — Google never tells us whether one was written —
   /// and the only signal we can honestly record. Set once by the tracked

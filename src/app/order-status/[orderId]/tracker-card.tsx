@@ -36,6 +36,8 @@ export interface TrackerOrder {
    *  dispatched, and on orders older than the column — the step then
    *  renders without a time rather than with a made-up one. */
   outForDeliveryAt?: Date | null;
+  /** The restaurant's promised time, once it is fixed; null = none. */
+  expectedAt?: Date | null;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -121,6 +123,15 @@ export function OrderTrackerCard({
           {time.format(order.createdAt)}
           {order.tableNumber ? t.tableSuffix(order.tableNumber) : ""}
         </p>
+        {/* The restaurant's promise — shown only once it can no longer
+            change, and gone when the order is finished or cancelled. */}
+        {order.expectedAt && !cancelled ? (
+          <p className="mt-4 rounded-xl border border-[var(--menu-surface-text,var(--menu-text))]/15 px-4 py-3 text-center text-base font-semibold">
+            {order.orderType === "delivery"
+              ? t.expectedDelivery(clock.format(order.expectedAt))
+              : t.expectedPickup(clock.format(order.expectedAt))}
+          </p>
+        ) : null}
 
         {/* A cancelled order never walked the chain, so it gets a banner
             rather than a rail — a half-lit rail reads as "still coming",

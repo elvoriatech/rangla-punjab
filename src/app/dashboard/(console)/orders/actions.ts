@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { deleteCancelledOrder } from "@/lib/order-delete-service";
-import { advanceOrderStatus, markOrderDone } from "@/lib/order-service";
+import { acceptOrderWithEta, advanceOrderStatus, markOrderDone } from "@/lib/order-service";
 import { replyToIssue, resolveIssue } from "@/lib/issue-service";
 import { requirePermission } from "@/lib/team-access";
 
@@ -78,4 +78,20 @@ export async function deleteOrderAction(form: FormData): Promise<void> {
       ? `/dashboard/orders?deleted=${result.orderNumber}`
       : `/dashboard/orders?delete_error=${result.error}`,
   );
+}
+
+/**
+ * Accept a new order with the time the restaurant promises. A refusal
+ * (the window ran out, or another device got there first) needs no
+ * message: the card re-renders with the plain "prepare" button and the
+ * default time, which is exactly the state the order is in.
+ */
+export async function acceptOrderAction(form: FormData): Promise<void> {
+  const userId = await requirePermission("orders");
+
+  const orderId = String(form.get("orderId") ?? "");
+  const minutes = Number(form.get("minutes"));
+  if (orderId && Number.isFinite(minutes)) await acceptOrderWithEta(userId, orderId, minutes);
+  revalidatePath("/dashboard/orders", "page");
+  revalidatePath("/kitchen", "page");
 }

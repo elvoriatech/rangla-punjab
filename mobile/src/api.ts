@@ -625,6 +625,9 @@ export interface ApiTracking {
    *  is timestamped with. Absent/null until it does, and on every order
    *  that is not a delivery. */
   outForDeliveryAt?: string | null;
+  /** The restaurant's promised time (ISO), once it is fixed. Absent from
+   *  a server that predates it; null when the order has none. */
+  expectedAt?: string | null;
   /** The CHARGED total — i.e. already net of `discountCents`. */
   totalCents: number;
   currency: string;

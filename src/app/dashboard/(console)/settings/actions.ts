@@ -280,6 +280,11 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     // An unchecked checkbox sends nothing at all, which is exactly the
     // `off` we want — and off is where this one belongs by default.
     appCancelEnabled: form.get("appCancelEnabled") === "on",
+    // The promised time for an ASAP order and how long the restaurant has
+    // to change it; the schema snaps each to its range, blank → default.
+    etaDeliveryMinutes: parseInt(String(form.get("etaDeliveryMinutes") ?? ""), 10),
+    etaPickupMinutes: parseInt(String(form.get("etaPickupMinutes") ?? ""), 10),
+    etaAcceptSeconds: parseInt(String(form.get("etaAcceptSeconds") ?? ""), 10),
   });
   return finish(userId, result.ok, "ordering");
 }

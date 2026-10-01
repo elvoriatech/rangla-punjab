@@ -19,6 +19,7 @@ import { useKeepAwake } from "expo-keep-awake";
 import { useAuth } from "../auth";
 import type { StaffOrder } from "../staff";
 import {
+  acceptStaffOrder,
   advanceStaffOrder,
   fetchStaffIssues,
   fetchStaffOrders,
@@ -179,6 +180,9 @@ export function BoardScreen({
   const [offline, setOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Bumped when an accept window runs out, so the card re-renders with
+  // its plain step button without waiting for the next poll.
+  const [, setEtaTick] = useState(0);
   /** Per-order footnote: the order moved on without us, or the request
    *  simply failed. Said once, then it gets out of the way. */
   const [note, setNote] = useState<{
@@ -594,6 +598,32 @@ export function BoardScreen({
     say(order.id, "failed");
   }
 
+  /** Accept a new order with the promised minutes. A refusal means the
+   *  accept window closed or another device answered: re-read the board. */
+  async function accept(order: StaffOrder, minutes: number): Promise<void> {
+    if (!staffToken || busyId) return;
+    setNote(null);
+    setBusyId(order.id);
+    const res = await acceptStaffOrder(staffToken, order.id, minutes);
+    setBusyId(null);
+    if (res.ok) {
+      const updated = res.data;
+      if (updated) setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      else void load("full");
+      return;
+    }
+    if (res.error === "unauthorized") {
+      clearStaff();
+      return;
+    }
+    if (res.error === "conflict") {
+      say(order.id, "moved");
+      void load("full");
+      return;
+    }
+    say(order.id, "failed");
+  }
+
   /**
    * Open the complaint on this order. The board's payload normally names
    * the thread outright; a server that predates `issueId` sends only the
@@ -702,6 +732,11 @@ export function BoardScreen({
     const planned = order.requestedFor ? timeOf(order.requestedFor) : "";
     // Due later, not now: a calmer card, re-judged on every poll.
     const scheduled = isScheduled(order.requestedFor);
+    // Still inside the accept window? Re-judged on every render; the
+    // control's own countdown bumps `etaTick` when it reaches zero.
+    const etaOpen =
+      order.eta?.adjustableUntil != null &&
+      new Date(order.eta.adjustableUntil).getTime() > Date.now();
     // One step forward, and — separately — the way out of the lifecycle.
     const nextTo = nextStatusOf(order.allowedNext);
     const cancelTo = order.allowedNext.find((to) => isCancelTransition(to)) ?? null;
@@ -846,7 +881,33 @@ export function BoardScreen({
               🛵 {fill(t.boardOnTheWaySince, { time: onTheWay })}
             </Text>
           ) : null}
+          {/* The promised time, once it is fixed — what the guest sees. */}
+          {order.eta && !etaOpen && !closed ? (
+            <Text style={styles.onTheWay} numberOfLines={1}>
+              ⏱{" "}
+              {fill(order.orderType === "delivery" ? t.etaExpectedDelivery : t.etaExpectedPickup, {
+                time: timeOf(order.eta.expectedAt),
+              })}
+            </Text>
+          ) : null}
         </Pressable>
+
+        {/* A new order inside its accept window: the time between a red −
+            and a red +, and one button that accepts WITH it. Outside the
+            fold on purpose — it must not need a tap to find. */}
+        {order.eta && etaOpen && order.eta.adjustableUntil ? (
+          <EtaAccept
+            key={order.id}
+            orderType={order.orderType}
+            defaultMinutes={order.eta.minutes}
+            expectedAt={order.eta.expectedAt}
+            until={order.eta.adjustableUntil}
+            busy={busy}
+            timeOf={timeOf}
+            onAccept={(minutes) => void accept(order, minutes)}
+            onClosed={() => setEtaTick((n) => n + 1)}
+          />
+        ) : null}
 
         {expanded ? (
           <>
@@ -938,7 +999,7 @@ export function BoardScreen({
                 confirm. `row` + start/end padding mirror themselves in
                 an RTL layout, so there is nothing to flip by hand. */}
             <View style={[styles.footRow, tightFoot && styles.footRowWrap]}>
-              {nextTo ? (
+              {nextTo && !etaOpen ? (
                 <Pressable
                   onPress={() => onAction(order, nextTo)}
                   disabled={busy}
@@ -1083,7 +1144,151 @@ export function BoardScreen({
   );
 }
 
+const ETA_STEP = 5;
+const ETA_MIN = 5;
+const ETA_MAX = 180;
+
+/**
+ * The accept control of a new order (owner, 2026-10-01). Minutes are
+ * local state — sent once, with the accept — and the countdown runs off
+ * the device clock against the server's deadline. At zero it tells the
+ * board, which swaps it for the ordinary step button; the default time
+ * then stands.
+ */
+function EtaAccept({
+  orderType,
+  defaultMinutes,
+  expectedAt,
+  until,
+  busy,
+  timeOf,
+  onAccept,
+  onClosed,
+}: {
+  orderType: string;
+  defaultMinutes: number;
+  /** ISO — the default promise; the board time it is counted from is
+   *  this minus the default minutes. */
+  expectedAt: string;
+  until: string;
+  busy: boolean;
+  timeOf: (iso: string) => string;
+  onAccept: (minutes: number) => void;
+  onClosed: () => void;
+}): React.ReactElement | null {
+  const { t } = useI18n();
+  const [minutes, setMinutes] = useState(defaultMinutes);
+  const [left, setLeft] = useState(() =>
+    Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 1000)),
+  );
+  const closedRef = useRef(false);
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 1000));
+      setLeft(next);
+      if (next <= 0 && !closedRef.current) {
+        closedRef.current = true;
+        onClosedRef.current();
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [until]);
+
+  if (left <= 0) return null;
+
+  const from = new Date(expectedAt).getTime() - defaultMinutes * 60_000;
+  const at = timeOf(new Date(from + minutes * 60_000).toISOString());
+
+  return (
+    <View style={styles.eta}>
+      <View style={styles.etaTop}>
+        <Text style={styles.etaLabel}>
+          {orderType === "delivery" ? t.etaSetDelivery : t.etaSetPickup}
+        </Text>
+        <Text style={styles.etaLeft}>{fill(t.etaSecondsLeft, { n: left })}</Text>
+      </View>
+      <View style={styles.etaRow}>
+        <Pressable
+          onPress={() => setMinutes((m) => Math.max(ETA_MIN, m - ETA_STEP))}
+          disabled={busy || minutes <= ETA_MIN}
+          accessibilityRole="button"
+          accessibilityLabel={t.etaLess}
+          style={({ pressed }) => [
+            styles.etaStep,
+            (pressed || minutes <= ETA_MIN) && { opacity: 0.5 },
+          ]}
+        >
+          <Ionicons name="remove" size={26} color={colors.onRed} />
+        </Pressable>
+        <View style={styles.etaMiddle}>
+          <Text style={styles.etaMinutes}>{minutes} min</Text>
+          <Text style={styles.etaAt}>{fill(t.etaAround, { time: at })}</Text>
+        </View>
+        <Pressable
+          onPress={() => setMinutes((m) => Math.min(ETA_MAX, m + ETA_STEP))}
+          disabled={busy || minutes >= ETA_MAX}
+          accessibilityRole="button"
+          accessibilityLabel={t.etaMore}
+          style={({ pressed }) => [
+            styles.etaStep,
+            (pressed || minutes >= ETA_MAX) && { opacity: 0.5 },
+          ]}
+        >
+          <Ionicons name="add" size={26} color={colors.onRed} />
+        </Pressable>
+      </View>
+      <Pressable
+        onPress={() => onAccept(minutes)}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy }}
+        style={({ pressed }) => [styles.etaAccept, (busy || pressed) && { opacity: 0.6 }]}
+      >
+        <Text style={styles.etaAcceptText}>{fill(t.etaAccept, { n: minutes })}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  /** The accept control: a tinted panel between the card's header and
+   *  its fold, the − / + as solid red 48 pt squares. */
+  eta: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.cream,
+    gap: 8,
+  },
+  etaTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  etaLabel: { color: colors.ink, ...fonts.bodyBold, fontSize: 13 },
+  etaLeft: { color: colors.red, ...fonts.bodyBold, fontSize: 13 },
+  etaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  etaStep: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  etaMiddle: { flex: 1, alignItems: "center" },
+  etaMinutes: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 24 },
+  etaAt: { color: colors.inkSoft, ...fonts.body, fontSize: 13 },
+  etaAccept: {
+    minHeight: 46,
+    borderRadius: radius.md,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  etaAcceptText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 15 },
   offline: {
     color: colors.inkSoft,
     ...fonts.bodySemi,

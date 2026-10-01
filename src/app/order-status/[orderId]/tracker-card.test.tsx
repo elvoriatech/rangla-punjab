@@ -43,6 +43,20 @@ const REVIEW = "https://menu.example/api/v1/orders/ord_1/review?token=tok_1";
 const esc = (s: string): string => s.replaceAll("'", "&#x27;");
 
 describe("order tracker", () => {
+  it("shows the restaurant's promised time, in the guest's language, only when there is one", () => {
+    const expectedAt = new Date("2026-09-18T18:20:00Z"); // 20:20 in Berlin
+    // English writes the clock its own way (8:20 PM).
+    expect(render({ ...order, expectedAt }, "en")).toMatch(/Ready for pickup around 8:20/);
+    expect(render({ ...order, orderType: "delivery", expectedAt }, "de")).toContain(
+      "Voraussichtliche Lieferung gegen 20:20",
+    );
+    expect(render(order, "en")).not.toContain("Ready for pickup around");
+    // A cancelled order promises nothing, whatever the payload says.
+    expect(render({ ...order, status: "cancelled", expectedAt }, "en")).not.toContain(
+      "Ready for pickup around",
+    );
+  });
+
   it("renders Spanish only — no German or English leaking through", () => {
     const html = render(order, "es");
     expect(html).toContain("Seguimiento del pedido");

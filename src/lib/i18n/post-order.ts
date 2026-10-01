@@ -16,6 +16,8 @@ const en = {
   /* Tracker */
   trackTitle: "Track your order",
   orderHeading: (n: string) => `Order #${n}`,
+  expectedDelivery: (time: string) => `Expected delivery around ${time}`,
+  expectedPickup: (time: string) => `Ready for pickup around ${time}`,
   tableSuffix: (table: string) => ` · Table ${table}`,
   steps: {
     confirmed: "Confirmed",
@@ -231,6 +233,8 @@ export type PostOrderCopy = typeof en;
 const de: PostOrderCopy = {
   trackTitle: "Bestellung verfolgen",
   orderHeading: (n) => `Bestellung Nr. ${n}`,
+  expectedDelivery: (time) => `Voraussichtliche Lieferung gegen ${time}`,
+  expectedPickup: (time) => `Abholbereit gegen ${time}`,
   tableSuffix: (table) => ` · Tisch ${table}`,
   steps: {
     confirmed: "Bestätigt",
@@ -423,6 +427,8 @@ const de: PostOrderCopy = {
 const fr: PostOrderCopy = {
   trackTitle: "Suivre votre commande",
   orderHeading: (n) => `Commande n° ${n}`,
+  expectedDelivery: (time) => `Livraison prévue vers ${time}`,
+  expectedPickup: (time) => `Prête à emporter vers ${time}`,
   tableSuffix: (table) => ` · Table ${table}`,
   steps: {
     confirmed: "Confirmée",
@@ -609,6 +615,8 @@ const fr: PostOrderCopy = {
 const es: PostOrderCopy = {
   trackTitle: "Seguimiento del pedido",
   orderHeading: (n) => `Pedido n.º ${n}`,
+  expectedDelivery: (time) => `Entrega prevista hacia las ${time}`,
+  expectedPickup: (time) => `Listo para recoger hacia las ${time}`,
   tableSuffix: (table) => ` · Mesa ${table}`,
   steps: {
     confirmed: "Confirmado",
@@ -793,6 +801,8 @@ const es: PostOrderCopy = {
 const it: PostOrderCopy = {
   trackTitle: "Segui il tuo ordine",
   orderHeading: (n) => `Ordine n. ${n}`,
+  expectedDelivery: (time) => `Consegna prevista intorno alle ${time}`,
+  expectedPickup: (time) => `Pronto per il ritiro intorno alle ${time}`,
   tableSuffix: (table) => ` · Tavolo ${table}`,
   steps: {
     confirmed: "Confermato",
@@ -976,6 +986,8 @@ const it: PostOrderCopy = {
 const ar: PostOrderCopy = {
   trackTitle: "تتبّع الطلب",
   orderHeading: (n) => `الطلب رقم ${n}`,
+  expectedDelivery: (time) => `التوصيل المتوقع حوالي ${time}`,
+  expectedPickup: (time) => `جاهز للاستلام حوالي ${time}`,
   tableSuffix: (table) => ` · طاولة ${table}`,
   steps: {
     confirmed: "مؤكَّد",

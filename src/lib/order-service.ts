@@ -1,3 +1,4 @@
+import { defaultEtaMinutes, etaApplies, withinAcceptWindow } from "./order-eta";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer-auth";
@@ -22,6 +23,7 @@ import {
   DELIVERY_FEE_LINE_NAME,
   effectiveOrdering,
   orderTypeAllowed,
+  clampEtaMinutes,
   parseOrderingConfig,
   type OrderType,
 } from "./ordering-config";
@@ -800,6 +802,10 @@ export interface KitchenOrder extends OrderFulfilment {
   /** When a delivery order left the kitchen, so the board can say
    *  "on the way since 19:42" rather than only "out for delivery". */
   outForDeliveryAt: Date | null;
+  /** Minutes the restaurant accepted the order with, and when an online
+   *  order was paid — the two inputs of `orderEta` (`order-eta.ts`). */
+  etaMinutes: number | null;
+  paidAt: Date | null;
   items: { name: string; priceCents: number; quantity: number }[];
 }
 
@@ -883,6 +889,8 @@ export async function listRecentOrders(
         createdAt: true,
         updatedAt: true,
         outForDeliveryAt: true,
+        etaMinutes: true,
+        paidAt: true,
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
@@ -922,6 +930,8 @@ export async function getKitchenOrder(
         createdAt: true,
         updatedAt: true,
         outForDeliveryAt: true,
+        etaMinutes: true,
+        paidAt: true,
         items: {
           select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
@@ -1019,6 +1029,59 @@ export async function advanceOrderStatus(
   return { ok: true };
 }
 
+export type AcceptOrderError = "not_found" | "not_applicable" | "window_closed";
+
+/**
+ * Accept a new order WITH its promised time (owner, 2026-10-01): stores
+ * the minutes and moves the order to `preparing` in one go.
+ *
+ * Only an untouched ASAP delivery / pickup order qualifies, and only
+ * inside the venue's accept window — after that the default promise is
+ * what the guest was already shown, and it must not move. The minutes are
+ * written by a conditional update (`placed`, still unset), so two devices
+ * tapping at once cannot both win.
+ */
+export async function acceptOrderWithEta(
+  userId: string,
+  orderId: string,
+  minutesRaw: number,
+): Promise<{ ok: true; minutes: number } | { ok: false; error: AcceptOrderError }> {
+  const result = await asUser(userId, async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: {
+        status: true,
+        orderType: true,
+        requestedFor: true,
+        createdAt: true,
+        paidAt: true,
+        etaMinutes: true,
+        venue: { select: { ordering: true } },
+      },
+    });
+    if (!order) return { ok: false as const, error: "not_found" as const };
+    const config = parseOrderingConfig(order.venue.ordering);
+    if (!etaApplies(order) || order.status !== "placed" || order.etaMinutes !== null) {
+      return { ok: false as const, error: "not_applicable" as const };
+    }
+    if (!withinAcceptWindow(order, config)) {
+      return { ok: false as const, error: "window_closed" as const };
+    }
+    const minutes = clampEtaMinutes(minutesRaw, defaultEtaMinutes(order.orderType, config));
+    const updated = await tx.order.updateMany({
+      where: { id: orderId, status: "placed", etaMinutes: null },
+      data: { etaMinutes: minutes },
+    });
+    if (updated.count === 0) return { ok: false as const, error: "not_applicable" as const };
+    return { ok: true as const, minutes };
+  });
+  if (!result.ok) return result;
+  // The promise is stored; the move itself goes through the one function
+  // every surface uses, so its side effects stay in one place.
+  await advanceOrderStatus(userId, orderId, "preparing");
+  return result;
+}
+
 export interface OrderTracking {
   id: string;
   orderNumber: number;
@@ -1051,6 +1114,9 @@ export interface OrderTracking {
    *  dispatched and on orders that predate the column — the tracker then
    *  shows the step without a time rather than inventing one. */
   outForDeliveryAt: Date | null;
+  /** Inputs of the promised time — see `order-eta.ts`. */
+  etaMinutes: number | null;
+  paidAt: Date | null;
   /** The account behind the order, when there is one, carrying its own
    *  copy of the same flag: a signed-in regular who already tapped the
    *  link on an earlier order must not be asked again on this one. Null
@@ -1098,6 +1164,8 @@ export async function getOrderTracking(
         tableNumber: true,
         reviewClickedAt: true,
         outForDeliveryAt: true,
+        etaMinutes: true,
+        paidAt: true,
         customer: { select: { reviewClickedAt: true } },
         items: {
           select: { name: true, quantity: true, priceCents: true, basePriceCents: true },

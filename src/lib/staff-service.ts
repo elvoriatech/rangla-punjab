@@ -1,7 +1,8 @@
+import { orderEta, type EtaDefaults } from "./order-eta";
 import { issueRefByOrder, type IssueRef, type IssueStatus } from "./issue-service";
 import { getKitchenOrder, listRecentOrders, type KitchenOrder } from "./order-service";
 import { ORDER_STATUSES, TERMINAL_STATUSES, canTransition } from "./order-status";
-import { parseOrderingConfig } from "./ordering-config";
+import { parseOrderingConfig, type OrderingConfig } from "./ordering-config";
 import { asUser, resolveActiveTenantId } from "./tenant";
 
 /**
@@ -59,6 +60,19 @@ export interface StaffOrder {
   /** When a delivery order left the kitchen, so the board can say
    *  "on the way since 19:42". ISO; null when never dispatched. */
   outForDeliveryAt: string | null;
+  /**
+   * The promised time of an ASAP delivery / pickup order; null for
+   * planned and dine-in orders. `adjustableUntil` is set only while the
+   * restaurant may still choose the minutes and accept — the app draws
+   * the − / + and its countdown from it, and falls back to the plain
+   * "prepare" button once it is null.
+   */
+  eta: {
+    minutes: number;
+    expectedAt: string;
+    accepted: boolean;
+    adjustableUntil: string | null;
+  } | null;
   currency: string;
   items: StaffOrderItem[];
   /** The complaint thread on this order, if there is one (P7-10). The
@@ -100,6 +114,18 @@ export async function isAppCancelEnabled(userId: string): Promise<boolean> {
   });
 }
 
+/** The venue's ordering settings the board needs: the cancel switch and
+ *  the expected-time defaults. One RLS-scoped read. */
+async function boardConfig(userId: string): Promise<OrderingConfig> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { ordering: true },
+    });
+    return parseOrderingConfig(venue?.ordering);
+  });
+}
+
 /**
  * `appCancelEnabled` defaults to FALSE here on purpose: a caller that
  * forgets to resolve the switch hands the app a board with no cancel
@@ -109,8 +135,18 @@ export function toStaffOrder(
   order: KitchenOrder,
   issue: IssueRef | null = null,
   appCancelEnabled = false,
+  etaDefaults?: Partial<EtaDefaults>,
 ): StaffOrder {
+  const eta = orderEta(order, etaDefaults);
   return {
+    eta: eta
+      ? {
+          minutes: eta.minutes,
+          expectedAt: eta.expectedAt.toISOString(),
+          accepted: eta.accepted,
+          adjustableUntil: eta.adjustableUntil?.toISOString() ?? null,
+        }
+      : null,
     issueStatus: issue ? issue.status : null,
     issueId: issue ? issue.id : null,
     id: order.id,
@@ -182,9 +218,11 @@ export async function listStaffOrders(userId: string, since?: Date): Promise<Sta
     : new Map<string, IssueRef>();
 
   // One read for the whole board, same reason as the issues map above.
-  const appCancelEnabled = await isAppCancelEnabled(userId);
+  const config = await boardConfig(userId);
 
-  return orders.map((order) => toStaffOrder(order, issues.get(order.id) ?? null, appCancelEnabled));
+  return orders.map((order) =>
+    toStaffOrder(order, issues.get(order.id) ?? null, config.appCancelEnabled, config),
+  );
 }
 
 /**
@@ -203,8 +241,9 @@ export async function getStaffOrder(
   if (!order) return null;
   const tenantId = await resolveActiveTenantId(userId);
   const issues = tenantId ? await issueRefByOrder(tenantId, [order.id]) : null;
-  const cancelOk = appCancelEnabled ?? (await isAppCancelEnabled(userId));
-  return toStaffOrder(order, issues?.get(order.id) ?? null, cancelOk);
+  const config = await boardConfig(userId);
+  const cancelOk = appCancelEnabled ?? config.appCancelEnabled;
+  return toStaffOrder(order, issues?.get(order.id) ?? null, cancelOk, config);
 }
 
 export interface StaffSummary {

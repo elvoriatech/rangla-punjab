@@ -401,7 +401,9 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
       // `failed` too: a guest whose first card was declined may pay with
       // another, and that success must settle the order like any other.
       where: { id: orderId, paymentStatus: { in: ["pending", "failed"] } },
-      data: { paymentStatus: "paid" },
+      // `paidAt` is when the order reaches the board: the accept window
+      // and the promised time are counted from here (`order-eta.ts`).
+      data: { paymentStatus: "paid", paidAt: new Date() },
     });
     if (updated.count > 0) log.info("payment.settled", { orderId, tenantId });
     return updated.count > 0;

@@ -4,7 +4,11 @@ import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { GIFT_CARD_PROVIDER, listRecentOrders, VOUCHER_PROVIDER } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
-import { advanceOrderAction, deleteOrderAction } from "./actions";
+import { acceptOrderAction, advanceOrderAction, deleteOrderAction } from "./actions";
+import { AcceptWithTime } from "./accept-with-time";
+import { boardedAt, orderEta } from "@/lib/order-eta";
+import { getOrderingSettings } from "@/lib/venue-service";
+import { parseOrderingConfig } from "@/lib/ordering-config";
 import {
   advanceIcon,
   advanceLabel,
@@ -207,6 +211,10 @@ export default async function OrdersPage({
   // Deleting is the owner's alone — a team member with Orders never sees
   // the link, and the service refuses them regardless.
   const isOwner = (await getAccess(userId))?.isOwner === true;
+  // The venue's expected-time defaults and accept window. A failed read
+  // falls back to the schema defaults rather than taking the page down.
+  const orderingSettings = await getOrderingSettings(userId);
+  const etaConfig = orderingSettings.ok ? orderingSettings.value.config : parseOrderingConfig({});
   const SIZES = [10, 25, 50] as const;
   const size = SIZES.includes(Number(sizeParam) as (typeof SIZES)[number]) ? Number(sizeParam) : 10;
   const totalPages = Math.max(1, Math.ceil(done.length / size));
@@ -285,6 +293,21 @@ export default async function OrdersPage({
                   isScheduled(order) ? SCHEDULED_CARD : "border-2 border-orange/60 bg-card"
                 }`}
               >
+                {(() => {
+                  // The promised time, once fixed — what the guest sees.
+                  const eta = orderEta(order, etaConfig);
+                  return eta && !eta.adjustableUntil ? (
+                    <p className="mb-1 text-xs font-medium text-orange-dark">
+                      {order.orderType === "delivery" ? "Expected delivery" : "Ready for pickup"}{" "}
+                      around{" "}
+                      {new Intl.DateTimeFormat("de-DE", {
+                        timeStyle: "short",
+                        timeZone: "Europe/Berlin",
+                      }).format(eta.expectedAt)}{" "}
+                      · {eta.minutes} min{eta.accepted ? "" : " (default)"}
+                    </p>
+                  ) : null;
+                })()}
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-serif text-2xl">
                     #{String(order.orderNumber)}
@@ -397,23 +420,43 @@ export default async function OrdersPage({
                   >
                     🖨 Print
                   </a>
-                  {nextStatus(order.status, order.orderType) ? (
-                    <form action={advanceOrderAction} className="shrink-0">
-                      <input type="hidden" name="orderId" value={order.id} />
-                      <input
-                        type="hidden"
-                        name="to"
-                        value={nextStatus(order.status, order.orderType)!}
+                  {(() => {
+                    const advance = nextStatus(order.status, order.orderType) ? (
+                      <form action={advanceOrderAction} className="shrink-0">
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <input
+                          type="hidden"
+                          name="to"
+                          value={nextStatus(order.status, order.orderType)!}
+                        />
+                        <SubmitButton
+                          pendingLabel="Updating…"
+                          title={advanceLabel(nextStatus(order.status, order.orderType)!)}
+                          className="whitespace-nowrap bg-orange px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-card hover:bg-orange-dark"
+                        >
+                          {advanceCompact(nextStatus(order.status, order.orderType)!)}
+                        </SubmitButton>
+                      </form>
+                    ) : null;
+                    // Inside the accept window the card asks for the time
+                    // instead; when it closes, the plain button returns.
+                    const eta = orderEta(order, etaConfig);
+                    return eta?.adjustableUntil ? (
+                      <AcceptWithTime
+                        key={order.id}
+                        orderId={order.id}
+                        orderType={order.orderType}
+                        defaultMinutes={eta.minutes}
+                        boardedAt={boardedAt(order).toISOString()}
+                        until={eta.adjustableUntil.toISOString()}
+                        timezone="Europe/Berlin"
+                        action={acceptOrderAction}
+                        fallback={advance}
                       />
-                      <SubmitButton
-                        pendingLabel="Updating…"
-                        title={advanceLabel(nextStatus(order.status, order.orderType)!)}
-                        className="whitespace-nowrap bg-orange px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-card hover:bg-orange-dark"
-                      >
-                        {advanceCompact(nextStatus(order.status, order.orderType)!)}
-                      </SubmitButton>
-                    </form>
-                  ) : null}
+                    ) : (
+                      advance
+                    );
+                  })()}
                 </div>
               </li>
             ))}

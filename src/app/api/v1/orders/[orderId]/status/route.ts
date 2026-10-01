@@ -1,3 +1,4 @@
+import { guestExpectedAt } from "@/lib/order-eta";
 import { NextRequest, NextResponse } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { verifyReceiptToken } from "@/lib/receipt-token";
@@ -101,6 +102,12 @@ export async function GET(
           // ISO, like every other timestamp in this payload: the app
           // formats it in the guest's locale, we never pre-format.
           outForDeliveryAt: order.outForDeliveryAt?.toISOString() ?? null,
+          // The restaurant's promised time (ISO), once it is fixed —
+          // null before that, on planned / dine-in orders, and when the
+          // order is finished. The app formats it; we never pre-format.
+          expectedAt:
+            guestExpectedAt(order, parseOrderingConfig(order.venue.ordering))?.toISOString() ??
+            null,
           totalCents: order.totalCents,
           currency: order.currency,
           tableNumber: order.tableNumber,
