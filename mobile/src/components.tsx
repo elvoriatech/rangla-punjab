@@ -283,10 +283,11 @@ function HeaderPointsPill({
         }
         style={({ pressed }) => [styles.headerPoints, pressed && { opacity: 0.8 }]}
       >
-        {/* The breathing red glow the Offers tile wears — the app's one
+        {/* The breathing ring the Offers tile wears — the app's one
             "look here" signal, so the badge borrows it rather than
-            inventing a second (owner, 2026-09-24; red, 2026-10-01). */}
-        <PulsingBorder tone="red" inset={2} style={styles.headerPointsRing} />
+            inventing a second (owner, 2026-09-24). Its own gold and
+            ember, with the Offers halo (owner, 2026-10-01). */}
+        <PulsingBorder halo style={styles.headerPointsRing} />
         <View style={styles.headerPointsBody}>
           <Animated.View style={wiggle}>
             {/* The colour gift of the owner's approved mock (2026-09-29),
@@ -595,29 +596,25 @@ export function DishBadges({
  */
 export function PulsingBorder({
   inset = 0,
-  tone = "gold",
+  halo = false,
   style,
 }: {
   inset?: number;
-  /** `red` is the Home screen's Offers glow — a steady red ring and a
-   *  brighter one with a red halo — for a host that should match it. */
-  tone?: "gold" | "red";
+  /** The wide halo of the Home screen's Offers glow, in this ring's own
+   *  ember — same size and breath, the host's colours untouched. */
+  halo?: boolean;
   style?: StyleProp<ViewStyle>;
 }): React.ReactElement {
   const pulse = usePulse();
   const edges = { top: -inset, bottom: -inset, start: -inset, end: -inset };
-  const red = tone === "red";
   return (
     <>
-      <View
-        pointerEvents="none"
-        style={[styles.ring, red ? styles.ringRed : styles.ringGold, edges, style]}
-      />
+      <View pointerEvents="none" style={[styles.ring, styles.ringGold, edges, style]} />
       <Animated.View
         pointerEvents="none"
         style={[
           styles.ring,
-          red ? styles.ringRedBright : styles.ringEmber,
+          halo ? styles.ringEmberHalo : styles.ringEmber,
           edges,
           style,
           { opacity: pulse },
@@ -849,12 +846,12 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  /** The Offers tile's glow (`GlowRing` on the Home screen), same values. */
-  ringRed: { borderWidth: 2.5, borderColor: "#c81e24" },
-  ringRedBright: {
-    borderWidth: 2.5,
-    borderColor: "#ff3b30",
-    boxShadow: "0px 0px 14px 4px rgba(255, 40, 40, 0.8)",
+  /** `ringEmber` with the Offers tile's halo (`GlowRing` on the Home
+   *  screen): same spread, ember instead of red. `boxShadow` takes a
+   *  colour on both platforms. */
+  ringEmberHalo: {
+    borderColor: colors.ember,
+    boxShadow: "0px 0px 14px 4px rgba(242, 140, 40, 0.85)",
   },
   requiredLegend: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The red slab. It owns the padding and the colour so the rows
@@ -930,14 +927,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: "transparent",
+    borderColor: colors.goldSoft,
     shadowColor: "#000",
     shadowOpacity: 0.22,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  /** The pulsing ring, drawn over the badge's own (transparent) edge. */
+  /** The pulsing ring, drawn ON the badge's own gold edge. */
   headerPointsRing: { borderRadius: 14 },
   /** The gift: 22 pt, a line height of its own so the emoji's font box
    *  doesn't push the word below the square. */

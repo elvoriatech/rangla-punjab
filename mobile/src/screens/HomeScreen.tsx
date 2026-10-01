@@ -485,9 +485,11 @@ export function HomeScreen({
             {/* The grid's middle cell: an empty cell either side keeps the
                 pill exactly as wide as Gift cards above it. */}
             <View style={styles.modeRow}>
-              <View style={styles.complainSpacer} />
-              <ComplaintPill onPress={onComplain} />
-              <View style={styles.complainSpacer} />
+              <View style={styles.actionWrap} />
+              <View style={styles.actionWrap}>
+                <ComplaintPill onPress={onComplain} />
+              </View>
+              <View style={styles.actionWrap} />
             </View>
           </>
         )}
@@ -873,7 +875,7 @@ function ComplaintPill({ onPress }: { onPress: () => void }): React.ReactElement
         style={styles.complainText}
         numberOfLines={1}
         adjustsFontSizeToFit
-        minimumFontScale={0.8}
+        minimumFontScale={0.75}
       >
         {t.complainShort}
       </Text>
@@ -1243,28 +1245,24 @@ const styles = StyleSheet.create({
   /** Its own line under the grid, one cell wide (owner, 2026-10-01):
    *  a soft blush fill and a quiet red edge. 34 pt tall; the hitSlop
    *  carries it past the 44 pt target. */
-  complainSpacer: { flexBasis: 0, flexGrow: 1, flexShrink: 1 },
   complainPill: {
-    flexBasis: 0,
-    flexGrow: 1,
-    flexShrink: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
+    gap: 4,
     minHeight: 34,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     borderRadius: radius.md,
     backgroundColor: "#fdf1f0",
     borderWidth: 1,
     borderColor: "#e79a9a",
   },
-  complainEmoji: { fontSize: 14, lineHeight: 19 },
+  complainEmoji: { fontSize: 13, lineHeight: 18 },
   complainText: {
     color: "#8f1a1a",
     ...fonts.bodyBold,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 18,
     flexShrink: 1,
   },
   /** 16 — a shade under its neighbours' 18, because the flicker scales it
