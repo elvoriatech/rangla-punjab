@@ -6,8 +6,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpenText,
-  ChefHat,
   CalendarCheck,
+  ChartColumn,
+  ChefHat,
   ConciergeBell,
   CreditCard,
   ExternalLink,
@@ -70,6 +71,7 @@ function buildNav(base: string, openIssues: number): RailItem[] {
     { href: "/kitchen", label: "Kitchen", icon: ChefHat, newTab: true, need: "kitchen" },
     { href: `${base}/categories`, label: "Menu", icon: BookOpenText, need: "menu" },
     { href: `${base}/appearance`, label: "Appearance", icon: Palette, need: "appearance" },
+    { href: `${base}/reports`, label: "Reports", icon: ChartColumn, need: "reports" },
     { href: `${base}/gift-cards`, label: "Gift cards", icon: Gift, need: "giftcards" },
     { href: `${base}/qr`, label: "QR codes", icon: QrCode, need: "qr" },
     { href: `${base}/settings`, label: "Settings", icon: Settings, need: "settings" },
