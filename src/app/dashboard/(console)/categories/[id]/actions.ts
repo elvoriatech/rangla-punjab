@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createItem, softDeleteItem, updateItem } from "@/lib/items-service";
+import { createItem, softDeleteItem, updateItem, updateItemSchema } from "@/lib/items-service";
 import { daysFromForm } from "@/lib/item-days";
 import { saveUploadedImage } from "@/lib/media-service";
 import {
@@ -69,7 +69,7 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
 
 /**
  * Edit an existing item — name, description, price, availability (incl.
- * the weekdays it is on the menu), photo,
+ * the weekdays it is on the menu), allergens, dietary flags, photo,
  * and the offer ("Angebot"): a reduced price with an optional date window.
  * An offer at or above the regular price is refused here AND by the DB
  * CHECK — a struck-through "was" price must always be a real reduction.
@@ -82,6 +82,14 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
   const priceEuros = Number(form.get("priceEuros"));
   const isAvailable = form.get("isAvailable") === "on";
   if (!id || !name || Number.isNaN(priceEuros) || priceEuros < 0) return;
+  // The edit form carries every allergen + dietary box, so what arrives
+  // IS the dish's full set (an unticked box removes it). Parsed through
+  // the service's own schema: an unknown name is dropped, not stored.
+  const tags = updateItemSchema.pick({ allergens: true, dietary: true }).safeParse({
+    allergens: form.getAll("allergens").map(String),
+    dietary: form.getAll("dietary").map(String),
+  });
+  if (!tags.success) return;
   const priceCents = Math.round(priceEuros * 100);
   const availableDays = daysFromForm(form.getAll("days"));
   if (!availableDays) redirect(`/dashboard/categories/${categoryId}?edit=${id}&days=none`);
@@ -112,6 +120,8 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
     priceCents,
     isAvailable,
     availableDays,
+    allergens: tags.data.allergens,
+    dietary: tags.data.dietary,
     ...(photoMediaId ? { photoMediaId } : {}),
     offerPriceCents: validOffer ? offerCents : null,
     offerStartsAt,

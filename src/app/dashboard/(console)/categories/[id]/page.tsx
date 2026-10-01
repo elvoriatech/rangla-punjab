@@ -35,6 +35,15 @@ const ALLERGENS = [
   "molluscs",
 ] as const;
 
+/** The dietary boxes of the edit form — the add form's, in its order. */
+const EDIT_DIETARY = [
+  { value: "vegetarian", label: "vegetarian" },
+  { value: "vegan", label: "vegan" },
+  { value: "gluten_free", label: "gluten-free" },
+  { value: "dairy_free", label: "dairy-free" },
+  { value: "halal", label: "halal" },
+] as const;
+
 /**
  * The weekdays a dish is on the menu — seven ticked boxes in one row, so
  * "every day" is the default and a Mondays-only Thali is six clicks. Plain
@@ -427,6 +436,50 @@ export default async function CategoryDetailPage({
                       Angebot. Ohne Datum gilt das Angebot dauerhaft.
                     </p>
                     <DaysField checked={item.availableDays} size="sm" />
+                    {/* The same two sets of boxes the add form has, ticked
+                        as the dish is saved today — so an allergen can be
+                        corrected without deleting and re-adding the dish. */}
+                    <fieldset>
+                      <legend className="text-xs font-medium">Contains (allergens)</legend>
+                      <div className="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 md:grid-cols-4">
+                        {ALLERGENS.map((a) => (
+                          <label key={a} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              name="allergens"
+                              value={a}
+                              defaultChecked={item.allergens.includes(a)}
+                              className="accent-brand-green"
+                            />
+                            <span>{a}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <fieldset>
+                      <legend className="text-xs font-medium">Dietary</legend>
+                      <div className="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 md:grid-cols-5">
+                        {EDIT_DIETARY.filter(
+                          (d) =>
+                            d.value !== "halal" || halalOffered || item.dietary.includes("halal"),
+                        ).map((d) => (
+                          <label key={d.value} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              name="dietary"
+                              value={d.value}
+                              defaultChecked={item.dietary.includes(d.value)}
+                              className="accent-brand-green"
+                            />
+                            <span>{d.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {/* No box for it here, so carry it through untouched. */}
+                      {item.dietary.includes("kosher") ? (
+                        <input type="hidden" name="dietary" value="kosher" />
+                      ) : null}
+                    </fieldset>
                     <div className="flex flex-wrap items-center gap-4">
                       <label className="block">
                         <span className="text-xs font-medium">Neues Foto (optional)</span>
