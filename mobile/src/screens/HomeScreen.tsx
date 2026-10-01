@@ -455,14 +455,18 @@ export function HomeScreen({
               </View>
             ) : null}
 
-            {/* Row B. Catering took Complaint's cell (owner, 2026-09-29);
-                Complaint did not go away — it is the pill beside
-                "Categories" below, so a guest with a problem can still
-                always find the way to say so. Offers is the only cell on
+            {/* Row B. Offers leads the row (owner, 2026-10-01). Catering
+                took Complaint's cell (owner, 2026-09-29); Complaint did
+                not go away — it is the pill on its own line under this
+                row, so a guest with a problem can still always find the
+                way to say so. Offers is the only cell on
                 this screen allowed to move, so the movement still means
                 something, and it is absent entirely when the count is 0
                 (P7-12). */}
             <View style={styles.modeRow}>
+              {offerCount > 0 ? (
+                <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
+              ) : null}
               {giftCardsOn ? (
                 <ActionCard
                   icon={<Text style={emoji}>🎁</Text>}
@@ -471,9 +475,6 @@ export function HomeScreen({
                   onPress={onOpenGiftCards}
                 />
               ) : null}
-              {offerCount > 0 ? (
-                <OffersCard count={offerCount} names={offerNames} onPress={onOpenOffers} />
-              ) : null}
               <ActionCard
                 icon={<ChefIcon size={wide ? 32 : 22} />}
                 title={t.cateringShort}
@@ -481,6 +482,7 @@ export function HomeScreen({
                 onPress={onOpenCatering}
               />
             </View>
+            <ComplaintPill onPress={onComplain} />
           </>
         )}
 
@@ -502,11 +504,7 @@ export function HomeScreen({
           </Pressable>
         ) : null}
 
-        <SectionTitle
-          action={t.showAll}
-          onAction={onBrowseAll}
-          middle={restaurant ? null : <ComplaintPill onPress={onComplain} />}
-        >
+        <SectionTitle action={t.showAll} onAction={onBrowseAll}>
           {t.categories}
         </SectionTitle>
         <ScrollView
@@ -1231,20 +1229,24 @@ const styles = StyleSheet.create({
     width: SHINE_W,
     backgroundColor: "rgba(255, 255, 255, 0.55)",
   },
+  /** Its own line, centred under the grid (owner, 2026-10-01): blush
+   *  fill, the Offers ring's red as its edge, a full 44 pt target. */
   complainPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    flexShrink: 1,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    backgroundColor: colors.creamCard,
-    borderWidth: 1,
-    borderColor: colors.line,
+    justifyContent: "center",
+    alignSelf: "center",
+    gap: 6,
+    minHeight: 44,
+    marginTop: 8,
+    paddingHorizontal: 18,
+    borderRadius: radius.md,
+    backgroundColor: "#fde8e8",
+    borderWidth: 1.5,
+    borderColor: "#c81e24",
   },
-  complainEmoji: { fontSize: 13, lineHeight: 17 },
-  complainText: { color: colors.ink, ...fonts.bodyBold, fontSize: 13, lineHeight: 17 },
+  complainEmoji: { fontSize: 15, lineHeight: 20 },
+  complainText: { color: "#791f1f", ...fonts.bodyBold, fontSize: 15, lineHeight: 20 },
   /** 16 — a shade under its neighbours' 18, because the flicker scales it
    *  at the top of its cycle and the 22 pt icon slot has to hold that
    *  without nudging the label. */
