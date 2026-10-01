@@ -287,8 +287,8 @@ function HeaderPointsPill({
       >
         {/* The breathing ring the Offers tile wears — the app's one
             "look here" signal, so the badge borrows it rather than
-            inventing a second (owner, 2026-09-24). Its own gold and
-            ember, with the Offers halo (owner, 2026-10-01). */}
+            inventing a second (owner, 2026-09-24). The wordmark's lime,
+            with the Offers halo (owner, 2026-10-01). */}
         <PulsingBorder halo style={styles.headerPointsRing} />
         <View style={styles.headerPointsBody}>
           <Animated.View style={wiggle}>
@@ -646,7 +646,10 @@ export function PulsingBorder({
   const edges = { top: -inset, bottom: -inset, start: -inset, end: -inset };
   return (
     <>
-      <View pointerEvents="none" style={[styles.ring, styles.ringGold, edges, style]} />
+      <View
+        pointerEvents="none"
+        style={[styles.ring, halo ? styles.ringLime : styles.ringGold, edges, style]}
+      />
       <Animated.View
         pointerEvents="none"
         style={[
@@ -884,12 +887,13 @@ const styles = StyleSheet.create({
     }),
   },
   /** The Offers tile's halo (`GlowRing` on the Home screen) for a host on
-   *  the RED header: ember all but vanishes against red, so the bright
-   *  half is a light gold, kept tight so it reads as an edge, not a lamp. `boxShadow`
-   *  takes a colour on both platforms. */
+   *  the RED header, in the wordmark's lime (owner, 2026-10-01): a steady
+   *  lime edge, and a lighter one whose halo is kept tight so it reads as
+   *  an edge, not a lamp. `boxShadow` takes a colour on both platforms. */
+  ringLime: { borderColor: "#A9E01C" },
   ringEmberHalo: {
-    borderColor: "#ffe27a",
-    boxShadow: "0px 0px 10px 3px rgba(255, 221, 102, 0.9)",
+    borderColor: "#E8FA4B",
+    boxShadow: "0px 0px 10px 3px rgba(200, 245, 60, 0.9)",
   },
   /** Room for the eye, and a 44 pt target pinned to the field's end. */
   passwordInput: { paddingEnd: 44, marginBottom: 0 },
@@ -976,14 +980,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: colors.goldSoft,
+    borderColor: "#A9E01C",
     shadowColor: "#000",
     shadowOpacity: 0.22,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  /** The pulsing ring, drawn ON the badge's own gold edge. */
+  /** The pulsing ring, drawn ON the badge's own lime edge. */
   headerPointsRing: { borderRadius: 14 },
   /** The gift: 22 pt, a line height of its own so the emoji's font box
    *  doesn't push the word below the square. */
