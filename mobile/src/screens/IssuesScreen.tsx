@@ -164,7 +164,7 @@ export function IssuesScreen({
                         {statusLabels[issue.status] ?? issue.status}
                       </Text>
                     </View>
-                    <Text style={styles.number}>#{String(issue.orderNumber).padStart(4, "0")}</Text>
+                    <Text style={styles.number}>#{String(issue.orderNumber)}</Text>
                     <Text style={styles.name} numberOfLines={1}>
                       {issue.customerName ?? t.issueGuest}
                     </Text>

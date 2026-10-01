@@ -239,7 +239,7 @@ export function renderTicketHtml(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=302">
-<title>${esc(`#${String(order.orderNumber).padStart(4, "0")} — ${venue.name}`)}</title>
+<title>${esc(`#${String(order.orderNumber)} — ${venue.name}`)}</title>
 <style>
 @page { margin: 0; size: auto; }
 * { box-sizing: border-box; }
@@ -304,7 +304,7 @@ li.note { display: block; padding-left: 20px; font-size: 11px; font-style: itali
 <p class="venue">${esc(venue.name)}</p>
 <p class="kind">Kitchen ticket</p>
 <p class="rule">${RULE}</p>
-<div class="head"><span>#${String(order.orderNumber).padStart(4, "0")}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
+<div class="head"><span>#${String(order.orderNumber)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
 ${paid ? `<p class="pay">${esc(paid)}</p>` : ""}
 <p class="banner">${esc(typeBanner(order))}</p>
 ${rows.length > 0 ? `<div class="rows">${rows.join("")}</div>` : ""}

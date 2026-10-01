@@ -102,7 +102,7 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
   });
   const servedViews = servedToday.map((order) => ({
     id: order.id,
-    number: `#${String(order.orderNumber).padStart(4, "0")}`,
+    number: `#${String(order.orderNumber)}`,
     table: fulfilmentLines(order)[0] ?? null,
     time: time.format(order.createdAt),
     summary: order.items.map((i) => `${i.quantity}× ${i.name}`).join(" · "),
@@ -156,7 +156,7 @@ export default async function KitchenPage(): Promise<React.ReactElement> {
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="font-serif text-3xl tabular-nums">
-                      #{String(order.orderNumber).padStart(4, "0")}
+                      #{String(order.orderNumber)}
                       <span
                         className={
                           order.paymentStatus === "paid"

@@ -35,7 +35,7 @@ export function reportToCsv(report: VenueReport): string {
   for (const o of report.orders) {
     rows.push(
       [
-        String(o.orderNumber).padStart(4, "0"),
+        String(o.orderNumber),
         o.placedAt.toISOString(),
         o.orderType,
         o.status,

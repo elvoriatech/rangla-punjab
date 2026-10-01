@@ -1,8 +1,11 @@
+import { uploadedImageUrl } from "@/lib/menu-images";
+import { listDeletedOrders } from "@/lib/order-delete-service";
 import {
   CalendarDays,
   CreditCard,
   ReceiptText,
   ShoppingBag,
+  Trash2,
   UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
@@ -42,38 +45,69 @@ export default async function ReportsPage({
   const range = resolveReportRange(q);
   const report = await getVenueReport(userId, venue.id, range);
   if (!report) redirect("/dashboard");
+  const deleted = await listDeletedOrders(userId, venue.id, range);
 
+  const logoUrl = venue.branding.logoKey ? uploadedImageUrl(venue.branding.logoKey, 96) : null;
   const money = (cents: number): string => formatPrice(cents, report.venue.currency, "de");
   const qs = `preset=${range.preset}&from=${range.fromInput}&to=${range.toInput}`;
   // The per-order table speaks the same words as the two cards above it.
   const typeLabel = new Map<string, string>(report.byOrderType.map((t) => [t.key, t.label]));
   const methodLabel = new Map<string, string>(report.byPaymentMethod.map((m) => [m.key, m.label]));
+  const dateTime = new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: report.venue.timezone,
+  });
   const maxPeriod = Math.max(0, ...report.periods.map((p) => p.grossCents));
   const maxItem = Math.max(0, ...report.topItems.map((t) => t.grossCents));
 
   return (
     <main className="px-6 py-10 lg:px-10">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl">Berichte</h1>
-          <p className="mt-1 text-sm text-muted">
-            Umsatz, MwSt. und Bestell-Auswertung — {rangeLabel(range)}. Beträge aus den
-            Bestell-Snapshots; spätere Preisänderungen ändern keinen Bericht.
-          </p>
+      {/* Letterhead: whose report this is, and for when — the same top
+          the PDF statement carries. */}
+      <header className="border border-ink/15 bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-orange px-5 py-4 sm:flex-nowrap">
+          <div className="flex min-w-0 items-center gap-4">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- already resized by /img
+              <img
+                src={logoUrl}
+                alt=""
+                width={56}
+                height={56}
+                className="h-14 w-14 shrink-0 rounded-full border border-ink/10 bg-white object-contain"
+              />
+            ) : null}
+            <div className="min-w-0">
+              <p className="truncate font-serif text-2xl leading-tight">{report.venue.name}</p>
+              <h1 className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-dark">
+                Berichte · Umsatz, MwSt. und Bestellungen
+              </h1>
+            </div>
+          </div>
+          <dl className="shrink-0 text-sm sm:text-right">
+            <dt className="text-[11px] uppercase tracking-[0.16em] text-muted">Zeitraum</dt>
+            <dd className="font-semibold tabular-nums">{rangeLabel(range)}</dd>
+          </dl>
         </div>
-        <div className="flex gap-2">
-          <a
-            href={`/dashboard/reports/export.csv?${qs}`}
-            className="border border-ink/20 bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] hover:border-orange"
-          >
-            CSV Export
-          </a>
-          <a
-            href={`/dashboard/reports/statement.pdf?${qs}`}
-            className="bg-orange px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-card hover:bg-orange-dark"
-          >
-            Statement (PDF)
-          </a>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+          <p className="text-xs text-muted">
+            Beträge aus den Bestell-Snapshots; spätere Preisänderungen ändern keinen Bericht.
+          </p>
+          <div className="flex gap-2">
+            <a
+              href={`/dashboard/reports/export.csv?${qs}`}
+              className="border border-ink/20 bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] hover:border-orange"
+            >
+              CSV Export
+            </a>
+            <a
+              href={`/dashboard/reports/statement.pdf?${qs}`}
+              className="bg-orange px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-card hover:bg-orange-dark"
+            >
+              Statement (PDF)
+            </a>
+          </div>
         </div>
       </header>
 
@@ -285,7 +319,7 @@ export default async function ReportsPage({
               {report.orders.slice(0, 100).map((o) => (
                 <tr key={o.orderId} className="border-t border-ink/10 odd:bg-ink/[0.015]">
                   <td className="px-5 py-2.5 font-semibold tabular-nums">
-                    #{String(o.orderNumber).padStart(4, "0")}
+                    #{String(o.orderNumber)}
                   </td>
                   <td className="py-2.5 text-muted">
                     {new Intl.DateTimeFormat("de-DE", {
@@ -336,6 +370,70 @@ export default async function ReportsPage({
           </p>
         ) : null}
       </section>
+      {/* The deletion log: an order the owner removed leaves this line. */}
+      <section
+        id="geloescht"
+        aria-labelledby="geloescht-title"
+        className="mt-6 scroll-mt-6 border border-ink/15 bg-card"
+      >
+        <header className="flex items-center gap-3 border-b border-ink/10 px-5 py-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-ink/20 bg-ink/5 text-muted">
+            <Trash2 className="h-4 w-4" aria-hidden />
+          </span>
+          <div>
+            <h2 id="geloescht-title" className="font-serif text-xl leading-tight">
+              Gelöschte Bestellungen ({deleted.length})
+            </h2>
+            <p className="text-xs text-muted">
+              Stornierte Bestellungen ohne Zahlung, die im Zeitraum gelöscht wurden — mit Grund. Sie
+              zählen in keiner Summe mit.
+            </p>
+          </div>
+        </header>
+        {deleted.length === 0 ? (
+          <p className="px-5 py-5 text-sm text-muted">
+            Im Zeitraum wurde keine Bestellung gelöscht.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-sm">
+              <thead>
+                <tr className="bg-ink/[0.04] text-left text-xs uppercase tracking-wider text-muted">
+                  <th scope="col" className="px-5 py-2.5">
+                    Nr.
+                  </th>
+                  <th scope="col" className="py-2.5">
+                    Bestellt
+                  </th>
+                  <th scope="col" className="py-2.5 text-right">
+                    Betrag
+                  </th>
+                  <th scope="col" className="py-2.5 ps-5">
+                    Grund
+                  </th>
+                  <th scope="col" className="px-5 py-2.5">
+                    Gelöscht
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {deleted.map((d) => (
+                  <tr key={d.id} className="border-t border-ink/10 align-top">
+                    <td className="px-5 py-2.5 font-semibold tabular-nums">#{d.orderNumber}</td>
+                    <td className="py-2.5 text-muted">{dateTime.format(d.placedAt)}</td>
+                    <td className="py-2.5 text-right tabular-nums">{money(d.totalCents)}</td>
+                    <td className="py-2.5 ps-5">{d.reason}</td>
+                    <td className="px-5 py-2.5 text-muted">
+                      {dateTime.format(d.deletedAt)}
+                      <span className="block text-xs">{d.deletedBy}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </main>
   );
 }
@@ -368,6 +466,7 @@ const SECTIONS = [
   { id: "zeitraum", label: "Nach Zeitraum" },
   { id: "top-gerichte", label: "Top-Gerichte" },
   { id: "bestellungen", label: "Bestellungen einzeln" },
+  { id: "geloescht", label: "Gelöscht" },
 ] as const;
 
 /** `part` as a whole percentage of `max` — the length of a row's bar. */

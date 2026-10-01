@@ -29,7 +29,7 @@ function amount(cents: number): string {
 }
 
 function orderLabel(orderNumber: number | null): string {
-  return orderNumber === null ? "order" : `#${String(orderNumber).padStart(4, "0")}`;
+  return orderNumber === null ? "order" : `#${String(orderNumber)}`;
 }
 
 const HEADERS = [

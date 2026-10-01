@@ -141,7 +141,7 @@ describe("giftCardsToCsv", () => {
     ]);
   });
 
-  it("renders an order redemption as the padded order number", () => {
+  it("renders an order redemption as the order number", () => {
     const rows = parseCsv(
       giftCardsToCsv(
         report([
@@ -153,7 +153,7 @@ describe("giftCardsToCsv", () => {
       ),
     );
     expect(rows[1]?.[6]).toBe("order");
-    expect(rows[1]?.[7]).toBe("#0042");
+    expect(rows[1]?.[7]).toBe("#42");
   });
 
   it("leaves a card that was never redeemed with empty redemption columns", () => {

@@ -79,11 +79,11 @@ describe("renderTicketHtml", () => {
     expect(html).not.toContain("width: 100%");
   });
 
-  it("carries the venue, the padded order number, the time and the dishes", () => {
+  it("carries the venue, the order number, the time and the dishes", () => {
     const html = renderTicketHtml(order(), VENUE);
     expect(html).toContain("Rangla Punjab");
     expect(html).toContain("Kitchen ticket");
-    expect(html).toContain("#0042");
+    expect(html).toContain("#42");
     expect(html).toContain("Dal Makhani");
     expect(html).toContain("2x");
     // Line total, not unit price: 2 × €12.00.

@@ -34,7 +34,7 @@ export interface NewIssueEmailProps {
 }
 
 function orderNo(orderNumber: number): string {
-  return String(orderNumber).padStart(4, "0");
+  return String(orderNumber);
 }
 
 export function newIssueSubject(orderNumber: number, locale: UiLocale): string {

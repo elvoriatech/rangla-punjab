@@ -32,7 +32,7 @@ export interface OnTheWayEmailProps {
 
 /** The house order-number format — "0031" — same as receipts and tickets. */
 function orderNo(orderNumber: number): string {
-  return String(orderNumber).padStart(4, "0");
+  return String(orderNumber);
 }
 
 export function onTheWaySubject(locale: UiLocale, orderNumber: number): string {

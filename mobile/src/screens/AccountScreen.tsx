@@ -413,7 +413,7 @@ export function AccountScreen({
                     onPress={() => onOpenOrder(o.orderId, o.receiptToken)}
                   >
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.orderNo}>#{String(o.orderNumber).padStart(4, "0")}</Text>
+                      <Text style={styles.orderNo}>#{String(o.orderNumber)}</Text>
                       <Text style={styles.orderMeta}>
                         {dt(o.placedAt)} ·{" "}
                         {(t.typeLabels as Record<string, string>)[o.orderType] ?? o.orderType}

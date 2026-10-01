@@ -713,7 +713,7 @@ export function CartDrawer({
   function downloadReceipt(order: PlacedOrder): void {
     const a = document.createElement("a");
     a.href = `/api/orders/${order.orderId}/receipt?token=${encodeURIComponent(order.receiptToken)}&locale=${copyLocale}`;
-    a.download = `receipt-${String(order.orderNumber).padStart(4, "0")}.pdf`;
+    a.download = `receipt-${String(order.orderNumber)}.pdf`;
     a.rel = "noopener";
     document.body.appendChild(a);
     a.click();

@@ -21,7 +21,7 @@ export interface NewOrderEmailProps {
 }
 
 function orderNo(order: ReceiptOrder): string {
-  return String(order.orderNumber).padStart(4, "0");
+  return String(order.orderNumber);
 }
 
 /** One phrase for where the order goes: "Table 4", "Pickup", "Delivery". */

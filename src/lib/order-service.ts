@@ -499,7 +499,13 @@ export async function placeOrder(
       where: { venueId: context.venueId },
       _max: { orderNumber: true },
     });
-    const orderNumber = (max._max.orderNumber ?? 0) + 1;
+    // An owner-deleted order keeps its number in the deletion log: without
+    // this, deleting the newest order would hand its number out again.
+    const maxDeleted = await tx.deletedOrder.aggregate({
+      where: { venueId: context.venueId },
+      _max: { orderNumber: true },
+    });
+    const orderNumber = Math.max(max._max.orderNumber ?? 0, maxDeleted._max.orderNumber ?? 0) + 1;
     const order = await tx.order.create({
       data: {
         tenantId: context.tenantId,

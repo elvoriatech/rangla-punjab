@@ -75,9 +75,7 @@ export function GiftCardShareCard({
               // The number is nullable only if the order row vanished; the
               // dash keeps the sentence grammatical rather than printing
               // "#0000", which reads as a real order that isn't.
-              card.redemption.orderNumber === null
-                ? "—"
-                : String(card.redemption.orderNumber).padStart(4, "0"),
+              card.redemption.orderNumber === null ? "—" : String(card.redemption.orderNumber),
             )
           : t.timelineRedeemedCounter,
       at: card.redemption.at,

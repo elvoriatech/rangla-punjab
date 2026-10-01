@@ -4,7 +4,7 @@ import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { GIFT_CARD_PROVIDER, listRecentOrders, VOUCHER_PROVIDER } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
-import { advanceOrderAction } from "./actions";
+import { advanceOrderAction, deleteOrderAction } from "./actions";
 import {
   advanceIcon,
   advanceLabel,
@@ -18,7 +18,9 @@ import { NewOrderChime } from "../../../kitchen/new-order-chime";
 import { AutoPrint } from "./auto-print";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
-import { requirePermission } from "@/lib/team-access";
+import { getAccess, requirePermission } from "@/lib/team-access";
+import { DELETE_REASON_MAX, DELETE_REASON_MIN, orderDeleteBlock } from "@/lib/order-delete-service";
+import { FlashMessage } from "@/components/flash-message";
 
 /**
  * Kitchen screen: newest orders first, big and scannable from arm's
@@ -147,10 +149,19 @@ function paymentBadge(order: { paymentStatus: string; paymentProvider: string | 
   return "Cash";
 }
 
+/** What the owner is told when a delete is refused. */
+const DELETE_ERRORS: Record<string, string> = {
+  forbidden: "Only the owner can delete orders.",
+  not_found: "That order no longer exists.",
+  not_cancelled: "Only cancelled orders can be deleted. Cancel it first.",
+  money_moved: "This order was paid or refunded, so it stays in the books and cannot be deleted.",
+  reason_required: "Please give a reason for deleting the order.",
+};
+
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; size?: string }>;
+  searchParams: Promise<{ page?: string; size?: string; deleted?: string; delete_error?: string }>;
 }): Promise<React.ReactElement> {
   const base = `/dashboard`;
   const userId = await requirePermission("orders");
@@ -187,7 +198,15 @@ export default async function OrdersPage({
     return status !== undefined && status !== "resolved";
   });
 
-  const { page: pageParam, size: sizeParam } = await searchParams;
+  const {
+    page: pageParam,
+    size: sizeParam,
+    deleted: deletedParam,
+    delete_error: deleteError,
+  } = await searchParams;
+  // Deleting is the owner's alone — a team member with Orders never sees
+  // the link, and the service refuses them regardless.
+  const isOwner = (await getAccess(userId))?.isOwner === true;
   const SIZES = [10, 25, 50] as const;
   const size = SIZES.includes(Number(sizeParam) as (typeof SIZES)[number]) ? Number(sizeParam) : 10;
   const totalPages = Math.max(1, Math.ceil(done.length / size));
@@ -198,6 +217,18 @@ export default async function OrdersPage({
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-12 text-ink lg:px-10">
       <AutoRefresh seconds={10} />
+      {deletedParam && /^\d+$/.test(deletedParam) ? (
+        <FlashMessage
+          kind="success"
+          text={`Order #${deletedParam} deleted. The reason is kept under Reports → Deleted orders.`}
+        />
+      ) : null}
+      {deleteError ? (
+        <FlashMessage
+          kind="error"
+          text={DELETE_ERRORS[deleteError] ?? "That order could not be deleted."}
+        />
+      ) : null}
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <p className="mb-2 text-xs uppercase tracking-[0.28em] text-gold-dark">Front of house</p>
@@ -256,7 +287,7 @@ export default async function OrdersPage({
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-serif text-2xl">
-                    #{String(order.orderNumber).padStart(4, "0")}
+                    #{String(order.orderNumber)}
                     <span
                       className={
                         order.paymentStatus === "paid"
@@ -289,7 +320,7 @@ export default async function OrdersPage({
                       <input type="hidden" name="orderId" value={order.id} />
                       <input type="hidden" name="to" value="cancelled" />
                       <ConfirmSubmit
-                        message={`Cancel order #${String(order.orderNumber).padStart(4, "0")}? The guest is told it was called off, and this cannot be undone.`}
+                        message={`Cancel order #${String(order.orderNumber)}? The guest is told it was called off, and this cannot be undone.`}
                         pendingLabel="Cancelling…"
                         confirmLabel="Yes, cancel order"
                         cancelLabel="Keep order"
@@ -405,9 +436,7 @@ export default async function OrdersPage({
                 key={order.id}
                 className="flex flex-wrap items-baseline justify-between gap-3 px-5 py-3 text-sm"
               >
-                <span className="font-serif text-lg">
-                  #{String(order.orderNumber).padStart(4, "0")}
-                </span>
+                <span className="font-serif text-lg">#{String(order.orderNumber)}</span>
                 <span className="text-muted">
                   {order.paymentProvider === "paypal" ? "PayPal" : "Card"} ·{" "}
                   {order.paymentStatus === "failed" ? "payment failed" : "not paid yet"} ·{" "}
@@ -421,7 +450,7 @@ export default async function OrdersPage({
                   <input type="hidden" name="orderId" value={order.id} />
                   <input type="hidden" name="to" value="cancelled" />
                   <ConfirmSubmit
-                    message={`Cancel unpaid order #${String(order.orderNumber).padStart(4, "0")}?`}
+                    message={`Cancel unpaid order #${String(order.orderNumber)}?`}
                     pendingLabel="Cancelling…"
                     confirmLabel="Yes, cancel order"
                     cancelLabel="Keep order"
@@ -446,7 +475,7 @@ export default async function OrdersPage({
                 key={order.id}
                 className="grid grid-cols-[3.5rem_minmax(0,1fr)_max-content] items-baseline gap-x-3 gap-y-0.5 px-5 py-3 text-sm text-muted sm:grid-cols-[3.5rem_minmax(0,1fr)_11rem_max-content]"
               >
-                <span className="tabular-nums">#{String(order.orderNumber).padStart(4, "0")}</span>
+                <span className="tabular-nums">#{String(order.orderNumber)}</span>
                 <span className="truncate">
                   {fulfilmentLines(order)[0] ?? ""}
                   <span
@@ -516,6 +545,30 @@ export default async function OrdersPage({
                   >
                     Print
                   </a>
+                  {/* Owner only, and only where the books allow it: a
+                      cancelled order on which no money moved. */}
+                  {isOwner && orderDeleteBlock(order) === null ? (
+                    <form action={deleteOrderAction} className="inline">
+                      <input type="hidden" name="orderId" value={order.id} />
+                      <ConfirmSubmit
+                        message={`Delete cancelled order #${order.orderNumber}? It is removed everywhere and cannot be brought back.`}
+                        reason={{
+                          name: "reason",
+                          label: "Why is it being deleted?",
+                          placeholder: "e.g. test order, placed by mistake",
+                          minLength: DELETE_REASON_MIN,
+                          maxLength: DELETE_REASON_MAX,
+                        }}
+                        pendingLabel="Deleting…"
+                        confirmLabel="Delete order"
+                        cancelLabel="Keep order"
+                        title="Delete this cancelled order"
+                        className="underline underline-offset-2 hover:text-[#b3261e]"
+                      >
+                        Delete
+                      </ConfirmSubmit>
+                    </form>
+                  ) : null}
                 </span>
                 {/* Its own row rather than another badge: this is the only
                     line on the screen that asks the owner to go and DO

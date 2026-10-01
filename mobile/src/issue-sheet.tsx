@@ -379,7 +379,7 @@ export function IssueSheet({
                 <Text style={styles.title}>{title}</Text>
                 {thread?.order ? (
                   <Text style={styles.subtitle} numberOfLines={1}>
-                    {t.orderNo} #{String(thread.order.number).padStart(4, "0")}
+                    {t.orderNo} #{String(thread.order.number)}
                     {thread.order.name ? ` · ${thread.order.name}` : ""}
                   </Text>
                 ) : null}

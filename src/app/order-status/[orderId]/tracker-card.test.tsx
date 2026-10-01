@@ -46,7 +46,7 @@ describe("order tracker", () => {
   it("renders Spanish only — no German or English leaking through", () => {
     const html = render(order, "es");
     expect(html).toContain("Seguimiento del pedido");
-    expect(html).toContain("Pedido n.º 0007");
+    expect(html).toContain("Pedido n.º 7");
     expect(html).toContain("En preparación");
     expect(html).toContain("Listo para recoger");
     expect(html).toContain("Pago en el restaurante");
@@ -59,7 +59,7 @@ describe("order tracker", () => {
   it("renders Italian only", () => {
     const html = render(order, "it");
     expect(html).toContain("Segui il tuo ordine");
-    expect(html).toContain("Ordine n. 0007");
+    expect(html).toContain("Ordine n. 7");
     expect(html).toContain("In preparazione");
     expect(html).toContain("Pronto per il ritiro");
     expect(html).not.toContain("Zubereitung");

@@ -177,9 +177,7 @@ export function OrdersScreen({
                         one word so the row survives a small phone. */}
                     <View style={styles.numberRow}>
                       <View style={styles.numberPills}>
-                        <Text style={styles.number}>
-                          #{String(order.orderNumber).padStart(4, "0")}
-                        </Text>
+                        <Text style={styles.number}>#{String(order.orderNumber)}</Text>
                         {s ? (
                           <View
                             style={[

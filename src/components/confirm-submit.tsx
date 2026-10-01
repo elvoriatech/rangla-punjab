@@ -28,6 +28,7 @@ export function ConfirmSubmit({
   title,
   confirmLabel = "Confirm",
   cancelLabel = "Back",
+  reason,
 }: {
   /** What the dialog asks. Name the order — "Cancel order #0007?" — so a
    *  mis-tap on the wrong card is visible in the dialog itself. */
@@ -40,9 +41,25 @@ export function ConfirmSubmit({
   confirmLabel?: string;
   /** The dialog's way out. */
   cancelLabel?: string;
+  /**
+   * Ask for a written reason before confirming. It is posted with the
+   * form under `name`; the red button stays disabled until `minLength`
+   * characters are typed. The server action must check it again — with
+   * JavaScript off the form posts without one.
+   */
+  reason?: {
+    name: string;
+    label: string;
+    placeholder?: string;
+    minLength: number;
+    maxLength: number;
+  };
 }): React.ReactElement {
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const reasonRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const [reasonText, setReasonText] = useState("");
+  const reasonOk = !reason || reasonText.trim().length >= reason.minLength;
 
   useEffect(() => {
     if (!open) return;
@@ -55,6 +72,7 @@ export function ConfirmSubmit({
 
   return (
     <>
+      {reason ? <input ref={reasonRef} type="hidden" name={reason.name} /> : null}
       <SubmitButton
         ref={buttonRef}
         pendingLabel={pendingLabel}
@@ -84,6 +102,19 @@ export function ConfirmSubmit({
               />
               <div className="relative w-full max-w-sm border border-ink/15 bg-card p-6 text-ink shadow-[0_32px_80px_-24px_rgba(0,0,0,0.6)]">
                 <p className="font-serif text-xl leading-snug">{message}</p>
+                {reason ? (
+                  <label className="mt-4 block text-sm">
+                    <span className="font-medium">{reason.label}</span>
+                    <textarea
+                      value={reasonText}
+                      onChange={(e) => setReasonText(e.target.value)}
+                      rows={3}
+                      maxLength={reason.maxLength}
+                      placeholder={reason.placeholder}
+                      className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                    />
+                  </label>
+                ) : null}
                 <div className="mt-6 flex justify-end gap-3">
                   <button
                     type="button"
@@ -95,14 +126,16 @@ export function ConfirmSubmit({
                   </button>
                   <button
                     type="button"
+                    disabled={!reasonOk}
                     onClick={() => {
                       setOpen(false);
+                      if (reasonRef.current) reasonRef.current.value = reasonText.trim();
                       const button = buttonRef.current;
                       // Submit the same form with this button as the
                       // submitter — the server action runs as for a click.
                       button?.form?.requestSubmit(button);
                     }}
-                    className="border border-[#b3261e] bg-[#b3261e] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#8f1e18]"
+                    className="border border-[#b3261e] bg-[#b3261e] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#8f1e18] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {confirmLabel}
                   </button>

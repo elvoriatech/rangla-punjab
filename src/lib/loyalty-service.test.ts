@@ -566,7 +566,7 @@ describe("redeeming a voucher", () => {
       status: "redeemed",
       redeemedOrderNumber: result.orderNumber,
     });
-    // The history line the app lists as "€20 reward used · Order #0002":
+    // The history line the app lists as "€20 reward used · Order #2":
     // no points move, the voucher itself was the payment, and the line
     // carries the voucher's own value so the app never has to guess.
     const redeem = summary.history.find((h) => h.reason === "redeem");

@@ -58,7 +58,7 @@ export async function createPayPalOrderPayment(
       orderId: order.id,
       amountCents: order.totalCents,
       currency: order.currency,
-      label: `${order.venue.name} — Bestellung #${String(order.orderNumber).padStart(4, "0")}`,
+      label: `${order.venue.name} — Bestellung #${String(order.orderNumber)}`,
       returnUrl,
       cancelUrl: `${payPage}&status=cancelled`,
     });

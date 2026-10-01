@@ -182,7 +182,7 @@ export async function createOrderPayment(
 
     const settings = await getOperatorSettings();
     const payPage = `${siteUrl()}/pay/${order.id}?token=${encodeURIComponent(token)}`;
-    const label = `${order.venue.name} — order #${String(order.orderNumber).padStart(4, "0")}`;
+    const label = `${order.venue.name} — order #${String(order.orderNumber)}`;
 
     // Direct charge (single-restaurant / upfront plan): the restaurant
     // charges on its OWN Stripe account and keeps 100% — no connected
@@ -243,7 +243,7 @@ export async function createOrderPayment(
       amountCents: order.totalCents,
       feeCents,
       currency: order.currency,
-      label: `${order.venue.name} — order #${String(order.orderNumber).padStart(4, "0")}`,
+      label: `${order.venue.name} — order #${String(order.orderNumber)}`,
       successUrl: `${payPage}&status=success`,
       // Back to the pay page, not the menu: that is where the guest
       // is offered try again / pay cash / cancel.
@@ -355,7 +355,7 @@ export async function createOrderPaymentIntent(
       return { ok: false, error: "publishable_key_missing" as const };
     }
 
-    const label = `${order.venue.name} — order #${String(order.orderNumber).padStart(4, "0")}`;
+    const label = `${order.venue.name} — order #${String(order.orderNumber)}`;
     const intent = await direct.provider.createDirectPaymentIntent({
       orderId: order.id,
       tenantId,

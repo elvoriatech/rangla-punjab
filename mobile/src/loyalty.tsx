@@ -52,7 +52,7 @@ export function discountFor(voucher: ApiVoucher | null, totalCents: number): num
 /** "0031" — an order number padded the way every other one in the app is
  *  (the "#" belongs to the surrounding copy, which differs per language). */
 export function orderNo(orderNumber: number): string {
-  return String(orderNumber).padStart(4, "0");
+  return String(orderNumber);
 }
 
 /** The one voucher a surface should talk about: the armed one if there

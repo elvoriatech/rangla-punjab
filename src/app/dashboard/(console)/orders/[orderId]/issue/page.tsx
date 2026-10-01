@@ -61,7 +61,7 @@ export default async function OrderIssuePage({
       </p>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="font-serif text-4xl leading-tight">
-          Problem on #{String(issue.orderNumber).padStart(4, "0")}
+          Problem on #{String(issue.orderNumber)}
         </h1>
         <span
           className={`whitespace-nowrap rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.14em] ${

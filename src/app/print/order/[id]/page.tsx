@@ -117,7 +117,7 @@ export default async function OrderTicketPage({
           --------------------------------------
         </p>
         <div className="flex justify-between font-bold">
-          <span>#{String(order.orderNumber).padStart(4, "0")}</span>
+          <span>#{String(order.orderNumber)}</span>
           <span>{time.format(order.createdAt)}</span>
         </div>
         {order.paymentStatus === "paid" ? (

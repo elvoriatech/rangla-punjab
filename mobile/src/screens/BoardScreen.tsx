@@ -683,7 +683,7 @@ export function BoardScreen({
   function renderCard(order: StaffOrder, closed: boolean): React.ReactElement {
     const lit = fresh.includes(order.id);
     const expanded = expandedIds.has(order.id);
-    const number = `#${String(order.orderNumber).padStart(4, "0")}`;
+    const number = `#${String(order.orderNumber)}`;
     const placed = timeOf(order.createdAt);
     /**
      * When the food actually left, on a delivery that is still out.

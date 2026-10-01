@@ -100,7 +100,7 @@ export default async function GiftCardsPage({
     if (r.kind === "order") {
       return (
         <span>
-          Redeemed on order #{r.orderNumber === null ? "—" : String(r.orderNumber).padStart(4, "0")}
+          Redeemed on order #{r.orderNumber === null ? "—" : String(r.orderNumber)}
           <span className="block text-xs text-muted">{dayTime.format(new Date(r.at))}</span>
         </span>
       );

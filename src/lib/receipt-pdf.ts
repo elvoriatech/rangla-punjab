@@ -238,7 +238,7 @@ export async function buildReceiptPdf(
   y -= LINE / 2;
   rule();
   spread(
-    `${t.order} ${String(order.orderNumber).padStart(4, "0")}`,
+    `${t.order} ${String(order.orderNumber)}`,
     new Intl.DateTimeFormat(intlLocale, {
       dateStyle: "short",
       timeStyle: "short",

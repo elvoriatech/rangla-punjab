@@ -414,7 +414,7 @@ export default async function AccountPage({
                       </span>
                       <span className="text-muted">
                         {v.status === "redeemed" && v.redeemedOrderNumber !== null
-                          ? `eingelöst für Bestellung #${String(v.redeemedOrderNumber).padStart(4, "0")} / used on order #${String(v.redeemedOrderNumber).padStart(4, "0")}`
+                          ? `eingelöst für Bestellung #${String(v.redeemedOrderNumber)} / used on order #${String(v.redeemedOrderNumber)}`
                           : `gültig bis ${dOnly.format(new Date(v.expiresAt))}`}
                       </span>
                       <span className="ml-auto rounded-full border border-ink/15 px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted">
@@ -451,9 +451,7 @@ export default async function AccountPage({
                           : ""}
                       </span>
                       {h.orderNumber !== null ? (
-                        <span className="text-muted">
-                          #{String(h.orderNumber).padStart(4, "0")}
-                        </span>
+                        <span className="text-muted">#{String(h.orderNumber)}</span>
                       ) : null}
                       <span className="ml-auto text-muted">{dt.format(new Date(h.createdAt))}</span>
                     </li>
@@ -529,7 +527,7 @@ export default async function AccountPage({
                     key={o.id}
                     className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm"
                   >
-                    <span className="font-semibold">#{String(o.orderNumber).padStart(4, "0")}</span>
+                    <span className="font-semibold">#{String(o.orderNumber)}</span>
                     <span className="text-muted">{dt.format(o.createdAt)}</span>
                     <span className="text-muted">{typeLabel[o.orderType] ?? o.orderType}</span>
                     <span className="tabular-nums font-semibold">

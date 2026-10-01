@@ -224,7 +224,7 @@ describe("/api/v1/me/loyalty", () => {
       status: "redeemed",
       redeemedOrderNumber: placed.value.orderNumber,
     });
-    // "€20 reward used · Order #0031" — everything that sentence needs.
+    // "€20 reward used · Order #31" — everything that sentence needs.
     const redeem = body.loyalty?.history.find((h) => h.reason === "redeem");
     expect(redeem).toMatchObject({
       delta: 0,

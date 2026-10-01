@@ -54,7 +54,7 @@ export default async function PayPage({
   const money = (cents: number): string => formatPrice(cents, order.currency, locale);
   const paid = order.paymentStatus === "paid";
   const vatCents = vatFromGross(order.totalCents);
-  const orderNo = String(order.orderNumber).padStart(4, "0");
+  const orderNo = String(order.orderNumber);
   // P2-4: site kill switch — no new payments while paused (a settled order
   // still shows its paid state below).
   const { siteActive } = await getOperatorSettings();

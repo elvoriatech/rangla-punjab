@@ -306,6 +306,7 @@ model Venue {
   orders           Order[]
   reservations     Reservation[]
   cateringRequests CateringRequest[]
+  deletedOrders    DeletedOrder[]
   orderIssues      OrderIssue[]
   giftCardProducts GiftCardProduct[]
   giftCardsSold    GiftCard[]
@@ -1044,6 +1045,34 @@ model Reservation {
   @@index([tenantId, at])
   @@index([tenantId, customerId])
   @@map("reservations")
+}
+
+/// One line per order the owner deleted (2026-10-01): only cancelled
+/// orders on which no money moved can go, and this is what remains — the
+/// number, when, how much, who and why. Insert-only; also consulted by
+/// order numbering so a deleted number is never reused.
+model DeletedOrder {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  venueId       String   @map("venue_id")
+  orderNumber   Int      @map("order_number")
+  orderType     String   @map("order_type")
+  paymentStatus String   @map("payment_status")
+  totalCents    Int      @map("total_cents")
+  currency      String
+  placedAt      DateTime @map("placed_at")
+  reason        String
+  /// The owner's login email at the time — a label, not a foreign key, so
+  /// the line survives the account.
+  deletedBy     String   @map("deleted_by")
+
+  createdAt DateTime @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([venueId, orderNumber])
+  @@map("deleted_orders")
 }
 
 /// A catering enquiry from the app: a party, a wedding, an office lunch

@@ -107,7 +107,7 @@ describe("reportToCsv", () => {
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toContain("Order Number");
     expect(lines[1]).toBe(
-      "0042,2026-08-10T11:30:00.000Z,delivery,done,paypal,paid,yes,10.00,1.90,11.90",
+      "42,2026-08-10T11:30:00.000Z,delivery,done,paypal,paid,yes,10.00,1.90,11.90",
     );
   });
 });

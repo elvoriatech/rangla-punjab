@@ -115,7 +115,7 @@ export function OrderTrackerCard({
           {t.trackTitle}
         </p>
         <h1 className="mt-2 text-center font-serif text-3xl">
-          {t.orderHeading(String(order.orderNumber).padStart(4, "0"))}
+          {t.orderHeading(String(order.orderNumber))}
         </h1>
         <p className="mt-1 text-center text-sm text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
           {time.format(order.createdAt)}

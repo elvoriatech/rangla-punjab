@@ -388,7 +388,7 @@ export function TrackScreen({
                   : t.orderConfirmed}
             </Text>
             <Text style={styles.orderNo}>
-              {t.orderNo} #{String(tracking.orderNumber).padStart(4, "0")}
+              {t.orderNo} #{String(tracking.orderNumber)}
             </Text>
             {tracking.tableNumber ? (
               <Text style={styles.meta}>

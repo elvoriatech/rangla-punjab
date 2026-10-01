@@ -50,7 +50,7 @@ const C = {
 const FONT = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
 
 function orderNo(order: ReceiptOrder): string {
-  return String(order.orderNumber).padStart(4, "0");
+  return String(order.orderNumber);
 }
 
 export function receiptSubject(order: ReceiptOrder, locale: UiLocale): string {

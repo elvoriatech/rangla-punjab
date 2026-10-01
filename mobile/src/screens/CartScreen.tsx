@@ -727,7 +727,7 @@ export function CartScreen({
                   <Text style={styles.placingTitle}>
                     {placing.order
                       ? fill(t.placedTitle, {
-                          orderNo: String(placing.order.orderNumber).padStart(4, "0"),
+                          orderNo: String(placing.order.orderNumber),
                         })
                       : t.placingTitle}
                   </Text>
