@@ -846,12 +846,14 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  /** `ringEmber` with the Offers tile's halo (`GlowRing` on the Home
-   *  screen): same spread, ember instead of red. `boxShadow` takes a
-   *  colour on both platforms. */
+  /** The Offers tile's halo (`GlowRing` on the Home screen) for a host on
+   *  the RED header: ember all but vanishes against red, so the bright
+   *  half is a light gold with a wider, fully opaque spread. `boxShadow`
+   *  takes a colour on both platforms. */
   ringEmberHalo: {
-    borderColor: colors.ember,
-    boxShadow: "0px 0px 14px 4px rgba(242, 140, 40, 0.85)",
+    borderWidth: 2.5,
+    borderColor: "#ffe27a",
+    boxShadow: "0px 0px 20px 8px rgba(255, 221, 102, 1)",
   },
   requiredLegend: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The red slab. It owns the padding and the colour so the rows
