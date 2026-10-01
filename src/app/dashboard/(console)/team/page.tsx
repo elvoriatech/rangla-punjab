@@ -1,3 +1,4 @@
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { FlashMessage } from "@/components/flash-message";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOwner, PERMISSION_LABELS, PRESETS } from "@/lib/team-access";
@@ -181,9 +182,15 @@ export default async function TeamPage({
                   </form>
                   <form action={removeStaffAction} className="ml-auto">
                     <input type="hidden" name="id" value={m.membershipId} />
-                    <SubmitButton pendingLabel="Removing…" className={quiet}>
+                    <ConfirmSubmit
+                      message={`Remove ${m.displayName ?? m.email} from the team? Their login (${m.email}) stops working immediately.`}
+                      confirmLabel="Remove"
+                      cancelLabel="Keep"
+                      pendingLabel="Removing…"
+                      className={quiet}
+                    >
                       ✕ Remove
-                    </SubmitButton>
+                    </ConfirmSubmit>
                   </form>
                 </div>
               </li>
