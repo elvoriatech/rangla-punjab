@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { ComplaintLink } from "./complaint-link";
+import { InstallAppButton } from "./install-app-button";
 import { ReserveDialog } from "./reserve-dialog";
 import {
   formatPrice,
@@ -1957,6 +1958,7 @@ function HeroBanner({
         <ComplaintLink slug={venue.slug} labels={t.complaint} onDark />
         {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
         {hasApp ? <AppJumpLink t={t} onDark /> : null}
+        <InstallAppButton labels={t.app.install} onDark />
       </div>
       <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
         {/* `showName={false}`: the big white serif below IS the name here,
@@ -2061,6 +2063,7 @@ function StickyBar({
             <ComplaintLink slug={venue.slug} labels={t.complaint} />
             {rating ? <RatingLine rating={rating} locale={locale} t={t} /> : null}
             {hasApp ? <AppJumpLink t={t} /> : null}
+            <InstallAppButton labels={t.app.install} />
           </div>
         </div>
       )}

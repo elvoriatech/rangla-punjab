@@ -213,6 +213,13 @@ const en = {
     /** Said before they tap, not after: an unexplained Android warning is
      *  what makes someone abandon the install. */
     apkHint: "Android will ask you to allow the install.",
+    install: {
+      label: "Install",
+      aria: "Install this website as an app",
+      iosHint: "Tap the Share button in Safari, then “Add to Home Screen”.",
+      macHint: "In Safari, open the File menu (or Share) and choose “Add to Dock”.",
+      close: "Close",
+    },
   },
   hero: {
     welcomeAria: "Welcome",
@@ -376,6 +383,14 @@ const de: MenuCopy = {
     apk: "Android-App herunterladen (.apk)",
     apkTop: "Herunterladen für",
     apkHint: "Android fragt Sie, ob die Installation erlaubt werden soll.",
+    install: {
+      label: "Installieren",
+      aria: "Diese Website als App installieren",
+      iosHint: "Tippen Sie in Safari auf „Teilen“ und dann auf „Zum Home-Bildschirm“.",
+      macHint:
+        "Öffnen Sie in Safari das Menü „Ablage“ (oder „Teilen“) und wählen Sie „Zum Dock hinzufügen“.",
+      close: "Schließen",
+    },
   },
   hero: {
     welcomeAria: "Willkommen",
@@ -540,6 +555,14 @@ const fr: MenuCopy = {
     apk: "Télécharger l'application Android (.apk)",
     apkTop: "Télécharger pour",
     apkHint: "Android vous demandera d'autoriser l'installation.",
+    install: {
+      label: "Installer",
+      aria: "Installer ce site comme une application",
+      iosHint: "Dans Safari, touchez « Partager », puis « Sur l’écran d’accueil ».",
+      macHint:
+        "Dans Safari, ouvrez le menu Fichier (ou Partager) et choisissez « Ajouter au Dock ».",
+      close: "Fermer",
+    },
   },
   hero: {
     welcomeAria: "Bienvenue",
@@ -702,6 +725,13 @@ const es: MenuCopy = {
     apk: "Descargar la app de Android (.apk)",
     apkTop: "Descargar para",
     apkHint: "Android le pedirá permiso para instalarla.",
+    install: {
+      label: "Instalar",
+      aria: "Instalar este sitio web como aplicación",
+      iosHint: "En Safari, pulse «Compartir» y luego «Añadir a pantalla de inicio».",
+      macHint: "En Safari, abra el menú Archivo (o Compartir) y elija «Añadir al Dock».",
+      close: "Cerrar",
+    },
   },
   hero: {
     welcomeAria: "Bienvenida",
@@ -864,6 +894,13 @@ const it: MenuCopy = {
     apk: "Scarica l'app Android (.apk)",
     apkTop: "Scarica per",
     apkHint: "Android vi chiederà di autorizzare l'installazione.",
+    install: {
+      label: "Installa",
+      aria: "Installa questo sito come app",
+      iosHint: "In Safari tocca «Condividi», poi «Aggiungi alla schermata Home».",
+      macHint: "In Safari apri il menu File (o Condividi) e scegli «Aggiungi al Dock».",
+      close: "Chiudi",
+    },
   },
   hero: {
     welcomeAria: "Benvenuti",
@@ -1038,6 +1075,13 @@ const ar: MenuCopy = {
     apk: "تنزيل تطبيق أندرويد (.apk)",
     apkTop: "تنزيل لـ",
     apkHint: "سيطلب منكم أندرويد السماح بالتثبيت.",
+    install: {
+      label: "تثبيت",
+      aria: "تثبيت هذا الموقع كتطبيق",
+      iosHint: "في Safari اضغطوا على زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».",
+      macHint: "في Safari افتحوا قائمة «ملف» (أو المشاركة) واختاروا «إضافة إلى Dock».",
+      close: "إغلاق",
+    },
   },
   hero: {
     welcomeAria: "ترحيب",
