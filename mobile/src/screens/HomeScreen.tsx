@@ -482,7 +482,13 @@ export function HomeScreen({
                 onPress={onOpenCatering}
               />
             </View>
-            <ComplaintPill onPress={onComplain} />
+            {/* The grid's middle cell: an empty cell either side keeps the
+                pill exactly as wide as Gift cards above it. */}
+            <View style={styles.modeRow}>
+              <View style={styles.complainSpacer} />
+              <ComplaintPill onPress={onComplain} />
+              <View style={styles.complainSpacer} />
+            </View>
           </>
         )}
 
@@ -863,7 +869,12 @@ function ComplaintPill({ onPress }: { onPress: () => void }): React.ReactElement
       style={({ pressed }) => [styles.complainPill, pressed && { opacity: 0.7 }]}
     >
       <Text style={styles.complainEmoji}>💬</Text>
-      <Text style={styles.complainText} numberOfLines={1}>
+      <Text
+        style={styles.complainText}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
         {t.complainShort}
       </Text>
     </Pressable>
@@ -1229,24 +1240,33 @@ const styles = StyleSheet.create({
     width: SHINE_W,
     backgroundColor: "rgba(255, 255, 255, 0.55)",
   },
-  /** Its own line, centred under the grid (owner, 2026-10-01): blush
-   *  fill, the Offers ring's red as its edge, a full 44 pt target. */
+  /** Its own line under the grid, one cell wide (owner, 2026-10-01):
+   *  a soft blush fill and a quiet red edge. 34 pt tall; the hitSlop
+   *  carries it past the 44 pt target. */
+  complainSpacer: { flexBasis: 0, flexGrow: 1, flexShrink: 1 },
   complainPill: {
+    flexBasis: 0,
+    flexGrow: 1,
+    flexShrink: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
-    gap: 6,
-    minHeight: 44,
-    marginTop: 8,
-    paddingHorizontal: 18,
+    gap: 5,
+    minHeight: 34,
+    paddingHorizontal: 6,
     borderRadius: radius.md,
-    backgroundColor: "#fde8e8",
-    borderWidth: 1.5,
-    borderColor: "#c81e24",
+    backgroundColor: "#fdf1f0",
+    borderWidth: 1,
+    borderColor: "#e79a9a",
   },
-  complainEmoji: { fontSize: 15, lineHeight: 20 },
-  complainText: { color: "#791f1f", ...fonts.bodyBold, fontSize: 15, lineHeight: 20 },
+  complainEmoji: { fontSize: 14, lineHeight: 19 },
+  complainText: {
+    color: "#8f1a1a",
+    ...fonts.bodyBold,
+    fontSize: 14,
+    lineHeight: 19,
+    flexShrink: 1,
+  },
   /** 16 — a shade under its neighbours' 18, because the flicker scales it
    *  at the top of its cycle and the 22 pt icon slot has to hold that
    *  without nudging the label. */
