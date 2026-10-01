@@ -1251,6 +1251,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 4,
     minHeight: 34,
+    /** Optical centring under Gift cards (owner, 2026-10-01). */
+    left: 2,
     paddingHorizontal: 4,
     borderRadius: radius.md,
     backgroundColor: "#fdf1f0",
