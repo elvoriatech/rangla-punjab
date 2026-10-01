@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { sanitizeAppReturnUrl } from "@/lib/app-return";
@@ -77,14 +78,16 @@ export default async function CustomerResetPage({
             {t.newLabel}
             <RequiredMark label={copy.required.mark} />
           </span>
-          <input
-            type="password"
+          <PasswordInput
             name="password"
             required
             minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
             maxLength={200}
             autoComplete="new-password"
-            className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2.5 text-base outline-none focus:border-ink focus-visible:ring-2 focus-visible:ring-gold/40"
+            className="border border-ink/25 bg-white px-3 py-2.5 text-base outline-none focus:border-ink focus-visible:ring-2 focus-visible:ring-gold/40"
+            wrapperClassName="mt-1"
+            showLabel={t.showPassword}
+            hideLabel={t.hidePassword}
           />
         </label>
         <label className="block text-sm">
@@ -92,14 +95,16 @@ export default async function CustomerResetPage({
             {t.confirmLabel}
             <RequiredMark label={copy.required.mark} />
           </span>
-          <input
-            type="password"
+          <PasswordInput
             name="confirm"
             required
             minLength={CUSTOMER_PASSWORD_MIN_LENGTH}
             maxLength={200}
             autoComplete="new-password"
-            className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2.5 text-base outline-none focus:border-ink focus-visible:ring-2 focus-visible:ring-gold/40"
+            className="border border-ink/25 bg-white px-3 py-2.5 text-base outline-none focus:border-ink focus-visible:ring-2 focus-visible:ring-gold/40"
+            wrapperClassName="mt-1"
+            showLabel={t.showPassword}
+            hideLabel={t.hidePassword}
           />
         </label>
         <RequiredLegend label={copy.required.legend} className="text-xs text-muted" />

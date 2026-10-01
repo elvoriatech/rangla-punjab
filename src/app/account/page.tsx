@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import type { Metadata } from "next";
 import { FlashMessage } from "@/components/flash-message";
 import { GoogleLogo } from "@/components/google-logo";
@@ -293,13 +294,15 @@ export default async function AccountPage({
                 Passwort (min. 8 Zeichen)
                 <RequiredMark label={t.required.mark} />
               </span>
-              <input
-                type="password"
+              <PasswordInput
                 name="password"
                 required
                 minLength={8}
                 autoComplete="current-password"
-                className="mt-1 block w-full border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                className="border border-ink/25 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                wrapperClassName="mt-1"
+                showLabel="Passwort anzeigen"
+                hideLabel="Passwort verbergen"
               />
             </label>
             {/* Right under the field a guest is staring at when the

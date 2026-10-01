@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import type { Metadata } from "next";
 import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
@@ -200,8 +201,7 @@ export default async function LoginPage({
                   Forgot it?
                 </Link>
               </span>
-              <input
-                type="password"
+              <PasswordInput
                 name="password"
                 required
                 maxLength={1024}

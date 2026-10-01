@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -8,8 +8,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type StyleProp,
+  type TextInputProps,
   type TextStyle,
   type ViewStyle,
 } from "react-native";
@@ -399,6 +401,41 @@ export function VenueStatePill({
       <Text style={[styles.stateText, { color: tone.text }]} numberOfLines={1}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+/**
+ * A password field with an eye that reveals what was typed — so a typo is
+ * seen before it is sent (owner, 2026-10-01). `style` is the input's own
+ * box; anything that spaces the field from its neighbours goes on
+ * `containerStyle`, so the eye stays centred on the box.
+ */
+export function PasswordInput({
+  style,
+  containerStyle,
+  ...props
+}: Omit<TextInputProps, "secureTextEntry"> & {
+  containerStyle?: StyleProp<ViewStyle>;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const [shown, setShown] = useState(false);
+  return (
+    <View style={containerStyle}>
+      <TextInput {...props} secureTextEntry={!shown} style={[style, styles.passwordInput]} />
+      <Pressable
+        onPress={() => setShown((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={shown ? t.hidePassword : t.showPassword}
+        accessibilityState={{ selected: shown }}
+        style={styles.passwordEye}
+      >
+        <Ionicons
+          name={shown ? "eye-off-outline" : "eye-outline"}
+          size={20}
+          color={colors.inkSoft}
+        />
+      </Pressable>
     </View>
   );
 }
@@ -853,6 +890,17 @@ const styles = StyleSheet.create({
   ringEmberHalo: {
     borderColor: "#ffe27a",
     boxShadow: "0px 0px 10px 3px rgba(255, 221, 102, 0.9)",
+  },
+  /** Room for the eye, and a 44 pt target pinned to the field's end. */
+  passwordInput: { paddingEnd: 44, marginBottom: 0 },
+  passwordEye: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    end: 0,
+    width: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   requiredLegend: { color: colors.inkSoft, ...fonts.body, fontSize: 12 },
   /** The red slab. It owns the padding and the colour so the rows

@@ -40,6 +40,7 @@ import {
   BrandHeader,
   FieldLabel,
   OutlineButton,
+  PasswordInput,
   PrimaryButton,
   RequiredLegend,
 } from "../components";
@@ -505,14 +506,15 @@ export function AccountScreen({
                 style={styles.authInput}
               />
               <FieldLabel label={t.passwordMin} required style={styles.authLabel} />
-              <TextInput
+              <PasswordInput
                 value={authPassword}
                 onChangeText={setAuthPassword}
                 placeholderTextColor={colors.inkSoft}
-                secureTextEntry
                 autoCapitalize="none"
+                autoCorrect={false}
                 accessibilityLabel={t.passwordMin}
                 style={styles.authInput}
+                containerStyle={styles.authPasswordWrap}
               />
               {/* Under the password field, where the guest is when they
                   realise they don't have it. */}
@@ -889,6 +891,8 @@ const styles = StyleSheet.create({
   },
   loginBtnOutlineText: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 13 },
   authLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12, marginBottom: 4 },
+  /** Carries the 8 pt gap `authInput` gives up inside `PasswordInput`. */
+  authPasswordWrap: { marginBottom: 8 },
   authInput: {
     backgroundColor: colors.creamCard,
     borderWidth: 1,

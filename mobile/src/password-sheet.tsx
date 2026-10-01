@@ -14,7 +14,7 @@ import {
 import { useAuth } from "./auth";
 import type { StaffPasswordError } from "./staff";
 import { changeStaffPassword, STAFF_PASSWORD_MIN_LENGTH } from "./staff";
-import { PrimaryButton } from "./components";
+import { PasswordInput, PrimaryButton } from "./components";
 import { fill, useI18n } from "./i18n";
 import { colors, fonts, radius } from "./theme";
 import { SHEET_MAX } from "./layout";
@@ -248,10 +248,9 @@ function Field({
   return (
     <View style={{ gap: 4 }}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput
+      <PasswordInput
         value={value}
         onChangeText={onChange}
-        secureTextEntry
         autoComplete={autoComplete}
         textContentType={textContentType}
         autoCapitalize="none"

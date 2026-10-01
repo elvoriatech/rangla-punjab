@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import { BRAND } from "@/lib/brand";
 import { FlashMessage } from "@/components/flash-message";
 import { redirect } from "next/navigation";
@@ -2037,13 +2038,13 @@ export default async function SettingsPage({
                 Current password
                 <RequiredMark />
               </span>
-              <input
-                type="password"
+              <PasswordInput
                 name="currentPassword"
                 autoComplete="current-password"
                 required
                 maxLength={1024}
-                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+                className="border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+                wrapperClassName="mt-1"
               />
               <span className="mt-1 block text-xs text-muted">
                 The one you use today. Forgotten it? Sign out and use “Forgot password”.
@@ -2055,15 +2056,15 @@ export default async function SettingsPage({
                 New password
                 <RequiredMark />
               </span>
-              <input
-                type="password"
+              <PasswordInput
                 name="newPassword"
                 autoComplete="new-password"
                 required
                 minLength={OWNER_PASSWORD_MIN_LENGTH}
                 maxLength={1024}
                 aria-describedby="password-hint"
-                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+                className="border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+                wrapperClassName="mt-1"
               />
               {/* One template literal rather than `{N} characters`: JSX
                   eats the space between an expression and the text that
@@ -2079,14 +2080,14 @@ export default async function SettingsPage({
                 Confirm new password
                 <RequiredMark />
               </span>
-              <input
-                type="password"
+              <PasswordInput
                 name="confirmPassword"
                 autoComplete="new-password"
                 required
                 minLength={OWNER_PASSWORD_MIN_LENGTH}
                 maxLength={1024}
-                className="mt-1 w-full border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+                className="border border-ink/30 bg-white px-3 py-2 text-base outline-none focus:border-ink"
+                wrapperClassName="mt-1"
               />
               <span className="mt-1 block text-xs text-muted">
                 Type the new password a second time so a typo can&apos;t lock you out.

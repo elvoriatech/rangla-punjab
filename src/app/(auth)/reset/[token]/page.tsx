@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/password-input";
 import type { Metadata } from "next";
 import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
@@ -53,8 +54,7 @@ export default async function ResetTokenPage({
           <input type="hidden" name="token" value={token} />
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium">New password</span>
-            <input
-              type="password"
+            <PasswordInput
               name="password"
               required
               minLength={12}
@@ -65,8 +65,7 @@ export default async function ResetTokenPage({
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium">Confirm password</span>
-            <input
-              type="password"
+            <PasswordInput
               name="confirm"
               required
               minLength={12}
