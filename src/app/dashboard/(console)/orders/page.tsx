@@ -1,4 +1,4 @@
-import { Eye, Printer, Trash2 } from "lucide-react";
+import { CircleX, Eye, Printer, Trash2 } from "lucide-react";
 import { reconcilePendingPayments } from "@/lib/connect-service";
 import { resolveActiveTenantId } from "@/lib/tenant";
 import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
@@ -153,6 +153,11 @@ function paymentBadge(order: { paymentStatus: string; paymentProvider: string | 
   if (order.paymentStatus === "pending" && rail) return `${rail} · not confirmed`;
   return "Cash";
 }
+
+/** An icon-only action in an open card's action row — the same height
+ *  as the step button beside it. */
+const CARD_ICON =
+  "inline-flex h-9 w-10 shrink-0 items-center justify-center border border-ink/20 text-muted hover:border-ink/50 hover:text-ink";
 
 /** An icon-only action on a completed-order row. */
 const ROW_ICON =
@@ -349,13 +354,14 @@ export default async function OrdersPage({
                       <input type="hidden" name="to" value="cancelled" />
                       <ConfirmSubmit
                         message={`Cancel order #${String(order.orderNumber)}? The guest is told it was called off, and this cannot be undone.`}
-                        pendingLabel="Cancelling…"
+                        pendingLabel="…"
                         confirmLabel="Yes, cancel order"
                         cancelLabel="Keep order"
-                        title="Cancel this order"
-                        className="text-[11px] text-muted underline-offset-2 hover:text-[#b3261e] hover:underline"
+                        title="Cancel order"
+                        ariaLabel={`Cancel order #${order.orderNumber}`}
+                        className="inline-flex h-8 w-8 items-center justify-center self-center text-muted hover:text-[#b3261e]"
                       >
-                        Cancel order
+                        <CircleX className="h-4 w-4" aria-hidden />
                       </ConfirmSubmit>
                     </form>
                   </span>
@@ -413,17 +419,21 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="whitespace-nowrap border border-ink/20 px-3 py-2 text-xs uppercase tracking-[0.14em] text-muted hover:border-ink/50 hover:text-ink"
+                    aria-label={`View order #${order.orderNumber}`}
+                    title="View"
+                    className={CARD_ICON}
                   >
-                    View
+                    <Eye className="h-4 w-4" aria-hidden />
                   </a>
                   <a
                     href={`/print/order/${order.id}?auto=1`}
                     target="_blank"
                     rel="noreferrer"
-                    className="whitespace-nowrap border border-ink/20 px-3 py-2 text-xs uppercase tracking-[0.14em] text-muted hover:border-ink/50 hover:text-ink"
+                    aria-label={`Print order #${order.orderNumber}`}
+                    title="Print"
+                    className={CARD_ICON}
                   >
-                    🖨 Print
+                    <Printer className="h-4 w-4" aria-hidden />
                   </a>
                   {(() => {
                     const advance = nextStatus(order.status, order.orderType) ? (
@@ -454,6 +464,10 @@ export default async function OrdersPage({
                         defaultMinutes={eta.minutes}
                         boardedAt={boardedAt(order).toISOString()}
                         until={eta.adjustableUntil.toISOString()}
+                        secondsLeft={Math.max(
+                          1,
+                          Math.ceil((eta.adjustableUntil.getTime() - Date.now()) / 1000),
+                        )}
                         timezone="Europe/Berlin"
                         action={acceptOrderAction}
                         fallback={advance}
@@ -499,13 +513,14 @@ export default async function OrdersPage({
                   <input type="hidden" name="to" value="cancelled" />
                   <ConfirmSubmit
                     message={`Cancel unpaid order #${String(order.orderNumber)}?`}
-                    pendingLabel="Cancelling…"
+                    pendingLabel="…"
                     confirmLabel="Yes, cancel order"
                     cancelLabel="Keep order"
-                    title="Cancel this unpaid order"
-                    className="text-xs text-muted underline-offset-2 hover:text-[#b3261e] hover:underline"
+                    title="Cancel order"
+                    ariaLabel={`Cancel unpaid order #${order.orderNumber}`}
+                    className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#b3261e]"
                   >
-                    Cancel order
+                    <CircleX className="h-4 w-4" aria-hidden />
                   </ConfirmSubmit>
                 </form>
               </li>

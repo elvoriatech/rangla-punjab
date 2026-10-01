@@ -25,6 +25,7 @@ export function AcceptWithTime({
   defaultMinutes,
   boardedAt,
   until,
+  secondsLeft,
   timezone,
   action,
   fallback,
@@ -36,19 +37,22 @@ export function AcceptWithTime({
   boardedAt: string;
   /** ISO — when the accept window closes. */
   until: string;
+  /** Seconds left when the server rendered the card. */
+  secondsLeft: number;
   timezone: string;
   action: (form: FormData) => void | Promise<void>;
   /** What the card shows once the window has closed. */
   fallback: React.ReactNode;
 }): React.ReactElement {
   const [minutes, setMinutes] = useState(defaultMinutes);
-  const [left, setLeft] = useState(() =>
-    Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 1000)),
-  );
+  // Starts from the server's own count so the first client render matches
+  // the HTML it hydrates; the effect below then follows the real clock.
+  const [left, setLeft] = useState(secondsLeft);
 
   useEffect(() => {
     const tick = (): void =>
       setLeft(Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 1000)));
+    tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [until]);
