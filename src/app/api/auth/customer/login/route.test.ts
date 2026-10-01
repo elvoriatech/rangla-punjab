@@ -6,6 +6,10 @@ import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { verifySession } from "@/lib/session";
 import { asTenant } from "@/lib/tenant";
+import { createStaffMember } from "@/lib/team-service";
+import { NextRequest } from "next/server";
+import { GET as staffSummary } from "@/app/api/v1/staff/summary/route";
+import { GET as staffMenu } from "@/app/api/v1/staff/menu/route";
 import { POST } from "./route";
 
 /**
@@ -22,6 +26,7 @@ interface LoginBody {
   error?: string;
   customer?: { email: string; name: string | null };
   restaurant?: { name: string; email: string };
+  access?: { owner: boolean; permissions: string[] };
 }
 
 const PASSWORD = "S3cureP4ssPhrase!";
@@ -130,6 +135,41 @@ describe("POST /api/auth/customer/login", () => {
     expect(verifySession(body.token!)?.userId).toBe(ownerUserId);
     // The restaurant answer must not leak a guest shape.
     expect(body.customer).toBeUndefined();
+  });
+
+  it("signs a team member in, limited to the boxes the owner ticked", async () => {
+    const teamEmail = `team-${randomUUID()}@ex.com`;
+    const made = await createStaffMember(ownerUserId, {
+      name: "Kitchen",
+      email: teamEmail,
+      password: "kitchen-pass-1",
+      permissions: ["orders"],
+    });
+    expect(made.ok).toBe(true);
+    try {
+      // Typed the way a phone keyboard would: capitalised, padded.
+      const res = await login(`  ${teamEmail.toUpperCase()} `, "kitchen-pass-1");
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as LoginBody;
+      expect(body.kind).toBe("restaurant");
+      expect(body.access).toEqual({ owner: false, permissions: ["orders"] });
+
+      // The session is good everywhere; an unticked area is a 403, which
+      // the app must read as "no access" and NOT as a dead session.
+      const call = (url: string): NextRequest =>
+        new NextRequest(url, {
+          headers: {
+            "x-staff-token": body.token!,
+            "x-forwarded-for": `10.8.${Math.floor(Math.random() * 250)}.9`,
+          },
+        });
+      expect((await staffSummary(call("http://localhost:3000/api/v1/staff/summary"))).status).toBe(
+        200,
+      );
+      expect((await staffMenu(call("http://localhost:3000/api/v1/staff/menu"))).status).toBe(403);
+    } finally {
+      await prisma.user.deleteMany({ where: { email: teamEmail } });
+    }
   });
 
   it("refuses a real user who holds no owner membership here", async () => {

@@ -94,8 +94,15 @@ export interface StaffSummary {
  * and "notfound" their 404 (an item that was deleted or republished
  * under a new id while the owner had the list open).
  */
+/**
+ * `unauthorized` (401) means the SESSION is gone — callers sign the login
+ * out. `forbidden` (403) means the session is fine but the owner has not
+ * ticked this area for this team member: the call fails, the login stays.
+ * Folding the two together signed every team member out the moment the
+ * app touched a screen outside their boxes.
+ */
 export type StaffError =
-  "unauthorized" | "conflict" | "invalid" | "notfound" | "network" | "server";
+  "unauthorized" | "forbidden" | "conflict" | "invalid" | "notfound" | "network" | "server";
 
 export type StaffResult<T> =
   | { ok: true; data: T }
@@ -202,7 +209,8 @@ async function staffFetch(
 
 /** Fails the same way every route does, so callers have one branch. */
 function failure(status: number): StaffError {
-  if (status === 401 || status === 403) return "unauthorized";
+  if (status === 401) return "unauthorized";
+  if (status === 403) return "forbidden";
   if (status === 409) return "conflict";
   if (status === 400 || status === 422) return "invalid";
   if (status === 404) return "notfound";
@@ -792,7 +800,10 @@ export const MAX_ITEM_PHOTO_BYTES = 10 * 1024 * 1024;
 function photoFailure(status: number, body: Record<string, unknown> | null): StaffPhotoError {
   const named = body ? str(body.error) : "";
   if (named === "invalid_photo" || named === "too_large") return named;
-  if (status === 401 || status === 403) return "unauthorized";
+  if (status === 401) return "unauthorized";
+  // 403: a team member without the Menu box — a failed upload, not a
+  // dead session, so it must not sign them out.
+  if (status === 403) return "server";
   if (status === 413) return "too_large";
   if (status === 404) return "notfound";
   if (status === 400 || status === 422) return "invalid_photo";
