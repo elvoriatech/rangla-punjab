@@ -156,6 +156,13 @@ case "${1:-}" in
     APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
       pnpm exec tsx scripts/set-owner-login.ts
     ;;
+  dishes)
+    # Put the printed menu's numbers in front of the dish names (draft
+    # menu only; press Publish afterwards). Dry run unless APPLY=1.
+    DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+    APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+      pnpm exec tsx scripts/number-dishes.ts
+    ;;
   release)
     "$0" build
     "$0" migrate
@@ -164,6 +171,6 @@ case "${1:-}" in
     echo "Released. Now run the smoke test — docs/DEPLOY.md §9."
     ;;
   *)
-    echo "usage: $0 {build|migrate|up|seed|owner|release}"; exit 1
+    echo "usage: $0 {build|migrate|up|seed|owner|dishes|release}"; exit 1
     ;;
 esac
