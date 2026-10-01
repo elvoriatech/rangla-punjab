@@ -26,6 +26,7 @@ export function ConfirmSubmit({
   pendingLabel = "Working…",
   className,
   title,
+  ariaLabel,
   confirmLabel = "Confirm",
   cancelLabel = "Back",
   reason,
@@ -37,6 +38,8 @@ export function ConfirmSubmit({
   pendingLabel?: string;
   className?: string;
   title?: string;
+  /** Accessible name for an icon-only trigger. */
+  ariaLabel?: string;
   /** The dialog's red button. */
   confirmLabel?: string;
   /** The dialog's way out. */
@@ -78,6 +81,7 @@ export function ConfirmSubmit({
         pendingLabel={pendingLabel}
         className={className}
         title={title}
+        aria-label={ariaLabel}
         onClick={(event) => {
           event.preventDefault();
           setOpen(true);

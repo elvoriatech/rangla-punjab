@@ -1,3 +1,4 @@
+import { Eye, Printer, Trash2 } from "lucide-react";
 import { reconcilePendingPayments } from "@/lib/connect-service";
 import { resolveActiveTenantId } from "@/lib/tenant";
 import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
@@ -152,6 +153,10 @@ function paymentBadge(order: { paymentStatus: string; paymentProvider: string | 
   if (order.paymentStatus === "pending" && rail) return `${rail} · not confirmed`;
   return "Cash";
 }
+
+/** An icon-only action on a completed-order row. */
+const ROW_ICON =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center border border-ink/15 text-muted hover:border-ink/40 hover:text-ink sm:h-9 sm:w-9";
 
 /** What the owner is told when a delete is refused. */
 const DELETE_ERRORS: Record<string, string> = {
@@ -564,7 +569,7 @@ export default async function OrdersPage({
                     </span>
                   ) : null}
                 </span>
-                <span className="col-start-3 row-start-1 flex items-center gap-3 justify-self-end sm:col-start-4">
+                <span className="col-start-3 row-start-1 flex items-center gap-1 justify-self-end sm:col-start-4 sm:gap-1.5">
                   <span className="tabular-nums">
                     {new Intl.DateTimeFormat("de-DE", {
                       dateStyle: "short",
@@ -572,21 +577,29 @@ export default async function OrdersPage({
                       timeZone: "Europe/Berlin",
                     }).format(order.createdAt)}
                   </span>
+                  {/* Icons rather than words (owner, 2026-10-01): the row is
+                      one line of an archive, and three words per row read
+                      as noise. Each keeps its name for screen readers and
+                      as a hover title, and a 36 px target. */}
                   <a
                     href={`/print/order/${order.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="underline underline-offset-2 hover:text-ink"
+                    aria-label={`View order #${order.orderNumber}`}
+                    title="View"
+                    className={ROW_ICON}
                   >
-                    View
+                    <Eye className="h-4 w-4" aria-hidden />
                   </a>
                   <a
                     href={`/print/order/${order.id}?auto=1`}
                     target="_blank"
                     rel="noreferrer"
-                    className="underline underline-offset-2 hover:text-ink"
+                    aria-label={`Print order #${order.orderNumber}`}
+                    title="Print"
+                    className={ROW_ICON}
                   >
-                    Print
+                    <Printer className="h-4 w-4" aria-hidden />
                   </a>
                   {/* Owner only, and only where the books allow it: a
                       cancelled order on which no money moved. */}
@@ -602,13 +615,14 @@ export default async function OrdersPage({
                           minLength: DELETE_REASON_MIN,
                           maxLength: DELETE_REASON_MAX,
                         }}
-                        pendingLabel="Deleting…"
+                        pendingLabel="…"
                         confirmLabel="Delete order"
                         cancelLabel="Keep order"
-                        title="Delete this cancelled order"
-                        className="underline underline-offset-2 hover:text-[#b3261e]"
+                        title="Delete"
+                        ariaLabel={`Delete cancelled order #${order.orderNumber}`}
+                        className={`${ROW_ICON} hover:border-[#b3261e]/50 hover:text-[#b3261e]`}
                       >
-                        Delete
+                        <Trash2 className="h-4 w-4" aria-hidden />
                       </ConfirmSubmit>
                     </form>
                   ) : null}
