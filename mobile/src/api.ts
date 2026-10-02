@@ -32,6 +32,9 @@ export interface ApiItem {
   dietary: string[];
   spice: number;
   photoUrl: string;
+  /** The photo as a small square for list rows. Absent on a server
+   *  that predates it — fall back to `photoUrl`. */
+  thumbUrl?: string;
   variants: ApiVariant[];
 }
 export interface ApiCategory {
@@ -232,7 +235,11 @@ export async function fetchMenu(locale?: string, options?: { fresh?: boolean }):
   const categories = menu.categories.map((c) => ({
     ...c,
     photoUrl: rebaseUrl(c.photoUrl),
-    items: c.items.map((i) => ({ ...i, photoUrl: rebaseUrl(i.photoUrl) })),
+    items: c.items.map((i) => ({
+      ...i,
+      photoUrl: rebaseUrl(i.photoUrl),
+      ...(i.thumbUrl ? { thumbUrl: rebaseUrl(i.thumbUrl) } : {}),
+    })),
   }));
   return {
     ...menu,

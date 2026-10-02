@@ -55,11 +55,13 @@ const BANNER_PREFIX = "banner:";
  * picker in the dashboard exists for putting any of them BACK.
  */
 export const BUILT_IN_SLIDES = [
-  { name: "points-de", label: "Points banner (German)", kind: "banner", rev: 2 },
-  { name: "welcome-de", label: "Welcome banner (German)", kind: "banner", rev: 1 },
-  { name: "giftcard-de", label: "Gift-card banner (German)", kind: "banner", rev: 1 },
-  { name: "service-de", label: "Service promise banner (German)", kind: "banner", rev: 1 },
-  { name: "catering-de", label: "Catering banner (German)", kind: "banner", rev: 1 },
+  // Revs bumped 2026-10-02: every poster recompressed (1080 px wide,
+  // WebP q66 — about 45% lighter, 679 KB → 385 KB for the five).
+  { name: "points-de", label: "Points banner (German)", kind: "banner", rev: 3 },
+  { name: "welcome-de", label: "Welcome banner (German)", kind: "banner", rev: 2 },
+  { name: "giftcard-de", label: "Gift-card banner (German)", kind: "banner", rev: 2 },
+  { name: "service-de", label: "Service promise banner (German)", kind: "banner", rev: 2 },
+  { name: "catering-de", label: "Catering banner (German)", kind: "banner", rev: 2 },
 ] as const satisfies readonly {
   name: string;
   label: string;

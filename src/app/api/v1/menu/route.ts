@@ -239,6 +239,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             dietary: item.dietary,
             spice: item.spice,
             photoUrl: abs(menuImageUrl(item.photoKey, item.id, 640)),
+            // The same photo as a 320 px square, for list rows: the app
+            // draws those at 84–112 pt, where the 640 px file is three
+            // times the bytes for pixels nobody sees. `photoUrl` stays the
+            // large one for the dish sheet (and for apps that predate this).
+            thumbUrl: abs(menuImageUrl(item.photoKey, item.id, 320, { square: true })),
             variants: item.variants.map((v) => ({
               id: v.id,
               name: v.name,

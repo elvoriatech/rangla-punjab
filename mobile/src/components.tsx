@@ -688,7 +688,9 @@ export function DishRow({
     >
       <View style={[styles.dishPhotoBox, wide && styles.dishPhotoWide]}>
         <Image
-          source={{ uri: item.photoUrl }}
+          // The small square when the server offers one: a row never
+          // needs the 640 px file the dish sheet opens with.
+          source={{ uri: item.thumbUrl ?? item.photoUrl }}
           style={[styles.dishPhoto, wide && styles.dishPhotoWide]}
           resizeMode="cover"
         />

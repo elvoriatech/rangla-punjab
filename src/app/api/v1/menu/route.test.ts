@@ -249,9 +249,9 @@ describe("GET /api/v1/menu — ?locale", () => {
     const defaults = (await read(fx.slug)).venue.heroSlides;
     expect(defaults.map((s) => s.kind)).toEqual(["banner", "banner", "banner", "banner"]);
     // The points poster was replaced once (rev 2), so it carries `?v=2`.
-    expect(defaults[0]!.url).toMatch(/^https?:\/\/.+\/app-slider\/points-de\.webp\?v=2$/);
-    expect(defaults[2]!.url).toMatch(/\/app-slider\/catering-de\.webp$/);
-    expect(defaults[3]!.url).toMatch(/\/app-slider\/giftcard-de\.webp$/);
+    expect(defaults[0]!.url).toMatch(/^https?:\/\/.+\/app-slider\/points-de\.webp\?v=3$/);
+    expect(defaults[2]!.url).toMatch(/\/app-slider\/catering-de\.webp\?v=2$/);
+    expect(defaults[3]!.url).toMatch(/\/app-slider\/giftcard-de\.webp\?v=2$/);
 
     await asTenant(fx.tenantId, (tx) =>
       tx.venue.updateMany({
@@ -264,7 +264,7 @@ describe("GET /api/v1/menu — ?locale", () => {
     expect(slides).toHaveLength(3);
     expect(slides[0]).toMatchObject({ kind: "dish" });
     expect(slides[0]!.url).toMatch(/^https?:\/\/.+\/img\/t%2Fuploads%2Fb\?w=480$/);
-    expect(slides[1]!.url).toMatch(/\/app-slider\/service-de\.webp$/);
+    expect(slides[1]!.url).toMatch(/\/app-slider\/service-de\.webp\?v=2$/);
     expect(slides[2]).toMatchObject({ kind: "banner" });
     expect(slides[2]!.url).toMatch(/\/img\/t%2Fuploads%2Fp\?w=1280$/);
 
