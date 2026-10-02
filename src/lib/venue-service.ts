@@ -670,10 +670,16 @@ export async function updateVenueOrdering(userId: string, input: unknown): Promi
   return asUser(userId, async (tx) => {
     const venue = await tx.venue.findFirst({
       where: { deletedAt: null },
-      select: { id: true },
+      select: { id: true, ordering: true },
     });
     if (!venue) return { ok: false, error: "no_venue" as const };
-    await tx.venue.update({ where: { id: venue.id }, data: { ordering: parsed.data } });
+    // The open/closed switch is not part of this form: saving the settings
+    // must not silently reopen (or re-close) ordering.
+    const pausedUntil = parseOrderingConfig(venue.ordering).pausedUntil;
+    await tx.venue.update({
+      where: { id: venue.id },
+      data: { ordering: { ...parsed.data, pausedUntil } },
+    });
     return { ok: true as const, value: undefined };
   });
 }

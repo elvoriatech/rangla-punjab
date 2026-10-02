@@ -1,3 +1,4 @@
+import { activePauseUntil, setOrderingPause } from "./ordering-pause";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { purgeMenuForTenant } from "./cdn-purge";
@@ -497,9 +498,14 @@ export interface StaffOrdering {
   /** Whether the app's board may cancel an order. READ-ONLY here: the
    *  patch schema below deliberately has no such key. */
   appCancelEnabled: boolean;
+  /** Ordering is switched off until this instant (ISO); null = taking
+   *  orders. Set through `pause` on the PATCH, never written directly. */
+  pausedUntil: string | null;
 }
 
 export const staffOrderingPatchSchema = z.object({
+  /** "30" | "60" | "day" closes ordering for that long; "off" reopens. */
+  pause: z.enum(["30", "60", "day", "off"]).optional(),
   takeaway: z.boolean().optional(),
   delivery: z.boolean().optional(),
   issueWindowHours: z.number().int().min(1).optional(),
@@ -523,6 +529,7 @@ export async function getStaffOrdering(tenantId: string): Promise<StaffOrdering>
       delivery: config.delivery,
       issueWindowHours: config.issueWindowHours,
       appCancelEnabled: config.appCancelEnabled,
+      pausedUntil: activePauseUntil(config)?.toISOString() ?? null,
     };
   });
 }
@@ -574,10 +581,19 @@ export async function updateStaffOrdering(
         delivery: next.delivery,
         issueWindowHours: next.issueWindowHours,
         appCancelEnabled: next.appCancelEnabled,
+        pausedUntil: activePauseUntil(next)?.toISOString() ?? null,
       },
     };
   });
 
+  // The open/closed switch rides on the same request but is its own
+  // write: it needs the opening hours to know when "rest of the day" ends.
+  if (outcome.ok && parsed.data.pause) {
+    const paused = await setOrderingPause(tenantId, parsed.data.pause);
+    if (!paused.ok) return { ok: false, error: "not_found" };
+    outcome.value.pausedUntil = paused.pausedUntil?.toISOString() ?? null;
+    return outcome;
+  }
   if (outcome.ok) await purgeMenuForTenant(tenantId);
   return outcome;
 }

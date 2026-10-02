@@ -5,6 +5,7 @@ import {
   Image,
   ImageBackground,
   type ImageSourcePropType,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -30,7 +31,7 @@ import {
   useReducedMotion,
 } from "../motion";
 import { CHEVRON_FORWARD, colors, fonts, hero, money, radius, scrim } from "../theme";
-import { fill, useI18n } from "../i18n";
+import { fill, localeTag, useI18n } from "../i18n";
 import { headlineVoucher, useLoyalty } from "../loyalty";
 import type { GiftCardShop } from "../gift-cards";
 import { fetchGiftCardShop } from "../gift-cards";
@@ -894,14 +895,35 @@ function ComplaintPill({ onPress }: { onPress: () => void }): React.ReactElement
  * table, not something this screen switches.
  */
 function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.ReactElement {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { staffToken, clearStaff } = useAuth();
   const [ordering, setOrdering] = useState<StaffOrdering>({
     dineIn: true,
     takeaway: true,
     delivery: true,
+    pausedUntil: null,
   });
-  const [busy, setBusy] = useState<"takeaway" | "delivery" | null>(null);
+  const [busy, setBusy] = useState<"takeaway" | "delivery" | "pause" | null>(null);
+  // The "for how long?" sheet, and the choice ticked in it.
+  const [pauseSheet, setPauseSheet] = useState(false);
+  const [pauseChoice, setPauseChoice] = useState<"30" | "60" | "day">("60");
+  // Re-render when the pause runs out, so the card reopens on time.
+  const [, setPauseTick] = useState(0);
+  const pausedUntil = ordering.pausedUntil;
+  useEffect(() => {
+    if (!pausedUntil) return;
+    const ms = new Date(pausedUntil).getTime() - Date.now();
+    const timer = setTimeout(() => setPauseTick((n) => n + 1), Math.max(0, ms) + 500);
+    return () => clearTimeout(timer);
+  }, [pausedUntil]);
+  const closed = pausedUntil !== null && new Date(pausedUntil).getTime() > Date.now();
+  const reopens = closed
+    ? new Date(pausedUntil).toLocaleTimeString(localeTag(lang), {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: venueTimezone() ?? undefined,
+      })
+    : "";
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -940,10 +962,101 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
     [staffToken, busy, ordering, clearStaff, onChanged],
   );
 
+  /** Close for a while ("30" | "60" | "day") or reopen now ("off"). */
+  const setPause = useCallback(
+    async (pause: "30" | "60" | "day" | "off"): Promise<void> => {
+      if (!staffToken || busy) return;
+      setBusy("pause");
+      setFailed(false);
+      const res = await updateStaffOrdering(staffToken, { pause });
+      setBusy(null);
+      if (!res.ok) {
+        if (res.error === "unauthorized") clearStaff();
+        else setFailed(true);
+        return;
+      }
+      setOrdering(res.data);
+      onChanged?.();
+    },
+    [staffToken, busy, clearStaff, onChanged],
+  );
+
   return (
-    <View style={styles.serviceCard}>
+    <View style={[styles.serviceCard, closed ? styles.serviceCardClosed : styles.serviceCardOpen]}>
+      {/* The master switch: on = taking orders. Switching it OFF asks for
+          how long; switching it ON reopens at once. */}
+      <View style={styles.pauseRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.pauseTitle}>{closed ? t.pauseClosedTitle : t.pauseOpenTitle}</Text>
+          <Text style={[styles.pauseSub, closed && styles.pauseSubClosed]}>
+            {closed ? fill(t.pauseReopens, { time: reopens }) : t.pauseOpenSub}
+          </Text>
+        </View>
+        <Switch
+          value={!closed}
+          onValueChange={(next) => {
+            if (next) void setPause("off");
+            else setPauseSheet(true);
+          }}
+          disabled={busy === "pause"}
+          accessibilityLabel={closed ? t.pauseClosedTitle : t.pauseOpenTitle}
+          trackColor={{ false: colors.red, true: "#3f7030" }}
+          thumbColor={colors.cream}
+        />
+      </View>
+      <Modal
+        visible={pauseSheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPauseSheet(false)}
+      >
+        <Pressable style={styles.pauseBackdrop} onPress={() => setPauseSheet(false)}>
+          <Pressable style={styles.pauseSheet} onPress={() => {}}>
+            <Text style={styles.pauseSheetTitle}>{t.pauseDialogTitle}</Text>
+            <Text style={styles.pauseSheetBody}>{t.pauseDialogBody}</Text>
+            {(
+              [
+                { value: "30", label: t.pause30, hint: "" },
+                { value: "60", label: t.pause60, hint: "" },
+                { value: "day", label: t.pauseDay, hint: t.pauseDayHint },
+              ] as const
+            ).map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => setPauseChoice(option.value)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: pauseChoice === option.value }}
+                style={[styles.pauseOption, pauseChoice === option.value && styles.pauseOptionOn]}
+              >
+                <Text style={styles.pauseOptionText}>{option.label}</Text>
+                {option.hint ? <Text style={styles.pauseOptionHint}>{option.hint}</Text> : null}
+              </Pressable>
+            ))}
+            <View style={styles.pauseActions}>
+              <Pressable
+                onPress={() => setPauseSheet(false)}
+                accessibilityRole="button"
+                style={styles.pauseCancel}
+              >
+                <Text style={styles.pauseCancelText}>{t.back}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPauseSheet(false);
+                  void setPause(pauseChoice);
+                }}
+                accessibilityRole="button"
+                style={styles.pauseConfirm}
+              >
+                <Text style={styles.pauseConfirmText}>{t.pauseConfirm}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <View style={styles.pauseDivider} />
       <Text style={styles.serviceTitle}>{t.staffOrderingTitle}</Text>
-      <View style={styles.serviceRow}>
+      <View style={[styles.serviceRow, closed && { opacity: 0.45 }]}>
         <ServiceSwitch
           emoji="🛍️"
           label={t.pickup}
@@ -994,6 +1107,64 @@ function ServiceSwitch({
 }
 
 const styles = StyleSheet.create({
+  /** The open/closed master switch on the restaurant's ordering card. */
+  serviceCardOpen: { borderColor: "#3f7030", borderWidth: 1.5 },
+  serviceCardClosed: { borderColor: colors.red, borderWidth: 1.5 },
+  pauseRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  pauseTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 16 },
+  pauseSub: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginTop: 2 },
+  pauseSubClosed: { color: colors.red, ...fonts.bodyBold },
+  pauseDivider: { height: 1, backgroundColor: colors.line, marginVertical: 10 },
+  pauseBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(20,10,5,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  pauseSheet: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: colors.cream,
+    borderRadius: radius.md,
+    padding: 16,
+    gap: 8,
+  },
+  pauseSheetTitle: { color: colors.ink, ...fonts.bodyHeavy, fontSize: 18 },
+  pauseSheetBody: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginBottom: 4 },
+  pauseOption: {
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    backgroundColor: colors.creamCard,
+  },
+  pauseOptionOn: { borderColor: colors.red, backgroundColor: "#fde8e8" },
+  pauseOptionText: { color: colors.ink, ...fonts.bodyBold, fontSize: 15 },
+  pauseOptionHint: { color: colors.inkSoft, ...fonts.body, fontSize: 12, marginTop: 2 },
+  pauseActions: { flexDirection: "row", gap: 8, marginTop: 8 },
+  pauseCancel: {
+    flex: 1,
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  pauseCancelText: { color: colors.ink, ...fonts.bodyBold, fontSize: 15 },
+  pauseConfirm: {
+    flex: 1,
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.red,
+  },
+  pauseConfirmText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 15 },
   /** 132, down from 176. The hero is the biggest single thing between
    *  the header and the categories, and the owner's ask — category chips
    *  visible without scrolling on a 360×800 phone — is bought as much

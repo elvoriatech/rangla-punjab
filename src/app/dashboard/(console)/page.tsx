@@ -1,3 +1,6 @@
+import { activePauseUntil } from "@/lib/ordering-pause";
+import { OrderingSwitch } from "./ordering-switch";
+import { setOrderingPauseAction } from "./actions";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMenuStatus } from "@/lib/menu-versions-service";
@@ -39,6 +42,7 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     getOrderingSettings(userId),
   ]);
   const access = orderingSettings.ok ? orderingSettings.value.access : null;
+  const pausedUntil = orderingSettings.ok ? activePauseUntil(orderingSettings.value.config) : null;
   const money = (cents: number): string => formatPrice(cents, venue.currency, "de");
   const live = Boolean(status.publishedAt);
   const publishedLabel = status.publishedAt
@@ -91,6 +95,23 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
           Every printed QR code points at that address — it never changes, even when the menu does.
         </p>
       </header>
+
+      {/* Open / closed for orders — the one switch a service needs fast. */}
+      <OrderingSwitch
+        pausedUntil={pausedUntil?.toISOString() ?? null}
+        untilLabel={
+          pausedUntil
+            ? new Intl.DateTimeFormat("en-GB", {
+                weekday: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: "Europe/Berlin",
+              }).format(pausedUntil)
+            : null
+        }
+        canChange={may("settings")}
+        action={setOrderingPauseAction}
+      />
 
       {/* Publish state — the hero */}
       <section

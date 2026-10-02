@@ -108,6 +108,8 @@ const it: CheckoutCopy = {
   errInvalidTime:
     "Quell'orario è appena passato o è fuori dall'orario di apertura: scegline un altro.",
   errVenueClosed: "Abbiamo appena chiuso: scegli un orario più tardi oggi oppure riprova domani.",
+  errVenuePaused: "Gli ordini sono in pausa in questo momento.",
+  pausedNote: (time) => "Gli ordini sono in pausa: riprendono alle {time}.".replace("{time}", time),
   errGeneric: "L'ordine non è andato a buon fine. Riprova.",
   errNoConnection: "Nessuna connessione: controlla la rete e riprova.",
 

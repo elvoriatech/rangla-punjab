@@ -108,6 +108,9 @@ const es: CheckoutCopy = {
   errBelowMinimum: (min) => `La entrega empieza en ${min}: añade algo más.`,
   errInvalidTime: "Esa hora acaba de pasar o está fuera del horario: elige otra.",
   errVenueClosed: "Acabamos de cerrar: elige una hora más tarde de hoy o vuelve mañana.",
+  errVenuePaused: "Los pedidos están en pausa ahora mismo.",
+  pausedNote: (time) =>
+    "Los pedidos están en pausa: se reanudan a las {time}.".replace("{time}", time),
   errGeneric: "El pedido no se ha completado. Inténtalo de nuevo.",
   errNoConnection: "Sin conexión: comprueba tu red e inténtalo de nuevo.",
 

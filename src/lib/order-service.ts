@@ -1,3 +1,4 @@
+import { activePauseUntil } from "./ordering-pause";
 import { defaultEtaMinutes, etaApplies, withinAcceptWindow } from "./order-eta";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -229,7 +230,8 @@ export type PlaceOrderResult =
         | "outside_delivery_area"
         | "below_delivery_minimum"
         | "invalid_time"
-        | "venue_closed";
+        | "venue_closed"
+        | "venue_paused";
     };
 
 export async function placeOrder(
@@ -272,6 +274,11 @@ export async function placeOrder(
     const orderType: OrderType = input.orderType;
     if (!orderTypeAllowed(mode, orderType)) {
       return { ok: false, error: "type_not_available" as const };
+    }
+    // The restaurant switched ordering off for now ("stop taking orders"):
+    // nothing is accepted until it runs out, a planned order included.
+    if (activePauseUntil(parseOrderingConfig(venue.ordering))) {
+      return { ok: false, error: "venue_paused" as const };
     }
     // A closed restaurant cannot cook. The ONE thing it can still take is
     // a pickup/delivery order booked into a window that opens later today

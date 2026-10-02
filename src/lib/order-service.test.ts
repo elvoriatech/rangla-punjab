@@ -1,3 +1,5 @@
+import { parseOrderingConfig } from "./ordering-config";
+import { activePauseUntil, setOrderingPause } from "./ordering-pause";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "./db";
@@ -131,6 +133,24 @@ describe("order-service (guest self-ordering)", () => {
       };
     });
   }
+
+  it("refuses every order while the restaurant has stopped taking orders, and takes them again after", async () => {
+    const fx = await fixtureVenue();
+    const order = { items: [{ itemId: fx.itemIds.naan, quantity: 1 }], tableNumber: "3" };
+
+    const paused = await setOrderingPause(fx.tenantId, "30");
+    expect(paused.ok && paused.pausedUntil !== null).toBe(true);
+    expect(await placeOrder(fx, order)).toEqual({ ok: false, error: "venue_paused" });
+
+    // The pause lives on the venue's ordering config, as an instant.
+    const stored = await asTenant(fx.tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { ordering: true } }),
+    );
+    expect(activePauseUntil(parseOrderingConfig(stored.ordering))).not.toBeNull();
+
+    expect(await setOrderingPause(fx.tenantId, "off")).toEqual({ ok: true, pausedUntil: null });
+    expect((await placeOrder(fx, order)).ok).toBe(true);
+  });
 
   it("places an order with server-computed totals and a running order number", async () => {
     const fx = await fixtureVenue();

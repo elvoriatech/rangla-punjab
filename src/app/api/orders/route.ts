@@ -67,6 +67,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     // refusals — the request was well-formed, the venue's state changed
     // (an item vanished, the menu was unpublished, the kitchen closed).
     // 400 stays for a body the client got wrong.
+    // The restaurant's own "stop taking orders" switch. Answered with the
+    // code installed apps already know (`ordering_paused`, also used by
+    // the platform switch above), so they say the right thing today.
+    if (result.error === "venue_paused") {
+      return withCors(NextResponse.json({ error: "ordering_paused" }, { status: 409 }));
+    }
     const status =
       result.error === "unknown_items" ||
       result.error === "not_published" ||

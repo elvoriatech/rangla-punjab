@@ -677,7 +677,13 @@ export interface StaffOrdering {
   dineIn: boolean;
   takeaway: boolean;
   delivery: boolean;
+  /** Ordering is switched off until this instant (ISO); null = taking
+   *  orders, and what a server that predates the switch answers. */
+  pausedUntil: string | null;
 }
+
+/** How long "stop taking orders" lasts; "off" reopens now. */
+export type StaffPauseChoice = "30" | "60" | "day" | "off";
 
 export interface StaffLoyaltyConfig {
   minOrderCents: number;
@@ -934,6 +940,7 @@ function asOrdering(raw: unknown): StaffOrdering {
     dineIn: bool(o.dineIn, true),
     takeaway: bool(o.takeaway, true),
     delivery: bool(o.delivery, true),
+    pausedUntil: nullableStr(o.pausedUntil),
   };
 }
 
@@ -947,7 +954,7 @@ export async function fetchStaffOrdering(token: string): Promise<StaffResult<Sta
 /** Dine-in is not the app's to change — it is the QR menu on the table. */
 export async function updateStaffOrdering(
   token: string,
-  patch: { takeaway?: boolean; delivery?: boolean },
+  patch: { takeaway?: boolean; delivery?: boolean; pause?: StaffPauseChoice },
 ): Promise<StaffResult<StaffOrdering>> {
   const res = await staffFetch(token, "/api/v1/staff/ordering", { method: "PATCH", body: patch });
   if (!res) return { ok: false, error: "network" };

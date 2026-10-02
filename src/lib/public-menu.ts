@@ -1,3 +1,5 @@
+import { activePauseUntil } from "./ordering-pause";
+import { parseOrderingConfig } from "./ordering-config";
 import { readDb } from "./db";
 import { asTenantRead } from "./tenant";
 import { resolveCategoryParam } from "./dietary-filter";
@@ -154,6 +156,10 @@ export interface PublicMenu {
    */
   ordering?: {
     acceptsAsapNow: boolean;
+    /** The restaurant stopped taking orders until this instant (ISO), or
+     *  null. While it lies ahead NO order is accepted — clients compare
+     *  it with their own clock, so a cached payload reopens on time. */
+    pausedUntil?: string | null;
   };
   /** The venue's Google rating + review link (P7-14), or null — which is
    *  what a venue whose owner has neither saved a Place ID nor typed a
@@ -214,6 +220,7 @@ export async function loadPublicMenu(
         currency: true,
         timezone: true,
         hours: true,
+        ordering: true,
         contact: true,
         appLinks: true,
         branding: true,
@@ -389,7 +396,10 @@ export async function loadPublicMenu(
       // Same `state` the dot is drawn from, asked the other way round:
       // "closed" hides the "Now" option, "no hours configured" leaves it
       // exactly where it was.
-      ordering: { acceptsAsapNow: !state.configured || state.open },
+      ordering: {
+        acceptsAsapNow: !state.configured || state.open,
+        pausedUntil: activePauseUntil(parseOrderingConfig(venue.ordering))?.toISOString() ?? null,
+      },
       rating,
     };
   });

@@ -847,6 +847,7 @@ export function MenuView({
              and dine-in off. Absent reads as "no opinion" = true, so a
              venue with no opening hours keeps ordering exactly as it is. */
           acceptsAsapNow={menu.ordering?.acceptsAsapNow ?? true}
+          pausedUntil={menu.ordering?.pausedUntil ?? null}
           onlinePayment={Boolean(onlinePayment)}
           paypalPayment={Boolean(paypalPayment)}
           /* Apple Pay / Google Pay show up only when the owner ticked

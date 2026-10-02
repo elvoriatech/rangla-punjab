@@ -112,6 +112,9 @@ const fr: CheckoutCopy = {
     "Cet horaire vient de passer ou se situe hors des heures d'ouverture — merci d'en choisir un autre.",
   errVenueClosed:
     "Nous venons de fermer — choisissez un horaire plus tard dans la journée ou revenez demain.",
+  errVenuePaused: "Les commandes sont en pause pour le moment.",
+  pausedNote: (time) =>
+    "Les commandes sont en pause — elles reprennent à {time}.".replace("{time}", time),
   errGeneric: "La commande n'a pas abouti. Merci de réessayer.",
   errNoConnection: "Aucune connexion — vérifiez votre réseau et réessayez.",
 

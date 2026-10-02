@@ -144,6 +144,10 @@ const en = {
   errBelowMinimum: (min: string) => `Delivery starts at ${min} — add a little more.`,
   errInvalidTime: "That time just passed or is outside opening hours — pick another.",
   errVenueClosed: "We've just closed — pick a later time today, or try again tomorrow.",
+  /** The restaurant switched ordering off for a while. */
+  errVenuePaused: "Ordering is paused right now.",
+  pausedNote: (time: string) =>
+    "Ordering is paused right now — it reopens at {time}.".replace("{time}", time),
   errGeneric: "The order didn't go through. Please try again.",
   errNoConnection: "No connection — check your network and try again.",
 

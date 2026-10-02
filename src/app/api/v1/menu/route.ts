@@ -190,6 +190,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           // the payload, so it can lag opening time by about a minute;
           // the server is the authority either way.
           acceptsAsapNow: menu.ordering?.acceptsAsapNow ?? true,
+          // "Stop taking orders" until this instant (ISO) or null. The
+          // app compares it with its own clock, so a cached payload still
+          // reopens on time; `/api/orders` answers 409 `venue_paused`.
+          pausedUntil: menu.ordering?.pausedUntil ?? null,
           // Table reservations. The SERVER enumerates the bookable
           // date→times grid so the app offers exactly what the reservation
           // endpoint accepts — no opening-hours maths duplicated in RN.

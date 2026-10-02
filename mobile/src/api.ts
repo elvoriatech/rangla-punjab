@@ -74,6 +74,10 @@ export interface ApiOrdering {
    * report, and hiding "Now" on its say-so would stop every order.
    */
   acceptsAsapNow?: boolean;
+  /** The restaurant stopped taking orders until this instant (ISO); null
+   *  or absent = taking orders. Compared with the device clock, so a
+   *  cached menu reopens on time; the server refuses regardless. */
+  pausedUntil?: string | null;
   /** Table reservations offered? Absent on older servers ⇒ hide the UI. */
   reservations?: boolean;
   /** Bookable date → times, enumerated by the server from opening hours,

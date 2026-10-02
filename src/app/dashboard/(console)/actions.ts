@@ -3,7 +3,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { clearSessionCookie, getSessionUserId } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 import { ACTIVE_VENUE_COOKIE, listOwnerVenues } from "@/lib/active-venue";
+import { isPauseChoice, setOrderingPause } from "@/lib/ordering-pause";
+import { requirePermission } from "@/lib/team-access";
+import { resolveActiveTenantId } from "@/lib/tenant";
 
 /** Sidebar "Log out" — clears the session cookie and returns to the login
  *  page. Form-driven so it works without JS like the rest of the shell. */
@@ -29,4 +33,20 @@ export async function setActiveVenueAction(form: FormData): Promise<void> {
     });
   }
   redirect("/dashboard");
+}
+
+/**
+ * The open/closed switch: stop taking orders for 30 minutes, an hour or
+ * the rest of the day ("30" | "60" | "day"), or reopen now ("off").
+ * Needs the Settings area, like the delivery / pickup switches.
+ */
+export async function setOrderingPauseAction(form: FormData): Promise<void> {
+  const userId = await requirePermission("settings");
+  const choice = String(form.get("pause") ?? "");
+  const tenantId = await resolveActiveTenantId(userId);
+  if (tenantId && (choice === "off" || isPauseChoice(choice))) {
+    await setOrderingPause(tenantId, choice);
+  }
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/", "layout");
 }

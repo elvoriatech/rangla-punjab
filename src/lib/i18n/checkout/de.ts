@@ -112,6 +112,9 @@ const de: CheckoutCopy = {
     "Diese Zeit ist gerade vorbei oder liegt außerhalb der Öffnungszeiten — bitte wählen Sie eine andere.",
   errVenueClosed:
     "Wir haben gerade geschlossen — wählen Sie eine spätere Zeit heute oder versuchen Sie es morgen.",
+  errVenuePaused: "Bestellungen sind gerade pausiert.",
+  pausedNote: (time) =>
+    "Bestellungen sind gerade pausiert — ab {time} wieder möglich.".replace("{time}", time),
   errGeneric: "Die Bestellung ist nicht durchgegangen. Bitte versuchen Sie es erneut.",
   errNoConnection: "Keine Verbindung — bitte prüfen Sie Ihr Netzwerk und versuchen Sie es erneut.",
 

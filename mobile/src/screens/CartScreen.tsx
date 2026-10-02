@@ -29,7 +29,7 @@ import {
 } from "../payments";
 import { useCart } from "../cart";
 import { APPLE_NATIVE, GOOGLE_NATIVE, useAuth } from "../auth";
-import { fill, useI18n } from "../i18n";
+import { fill, localeTag, useI18n } from "../i18n";
 import { useVenueOpenNow, venueTimezone } from "../hours";
 import { armedVoucher, discountFor, pointsForFood, useLoyalty } from "../loyalty";
 import type { GiftCardView } from "../gift-cards";
@@ -475,8 +475,21 @@ export function CartScreen({
   /** Once the server has answered, ITS total is the one to show. */
   const placedTotal = placing?.order ? placing.order.chargedCents : chargedTotal;
 
+  // The restaurant switched ordering off for a while: nothing can be
+  // placed until it runs out. Re-judged when the pause ends.
+  const pausedUntil = menu.ordering.pausedUntil ?? null;
+  const [, setPauseTick] = useState(0);
+  useEffect(() => {
+    if (!pausedUntil) return;
+    const ms = new Date(pausedUntil).getTime() - Date.now();
+    const timer = setTimeout(() => setPauseTick((n) => n + 1), Math.max(0, ms) + 500);
+    return () => clearTimeout(timer);
+  }, [pausedUntil]);
+  const paused = pausedUntil !== null && new Date(pausedUntil).getTime() > Date.now();
+
   const needsContact = orderType !== "dine_in";
   const missing =
+    paused ||
     cart.lines.length === 0 ||
     closedBlocked ||
     // No tick, no order: see the forfeit rule above.
@@ -1355,6 +1368,19 @@ export function CartScreen({
                 </View>
               ) : null}
 
+              {/* The restaurant stopped taking orders for a while: say
+                  when it reopens, right where the button will not move. */}
+              {paused && pausedUntil ? (
+                <Text style={styles.error}>
+                  {fill(t.pauseGuestNote, {
+                    time: new Date(pausedUntil).toLocaleTimeString(localeTag(lang), {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: venueTimezone() ?? undefined,
+                    }),
+                  })}
+                </Text>
+              ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
               {/* Tablet: the one call to action, alone and centred —
                   not a bar across the whole screen. */}

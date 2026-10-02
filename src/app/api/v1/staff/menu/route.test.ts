@@ -456,6 +456,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       issueWindowHours: 3,
       // Cancelling from the app is OFF until the owner arms it on the web.
       appCancelEnabled: false,
+      pausedUntil: null,
     });
 
     const res = await PATCH_ORDERING(
@@ -468,6 +469,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       delivery: false,
       issueWindowHours: 3,
       appCancelEnabled: false,
+      pausedUntil: null,
     });
 
     const stored = await asTenant(tenantId, (tx) =>
@@ -491,7 +493,30 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       delivery: true,
       issueWindowHours: 3,
       appCancelEnabled: false,
+      pausedUntil: null,
     });
+  });
+
+  it("closes ordering for a while and reopens it, through the same endpoint", async () => {
+    const closed = await PATCH_ORDERING(
+      request("/api/v1/staff/ordering", staffToken, { pause: "60" }),
+    );
+    expect(closed.status).toBe(200);
+    const until = ((await closed.json()) as { ordering: { pausedUntil: string | null } }).ordering
+      .pausedUntil;
+    expect(until).not.toBeNull();
+    const minutes = (new Date(until!).getTime() - Date.now()) / 60_000;
+    expect(minutes).toBeGreaterThan(58);
+    expect(minutes).toBeLessThan(61);
+
+    const open = await PATCH_ORDERING(
+      request("/api/v1/staff/ordering", staffToken, { pause: "off" }),
+    );
+    expect(((await open.json()) as MenuBody).ordering).toMatchObject({ pausedUntil: null });
+    // Not one of the three durations: refused, nothing changes.
+    expect(
+      (await PATCH_ORDERING(request("/api/v1/staff/ordering", staffToken, { pause: "15" }))).status,
+    ).toBe(400);
   });
 
   it("sets the complaint window and leaves the switches alone (P7-10)", async () => {

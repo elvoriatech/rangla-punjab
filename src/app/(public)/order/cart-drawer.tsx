@@ -392,6 +392,7 @@ export function CartDrawer({
   modes,
   requestSlots = [],
   acceptsAsapNow = true,
+  pausedUntil = null,
   onlinePayment,
   paypalPayment = false,
   acceptedPayments = [],
@@ -417,6 +418,14 @@ export function CartDrawer({
    * food nobody will cook.
    */
   acceptsAsapNow?: boolean;
+  /**
+   * The restaurant switched ordering off until this instant (ISO); null
+   * or absent = taking orders. While it lies ahead nothing can be placed
+   * — a planned order included. Compared with the guest's own clock, so
+   * a cached page reopens on time; the server refuses (`venue_paused`)
+   * regardless.
+   */
+  pausedUntil?: string | null;
   onlinePayment: boolean;
   paypalPayment?: boolean;
   /**
@@ -685,10 +694,22 @@ export function CartDrawer({
   const hasAddress = savedAddress && street.trim().length > 0 && zip.trim().length > 0;
   const addressFieldsOpen = editingAddress || !hasAddress;
   const busy = placing || payStarting;
+  // Paused until the stored instant passes. The timer holds WHICH pause
+  // ran out, so the first render matches the server's and a later pause
+  // is not mistaken for the one that ended.
+  const [pauseOver, setPauseOver] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pausedUntil) return;
+    const ms = new Date(pausedUntil).getTime() - Date.now();
+    const timer = setTimeout(() => setPauseOver(pausedUntil), Math.max(0, ms));
+    return () => clearTimeout(timer);
+  }, [pausedUntil]);
+  const paused = Boolean(pausedUntil) && pauseOver !== pausedUntil;
   /** Nothing may be placed or paid: no items, missing details, under the
    *  delivery minimum, or a payment already running. */
   const payBlocked =
     busy ||
+    paused ||
     count === 0 ||
     detailsMissing ||
     belowMinimum ||
@@ -829,7 +850,9 @@ export function CartDrawer({
                       ? t.errInvalidTime
                       : body?.error === "venue_closed"
                         ? t.errVenueClosed
-                        : t.errGeneric,
+                        : body?.error === "ordering_paused"
+                          ? t.errVenuePaused
+                          : t.errGeneric,
         );
         return null;
       }
@@ -1537,6 +1560,28 @@ export function CartDrawer({
                 ];
                 return (
                   <div className="mt-4">
+                    {/* The restaurant stopped taking orders for a while:
+                        say so, with the time it reopens, right where the
+                        buttons that will not move are. */}
+                    {paused && pausedUntil ? (
+                      <p
+                        role="status"
+                        className="mb-3 rounded-lg border px-3 py-2 text-sm font-medium"
+                        style={{
+                          borderColor: "color-mix(in oklab, var(--menu-danger) 45%, transparent)",
+                          backgroundColor:
+                            "color-mix(in oklab, var(--menu-danger) 10%, transparent)",
+                        }}
+                      >
+                        {t.pausedNote(
+                          new Intl.DateTimeFormat(locale, {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZone: "Europe/Berlin",
+                          }).format(new Date(pausedUntil)),
+                        )}
+                      </p>
+                    ) : null}
                     {/* Apple Pay / Google Pay: one tap places AND pays.
                         Drawn ONLY when the OWNER ticked that wallet in
                         settings AND the browser, the venue's Stripe

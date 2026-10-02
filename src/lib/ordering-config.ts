@@ -194,6 +194,16 @@ export const orderingConfigSchema = z.object({
   etaAcceptSeconds: z
     .preprocess((v) => clampAcceptSeconds(v), z.number().int())
     .default(DEFAULT_ETA_ACCEPT_SECONDS),
+  // "Stop taking orders" until this instant (ISO); null = taking orders.
+  // Set by the open/closed switch (`ordering-pause.ts`), never by the
+  // settings form — the form's save carries the stored value through.
+  pausedUntil: z
+    .preprocess((v) => {
+      if (typeof v !== "string") return null;
+      const at = new Date(v);
+      return Number.isNaN(at.getTime()) ? null : at.toISOString();
+    }, z.string().nullable())
+    .default(null),
   // Owner-side, read by the guest's tracker through its own route (see
   // `cash-cancel.ts`) — the public menu never needs it.
   cashCancelMinutes: cashCancelMinutesField.default(DEFAULT_CASH_CANCEL_MINUTES),
