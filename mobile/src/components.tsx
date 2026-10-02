@@ -721,7 +721,9 @@ export function DishRow({
           <Text style={[styles.dishPrice, wide && styles.dishPriceWide]}>
             {money(item.priceCents, item.currency)}
           </Text>
-          {item.isAvailable ? (
+          {item.isAvailable && item.dineInOnly ? (
+            <Text style={styles.dineInOnly}>{t.dineInOnly}</Text>
+          ) : item.isAvailable ? (
             // The wrapper, not the button, carries the auto margin: a
             // transform cannot push a sibling, so the ⊕ has to be pinned to
             // the end of the row from outside the thing that scales.
@@ -1219,6 +1221,21 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: colors.onRed, fontSize: 22, ...fonts.bodySemi, lineHeight: 25 },
   soldOut: { color: colors.inkSoft, ...fonts.body, fontSize: 11, fontStyle: "italic" },
+  // A label, not a disabled button: there is nothing to press, so it must
+  // not look like the ⊕ it replaces.
+  dineInOnly: {
+    marginStart: "auto",
+    color: colors.inkSoft,
+    ...fonts.bodySemi,
+    fontSize: 11,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.line,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    overflow: "hidden",
+  },
   stepper: { flexDirection: "row", alignItems: "center", gap: 10 },
   stepBtn: {
     width: 28,

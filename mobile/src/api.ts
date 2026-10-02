@@ -27,6 +27,9 @@ export interface ApiItem {
   offer?: { basePriceCents: number; endsAt: string | null } | null;
   currency: string;
   isAvailable: boolean;
+  /** Served at the table only: shown with a label instead of the add
+   *  button. Absent on a server that predates it. */
+  dineInOnly?: boolean;
   allergens: string[];
   traces: string[];
   dietary: string[];

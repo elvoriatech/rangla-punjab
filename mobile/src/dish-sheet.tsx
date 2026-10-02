@@ -115,7 +115,9 @@ export function DishSheet({
                   </View>
                 ) : null}
 
-                {item.isAvailable ? (
+                {item.isAvailable && item.dineInOnly ? (
+                  <Text style={styles.dineInOnly}>{t.dineInOnly}</Text>
+                ) : item.isAvailable ? (
                   <Pressable
                     style={styles.cta}
                     onPress={() => {
@@ -209,6 +211,19 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   ctaText: { color: colors.onRed, ...fonts.bodyHeavy, fontSize: 15 },
+  dineInOnly: {
+    color: colors.inkSoft,
+    ...fonts.bodySemi,
+    fontSize: 14,
+    textAlign: "center",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginTop: 6,
+    overflow: "hidden",
+  },
   soldOut: {
     color: colors.danger,
     ...fonts.bodySemi,
