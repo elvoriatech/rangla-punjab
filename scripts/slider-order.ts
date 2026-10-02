@@ -10,6 +10,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
  *                     "Unvergesslicher Genuss!" poster). A name from the
  *                     list the dry run prints: points, welcome, giftcard,
  *                     service, catering — or a position, "2".
+ *   ORDER             instead of LAST: the whole slider, in order, from
+ *                     the built-in posters — e.g.
+ *                     ORDER=points,catering,giftcard,service,welcome
+ *                     (this is also how a missing poster is put back)
  *   APPLY=1           write; without it the script only prints the plan
  *
  *   ./deploy/deploy.sh slider             (dry run)
@@ -47,6 +51,30 @@ export function moveLast(
   return { ok: true, slides: next };
 }
 
+/** The built-in posters (`BUILT_IN_SLIDES` in `src/lib/hero-slides.ts`). */
+const BUILT_INS = ["points", "welcome", "giftcard", "service", "catering"];
+
+/** A whole slider from built-in names, or why the list is not usable. */
+export function fullOrder(
+  raw: string,
+): { ok: true; slides: string[] } | { ok: false; problem: string } {
+  const names = raw
+    .split(",")
+    .map((n) => n.trim().toLowerCase())
+    .filter(Boolean);
+  const unknown = names.filter((n) => !BUILT_INS.includes(n));
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      problem: `unknown poster(s) ${unknown.join(", ")} — use ${BUILT_INS.join(", ")}`,
+    };
+  }
+  if (new Set(names).size !== names.length)
+    return { ok: false, problem: "a poster is listed twice" };
+  if (names.length === 0 || names.length > 6) return { ok: false, problem: "list 1 to 6 posters" };
+  return { ok: true, slides: names.map((n) => `builtin:${n}-de`) };
+}
+
 async function main(): Promise<void> {
   const slug = process.env.RESTAURANT_SLUG ?? "rangla-punjab";
   const apply = process.env.APPLY === "1";
@@ -72,7 +100,15 @@ async function main(): Promise<void> {
     const show = (list: readonly string[]): string =>
       list.map((key, i) => `${i + 1}. ${slideLabel(key)}`).join("   ");
     console.log(`Now:   ${show(current)}`);
-    const plan = moveLast(current, which);
+    // An uploaded slide has no name to list it by; refuse to drop one.
+    const uploads = current.filter((key) => !key.startsWith("builtin:"));
+    const order = process.env.ORDER;
+    if (order && uploads.length > 0) {
+      console.log("✗ The slider holds uploaded slides; ORDER would remove them. Nothing changed.");
+      process.exitCode = 1;
+      return;
+    }
+    const plan = order ? fullOrder(order) : moveLast(current, which);
     if (!plan.ok) {
       console.log(`✗ ${plan.problem}. Nothing changed.`);
       process.exitCode = 1;
