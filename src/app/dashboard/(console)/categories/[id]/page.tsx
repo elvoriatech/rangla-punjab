@@ -320,6 +320,10 @@ export default async function CategoryDetailPage({
           <input type="checkbox" name="isAvailable" defaultChecked className="accent-brand-green" />
           <span>Available on the menu</span>
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="dineInOnly" className="accent-brand-green" />
+          <span>Dine-in only — guests cannot add it to an online order</span>
+        </label>
         <SubmitButton
           pendingLabel="Adding…"
           className="bg-brand-green px-5 py-3 text-xs font-medium uppercase tracking-wider text-brand-cream hover:bg-brand-green-dark"
@@ -355,6 +359,7 @@ export default async function CategoryDetailPage({
                   € {(item.priceCents / 100).toFixed(2)}
                   {item.allergens.length > 0 ? ` · ${item.allergens.join(", ")}` : ""}
                   {item.isAvailable ? "" : " · unavailable"}
+                  {item.dineInOnly ? " · dine-in only" : ""}
                   {isEveryDay(item.availableDays) ? "" : ` · ${formatDays(item.availableDays)}`}
                 </p>
                 {edit === item.id ? (
@@ -498,6 +503,15 @@ export default async function CategoryDetailPage({
                           className="accent-brand-green"
                         />
                         Available
+                      </label>
+                      <label className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          name="dineInOnly"
+                          defaultChecked={item.dineInOnly}
+                          className="accent-brand-green"
+                        />
+                        Dine-in only
                       </label>
                     </div>
                     <div className="flex gap-3">

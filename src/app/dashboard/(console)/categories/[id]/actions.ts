@@ -29,6 +29,7 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
   const allergens = form.getAll("allergens").map(String);
   const dietary = form.getAll("dietary").map(String);
   const isAvailable = form.get("isAvailable") === "on";
+  const dineInOnly = form.get("dineInOnly") === "on";
   if (!name || Number.isNaN(priceEuros) || priceEuros < 0) return;
   // Every day is pre-ticked; unticking all of them is refused rather than
   // saved as a dish that never appears — switching it off is the toggle.
@@ -60,6 +61,7 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
     spice: 0,
     isAvailable,
     availableDays,
+    dineInOnly,
     photoMediaId,
     variants: [],
   });
@@ -81,6 +83,7 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
   const description = String(form.get("description") ?? "").trim();
   const priceEuros = Number(form.get("priceEuros"));
   const isAvailable = form.get("isAvailable") === "on";
+  const dineInOnly = form.get("dineInOnly") === "on";
   if (!id || !name || Number.isNaN(priceEuros) || priceEuros < 0) return;
   // The edit form carries every allergen + dietary box, so what arrives
   // IS the dish's full set (an unticked box removes it). Parsed through
@@ -120,6 +123,7 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
     priceCents,
     isAvailable,
     availableDays,
+    dineInOnly,
     allergens: tags.data.allergens,
     dietary: tags.data.dietary,
     ...(photoMediaId ? { photoMediaId } : {}),

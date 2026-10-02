@@ -44,6 +44,9 @@ export interface PublicItem {
   offer?: { basePriceCents: number; endsAt: string | null } | null;
   currency: string;
   isAvailable: boolean;
+  /** Served at the table only: shown with a label instead of the add
+   *  button. Absent on payloads cached before the field existed. */
+  dineInOnly?: boolean;
   allergens: string[];
   traces: string[];
   dietary: string[];
@@ -267,6 +270,7 @@ export async function loadPublicMenu(
             currency: true,
             isAvailable: true,
             availableDays: true,
+            dineInOnly: true,
             allergens: true,
             traces: true,
             dietary: true,
@@ -328,6 +332,7 @@ export async function loadPublicMenu(
                 },
           currency: item.currency,
           isAvailable: item.isAvailable,
+          dineInOnly: item.dineInOnly,
           allergens: item.allergens,
           traces: item.traces,
           dietary: item.dietary,

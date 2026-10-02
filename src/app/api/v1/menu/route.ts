@@ -234,6 +234,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             offer: item.offer ?? null,
             currency: item.currency,
             isAvailable: item.isAvailable,
+            dineInOnly: item.dineInOnly ?? false,
             allergens: item.allergens,
             traces: item.traces,
             dietary: item.dietary,

@@ -106,6 +106,28 @@ function addToOrderLabels(locale: string, dishName: string): AddToOrderLabels {
   return { add: c.add, added: c.added, addAria: c.addAria(dishName) };
 }
 
+/**
+ * The dish card's order slot: the add button, or — for a dish the
+ * restaurant serves at the table only — a label saying so. A label, not a
+ * disabled button: there is nothing here to operate, and a disabled
+ * control would be skipped by the keyboard and read as broken.
+ */
+function OrderCta({
+  dineInOnly,
+  dineInLabel,
+  ...button
+}: React.ComponentProps<typeof AddToOrderButton> & {
+  dineInOnly?: boolean;
+  dineInLabel: string;
+}): React.ReactElement {
+  if (!dineInOnly) return <AddToOrderButton {...button} />;
+  return (
+    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-dashed border-current/40 px-2.5 py-1 text-[11px] font-medium text-[var(--menu-surface-text-soft,var(--menu-text-soft))] sm:px-3">
+      {dineInLabel}
+    </span>
+  );
+}
+
 /** Party sizes the reservation stepper can reach (mirrors MIN/MAX_GUESTS
  *  in `reserve-dialog.tsx` and the server's own 1–20 bound). */
 const RESERVE_MAX_GUESTS = 20;
@@ -1260,7 +1282,9 @@ function FloatingSection({
                     {formatPrice(item.priceCents, item.currency, locale)}
                   </p>
                   {ordering && item.isAvailable ? (
-                    <AddToOrderButton
+                    <OrderCta
+                      dineInOnly={item.dineInOnly}
+                      dineInLabel={t.badges.dineInOnly}
                       slug={slug}
                       itemId={item.id}
                       name={item.name}
@@ -1465,7 +1489,9 @@ function GridDishCard({
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
-            <AddToOrderButton
+            <OrderCta
+              dineInOnly={item.dineInOnly}
+              dineInLabel={t.badges.dineInOnly}
               slug={slug}
               itemId={item.id}
               name={item.name}
@@ -1654,7 +1680,9 @@ function ListDishRow({
             {formatPrice(item.priceCents, item.currency, locale)}
           </p>
           {ordering && item.isAvailable ? (
-            <AddToOrderButton
+            <OrderCta
+              dineInOnly={item.dineInOnly}
+              dineInLabel={t.badges.dineInOnly}
               slug={slug}
               itemId={item.id}
               name={item.name}
@@ -1848,7 +1876,9 @@ function ShowcaseDishCard({
           {formatPrice(item.priceCents, item.currency, locale)}
         </p>
         {ordering && item.isAvailable ? (
-          <AddToOrderButton
+          <OrderCta
+            dineInOnly={item.dineInOnly}
+            dineInLabel={t.badges.dineInOnly}
             slug={slug}
             itemId={item.id}
             name={item.name}
@@ -2349,7 +2379,9 @@ function DishCard({
             <div className="ms-auto flex flex-col items-end gap-1.5">
               {item.description ? null : offerTag}
               {ordering && item.isAvailable ? (
-                <AddToOrderButton
+                <OrderCta
+                  dineInOnly={item.dineInOnly}
+                  dineInLabel={t.badges.dineInOnly}
                   slug={slug}
                   itemId={item.id}
                   name={item.name}

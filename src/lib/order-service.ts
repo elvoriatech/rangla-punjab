@@ -335,6 +335,7 @@ export async function placeOrder(
         offerWeekly: true,
         currency: true,
         availableDays: true,
+        dineInOnly: true,
       },
     });
     // Every requested id must resolve to an orderable published item —
@@ -362,6 +363,12 @@ export async function placeOrder(
         !availableOnDayAt(item.availableDays, venueTz, graceInstant),
     );
     if (offToday) return { ok: false, error: "unknown_items" as const };
+    // A dine-in-only dish never leaves the building. The menu shows it
+    // without an add button; this is the wall behind that, for a stale
+    // page or an app build that predates the label.
+    if (orderType !== "dine_in" && items.some((item) => item.dineInOnly)) {
+      return { ok: false, error: "unknown_items" as const };
+    }
     const priceOf = (item: (typeof items)[number]): { unit: number; base: number | null } => {
       const now = effectiveItemPrice(item, venueTz, nowInstant);
       const grace = effectiveItemPrice(item, venueTz, graceInstant);

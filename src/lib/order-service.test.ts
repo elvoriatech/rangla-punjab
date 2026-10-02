@@ -414,6 +414,23 @@ describe("order-service (guest self-ordering)", () => {
     expect(ok.ok).toBe(true);
   });
 
+  it("refuses a dine-in-only dish for pickup, and takes it at the table", async () => {
+    const fx = await fixtureVenue();
+    await asTenant(fx.tenantId, (tx) =>
+      tx.item.update({ where: { id: fx.itemIds.naan }, data: { dineInOnly: true } }),
+    );
+    const pickup = await placeOrder(fx, {
+      orderType: "takeaway",
+      customerName: "Zahoor",
+      customerPhone: "+49 170 1234567",
+      items: [{ itemId: fx.itemIds.naan, quantity: 1 }],
+    });
+    expect(pickup).toEqual({ ok: false, error: "unknown_items" });
+
+    const table = await placeOrder(fx, { items: [{ itemId: fx.itemIds.naan, quantity: 1 }] });
+    expect(table.ok).toBe(true);
+  });
+
   it("rejects unknown and unavailable items, and prices from the client are ignored", async () => {
     const fx = await fixtureVenue();
     const unknown = await placeOrder(fx, {

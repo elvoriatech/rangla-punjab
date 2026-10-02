@@ -425,6 +425,11 @@ model Item {
   /// venue-local. Default every day. CHECK: 1–7 entries, each 0..6.
   availableDays   Int[]     @default([0, 1, 2, 3, 4, 5, 6]) @map("available_days")
 
+  /// The dish is served at the table only: the menu shows it with a
+  /// "dine-in only" label in place of the add button, and a pickup or
+  /// delivery order containing it is refused.
+  dineInOnly      Boolean   @default(false) @map("dine_in_only")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? @map("deleted_at")

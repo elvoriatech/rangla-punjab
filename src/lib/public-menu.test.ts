@@ -517,6 +517,28 @@ describe("public menu loader", () => {
     expect(published.availableDays).toEqual([0]);
   });
 
+  it("carries dine-in only through publish and onto the guest menu", async () => {
+    const { userId, venueSlug } = await seedPublishedMenu();
+    const cat = await createCategory(userId, { name: "Sizzler" });
+    if (!cat.ok) throw new Error("category failed");
+    const made = await createItem(userId, {
+      categoryId: cat.value.id,
+      name: "Tandoori Sizzler",
+      priceCents: 2190,
+      dineInOnly: true,
+      variants: [],
+    });
+    expect(made.ok && made.value.dineInOnly).toBe(true);
+    if (!(await publishDraft(userId)).ok) throw new Error("publish failed");
+    const context = await resolvePreviewContext(venueSlug, null);
+    const menu = await loadPublicMenu(context!);
+    const flags = Object.fromEntries(
+      (menu?.categories ?? []).flatMap((c) => c.items.map((i) => [i.name, i.dineInOnly])),
+    );
+    expect(flags["Tandoori Sizzler"]).toBe(true);
+    expect(flags["Risotto"]).toBe(false);
+  });
+
   it("preview context loads the DRAFT tree, not the published one", async () => {
     const { userId, venueSlug } = await seedPublishedMenu();
     // Publish once — public and draft trees are equal now. Then edit the

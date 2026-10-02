@@ -57,6 +57,7 @@ export const createItemSchema = z.object({
   spice: z.number().int().min(0).max(5).default(0),
   isAvailable: z.boolean().default(true),
   availableDays: availableDaysSchema.default([0, 1, 2, 3, 4, 5, 6]),
+  dineInOnly: z.boolean().default(false),
   photoMediaId: z.string().min(1).optional(),
   variants: z.array(variantSchema).max(20).default([]),
   offerPriceCents: z.number().int().min(1).max(1_000_000).nullable().optional(),
@@ -74,6 +75,7 @@ export const updateItemSchema = z.object({
   spice: z.number().int().min(0).max(5).optional(),
   isAvailable: z.boolean().optional(),
   availableDays: availableDaysSchema.optional(),
+  dineInOnly: z.boolean().optional(),
   photoMediaId: z.string().min(1).nullable().optional(),
   offerPriceCents: z.number().int().min(1).max(1_000_000).nullable().optional(),
   offerStartsAt: z.coerce.date().nullable().optional(),
@@ -91,6 +93,8 @@ export interface ItemRow {
   isAvailable: boolean;
   /** Monday-first weekday indexes the dish is on the menu. */
   availableDays: number[];
+  /** Served at the table only — not orderable for pickup or delivery. */
+  dineInOnly: boolean;
   allergens: string[];
   traces: string[];
   dietary: string[];
@@ -117,6 +121,7 @@ const itemSelect = {
   orderIndex: true,
   isAvailable: true,
   availableDays: true,
+  dineInOnly: true,
   allergens: true,
   traces: true,
   dietary: true,
@@ -208,6 +213,7 @@ export async function createItem(
         spice: input.spice,
         isAvailable: input.isAvailable,
         availableDays: input.availableDays,
+        dineInOnly: input.dineInOnly,
         orderIndex: nextOrder,
         photoMediaId: input.photoMediaId,
         variants: {
