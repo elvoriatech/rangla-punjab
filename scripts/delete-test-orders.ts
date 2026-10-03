@@ -1,5 +1,5 @@
 import { writeFileSync } from "node:fs";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 /**
@@ -57,13 +57,28 @@ async function main(): Promise<void> {
     });
     if (!venue) throw new Error(`no venue with slug "${slug}"`);
 
-    const orders = await prisma.order.findMany({
-      where: { venueId: venue.id, createdAt: { lt: before } },
-      orderBy: { createdAt: "asc" },
-      include: { items: true },
+    // Reads and writes all run with the tenant set: the tables have FORCE
+    // ROW LEVEL SECURITY, so without it a role that obeys the policies
+    // sees no rows and may write none (2026-10-03: the first live run was
+    // refused on `deleted_orders` for exactly this reason).
+    const tenantTx = <T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> =>
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${venue.tenantId}, true)`;
+        return fn(tx);
+      });
+
+    const { orders, points } = await tenantTx(async (tx) => {
+      const found = await tx.order.findMany({
+        where: { venueId: venue.id, createdAt: { lt: before } },
+        orderBy: { createdAt: "asc" },
+        include: { items: true },
+      });
+      const ledger = await tx.loyaltyLedger.findMany({
+        where: { orderId: { in: found.map((o) => o.id) } },
+      });
+      return { orders: found, points: ledger };
     });
     const ids = orders.map((o) => o.id);
-    const points = await prisma.loyaltyLedger.findMany({ where: { orderId: { in: ids } } });
 
     const euro = (cents: number): string => (cents / 100).toFixed(2).replace(".", ",") + " €";
     const byPayment = new Map<string, { n: number; cents: number }>();
@@ -103,7 +118,7 @@ async function main(): Promise<void> {
       JSON.stringify({ before: before.toISOString(), orders, points }, null, 2),
     );
 
-    await prisma.$transaction(async (tx) => {
+    await tenantTx(async (tx) => {
       await tx.deletedOrder.createMany({
         data: orders.map((o) => ({
           tenantId: o.tenantId,
@@ -119,7 +134,14 @@ async function main(): Promise<void> {
         })),
       });
       await tx.loyaltyLedger.deleteMany({ where: { orderId: { in: ids } } });
-      await tx.order.deleteMany({ where: { id: { in: ids } } });
+      const gone = await tx.order.deleteMany({ where: { id: { in: ids } } });
+      // A policy that silently filters rows would delete fewer than listed;
+      // roll the whole thing back rather than leave half the books.
+      if (gone.count !== ids.length) {
+        throw new Error(
+          `deleted ${gone.count} of ${ids.length} orders — rolled back, nothing changed`,
+        );
+      }
     });
     console.log(
       `✓ Deleted ${orders.length} order(s) and ${points.length} points row(s). Backup: ${backup}`,
