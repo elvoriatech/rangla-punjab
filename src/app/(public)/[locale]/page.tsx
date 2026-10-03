@@ -11,7 +11,7 @@ import { loadPublicMenu, resolvePublicCategoryParam, siteUrl } from "@/lib/publi
 import { filterMenuByDiet, parseDietFilter } from "@/lib/dietary-filter";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { MenuView } from "../menu-view";
-import { menuCopy } from "@/lib/i18n/menu";
+import { menuCopy, searchTitleName } from "@/lib/i18n/menu";
 
 /**
  * Locale-scoped public menu page. Mirrors `/r/[slug]` but forces the
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const url = `${base}/${locale}`;
   // Snippet copy follows the URL's locale, same as the page body.
   const t = menuCopy(locale);
-  const title = t.metadata.title(menu.venue.name);
+  const title = t.metadata.title(searchTitleName(menu.venue.name));
   const description = t.metadata.description(menu.venue.name);
   return {
     title,

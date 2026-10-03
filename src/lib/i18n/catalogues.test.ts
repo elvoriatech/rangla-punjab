@@ -157,3 +157,14 @@ describe("guest copy catalogues", () => {
     }
   });
 });
+
+describe("searchTitleName", () => {
+  it("drops 'Restaurant' and the separator dot for the search title", async () => {
+    const { searchTitleName, menuCopy } = await import("./menu");
+    expect(searchTitleName("Rangla Punjab Restaurant · Konstanz")).toBe("Rangla Punjab Konstanz");
+    expect(searchTitleName("Trattoria Roma")).toBe("Trattoria Roma");
+    expect(
+      menuCopy("de").metadata.title(searchTitleName("Rangla Punjab Restaurant · Konstanz")),
+    ).toBe("Rangla Punjab Konstanz | Take Away Menu Online");
+  });
+});

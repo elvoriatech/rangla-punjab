@@ -25,6 +25,20 @@ type DietLabels = {
   kosher: string;
 };
 
+/**
+ * The restaurant's name as a search result should show it: "Rangla Punjab
+ * Restaurant · Konstanz" → "Rangla Punjab Konstanz". The word "Restaurant"
+ * and the separator dot cost title space Google truncates at ~60 chars,
+ * and the page body keeps the full name.
+ */
+export function searchTitleName(venueName: string): string {
+  return venueName
+    .replace(/\s+restaurant\b/i, "")
+    .replace(/\s*·\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 type Feature = { title: string; sub: string };
 
 const en = {
@@ -237,9 +251,9 @@ const en = {
     dishCount: (n: number): string => (n === 1 ? "1 dish" : `${n} dishes`),
   },
   metadata: {
-    title: (venue: string): string => `${venue} — Menu`,
+    title: (venue: string): string => `${venue} | Take Away Menu Online`,
     description: (venue: string): string =>
-      `Menu for ${venue}. See dishes, prices, allergen and dietary information.`,
+      `Order online from ${venue} for pickup or delivery. Full menu with prices, allergen and dietary information.`,
     srHeading: (venue: string): string => `${venue} menu`,
   },
 };
@@ -410,9 +424,9 @@ const de: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 Gericht" : `${n} Gerichte`),
   },
   metadata: {
-    title: (venue) => `${venue} — Speisekarte`,
+    title: (venue) => `${venue} | Take Away Menu Online`,
     description: (venue) =>
-      `Speisekarte von ${venue}. Gerichte, Preise, Allergene und Ernährungshinweise auf einen Blick.`,
+      `Online bestellen bei ${venue} – zum Abholen oder Liefern. Speisekarte mit Preisen, Allergenen und Ernährungshinweisen.`,
     srHeading: (venue) => `Speisekarte ${venue}`,
   },
 };
@@ -583,7 +597,7 @@ const fr: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 plat" : `${n} plats`),
   },
   metadata: {
-    title: (venue) => `${venue} — Carte`,
+    title: (venue) => `${venue} | Carte à emporter en ligne`,
     description: (venue) =>
       `Carte de ${venue}. Plats, prix, allergènes et informations sur les régimes alimentaires.`,
     srHeading: (venue) => `Carte de ${venue}`,
@@ -753,7 +767,7 @@ const es: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 plato" : `${n} platos`),
   },
   metadata: {
-    title: (venue) => `${venue} — Carta`,
+    title: (venue) => `${venue} | Carta para llevar online`,
     description: (venue) =>
       `Carta de ${venue}. Platos, precios, alérgenos e información dietética.`,
     srHeading: (venue) => `Carta de ${venue}`,
@@ -923,7 +937,7 @@ const it: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 piatto" : `${n} piatti`),
   },
   metadata: {
-    title: (venue) => `${venue} — Menu`,
+    title: (venue) => `${venue} | Menu da asporto online`,
     description: (venue) =>
       `Menu di ${venue}. Piatti, prezzi, allergeni e informazioni dietetiche.`,
     srHeading: (venue) => `Menu di ${venue}`,
@@ -1105,7 +1119,7 @@ const ar: MenuCopy = {
       n === 1 ? "طبق واحد" : n === 2 ? "طبقان" : n <= 10 ? `${n} أطباق` : `${n} طبقاً`,
   },
   metadata: {
-    title: (venue) => `${venue} — قائمة الطعام`,
+    title: (venue) => `${venue} | قائمة الطلبات الخارجية أونلاين`,
     description: (venue) =>
       `قائمة طعام ${venue}. الأطباق والأسعار ومعلومات مسبّبات الحساسية والأنظمة الغذائية.`,
     srHeading: (venue) => `قائمة طعام ${venue}`,

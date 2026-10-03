@@ -12,7 +12,7 @@ import { loadPublicMenu, resolvePublicCategoryParam, siteUrl } from "@/lib/publi
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { filterMenuByDiet, parseDietFilter } from "@/lib/dietary-filter";
 import { MenuView } from "./menu-view";
-import { menuCopy } from "@/lib/i18n/menu";
+import { menuCopy, searchTitleName } from "@/lib/i18n/menu";
 
 /**
  * Public menu page — the guest-facing hot path. Server component only:
@@ -63,7 +63,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // a search engine shows, and an English one under a Spanish menu reads
   // like someone else's restaurant.
   const t = menuCopy(menu.locale);
-  const title = t.metadata.title(menu.venue.name);
+  const title = t.metadata.title(searchTitleName(menu.venue.name));
   const description = t.metadata.description(menu.venue.name);
   return {
     title,
