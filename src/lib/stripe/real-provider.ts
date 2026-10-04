@@ -301,6 +301,25 @@ export class RealStripeProvider implements StripeProvider {
     }
   }
 
+  async paymentMethodOf(ref: string): Promise<string | null> {
+    try {
+      let intent: Stripe.PaymentIntent | null;
+      if (ref.startsWith("cs_")) {
+        const session = await this.stripe.checkout.sessions.retrieve(ref, {
+          expand: ["payment_intent.payment_method"],
+        });
+        intent = typeof session.payment_intent === "object" ? session.payment_intent : null;
+      } else {
+        intent = await this.stripe.paymentIntents.retrieve(ref, { expand: ["payment_method"] });
+      }
+      const method = intent?.payment_method;
+      if (!method || typeof method === "string") return null;
+      return method.card?.wallet?.type ?? method.type ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async cancelPayment(ref: string): Promise<boolean> {
     try {
       if (ref.startsWith("cs_")) {

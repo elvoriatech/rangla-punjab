@@ -680,6 +680,8 @@ export interface ReceiptOrder extends OrderFulfilment {
   venueFooter?: { address: string | null; phone: string | null; phoneHref: string | null };
   paymentStatus: string;
   paymentProvider: string | null;
+  /** "apple_pay" | "google_pay" | "card" … for a settled Stripe payment. */
+  paymentMethod?: string | null;
   /** Loyalty reward applied to this order (0 = none). The item lines keep
    *  their menu prices, so every receipt surface shows this as its own
    *  "Reward −€20.00" row between the lines and the total. */
@@ -732,6 +734,7 @@ export async function getOrderForReceipt(
         deliveryAddress: true,
         paymentStatus: true,
         paymentProvider: true,
+        paymentMethod: true,
         discountCents: true,
         discountPoints: true,
         giftCardDiscountCents: true,
@@ -795,6 +798,8 @@ export interface KitchenOrder extends OrderFulfilment {
   /** "stripe" | "paypal" when paid online, "voucher" when a reward
    *  covered it in full; null = settled at the restaurant. */
   paymentProvider: string | null;
+  /** "apple_pay" | "google_pay" | "card" … for a settled Stripe payment. */
+  paymentMethod?: string | null;
   /** Loyalty reward applied (0 = none); `totalCents` is already net of it. */
   discountCents: number;
   /** What the reward cost the guest, in points. 0 when no reward was
@@ -894,6 +899,7 @@ export async function listRecentOrders(
         status: true,
         paymentStatus: true,
         paymentProvider: true,
+        paymentMethod: true,
         discountCents: true,
         discountPoints: true,
         giftCardDiscountCents: true,
@@ -935,6 +941,7 @@ export async function getKitchenOrder(
         status: true,
         paymentStatus: true,
         paymentProvider: true,
+        paymentMethod: true,
         discountCents: true,
         discountPoints: true,
         giftCardDiscountCents: true,

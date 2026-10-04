@@ -5,6 +5,7 @@ import { issueStatusByOrder, type IssueStatus } from "@/lib/issue-service";
 import { fulfilmentLines } from "@/lib/ordering-config";
 import { GIFT_CARD_PROVIDER, listRecentOrders, VOUCHER_PROVIDER } from "@/lib/order-service";
 import { formatPrice } from "@/lib/public-menu";
+import { onlinePaymentLabel } from "@/lib/payment-methods";
 import { acceptOrderAction, advanceOrderAction, deleteOrderAction } from "./actions";
 import { AcceptWithTime } from "./accept-with-time";
 import { boardedAt, orderEta } from "@/lib/order-eta";
@@ -134,17 +135,19 @@ const REFUND_WARNING = "Paid online — refund it in your Stripe / PayPal dashbo
 /** How the guest pays: "Paid · Card"/"Paid · PayPal" once settled online,
  *  "Paid · Reward" when a loyalty voucher covered the whole bill, "Cash"
  *  (settled at the restaurant) otherwise. */
-function paymentBadge(order: { paymentStatus: string; paymentProvider: string | null }): string {
+function paymentBadge(order: {
+  paymentStatus: string;
+  paymentProvider: string | null;
+  paymentMethod?: string | null;
+}): string {
   const rail =
-    order.paymentProvider === "paypal"
-      ? "PayPal"
-      : order.paymentProvider === "stripe"
-        ? "Card"
-        : order.paymentProvider === "voucher"
-          ? "Reward"
-          : order.paymentProvider === "gift_card"
-            ? "Gift card"
-            : null;
+    order.paymentProvider === "paypal" || order.paymentProvider === "stripe"
+      ? onlinePaymentLabel(order.paymentProvider, order.paymentMethod)
+      : order.paymentProvider === "voucher"
+        ? "Reward"
+        : order.paymentProvider === "gift_card"
+          ? "Gift card"
+          : null;
   if (order.paymentStatus === "paid") return rail ? `Paid · ${rail}` : "Paid";
   // An online attempt that never settled: the guest started Card/PayPal
   // but no webhook or return leg confirmed it. Surface it — it is the

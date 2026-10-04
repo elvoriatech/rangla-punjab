@@ -30,3 +30,20 @@ export type PaymentMethodId = (typeof PAYMENT_METHODS)[number]["id"];
 
 /** What a typical German restaurant takes — the onboarding default. */
 export const DEFAULT_PAYMENTS: PaymentMethodId[] = ["cash", "girocard", "visa", "mastercard"];
+
+/**
+ * The guest-facing name of how an ONLINE payment was made: "PayPal", or for
+ * Stripe the wallet the card came from ("Apple Pay", "Google Pay") and
+ * "Card" otherwise — including Stripe orders from before the method was
+ * recorded.
+ */
+export function onlinePaymentLabel(
+  provider: string | null,
+  method: string | null | undefined,
+): string {
+  if (provider === "paypal") return "PayPal";
+  if (method === "apple_pay") return "Apple Pay";
+  if (method === "google_pay") return "Google Pay";
+  if (method === "link") return "Link";
+  return "Card";
+}

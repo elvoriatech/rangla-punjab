@@ -168,3 +168,14 @@ describe("searchTitleName", () => {
     ).toBe("Rangla Punjab Konstanz | Take Away Menu Online");
   });
 });
+
+describe("onlinePaymentLabel", () => {
+  it("names the wallet a Stripe card came from", async () => {
+    const { onlinePaymentLabel } = await import("../payment-methods");
+    expect(onlinePaymentLabel("stripe", "apple_pay")).toBe("Apple Pay");
+    expect(onlinePaymentLabel("stripe", "google_pay")).toBe("Google Pay");
+    expect(onlinePaymentLabel("stripe", "card")).toBe("Card");
+    expect(onlinePaymentLabel("stripe", null)).toBe("Card");
+    expect(onlinePaymentLabel("paypal", null)).toBe("PayPal");
+  });
+});

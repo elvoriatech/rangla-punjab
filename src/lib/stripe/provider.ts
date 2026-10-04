@@ -187,6 +187,12 @@ export interface StripeProvider {
    *  the payment already succeeded or is processing; the caller must then
    *  NOT cancel the order. True for an unknown/already-cancelled ref. */
   cancelPayment(ref: string): Promise<boolean>;
+
+  /** How a settled payment was made: the wallet ("apple_pay",
+   *  "google_pay", …) when the card came from one, else Stripe's method
+   *  type ("card", "link", …). Takes a PaymentIntent (`pi_…`) or a hosted
+   *  Checkout Session (`cs_…`). Null when unknown or unreadable. */
+  paymentMethodOf(ref: string): Promise<string | null>;
 }
 
 export interface PaymentIntentState {

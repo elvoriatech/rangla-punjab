@@ -577,6 +577,10 @@ model Order {
   paymentStatus       String  @default("none") @map("payment_status")
   paymentRef          String? @map("payment_ref")
   paymentProvider     String? @map("payment_provider")
+  /// HOW a Stripe payment was made, read back from Stripe once it settled:
+  /// "apple_pay" | "google_pay" | "card" (or another Stripe method type).
+  /// NULL for cash/PayPal and for orders paid before it was recorded.
+  paymentMethod       String? @map("payment_method")
   customerId          String? @map("customer_id")
   applicationFeeCents Int     @default(0) @map("application_fee_cents")
   status      String  @default("placed")

@@ -1,5 +1,6 @@
 import { formatPrice } from "./public-menu";
 import type { KitchenOrder } from "./order-service";
+import { onlinePaymentLabel } from "./payment-methods";
 
 /**
  * The 80 mm kitchen ticket as ONE self-contained HTML document.
@@ -63,6 +64,8 @@ export interface TicketOrder {
   deliveryAddress: { street?: string; zip?: string; city?: string; note?: string } | null;
   paymentStatus: string;
   paymentProvider: string | null;
+  /** How a Stripe payment was made ("apple_pay", …); absent/null = card. */
+  paymentMethod?: string | null;
   discountCents: number;
   /** Points the reward cost. 0 = no reward, or an order from before the
    *  column existed — the row then omits the points. */
@@ -144,7 +147,7 @@ function paymentBanner(order: TicketOrder): string | null {
     if (order.paymentProvider === "gift_card") {
       return "** MIT GESCHENKGUTSCHEIN BEZAHLT / PAID WITH GIFT CARD **";
     }
-    return `** PAID ONLINE${order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **`;
+    return `** PAID ONLINE (${onlinePaymentLabel(order.paymentProvider, order.paymentMethod).toUpperCase()}) **`;
   }
   if (order.paymentStatus === "pending") return "** ONLINE PAYMENT PENDING **";
   return null;
@@ -158,7 +161,7 @@ function paymentFooter(order: TicketOrder): string {
     if (order.paymentProvider === "gift_card") {
       return "Mit Geschenkgutschein bezahlt / paid with a gift card — nothing to collect.";
     }
-    return `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`;
+    return `Paid online via ${onlinePaymentLabel(order.paymentProvider, order.paymentMethod)} — nothing to collect.`;
   }
   if (order.paymentStatus === "pending") {
     return "Online payment NOT confirmed yet — do not hand out; wait for the paid ticket.";

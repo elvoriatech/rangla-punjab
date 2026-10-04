@@ -8,6 +8,7 @@ import {
   createOrderPayment,
   getConnectStatus,
   markOrderPaid,
+  recordPaymentMethod,
   refreshConnectStatus,
   startConnectOnboarding,
 } from "./connect-service";
@@ -148,6 +149,11 @@ describe("connect payments (fake provider, full flow)", () => {
     };
     const settled = provider.settleOrderCheckout(pending.paymentRef!);
     expect(settled?.orderId).toBe(placed.value.orderId);
+    // Paid with Apple Pay: Stripe reports a card whose wallet is apple_pay.
+    (provider as unknown as { setPaymentMethod(ref: string, m: string): void }).setPaymentMethod(
+      pending.paymentRef!,
+      "apple_pay",
+    );
     expect(await markOrderPaid(fx.tenantId, placed.value.orderId)).toBe(true);
     expect(await markOrderPaid(fx.tenantId, placed.value.orderId)).toBe(false); // idempotent
 
@@ -165,6 +171,12 @@ describe("connect payments (fake provider, full flow)", () => {
     const kitchen = await listRecentOrders(fx.userId);
     const seen = kitchen.find((o) => o.id === placed.value.orderId);
     expect(seen?.paymentStatus).toBe("paid");
+
+    // 6. How it was paid is read back from Stripe: an Apple Pay card is
+    // recorded as such (the dashboard then says "Paid · Apple Pay").
+    expect(await recordPaymentMethod(fx.tenantId, placed.value.orderId)).toBe("apple_pay");
+    const listed = await listRecentOrders(fx.userId);
+    expect(listed.find((o) => o.id === placed.value.orderId)?.paymentMethod).toBe("apple_pay");
   });
 
   it("P2-3: a tenant with no Scale subscription can still onboard and reach checkout", async () => {

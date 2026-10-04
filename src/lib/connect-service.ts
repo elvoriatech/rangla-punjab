@@ -393,6 +393,50 @@ export async function createOrderPaymentIntent(
   });
 }
 
+/**
+ * Ask Stripe how a settled order was paid and store it on the order
+ * ("apple_pay", "google_pay", "card", …). Stripe reports an Apple/Google
+ * Pay payment as a card payment whose card came from a wallet, so without
+ * this the dashboard can only ever say "Card". Called once the order is
+ * paid; a no-op for cash, PayPal, or when Stripe cannot be asked.
+ */
+export async function recordPaymentMethod(
+  tenantId: string,
+  orderId: string,
+): Promise<string | null> {
+  const shared = await getStripeProvider();
+  const found = await asTenant(tenantId, async (tx) => {
+    const [tenant, order] = await Promise.all([
+      tx.tenant.findFirstOrThrow({
+        select: { stripeOwnEnabled: true, stripeOwnSecretEnc: true, stripeOwnWebhookEnc: true },
+      }),
+      tx.order.findFirst({
+        where: { id: orderId },
+        select: {
+          paymentProvider: true,
+          paymentRef: true,
+          paymentStatus: true,
+          paymentMethod: true,
+        },
+      }),
+    ]);
+    return { tenant, order };
+  });
+  const order = found.order;
+  if (!order || order.paymentProvider !== "stripe" || !order.paymentRef) return null;
+  if (order.paymentStatus !== "paid" || order.paymentMethod) return order.paymentMethod ?? null;
+  // The account that charged it: the restaurant's own keys when set,
+  // else the deployment's. A ref Stripe does not know on that account
+  // simply answers null.
+  const direct = await selectDirectChargeProvider(found.tenant, shared);
+  const method = await (direct?.provider ?? shared).paymentMethodOf(order.paymentRef);
+  if (!method) return null;
+  await asTenant(tenantId, (tx) =>
+    tx.order.update({ where: { id: orderId }, data: { paymentMethod: method } }),
+  );
+  return method;
+}
+
 /** Settle an order — called by the webhook (real) or the fake confirm
  *  endpoint. Idempotent: paying a paid order is a no-op. */
 export async function markOrderPaid(tenantId: string, orderId: string): Promise<boolean> {
@@ -427,6 +471,10 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
       // credits the order exactly once.
       const { creditOrderIfEligible } = await import("./loyalty-service");
       void creditOrderIfEligible(tenantId, orderId).catch(() => undefined);
+      // Which kind of card it was (Apple Pay / Google Pay / plain card), for
+      // the dashboard and the ticket. Best effort: an order without it
+      // simply says "Card", as every order did before.
+      void recordPaymentMethod(tenantId, orderId).catch(() => undefined);
     }
     return settled;
   });

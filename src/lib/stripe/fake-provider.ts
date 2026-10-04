@@ -43,6 +43,9 @@ export class FakeStripeProvider implements StripeProvider {
       feeCents: number;
       paid: boolean;
       currency?: string;
+      /** What `paymentMethodOf` reports once paid; tests set it via
+       *  `setPaymentMethod`. Defaults to a plain card. */
+      method?: string;
     }
   >();
 
@@ -247,6 +250,18 @@ export class FakeStripeProvider implements StripeProvider {
       amountCents: c.amountCents,
       currency: c.currency ?? "EUR",
     };
+  }
+
+  async paymentMethodOf(ref: string): Promise<string | null> {
+    const c = this.orderCheckouts.get(ref);
+    if (!c?.paid) return null;
+    return c.method ?? "card";
+  }
+
+  /** Test hook: how the fake payment `ref` was made ("apple_pay", …). */
+  setPaymentMethod(ref: string, method: string): void {
+    const c = this.orderCheckouts.get(ref);
+    if (c) c.method = method;
   }
 
   async cancelPayment(ref: string): Promise<boolean> {
