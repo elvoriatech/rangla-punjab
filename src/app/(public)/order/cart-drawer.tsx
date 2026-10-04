@@ -475,18 +475,6 @@ export function CartDrawer({
     };
   }, [copyLocale]);
 
-  // Bottom-sheet scroll on touch devices: while the sheet is open, lock
-  // the page behind it. Without this a swipe on the sheet scrolls the
-  // MENU underneath (scroll chaining), which reads as "the cart won't
-  // scroll" on phones.
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
   const enabledTypes = TYPE_META.filter((t) => t.enabled(modes));
   const [orderType, setOrderType] = useState<OrderType>(enabledTypes[0]?.type ?? "dine_in");
   const [tableNumber, setTableNumber] = useState("");
@@ -511,6 +499,29 @@ export function CartDrawer({
   const [placing, setPlacing] = useState(false);
   const [payStarting, setPayStarting] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  // Bottom-sheet scroll on touch devices: while the sheet is open, lock
+  // the page behind it. Without this a swipe on the sheet scrolls the
+  // MENU underneath (scroll chaining), which reads as "the cart won't
+  // scroll" on phones.
+  //
+  // Keyed on the sheet being ON SCREEN, not on `open` alone: removing the
+  // last item (the − button, the bin, "clear") unmounts the sheet while
+  // `open` stays true, and a lock keyed on `open` was never released — the
+  // menu behind could no longer scroll (owner, 2026-10-04).
+  const sheetShown = open && (cartCount(lines) > 0 || placed !== null);
+  useEffect(() => {
+    if (!sheetShown) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sheetShown]);
+  // An emptied cart closes the sheet, so the next item added shows the
+  // bar again instead of springing the sheet open by itself. Adjusted
+  // during render (React's pattern for state derived from other state),
+  // so there is no frame with a stale `open`.
+  if (open && !sheetShown) setOpen(false);
   // Survives re-renders so a retry reuses the same idempotency key.
   const attemptRef = useRef<{ key: string; signature: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
