@@ -106,6 +106,16 @@ export interface PublicMenu {
      * treats absent and null identically: no "Get the app" section at all.
      */
     appLinks?: PublicAppLinks | null;
+    /**
+     * The restaurant's postal address as the owner typed it in Settings →
+     * Contact (two lines: street, then postcode + town), or null. Feeds the
+     * search engines' Restaurant markup; optional so fixtures needn't
+     * carry it.
+     */
+    postalAddress?: string | null;
+    /** Google Place ID, when the owner linked one — lets the markup point
+     *  at the venue's own Maps listing. Optional, same as above. */
+    googlePlaceId?: string | null;
     branding: {
       primaryColor?: string;
       logoKey?: string | null;
@@ -389,6 +399,8 @@ export async function loadPublicMenu(
         // badges and the app's own screen link to the same three URLs and
         // neither has to decide what counts as a store link.
         appLinks: publicAppLinks(parseAppLinksConfig(venue.appLinks)),
+        postalAddress: parseContactConfig(venue.contact).address,
+        googlePlaceId: venue.googlePlaceId ?? null,
         branding,
       },
       locale: effectiveLocale,
@@ -480,7 +492,7 @@ function normaliseBranding(raw: unknown): PublicMenu["venue"]["branding"] {
   return {};
 }
 
-export { siteUrl } from "./site-url";
+export { shareImage, siteUrl } from "./site-url";
 
 export interface PublicVenueRow {
   slug: string;

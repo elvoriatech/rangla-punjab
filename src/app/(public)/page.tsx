@@ -8,7 +8,7 @@ import { resolvePreviewContext } from "@/lib/preview-context";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { currentOpenState, currentTodaySlotTimes } from "@/lib/opening-hours";
-import { loadPublicMenu, resolvePublicCategoryParam, siteUrl } from "@/lib/public-menu";
+import { loadPublicMenu, resolvePublicCategoryParam, shareImage, siteUrl } from "@/lib/public-menu";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { filterMenuByDiet, parseDietFilter } from "@/lib/dietary-filter";
 import { MenuView } from "./menu-view";
@@ -81,13 +81,21 @@ export async function generateMetadata(): Promise<Metadata> {
       statusBarStyle: "black-translucent",
     },
     alternates: {
-      canonical: url,
-      languages: Object.fromEntries(menu.venue.enabledLocales.map((l) => [l, `${siteUrl()}/${l}`])),
+      // The root renders the default-locale menu, byte for byte the same
+      // page as /{defaultLocale}. Two self-canonical copies split the
+      // ranking signals between them, so the root defers to the locale URL
+      // the sitemap and every hreflang already name.
+      canonical: `${siteUrl()}/${menu.venue.defaultLocale}`,
+      languages: {
+        ...Object.fromEntries(menu.venue.enabledLocales.map((l) => [l, `${siteUrl()}/${l}`])),
+        "x-default": `${siteUrl()}/${menu.venue.defaultLocale}`,
+      },
     },
     openGraph: {
       title,
       description,
       url,
+      ...shareImage(menu.venue.branding.bannerKey),
       type: "website",
       locale: menu.locale,
       siteName: BRAND.name,

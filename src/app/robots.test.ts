@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import robots from "./robots";
+import robots, { dynamic } from "./robots";
 
 /**
  * The guest menu is the product, so it must stay crawlable; nothing
@@ -47,5 +47,10 @@ describe("robots.txt", () => {
   it("points at the sitemap with an absolute URL", () => {
     const sitemap = robots().sitemap as string;
     expect(sitemap).toMatch(/^https?:\/\/.+\/sitemap\.xml$/);
+  });
+
+  it("is rendered per request, so the sitemap line carries the real domain", () => {
+    // Prerendered at `docker build`, it shipped `http://localhost:3000`.
+    expect(dynamic).toBe("force-dynamic");
   });
 });

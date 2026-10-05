@@ -14,6 +14,14 @@ import { siteUrl } from "@/lib/public-menu";
  *
  * `/img/` stays allowed — menu photos in image search are free reach.
  */
+/**
+ * Rendered per request, not at build time. Next prerenders `robots.ts` by
+ * default, and inside `docker build` there is no APP_URL — so production
+ * served `Sitemap: http://localhost:3000/sitemap.xml` and crawlers never
+ * learned where the sitemap was.
+ */
+export const dynamic = "force-dynamic";
+
 export default function robots(): MetadataRoute.Robots {
   const base = siteUrl();
   return {

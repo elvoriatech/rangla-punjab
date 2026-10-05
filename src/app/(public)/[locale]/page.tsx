@@ -7,7 +7,7 @@ import { resolvePreviewContext } from "@/lib/preview-context";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { getOperatorSettings } from "@/lib/operator-settings";
 import { currentOpenState, currentTodaySlotTimes } from "@/lib/opening-hours";
-import { loadPublicMenu, resolvePublicCategoryParam, siteUrl } from "@/lib/public-menu";
+import { loadPublicMenu, resolvePublicCategoryParam, shareImage, siteUrl } from "@/lib/public-menu";
 import { filterMenuByDiet, parseDietFilter } from "@/lib/dietary-filter";
 import { getRestaurantSlug } from "@/lib/restaurant";
 import { MenuView } from "../menu-view";
@@ -74,6 +74,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
       url,
       type: "website",
       locale,
+      ...shareImage(menu.venue.branding.bannerKey),
       siteName: BRAND.name,
     },
   };

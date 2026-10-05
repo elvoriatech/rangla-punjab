@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicMenu } from "./public-menu";
-import { buildRestaurantJsonLd, jsonLdString } from "./structured-data";
+import { buildRestaurantJsonLd, jsonLdString, postalAddressNode } from "./structured-data";
 
 const fixture: PublicMenu = {
   venue: {
@@ -135,5 +135,105 @@ describe("Restaurant + Menu JSON-LD", () => {
     expect(s).toContain("\\u003c/script>");
     // The wrapped string is still valid JSON (escaped-unicode is JSON-legal).
     expect(() => JSON.parse(s)).not.toThrow();
+  });
+
+  it("carries the local-business fields a name search matches on", () => {
+    const local: PublicMenu = {
+      ...fixture,
+      venue: {
+        ...fixture.venue,
+        postalAddress: "Fritz-Arnold-Str. 7\n78467 Konstanz",
+        googlePlaceId: "ChIJabc",
+        contact: {
+          landline: {
+            number: "+4975313699591",
+            display: "+49 7531 3699591",
+            href: "tel:+4975313699591",
+          },
+          mobile: null,
+          whatsapp: null,
+          email: {
+            number: "info@example.de",
+            display: "info@example.de",
+            href: "mailto:info@example.de",
+          },
+        },
+        hours: {
+          configured: true,
+          days: {
+            mon: { closed: true, slots: [] },
+            tue: {
+              closed: false,
+              slots: [
+                { open: "11:30", close: "14:30" },
+                { open: "17:00", close: "22:00" },
+              ],
+            },
+          },
+        },
+        branding: { bannerKey: "t/uploads/banner", logoKey: "t/uploads/logo" },
+      },
+    };
+    const ld = buildRestaurantJsonLd(local, {
+      pageUrl: "https://example.de/de",
+      siteUrl: "https://example.de",
+    });
+    expect(ld.address).toEqual({
+      "@type": "PostalAddress",
+      streetAddress: "Fritz-Arnold-Str. 7",
+      postalCode: "78467",
+      addressLocality: "Konstanz",
+      addressCountry: "DE",
+    });
+    expect(ld.telephone).toBe("+4975313699591");
+    expect(ld.email).toBe("info@example.de");
+    expect(ld.openingHoursSpecification).toEqual([
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: "https://schema.org/Tuesday",
+        opens: "11:30",
+        closes: "14:30",
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: "https://schema.org/Tuesday",
+        opens: "17:00",
+        closes: "22:00",
+      },
+    ]);
+    expect(ld.image).toEqual([
+      "https://example.de/img/t%2Fuploads%2Fbanner?w=1280",
+      "https://example.de/img/t%2Fuploads%2Flogo?w=1280",
+    ]);
+    expect(ld.logo).toBe("https://example.de/img/t%2Fuploads%2Flogo?w=640");
+    expect(ld.hasMap).toBe("https://www.google.com/maps/place/?q=place_id:ChIJabc");
+  });
+
+  it("emits no local-business fields the owner has not filled", () => {
+    const ld = buildRestaurantJsonLd(fixture, { pageUrl: "https://example.com/en" });
+    for (const k of [
+      "address",
+      "telephone",
+      "email",
+      "openingHoursSpecification",
+      "image",
+      "logo",
+      "hasMap",
+    ]) {
+      expect(k in ld, k).toBe(false);
+    }
+  });
+});
+
+describe("postalAddressNode", () => {
+  it("keeps a one-line address as the street line", () => {
+    expect(postalAddressNode("Marktstätte 1", "Europe/Zurich")).toEqual({
+      "@type": "PostalAddress",
+      streetAddress: "Marktstätte 1",
+    });
+  });
+  it("is null for an empty address", () => {
+    expect(postalAddressNode(null, "Europe/Berlin")).toBeNull();
+    expect(postalAddressNode(" \n ", "Europe/Berlin")).toBeNull();
   });
 });

@@ -340,7 +340,9 @@ export function MenuView({
   const activeCat =
     activeCategoryId === OFFERS_CATEGORY_ID && !offersSection ? null : (activeCategoryId ?? null);
   const offersLabel = offersSection ? t.offers.tab : null;
-  const jsonLd = jsonLdString(buildRestaurantJsonLd(menu, { pageUrl: `${siteUrl()}/${locale}` }));
+  const jsonLd = jsonLdString(
+    buildRestaurantJsonLd(menu, { pageUrl: `${siteUrl()}/${locale}`, siteUrl: siteUrl() }),
+  );
   // Theme + texture come from the venue's saved appearance; the whole
   // renderer reads colors from these CSS vars, so this style attribute IS
   // the theme switch. The theme also picks the page layout below.
