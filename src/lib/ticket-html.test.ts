@@ -3,6 +3,7 @@ import {
   renderTicketHtml,
   ticketAddressLine,
   ticketDirectionsUrl,
+  ticketVenueName,
   type TicketOrder,
 } from "./ticket-html";
 
@@ -82,13 +83,13 @@ describe("renderTicketHtml", () => {
   it("carries the venue, the order number, the time and the dishes", () => {
     const html = renderTicketHtml(order(), VENUE);
     expect(html).toContain("Rangla Punjab");
-    expect(html).toContain("Kitchen ticket");
+    expect(html).toContain("Online-Bestellung");
     expect(html).toContain("#42");
     expect(html).toContain("Dal Makhani");
     expect(html).toContain("2x");
     // Line total, not unit price: 2 × €12.00.
     expect(html).toContain("24,00");
-    expect(html).toContain("TOTAL");
+    expect(html).toContain("GESAMT");
     expect(html).toContain("IM RESTAURANT — TISCH 7");
   });
 
@@ -114,30 +115,30 @@ describe("renderTicketHtml", () => {
 
   it("warns loudly when an online payment has not settled", () => {
     const pending = renderTicketHtml(order({ paymentStatus: "pending" }), VENUE);
-    expect(pending).toContain("** ONLINE PAYMENT PENDING **");
-    expect(pending).toContain("do not hand out");
+    expect(pending).toContain("** ONLINE-ZAHLUNG OFFEN **");
+    expect(pending).toContain("nicht herausgeben");
 
     const card = renderTicketHtml(
       order({ paymentStatus: "paid", paymentProvider: "stripe" }),
       VENUE,
     );
-    expect(card).toContain("** PAID ONLINE (CARD) **");
-    expect(card).toContain("nothing to collect");
+    expect(card).toContain("** ONLINE BEZAHLT (KARTE) **");
+    expect(card).toContain("nichts kassieren");
 
     const paypal = renderTicketHtml(
       order({ paymentStatus: "paid", paymentProvider: "paypal" }),
       VENUE,
     );
-    expect(paypal).toContain("** PAID ONLINE (PAYPAL) **");
+    expect(paypal).toContain("** ONLINE BEZAHLT (PAYPAL) **");
 
     const voucher = renderTicketHtml(
       order({ paymentStatus: "paid", paymentProvider: "voucher" }),
       VENUE,
     );
-    expect(voucher).toContain("PAID WITH REWARD");
+    expect(voucher).toContain("MIT GUTSCHEIN BEZAHLT");
 
     const cash = renderTicketHtml(order(), VENUE);
-    expect(cash).toContain("Payment at the restaurant.");
+    expect(cash).toContain("Zahlung im Restaurant.");
     expect(cash).not.toContain("**");
   });
 
@@ -146,7 +147,7 @@ describe("renderTicketHtml", () => {
       order({ discountCents: 500, discountPoints: 100, totalCents: 1900 }),
       VENUE,
     );
-    expect(html).toContain("GUTSCHEIN / REWARD");
+    expect(html).toContain("GUTSCHEIN");
     expect(html).toContain("-5,00");
     expect(html).toContain("19,00");
   });
@@ -162,10 +163,10 @@ describe("renderTicketHtml", () => {
       }),
       VENUE,
     );
-    expect(html).toContain("GESCHENKGUTSCHEIN / GIFT CARD &middot;&middot;&middot;&middot;EFGH");
+    expect(html).toContain("GESCHENKGUTSCHEIN &middot;&middot;&middot;&middot;EFGH");
     expect(html).toContain("-4,00");
     // The reward row is still above it — one order, two instruments.
-    expect(html).toContain("GUTSCHEIN / REWARD");
+    expect(html).toContain("GUTSCHEIN");
     expect(html).toContain("15,00");
   });
 
@@ -180,8 +181,8 @@ describe("renderTicketHtml", () => {
       }),
       VENUE,
     );
-    expect(html).toContain("PAID WITH GIFT CARD");
-    expect(html).toContain("paid with a gift card — nothing to collect.");
+    expect(html).toContain("MIT GESCHENKGUTSCHEIN BEZAHLT");
+    expect(html).toContain("Mit Geschenkgutschein bezahlt – nichts kassieren.");
     expect(html).not.toContain("Paid online via");
   });
 
@@ -203,7 +204,7 @@ describe("renderTicketHtml", () => {
       VENUE,
       { navQrSvg: '<svg viewBox="0 0 25 25"><rect width="25" height="25"/></svg>' },
     );
-    expect(html).toContain("LIEFERUNG / DELIVERY");
+    expect(html).toContain("LIEFERUNG");
     expect(html).toContain("Amrit Kaur");
     expect(html).toContain("+49 231 1234567");
     expect(html).toContain("Bornstraße 12, 44145 Dortmund");
@@ -219,7 +220,7 @@ describe("renderTicketHtml", () => {
 
   it("leaves the QR block out entirely when there is nothing to navigate to", () => {
     const html = renderTicketHtml(order({ orderType: "takeaway", tableNumber: null }), VENUE);
-    expect(html).toContain("ABHOLUNG / PICKUP");
+    expect(html).toContain("ABHOLUNG");
     expect(html).not.toContain("out for delivery + route");
   });
 
@@ -252,5 +253,25 @@ describe("ticketAddressLine / ticketDirectionsUrl", () => {
     expect(url.startsWith("https://www.google.com/maps/dir/?api=1&destination=")).toBe(true);
     expect(url).toContain("travelmode=driving");
     expect(url).not.toContain(" ");
+  });
+});
+
+describe("ticketVenueName", () => {
+  it("puts the brand on its own line and the rest underneath", () => {
+    expect(ticketVenueName("Rangla Punjab Restaurant · Konstanz")).toEqual({
+      main: "Rangla Punjab",
+      sub: "Restaurant · Konstanz",
+    });
+    expect(ticketVenueName("Trattoria · Roma")).toEqual({ main: "Trattoria", sub: "· Roma" });
+    expect(ticketVenueName("Café Blau")).toEqual({ main: "Café Blau", sub: null });
+  });
+
+  it("names Apple Pay on a paid ticket", () => {
+    const html = renderTicketHtml(
+      order({ paymentStatus: "paid", paymentProvider: "stripe", paymentMethod: "apple_pay" }),
+      VENUE,
+    );
+    expect(html).toContain("** ONLINE BEZAHLT (APPLE PAY) **");
+    expect(html).toContain("Online bezahlt (Apple Pay) – nichts kassieren.");
   });
 });

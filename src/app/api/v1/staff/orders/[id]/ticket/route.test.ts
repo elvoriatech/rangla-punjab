@@ -192,10 +192,10 @@ describe("/api/v1/staff/orders/{id}/ticket", () => {
     const html = await res.text();
     expect(html.startsWith("<!DOCTYPE html>")).toBe(true);
     expect(html).toContain("Rangla Punjab");
-    expect(html).toContain("Kitchen ticket");
+    expect(html).toContain("Online-Bestellung");
     expect(html).toContain("Dal Makhani");
     expect(html).toContain("IM RESTAURANT — TISCH 7");
-    expect(html).toContain("TOTAL");
+    expect(html).toContain("GESAMT");
     // The order number, plain — "#7", not "#0007" (owner, 2026-10-01).
     expect(/<span>#[1-9]\d*<\/span>/.test(html)).toBe(true);
 
@@ -212,7 +212,7 @@ describe("/api/v1/staff/orders/{id}/ticket", () => {
     const res = await ticket(deliveryId);
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain("LIEFERUNG / DELIVERY");
+    expect(html).toContain("LIEFERUNG");
     expect(html).toContain("Amrit Kaur");
     expect(html).toContain("+49 231 1234567");
     expect(html).toContain("Bornstraße 12, 44145 Dortmund");

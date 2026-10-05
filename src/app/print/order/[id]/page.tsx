@@ -3,7 +3,13 @@ import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
 import { renderQrSvg } from "@/lib/qr";
-import { ticketAddressLine } from "@/lib/ticket-html";
+import {
+  paymentBanner,
+  paymentFooter,
+  ticketAddressLine,
+  ticketVenueName,
+  typeBanner as ticketTypeBanner,
+} from "@/lib/ticket-html";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { PrintControls } from "./print-controls";
 import { requirePermission } from "@/lib/team-access";
@@ -75,12 +81,11 @@ export default async function OrderTicketPage({
     ? await renderQrSvg(dispatchUrl(order.id, venueResult.value.tenantId))
     : null;
 
-  const typeBanner =
-    order.orderType === "delivery"
-      ? "LIEFERUNG / DELIVERY"
-      : order.orderType === "takeaway"
-        ? "ABHOLUNG / PICKUP"
-        : `IM RESTAURANT${order.tableNumber ? ` — TISCH ${order.tableNumber}` : ""}`;
+  // Banner, payment lines and the name split come from the 80 mm ticket's
+  // own helpers, so the two printouts can never word one order differently.
+  const typeBanner = ticketTypeBanner(order);
+  const paid = paymentBanner(order);
+  const name = ticketVenueName(venueName);
 
   // Vector glyphs, not emoji: thermal drivers print SVG as graphics but
   // choke on colour emoji fonts. `icon` is the ASCII word kept as the
@@ -111,8 +116,9 @@ export default async function OrderTicketPage({
   return (
     <div className="min-h-screen bg-white py-8 text-black print:py-0">
       <div className="mx-auto w-[302px] px-3 font-mono text-[13px] leading-snug">
-        <p className="text-center text-sm font-bold uppercase">{venueName}</p>
-        <p className="mt-1 text-center text-xs">Kitchen ticket</p>
+        <p className="text-center text-[17px] font-bold uppercase">{name.main}</p>
+        {name.sub ? <p className="text-center text-[11px]">{name.sub}</p> : null}
+        <p className="mt-1 text-center text-[11px] font-bold">Online-Bestellung</p>
         <p className="my-2 overflow-hidden whitespace-nowrap">
           --------------------------------------
         </p>
@@ -120,17 +126,7 @@ export default async function OrderTicketPage({
           <span>#{String(order.orderNumber)}</span>
           <span>{time.format(order.createdAt)}</span>
         </div>
-        {order.paymentStatus === "paid" ? (
-          <p className="mt-0.5 font-bold">
-            {order.paymentProvider === "voucher"
-              ? "** MIT GUTSCHEIN BEZAHLT / PAID WITH REWARD **"
-              : order.paymentProvider === "gift_card"
-                ? "** MIT GESCHENKGUTSCHEIN BEZAHLT / PAID WITH GIFT CARD **"
-                : `** PAID ONLINE${order.paymentProvider === "paypal" ? " (PAYPAL)" : " (CARD)"} **`}
-          </p>
-        ) : order.paymentStatus === "pending" ? (
-          <p className="mt-0.5 font-bold">** ONLINE PAYMENT PENDING **</p>
-        ) : null}
+        {paid ? <p className="mt-0.5 font-bold">{paid}</p> : null}
 
         <p className="mt-2 border-y-2 border-black py-1 text-center text-sm font-bold tracking-wider">
           {typeBanner}
@@ -195,7 +191,7 @@ export default async function OrderTicketPage({
             {/* Points on the label, same as the 80 mm ticket the kitchen
                 prints — the two must not disagree about one order. */}
             <span>
-              GUTSCHEIN / REWARD
+              GUTSCHEIN
               {order.discountPoints > 0 ? ` · ${order.discountPoints} P` : ""}
             </span>
             <span>-{formatPrice(order.discountCents, order.currency, "de")}</span>
@@ -207,27 +203,17 @@ export default async function OrderTicketPage({
         {order.giftCardDiscountCents > 0 ? (
           <div className="flex justify-between">
             <span>
-              GESCHENKGUTSCHEIN / GIFT CARD
+              GESCHENKGUTSCHEIN
               {order.giftCardLast4 ? ` ····${order.giftCardLast4}` : ""}
             </span>
             <span>-{formatPrice(order.giftCardDiscountCents, order.currency, "de")}</span>
           </div>
         ) : null}
         <div className="flex justify-between text-sm font-bold">
-          <span>TOTAL</span>
+          <span>GESAMT</span>
           <span>{formatPrice(order.totalCents, order.currency, "de")}</span>
         </div>
-        <p className="mt-2 text-center text-[11px]">
-          {order.paymentStatus === "paid"
-            ? order.paymentProvider === "voucher"
-              ? "Mit Treuegutschein bezahlt / paid with a loyalty reward — nothing to collect."
-              : order.paymentProvider === "gift_card"
-                ? "Mit Geschenkgutschein bezahlt / paid with a gift card — nothing to collect."
-                : `Paid online via ${order.paymentProvider === "paypal" ? "PayPal" : "card"} — nothing to collect.`
-            : order.paymentStatus === "pending"
-              ? "Online payment NOT confirmed yet — do not hand out; wait for the paid ticket."
-              : "Payment at the restaurant."}
-        </p>
+        <p className="mt-2 text-center text-[11px]">{paymentFooter(order)}</p>
 
         <PrintControls auto={auto === "1"} />
       </div>

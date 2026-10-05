@@ -131,42 +131,61 @@ export function ticketDirectionsUrl(addressLine: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}&travelmode=driving`;
 }
 
-function typeBanner(order: TicketOrder): string {
-  if (order.orderType === "delivery") return "LIEFERUNG / DELIVERY";
-  if (order.orderType === "takeaway") return "ABHOLUNG / PICKUP";
+/**
+ * The restaurant's name as the ticket head prints it: the brand large on
+ * one line, the rest small underneath — "Rangla Punjab Restaurant ·
+ * Konstanz" → "Rangla Punjab" / "Restaurant · Konstanz", instead of a
+ * dot left dangling at the end of a wrapped first line.
+ */
+export function ticketVenueName(name: string): { main: string; sub: string | null } {
+  const at = name.search(/\s+(restaurant\b|·)/i);
+  if (at <= 0) return { main: name.trim(), sub: null };
+  return { main: name.slice(0, at).trim(), sub: name.slice(at).trim() };
+}
+
+/** How an online order was paid, in the ticket's German: "Apple Pay",
+ *  "Google Pay", "PayPal", or "Karte" for a plain card. */
+function paidVia(order: TicketOrder): string {
+  const label = onlinePaymentLabel(order.paymentProvider, order.paymentMethod);
+  return label === "Card" ? "Karte" : label;
+}
+
+export function typeBanner(order: TicketOrder): string {
+  if (order.orderType === "delivery") return "LIEFERUNG";
+  if (order.orderType === "takeaway") return "ABHOLUNG";
   return `IM RESTAURANT${order.tableNumber ? ` — TISCH ${order.tableNumber}` : ""}`;
 }
 
 /** The bold line under the header: what the kitchen must know about money
  *  before it hands anything over. */
-function paymentBanner(order: TicketOrder): string | null {
+export function paymentBanner(order: TicketOrder): string | null {
   if (order.paymentStatus === "paid") {
     if (order.paymentProvider === "voucher") {
-      return "** MIT GUTSCHEIN BEZAHLT / PAID WITH REWARD **";
+      return "** MIT GUTSCHEIN BEZAHLT **";
     }
     if (order.paymentProvider === "gift_card") {
-      return "** MIT GESCHENKGUTSCHEIN BEZAHLT / PAID WITH GIFT CARD **";
+      return "** MIT GESCHENKGUTSCHEIN BEZAHLT **";
     }
-    return `** PAID ONLINE (${onlinePaymentLabel(order.paymentProvider, order.paymentMethod).toUpperCase()}) **`;
+    return `** ONLINE BEZAHLT (${paidVia(order).toUpperCase()}) **`;
   }
-  if (order.paymentStatus === "pending") return "** ONLINE PAYMENT PENDING **";
+  if (order.paymentStatus === "pending") return "** ONLINE-ZAHLUNG OFFEN **";
   return null;
 }
 
-function paymentFooter(order: TicketOrder): string {
+export function paymentFooter(order: TicketOrder): string {
   if (order.paymentStatus === "paid") {
     if (order.paymentProvider === "voucher") {
-      return "Mit Treuegutschein bezahlt / paid with a loyalty reward — nothing to collect.";
+      return "Mit Treuegutschein bezahlt – nichts kassieren.";
     }
     if (order.paymentProvider === "gift_card") {
-      return "Mit Geschenkgutschein bezahlt / paid with a gift card — nothing to collect.";
+      return "Mit Geschenkgutschein bezahlt – nichts kassieren.";
     }
-    return `Paid online via ${onlinePaymentLabel(order.paymentProvider, order.paymentMethod)} — nothing to collect.`;
+    return `Online bezahlt (${paidVia(order)}) – nichts kassieren.`;
   }
   if (order.paymentStatus === "pending") {
-    return "Online payment NOT confirmed yet — do not hand out; wait for the paid ticket.";
+    return "Online-Zahlung noch NICHT bestätigt – nicht herausgeben, auf den bezahlten Bon warten.";
   }
-  return "Payment at the restaurant.";
+  return "Zahlung im Restaurant.";
 }
 
 function infoRow(glyph: Glyph, label: string, text: string, bold = false): string {
@@ -236,6 +255,7 @@ export function renderTicketHtml(
     .join("");
 
   const paid = paymentBanner(order);
+  const venueName = ticketVenueName(venue.name);
 
   return `<!DOCTYPE html>
 <html lang="${esc(locale)}">
@@ -261,8 +281,9 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 p { margin: 0; }
-.venue { text-align: center; font-size: 14px; font-weight: 700; text-transform: uppercase; }
-.kind { margin-top: 2px; text-align: center; font-size: 11px; }
+.venue { text-align: center; font-size: 17px; font-weight: 700; text-transform: uppercase; }
+.venue-sub { text-align: center; font-size: 11px; }
+.kind { margin-top: 4px; text-align: center; font-size: 11px; font-weight: 700; }
 .rule { margin: 7px 0; overflow: hidden; white-space: nowrap; }
 .head { display: flex; justify-content: space-between; font-weight: 700; }
 .pay { margin-top: 2px; font-weight: 700; }
@@ -304,8 +325,9 @@ li.note { display: block; padding-left: 20px; font-size: 11px; font-style: itali
 </style>
 </head>
 <body>
-<p class="venue">${esc(venue.name)}</p>
-<p class="kind">Kitchen ticket</p>
+<p class="venue">${esc(venueName.main)}</p>
+${venueName.sub ? `<p class="venue-sub">${esc(venueName.sub)}</p>` : ""}
+<p class="kind">Online-Bestellung</p>
 <p class="rule">${RULE}</p>
 <div class="head"><span>#${String(order.orderNumber)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
 ${paid ? `<p class="pay">${esc(paid)}</p>` : ""}
@@ -334,7 +356,7 @@ ${
   // gave up for it; 0 means an order from before the column existed and
   // the row reads exactly as it always did.
   order.discountCents > 0
-    ? `<div class="disc"><span>GUTSCHEIN / REWARD${
+    ? `<div class="disc"><span>GUTSCHEIN${
         order.discountPoints > 0 ? ` &middot; ${order.discountPoints} P` : ""
       }</span><span>-${esc(money(order.discountCents))}</span></div>`
     : ""
@@ -344,12 +366,12 @@ ${
   // spend both on one order — and the masked last 4 are what let the
   // counter tie the line to the card that was handed over.
   order.giftCardDiscountCents > 0
-    ? `<div class="disc"><span>GESCHENKGUTSCHEIN / GIFT CARD${
+    ? `<div class="disc"><span>GESCHENKGUTSCHEIN${
         order.giftCardLast4 ? ` &middot;&middot;&middot;&middot;${esc(order.giftCardLast4)}` : ""
       }</span><span>-${esc(money(order.giftCardDiscountCents))}</span></div>`
     : ""
 }
-<div class="total"><span>TOTAL</span><span>${esc(money(order.totalCents))}</span></div>
+<div class="total"><span>GESAMT</span><span>${esc(money(order.totalCents))}</span></div>
 <p class="foot">${esc(paymentFooter(order))}</p>
 </body>
 </html>`;
