@@ -288,3 +288,34 @@ describe("ticket logo", () => {
     expect(remote).not.toContain("<img");
   });
 });
+
+describe("kitchen copy", () => {
+  const takeaway = order({
+    orderType: "takeaway",
+    tableNumber: null,
+    customerName: "Zahoor Ahmed",
+    customerPhone: "+491623363430",
+    paymentStatus: "paid",
+    paymentProvider: "stripe",
+    items: [{ name: "Pakoras", quantity: 2, priceCents: 490, note: "extra scharf" }],
+  });
+
+  it("follows the staff ticket on its own page with the number and dishes only", () => {
+    const html = renderTicketHtml(takeaway, VENUE);
+    const kitchen = html.slice(html.indexOf('<section class="kitchen">'));
+    expect(kitchen).toContain("K&Uuml;CHENBON");
+    expect(kitchen).toContain("#42");
+    expect(kitchen).toContain('2x</span> <span class="nm">Pakoras');
+    expect(kitchen).toContain("extra scharf");
+    for (const hidden of ["Zahoor", "+4916", "€", "BEZAHLT", "ABHOLUNG"]) {
+      expect(kitchen).not.toContain(hidden);
+    }
+    expect(html).toContain("break-before: page");
+  });
+
+  it("can be left off", () => {
+    expect(renderTicketHtml(takeaway, VENUE, { kitchenCopy: false })).not.toContain(
+      'class="kitchen"',
+    );
+  });
+});

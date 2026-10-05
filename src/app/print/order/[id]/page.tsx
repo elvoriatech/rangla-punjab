@@ -221,6 +221,34 @@ export default async function OrderTicketPage({
         </div>
         <p className="mt-2 text-center text-[11px]">{paymentFooter(order)}</p>
 
+        {/* The kitchen's copy (owner, 2026-10-05): its own page, so the
+            receipt printer cuts between the two — order number and dishes
+            only, no guest name, phone, address or money. Same content as
+            the app's ticket (`renderTicketHtml`). */}
+        <section className="mt-8 break-before-page pt-2 print:mt-0">
+          <p className="text-center text-[17px] font-bold tracking-widest">KÜCHENBON</p>
+          <p className="my-2 overflow-hidden whitespace-nowrap">
+            --------------------------------------
+          </p>
+          <div className="flex justify-between text-[17px] font-bold">
+            <span>#{String(order.orderNumber)}</span>
+            <span>{time.format(order.createdAt)}</span>
+          </div>
+          <p className="my-2 overflow-hidden whitespace-nowrap">
+            --------------------------------------
+          </p>
+          <ul className="space-y-1.5 text-[15px]">
+            {order.items.map((item, i) => (
+              <li key={i}>
+                <span className="font-bold">{item.quantity}x</span> {item.name}
+              </li>
+            ))}
+          </ul>
+          <p className="my-2 overflow-hidden whitespace-nowrap">
+            --------------------------------------
+          </p>
+        </section>
+
         <PrintControls auto={auto === "1"} />
       </div>
     </div>

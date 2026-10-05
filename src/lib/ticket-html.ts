@@ -210,7 +210,12 @@ function infoRow(glyph: Glyph, label: string, text: string, bold = false): strin
 export function renderTicketHtml(
   order: TicketOrder,
   venue: TicketVenue,
-  opts: TicketOptions & { navQrSvg?: string | null; logoDataUri?: string | null } = {},
+  opts: TicketOptions & {
+    navQrSvg?: string | null;
+    logoDataUri?: string | null;
+    /** Print the kitchen's copy after the staff ticket (default yes). */
+    kitchenCopy?: boolean;
+  } = {},
 ): string {
   const locale = opts.locale || DEFAULT_LOCALE;
   const timeZone = venue.timezone || DEFAULT_TZ;
@@ -251,6 +256,14 @@ export function renderTicketHtml(
         `<span class="amt">${esc(money(item.priceCents * item.quantity))}</span></li>`;
       // A per-line note belongs UNDER its dish, indented: the cook reads
       // the column of dish names first and the exception second.
+      return item.note ? `${line}<li class="note">${esc(item.note)}</li>` : line;
+    })
+    .join("");
+  // The kitchen's copy (owner, 2026-10-05): order number and dishes only —
+  // no guest name, phone, address or money; the cook needs none of it.
+  const kitchenItems = order.items
+    .map((item) => {
+      const line = `<li><span class="qty">${item.quantity}x</span> <span class="nm">${esc(item.name)}</span></li>`;
       return item.note ? `${line}<li class="note">${esc(item.note)}</li>` : line;
     })
     .join("");
@@ -317,6 +330,12 @@ li.note { display: block; padding-left: 20px; font-size: 11px; font-style: itali
 .total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; }
 .disc { display: flex; justify-content: space-between; }
 .foot { margin-top: 7px; text-align: center; font-size: 11px; }
+/* The kitchen copy starts on its own page, so a receipt printer cuts the
+   paper between the two tickets. */
+.kitchen { break-before: page; page-break-before: always; padding-top: 8px; }
+.kitchen-title { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: .08em; }
+.kitchen-head { font-size: 17px; }
+.kitchen-items li { font-size: 15px; margin-top: 5px; justify-content: flex-start; }
 @media print {
   /* A receipt printer that honours the page size cuts to the roll instead of
      padding the ticket out to a letter/A4 sheet. One that ignores it falls
@@ -383,6 +402,18 @@ ${
 }
 <div class="total"><span>GESAMT</span><span>${esc(money(order.totalCents))}</span></div>
 <p class="foot">${esc(paymentFooter(order))}</p>
+${
+  opts.kitchenCopy === false
+    ? ""
+    : `<section class="kitchen">
+<p class="kitchen-title">K&Uuml;CHENBON</p>
+<p class="rule">${RULE}</p>
+<div class="head kitchen-head"><span>#${String(order.orderNumber)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
+<p class="rule">${RULE}</p>
+<ul class="kitchen-items">${kitchenItems}</ul>
+<p class="rule">${RULE}</p>
+</section>`
+}
 </body>
 </html>`;
 }
