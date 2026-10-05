@@ -185,6 +185,25 @@ case "${1:-}" in
     APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
       pnpm exec tsx scripts/merge-alcohol-drinks.ts
     ;;
+  wines)
+    # Wines into their own "Weine" category with a picture per colour
+    # (draft menu; press Publish afterwards). Dry run unless APPLY=1.
+    DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+    APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+      pnpm exec tsx scripts/wine-category.ts
+    # The script runs here on the host; the pictures belong in the app
+    # container's uploads volume — copy exactly the files it wrote.
+    if [ "${APPLY:-}" = "1" ] && [ -s wine-photos.txt ]; then
+      while read -r key; do
+        [ -n "$key" ] || continue
+        "${COMPOSE[@]}" exec -T -u 0 app mkdir -p "/app/public/uploads/$(dirname "$key")"
+        "${COMPOSE[@]}" cp "public/uploads/$key" "app:/app/public/uploads/$key"
+        "${COMPOSE[@]}" exec -T -u 0 app chown -R 1001:1001 "/app/public/uploads/$(dirname "$key")"
+        echo "  copied picture $key into the app"
+      done < wine-photos.txt
+      rm -f wine-photos.txt
+    fi
+    ;;
   testorders)
     # Delete every order placed before BEFORE (pre-launch test orders),
     # with their lines and points. Dry run unless APPLY=1.
@@ -200,6 +219,6 @@ case "${1:-}" in
     echo "Released. Now run the smoke test — docs/DEPLOY.md §9."
     ;;
   *)
-    echo "usage: $0 {build|migrate|up|seed|owner|dishes|dietary|slider|drinks|testorders|release}"; exit 1
+    echo "usage: $0 {build|migrate|up|seed|owner|dishes|dietary|slider|drinks|wines|testorders|release}"; exit 1
     ;;
 esac
