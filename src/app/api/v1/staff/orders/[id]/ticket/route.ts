@@ -4,6 +4,7 @@ import { getKitchenOrder } from "@/lib/order-service";
 import { renderQrSvg } from "@/lib/qr";
 import { requireStaff } from "@/lib/staff-request";
 import { renderTicketHtml, ticketAddressLine } from "@/lib/ticket-html";
+import { ticketLogoDataUri } from "@/lib/ticket-logo";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { getVenueForUser } from "@/lib/venue-service";
 
@@ -51,7 +52,8 @@ export async function GET(
     ? await renderQrSvg(dispatchUrl(order.id, gate.staff.tenantId))
     : null;
 
-  const html = renderTicketHtml(order, { name: venue.value.name }, { navQrSvg });
+  const logoDataUri = await ticketLogoDataUri(venue.value.branding.logoKey);
+  const html = renderTicketHtml(order, { name: venue.value.name }, { navQrSvg, logoDataUri });
   return withCors(
     new NextResponse(html, {
       status: 200,

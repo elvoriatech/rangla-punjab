@@ -132,15 +132,16 @@ export function ticketDirectionsUrl(addressLine: string): string {
 }
 
 /**
- * The restaurant's name as the ticket head prints it: the brand large on
- * one line, the rest small underneath — "Rangla Punjab Restaurant ·
- * Konstanz" → "Rangla Punjab" / "Restaurant · Konstanz", instead of a
- * dot left dangling at the end of a wrapped first line.
+ * The restaurant's name as the ticket head prints it: the name large on
+ * one line, the town small underneath — "Rangla Punjab Restaurant ·
+ * Konstanz" → "Rangla Punjab Restaurant" / "Konstanz" (owner, 2026-10-05),
+ * instead of a dot left dangling at the end of a wrapped first line.
  */
 export function ticketVenueName(name: string): { main: string; sub: string | null } {
-  const at = name.search(/\s+(restaurant\b|·)/i);
+  const at = name.indexOf("·");
   if (at <= 0) return { main: name.trim(), sub: null };
-  return { main: name.slice(0, at).trim(), sub: name.slice(at).trim() };
+  const sub = name.slice(at + 1).trim();
+  return { main: name.slice(0, at).trim(), sub: sub || null };
 }
 
 /** How an online order was paid, in the ticket's German: "Apple Pay",
@@ -209,7 +210,7 @@ function infoRow(glyph: Glyph, label: string, text: string, bold = false): strin
 export function renderTicketHtml(
   order: TicketOrder,
   venue: TicketVenue,
-  opts: TicketOptions & { navQrSvg?: string | null } = {},
+  opts: TicketOptions & { navQrSvg?: string | null; logoDataUri?: string | null } = {},
 ): string {
   const locale = opts.locale || DEFAULT_LOCALE;
   const timeZone = venue.timezone || DEFAULT_TZ;
@@ -282,6 +283,8 @@ body {
 }
 p { margin: 0; }
 .venue { text-align: center; font-size: 17px; font-weight: 700; text-transform: uppercase; }
+.logo { text-align: center; margin-bottom: 4px; }
+.logo img { width: 80px; height: auto; }
 .venue-sub { text-align: center; font-size: 11px; }
 .kind { margin-top: 4px; text-align: center; font-size: 11px; font-weight: 700; }
 .rule { margin: 7px 0; overflow: hidden; white-space: nowrap; }
@@ -325,6 +328,13 @@ li.note { display: block; padding-left: 20px; font-size: 11px; font-style: itali
 </style>
 </head>
 <body>
+${
+  // Only ever an inline data: URI built by `ticket-logo.ts` — the ticket
+  // must print with no network, so a remote src is never accepted here.
+  opts.logoDataUri?.startsWith("data:image/")
+    ? `<p class="logo"><img src="${esc(opts.logoDataUri)}" alt=""></p>`
+    : ""
+}
 <p class="venue">${esc(venueName.main)}</p>
 ${venueName.sub ? `<p class="venue-sub">${esc(venueName.sub)}</p>` : ""}
 <p class="kind">Online-Bestellung</p>

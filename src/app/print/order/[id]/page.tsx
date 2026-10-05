@@ -11,6 +11,7 @@ import {
   typeBanner as ticketTypeBanner,
 } from "@/lib/ticket-html";
 import { dispatchUrl } from "@/lib/dispatch-service";
+import { ticketLogoDataUri } from "@/lib/ticket-logo";
 import { PrintControls } from "./print-controls";
 import { requirePermission } from "@/lib/team-access";
 
@@ -86,6 +87,7 @@ export default async function OrderTicketPage({
   const typeBanner = ticketTypeBanner(order);
   const paid = paymentBanner(order);
   const name = ticketVenueName(venueName);
+  const logo = await ticketLogoDataUri(venueResult.value.branding.logoKey);
 
   // Vector glyphs, not emoji: thermal drivers print SVG as graphics but
   // choke on colour emoji fonts. `icon` is the ASCII word kept as the
@@ -116,6 +118,10 @@ export default async function OrderTicketPage({
   return (
     <div className="min-h-screen bg-white py-8 text-black print:py-0">
       <div className="mx-auto w-[302px] px-3 font-mono text-[13px] leading-snug">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- an inline data: URI; next/image would refetch it
+          <img src={logo} alt="" className="mx-auto mb-1 block w-20" />
+        ) : null}
         <p className="text-center text-[17px] font-bold uppercase">{name.main}</p>
         {name.sub ? <p className="text-center text-[11px]">{name.sub}</p> : null}
         <p className="mt-1 text-center text-[11px] font-bold">Online-Bestellung</p>

@@ -46,7 +46,8 @@ describe("renderTicketHtml", () => {
     expect(html.startsWith("<!DOCTYPE html>")).toBe(true);
     expect(html).toContain("<style>");
     expect(html).not.toContain("<link");
-    expect(html).not.toContain("<img");
+    // An image only ever as an inline data: URI (the logo) — never a URL.
+    expect(/<img(?![^>]*src="data:image\/)/.test(html)).toBe(false);
     expect(html).not.toContain("<script");
     expect(html).not.toContain("http://");
     // Tailwind's utility soup would be `class="mt-2 font-bold …"`; the
@@ -257,12 +258,12 @@ describe("ticketAddressLine / ticketDirectionsUrl", () => {
 });
 
 describe("ticketVenueName", () => {
-  it("puts the brand on its own line and the rest underneath", () => {
+  it("puts the name on its own line and the town underneath", () => {
     expect(ticketVenueName("Rangla Punjab Restaurant · Konstanz")).toEqual({
-      main: "Rangla Punjab",
-      sub: "Restaurant · Konstanz",
+      main: "Rangla Punjab Restaurant",
+      sub: "Konstanz",
     });
-    expect(ticketVenueName("Trattoria · Roma")).toEqual({ main: "Trattoria", sub: "· Roma" });
+    expect(ticketVenueName("Trattoria · Roma")).toEqual({ main: "Trattoria", sub: "Roma" });
     expect(ticketVenueName("Café Blau")).toEqual({ main: "Café Blau", sub: null });
   });
 
@@ -273,5 +274,17 @@ describe("ticketVenueName", () => {
     );
     expect(html).toContain("** ONLINE BEZAHLT (APPLE PAY) **");
     expect(html).toContain("Online bezahlt (Apple Pay) – nichts kassieren.");
+  });
+});
+
+describe("ticket logo", () => {
+  it("prints an inline logo above the name and refuses a remote one", () => {
+    const withLogo = renderTicketHtml(order(), VENUE, {
+      logoDataUri: "data:image/png;base64,iVBORw0KGgo=",
+    });
+    expect(withLogo).toContain('<p class="logo"><img src="data:image/png;base64,iVBORw0KGgo="');
+    expect(withLogo.indexOf('class="logo"')).toBeLessThan(withLogo.indexOf('class="venue"'));
+    const remote = renderTicketHtml(order(), VENUE, { logoDataUri: "https://evil.example/x.png" });
+    expect(remote).not.toContain("<img");
   });
 });
