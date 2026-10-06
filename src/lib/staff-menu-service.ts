@@ -2,6 +2,7 @@ import { activePauseUntil, setOrderingPause } from "./ordering-pause";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { purgeMenuForTenant } from "./cdn-purge";
+import { normaliseDays } from "./item-days";
 import { menuImageUrl } from "./menu-images";
 import { offerActiveAt, parseOfferWeekly } from "./offer-pricing";
 import { orderingConfigSchema, parseOrderingConfig } from "./ordering-config";
@@ -66,6 +67,12 @@ export interface StaffItem {
   offerActive: boolean;
   /** The draft twin, when this row is a published copy that knows it. */
   sourceItemId: string | null;
+  /** "Nur im Restaurant": shown with a label instead of the add button,
+   *  refused for pickup and delivery. */
+  dineInOnly: boolean;
+  /** Weekdays the dish is on the menu, Monday = 0 … Sunday = 6 — the same
+   *  convention as an offer's weekly days. All seven = every day. */
+  availableDays: number[];
 }
 
 export interface StaffCategory {
@@ -95,6 +102,8 @@ const staffItemSelect = {
   offerEndsAt: true,
   offerWeekly: true,
   sourceItemId: true,
+  dineInOnly: true,
+  availableDays: true,
   photoMedia: { select: { storageKey: true } },
 } satisfies Prisma.ItemSelect;
 
@@ -127,6 +136,8 @@ function toStaffItem(row: StaffItemRow, timezone: string, now: Date): StaffItem 
     offer,
     offerActive: offerActiveAt(row, timezone, now),
     sourceItemId: row.sourceItemId,
+    dineInOnly: row.dineInOnly,
+    availableDays: normaliseDays(row.availableDays),
   };
 }
 
@@ -241,6 +252,10 @@ export const staffItemPatchSchema = z.object({
     .nullable()
     .transform((value) => (value === "" ? null : value))
     .optional(),
+  dineInOnly: z.boolean().optional(),
+  /** At least one day: "on no day" is what `isAvailable: false` is for —
+   *  the dashboard form refuses it the same way. */
+  availableDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
 });
 
 export type StaffItemPatch = z.infer<typeof staffItemPatchSchema>;
@@ -376,6 +391,8 @@ export async function updateStaffItem(
     // it now, and the draft twin so the next publish does not undo it.
     if (patch.name !== undefined) data.name = patch.name;
     if (patch.description !== undefined) data.description = patch.description;
+    if (patch.dineInOnly !== undefined) data.dineInOnly = patch.dineInOnly;
+    if (patch.availableDays !== undefined) data.availableDays = normaliseDays(patch.availableDays);
     if (patch.offer !== undefined) {
       // Prisma needs the DbNull sentinel to write SQL NULL into a Json column.
       data.offerPriceCents = patch.offer?.priceCents ?? null;

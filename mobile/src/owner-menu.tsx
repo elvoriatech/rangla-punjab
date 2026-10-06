@@ -25,12 +25,15 @@ export function OwnerMenuSheet({
   onGiftCards,
   onIssues,
   onReservations,
+  onCatering,
+  onTeam,
   onRating,
   onHours,
   onContact,
   onPassword,
   openIssues = 0,
   pendingReservations = 0,
+  pendingCatering = 0,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -44,6 +47,8 @@ export function OwnerMenuSheet({
   onGiftCards: () => void;
   onIssues: () => void;
   onReservations: () => void;
+  onCatering: () => void;
+  onTeam: () => void;
   /** The Google star line under the restaurant's name (P7-14). */
   onRating: () => void;
   /** The week the kitchen is open. */
@@ -56,6 +61,8 @@ export function OwnerMenuSheet({
   openIssues?: number;
   /** Table requests still awaiting Confirm / Decline — the row's badge. */
   pendingReservations?: number;
+  /** Catering enquiries still awaiting an answer — that row's badge. */
+  pendingCatering?: number;
 }): React.ReactElement {
   const { t } = useI18n();
   const { logoutStaff, staffCan } = useAuth();
@@ -109,6 +116,14 @@ export function OwnerMenuSheet({
               onPress={() => go(onReservations)}
             />
           ) : null}
+          {staffCan("catering") ? (
+            <Row
+              icon="wine-outline"
+              label={t.ownerCatering}
+              badge={pendingCatering}
+              onPress={() => go(onCatering)}
+            />
+          ) : null}
           {staffCan("menu") ? (
             <Row
               icon="fast-food-outline"
@@ -153,6 +168,9 @@ export function OwnerMenuSheet({
           ) : null}
           {/* The password the owner set for a team member stays theirs to
               change; only the owner changes their own from here. */}
+          {staffCan("owner") ? (
+            <Row icon="people-outline" label={t.ownerTeam} onPress={() => go(onTeam)} />
+          ) : null}
           {staffCan("owner") ? (
             <Row icon="key-outline" label={t.ownerPassword} onPress={() => go(onPassword)} />
           ) : null}
@@ -204,8 +222,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 18,
-    paddingBottom: 28,
-    gap: 2,
+    paddingTop: 14,
+    paddingBottom: 20,
+    gap: 0,
     // Capped and centred on a tablet: a column of eight rows does not
     // get wider just because the glass did.
     width: "100%",
@@ -216,7 +235,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 2,
   },
   title: { color: colors.ink, ...fonts.display, fontSize: 22 },
   close: { color: colors.inkSoft, fontSize: 28, lineHeight: 30 },
@@ -224,14 +243,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    // A counter taps this with a thumb, often one-handed.
-    minHeight: 52,
+    // A counter taps this with a thumb, often one-handed — 44 pt is the
+    // platform's own minimum touch target, and with fourteen rows the
+    // sheet has to fit a small phone without scrolling.
+    minHeight: 44,
     paddingHorizontal: 10,
     borderRadius: radius.md,
   },
   rowText: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 15.5 },
   chevron: { color: colors.inkSoft, ...fonts.body, fontSize: 18 },
-  rule: { height: 1, backgroundColor: colors.line, marginVertical: 8 },
+  rule: { height: 1, backgroundColor: colors.line, marginVertical: 4 },
   badge: {
     backgroundColor: colors.danger,
     borderRadius: radius.pill,

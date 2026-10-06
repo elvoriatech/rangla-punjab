@@ -48,7 +48,8 @@ const BELL_SOUND = "new_order.wav";
 export type PushTarget =
   | { kind: "order"; orderId: string | null }
   | { kind: "issue"; issueId: string | null }
-  | { kind: "reservation"; reservationId: string | null };
+  | { kind: "reservation"; reservationId: string | null }
+  | { kind: "catering"; requestId: string | null };
 
 /**
  * Reads `data` off a notification the same way `asStaffOrder` reads an
@@ -67,6 +68,7 @@ export function asPushTarget(raw: unknown): PushTarget | null {
   if (kind === "order") return { kind: "order", orderId: id("orderId") };
   if (kind === "issue") return { kind: "issue", issueId: id("issueId") };
   if (kind === "reservation") return { kind: "reservation", reservationId: id("reservationId") };
+  if (kind === "catering") return { kind: "catering", requestId: id("requestId") };
   return null;
 }
 

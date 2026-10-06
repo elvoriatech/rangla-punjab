@@ -21,6 +21,7 @@ import type { StaffOrder } from "../staff";
 import {
   acceptStaffOrder,
   advanceStaffOrder,
+  canDeleteOrder,
   fetchStaffIssues,
   fetchStaffOrders,
   isClosedStatus,
@@ -28,6 +29,7 @@ import {
 } from "../staff";
 import { BrandHeader } from "../components";
 import { IssueSheet } from "../issue-sheet";
+import { DeleteOrderSheet } from "../delete-order-sheet";
 import type { PrintOutcome } from "../print";
 import {
   baselinePrinted,
@@ -167,7 +169,10 @@ export function BoardScreen({
   onOpenOwnerMenu?: () => void;
 } = {}): React.ReactElement {
   const { t, lang } = useI18n();
-  const { staffToken, clearStaff } = useAuth();
+  const { staffToken, clearStaff, staffCan } = useAuth();
+  /** Only the owner deletes a cancelled order (as on the dashboard). */
+  const isOwner = staffCan("owner");
+  const [deleting, setDeleting] = useState<{ id: string; orderNumber: number } | null>(null);
   // A board nobody can read is no board: hold the screen on while it is
   // the visible tab, and release it the moment it isn't.
   useKeepAwake();
@@ -1038,6 +1043,18 @@ export function BoardScreen({
               >
                 {`🖨 ${t.boardPrint}`}
               </Text>
+              {isOwner && closed && canDeleteOrder(order) ? (
+                <Text
+                  onPress={() => setDeleting({ id: order.id, orderNumber: order.orderNumber })}
+                  suppressHighlighting
+                  accessibilityRole="button"
+                  accessibilityLabel={fill(t.boardDeleteTitle, { number: order.orderNumber })}
+                  style={styles.cancelAction}
+                  numberOfLines={1}
+                >
+                  {`🗑 ${t.boardDelete}`}
+                </Text>
+              ) : null}
               {cancelTo ? (
                 <Text
                   onPress={busy ? undefined : () => onAction(order, cancelTo)}
@@ -1139,6 +1156,16 @@ export function BoardScreen({
         // Replying or resolving changes the card's pill: re-read the
         // board rather than patching one order in place.
         onChanged={() => void load("full")}
+      />
+      <DeleteOrderSheet
+        order={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => {
+          const gone = deleting?.id;
+          setDeleting(null);
+          if (gone) setOrders((list) => list.filter((o) => o.id !== gone));
+          void load("full");
+        }}
       />
     </View>
   );

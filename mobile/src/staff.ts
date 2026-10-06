@@ -115,6 +115,8 @@ export interface StaffSummary {
   /** Complaint threads not yet resolved. 0 on an older server, which
    *  keeps the badge off rather than inventing one. */
   openIssues: number;
+  /** Catering enquiries still waiting for an answer. */
+  pendingCatering: number;
 }
 
 /**
@@ -352,6 +354,7 @@ export async function fetchStaffSummary(token: string): Promise<StaffResult<Staf
       unpaidOnline: num(res.body.unpaidOnline),
       pendingReservations: num(res.body.pendingReservations),
       openIssues: num(res.body.openIssues),
+      pendingCatering: num(res.body.pendingCatering),
     },
   };
 }
@@ -622,6 +625,213 @@ export async function setStaffReservationStatus(
   return { ok: true, data: null };
 }
 
+/* ------------------------------------------------------------------ *
+ * Catering — the enquiries guests send from the app and the web menu.
+ * Same list and buttons as the dashboard's Catering page.
+ * ------------------------------------------------------------------ */
+
+export interface StaffCatering {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  guests: number;
+  /** Venue-local event day "YYYY-MM-DD"; `time` is optional ("HH:MM"). */
+  date: string;
+  time: string | null;
+  location: string | null;
+  message: string | null;
+  status: string;
+}
+
+function asStaffCatering(raw: unknown): StaffCatering | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = str(r.id);
+  if (!id) return null;
+  return {
+    id,
+    name: str(r.name),
+    phone: str(r.phone),
+    email: nullableStr(r.email),
+    guests: num(r.guests, 1),
+    date: str(r.date),
+    time: nullableStr(r.time),
+    location: nullableStr(r.location),
+    message: nullableStr(r.message),
+    status: str(r.status, "requested"),
+  };
+}
+
+export async function fetchStaffCatering(token: string): Promise<StaffResult<StaffCatering[]>> {
+  const res = await staffFetch(token, "/api/v1/staff/catering");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const raw = res.body.requests;
+  return {
+    ok: true,
+    data: Array.isArray(raw)
+      ? raw.map(asStaffCatering).filter((r): r is StaffCatering => r !== null)
+      : [],
+  };
+}
+
+export async function setStaffCateringStatus(
+  token: string,
+  requestId: string,
+  status: "confirmed" | "declined",
+): Promise<StaffResult<null>> {
+  const res = await staffFetch(token, `/api/v1/staff/catering/${encodeURIComponent(requestId)}`, {
+    method: "POST",
+    body: { status },
+  });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: null };
+}
+
+/* ------------------------------------------------------------------ *
+ * Deleting a cancelled order (owner only). Same rule as the dashboard:
+ * cancelled, and no money moved — see `canDeleteOrder`.
+ * ------------------------------------------------------------------ */
+
+/** Fewest characters of reason the server accepts. */
+export const DELETE_REASON_MIN = 3;
+
+/** Mirrors the server's `orderDeleteBlock`, so the board only offers the
+ *  delete where the server will accept it. The owner check is separate. */
+export function canDeleteOrder(order: {
+  status: string;
+  paymentStatus: string;
+  giftCardDiscountCents: number;
+}): boolean {
+  if (order.status !== "cancelled" && order.status !== "canceled") return false;
+  if (order.paymentStatus === "paid" || order.paymentStatus === "refunded") return false;
+  return order.giftCardDiscountCents <= 0;
+}
+
+export async function deleteStaffOrder(
+  token: string,
+  orderId: string,
+  reason: string,
+): Promise<StaffResult<null>> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/orders/${encodeURIComponent(orderId)}/delete`,
+    { method: "POST", body: { reason } },
+  );
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: null };
+}
+
+/* ------------------------------------------------------------------ *
+ * Team (owner only) — logins for managers and staff, with the areas
+ * each may open. Same rules as the dashboard's Team page.
+ * ------------------------------------------------------------------ */
+
+export const TEAM_PASSWORD_MIN = 8;
+
+export interface StaffTeamMember {
+  /** The membership id — what the edit/remove routes take. */
+  id: string;
+  email: string;
+  name: string | null;
+  isOwner: boolean;
+  permissions: string[];
+}
+
+/** "invalid_email" | "weak_password" | "invalid_name" | "email_taken" —
+ *  the team routes name WHY, and the sheet says it under the right box. */
+export type StaffTeamError =
+  StaffError | "invalid_email" | "weak_password" | "invalid_name" | "email_taken";
+
+function teamFailure(status: number, body: Record<string, unknown> | null): StaffTeamError {
+  const named = str(body?.error);
+  if (
+    named === "invalid_email" ||
+    named === "weak_password" ||
+    named === "invalid_name" ||
+    named === "email_taken"
+  ) {
+    return named;
+  }
+  return failure(status);
+}
+
+export async function fetchStaffTeam(
+  token: string,
+): Promise<StaffResult<{ members: StaffTeamMember[]; areas: string[] }>> {
+  const res = await staffFetch(token, "/api/v1/staff/team");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const raw = Array.isArray(res.body.members) ? res.body.members : [];
+  const members = raw
+    .map((m): StaffTeamMember | null => {
+      if (!m || typeof m !== "object") return null;
+      const r = m as Record<string, unknown>;
+      const id = str(r.id);
+      if (!id) return null;
+      return {
+        id,
+        email: str(r.email),
+        name: nullableStr(r.name),
+        isOwner: bool(r.isOwner, false),
+        permissions: Array.isArray(r.permissions)
+          ? r.permissions.filter((p): p is string => typeof p === "string")
+          : [],
+      };
+    })
+    .filter((m): m is StaffTeamMember => m !== null);
+  const areas = Array.isArray(res.body.areas)
+    ? res.body.areas.filter((a): a is string => typeof a === "string")
+    : [];
+  return { ok: true, data: { members, areas } };
+}
+
+type TeamResult = { ok: true } | { ok: false; error: StaffTeamError };
+
+async function teamWrite(
+  token: string,
+  path: string,
+  method: string,
+  body?: unknown,
+): Promise<TeamResult> {
+  const res = await staffFetch(token, path, { method, ...(body === undefined ? {} : { body }) });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status === 200 || res.status === 201) return { ok: true };
+  return { ok: false, error: teamFailure(res.status, res.body) };
+}
+
+export function addStaffTeamMember(
+  token: string,
+  input: { name: string; email: string; password: string; permissions: string[] },
+): Promise<TeamResult> {
+  return teamWrite(token, "/api/v1/staff/team", "POST", input);
+}
+
+export function updateStaffTeamMember(
+  token: string,
+  memberId: string,
+  input: { name: string; permissions: string[] },
+): Promise<TeamResult> {
+  return teamWrite(token, `/api/v1/staff/team/${encodeURIComponent(memberId)}`, "PATCH", input);
+}
+
+export function setStaffTeamPassword(
+  token: string,
+  memberId: string,
+  password: string,
+): Promise<TeamResult> {
+  return teamWrite(token, `/api/v1/staff/team/${encodeURIComponent(memberId)}/password`, "POST", {
+    password,
+  });
+}
+
+export function removeStaffTeamMember(token: string, memberId: string): Promise<TeamResult> {
+  return teamWrite(token, `/api/v1/staff/team/${encodeURIComponent(memberId)}`, "DELETE");
+}
+
 /** Best effort: the local session is cleared whatever the server says. */
 export async function staffLogout(token: string): Promise<void> {
   await staffFetch(token, "/api/v1/staff/logout", { method: "POST" });
@@ -715,6 +925,10 @@ export interface StaffItem {
   offerActive: boolean;
   /** The published copy this editor row feeds, when the server says. */
   sourceItemId: string | null;
+  /** "Nur im Restaurant" — a label instead of the add button. */
+  dineInOnly: boolean;
+  /** Weekdays on the menu, Monday = 0 … Sunday = 6; all seven = every day. */
+  availableDays: number[];
 }
 
 export interface StaffMenuCategory {
@@ -740,6 +954,9 @@ export interface StaffItemPatch {
     endsAt?: string | null;
     weekly?: StaffOfferWeekly | null;
   } | null;
+  dineInOnly?: boolean;
+  /** At least one day; the server refuses an empty list. */
+  availableDays?: number[];
 }
 
 /** Which ways of ordering the venue is taking right now. */
@@ -837,6 +1054,11 @@ export function asStaffItem(raw: unknown): StaffItem | null {
     // the safest reading: the badge is cosmetic, the price is not.
     offerActive: typeof i.offerActive === "boolean" ? i.offerActive : offer !== null,
     sourceItemId: nullableStr(i.sourceItemId),
+    dineInOnly: bool(i.dineInOnly, false),
+    // An older server sends no days: every day, which is what it meant.
+    availableDays: Array.isArray(i.availableDays)
+      ? i.availableDays.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6)
+      : [0, 1, 2, 3, 4, 5, 6],
   };
 }
 

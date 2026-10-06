@@ -464,3 +464,27 @@ export async function sendNewReservationPush(
     captureException(err, { tenantId, reservationId, where: "push-service" });
   }
 }
+
+/**
+ * "Catering request · 40 guests". Like a table booking, a catering enquiry
+ * arrives without an order, so this is the only way the phone hears of it.
+ */
+export async function sendNewCateringPush(tenantId: string, requestId: string): Promise<void> {
+  try {
+    const r = await asTenant(tenantId, (tx) =>
+      tx.cateringRequest.findFirst({
+        where: { id: requestId },
+        select: { name: true, guests: true, date: true, time: true },
+      }),
+    );
+    if (!r) return;
+    const when = r.date.split("-").reverse().join(".");
+    await sendStaffPush(tenantId, {
+      title: `Catering request · ${r.guests} ${r.guests === 1 ? "guest" : "guests"}`,
+      body: `${r.time ? `${when} · ${r.time}` : when} · ${r.name}`,
+      data: { kind: "catering", requestId },
+    });
+  } catch (err) {
+    captureException(err, { tenantId, requestId, where: "push-service" });
+  }
+}

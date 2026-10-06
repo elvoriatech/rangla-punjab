@@ -38,6 +38,14 @@ export interface TeamMember {
 export type TeamError =
   "forbidden" | "invalid_email" | "weak_password" | "invalid_name" | "email_taken" | "not_found";
 
+/** The HTTP status each refusal maps to on the app's `/api/v1/staff/team`. */
+export function teamErrorStatus(error: TeamError): number {
+  if (error === "forbidden") return 403;
+  if (error === "not_found") return 404;
+  if (error === "email_taken") return 409;
+  return 400;
+}
+
 type Result<T = undefined> = { ok: true; value: T } | { ok: false; error: TeamError };
 
 async function ownerTenant(actingUserId: string): Promise<string | null> {

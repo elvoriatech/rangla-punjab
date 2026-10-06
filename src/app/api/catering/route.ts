@@ -48,6 +48,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { slug: _slug, ...input } = parsed.data;
   const result = await createCateringRequest(context, input, { customerId: customer?.id ?? null });
   if (!result.ok) return withCors(NextResponse.json({ error: result.error }, { status: 400 }));
+  // Fire-and-forget, like the new-order push: a push hiccup must not fail
+  // the guest's enquiry.
+  const { sendNewCateringPush } = await import("@/lib/push-service");
+  void sendNewCateringPush(context.tenantId, result.value.requestId);
   return withCors(
     NextResponse.json({ id: result.value.requestId, ...result.value }, { status: 201 }),
   );

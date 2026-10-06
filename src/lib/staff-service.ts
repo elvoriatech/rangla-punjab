@@ -253,6 +253,8 @@ export interface StaffSummary {
   unpaidOnline: number;
   /** Reservations still awaiting a confirm/decline. */
   pendingReservations: number;
+  /** Catering enquiries still awaiting an answer, for events today or later. */
+  pendingCatering: number;
   /** Complaint threads the restaurant still owes an answer or a close
    *  on — everything that is not `resolved` (P7-10). */
   openIssues: number;
@@ -289,6 +291,13 @@ export async function getStaffSummary(userId: string): Promise<StaffSummary> {
       },
     });
     const openIssues = await tx.orderIssue.count({ where: { status: { not: "resolved" } } });
-    return { openOrders, unpaidOnline, pendingReservations, openIssues };
+    const pendingCatering = await tx.cateringRequest.count({
+      where: {
+        deletedAt: null,
+        status: "requested",
+        date: { gte: new Date().toISOString().slice(0, 10) },
+      },
+    });
+    return { openOrders, unpaidOnline, pendingReservations, openIssues, pendingCatering };
   });
 }

@@ -51,6 +51,8 @@ import { BoardScreen } from "./src/screens/BoardScreen";
 import { LoyaltyStaffScreen } from "./src/screens/LoyaltyStaffScreen";
 import { IssuesScreen } from "./src/screens/IssuesScreen";
 import { ReservationsOwnerScreen } from "./src/screens/ReservationsOwnerScreen";
+import { CateringOwnerScreen } from "./src/screens/CateringOwnerScreen";
+import { TeamScreen } from "./src/screens/TeamScreen";
 import { RatingOwnerScreen } from "./src/screens/RatingOwnerScreen";
 import { HoursOwnerScreen } from "./src/screens/HoursOwnerScreen";
 import { ContactOwnerScreen } from "./src/screens/ContactOwnerScreen";
@@ -93,6 +95,8 @@ type Tab =
   | "loyalty"
   | "issues"
   | "reservations"
+  | "cateringowner"
+  | "team"
   | "rating"
   | "hours"
   | "contact"
@@ -170,6 +174,10 @@ function Shell(): React.ReactElement {
   /** Table requests still waiting for Confirm / Decline — the owner
    *  menu's Reservations badge, on the same 30 s loop. */
   const [pendingReservations, setPendingReservations] = useState(0);
+  /** Catering enquiries still waiting — the Catering row's badge. */
+  const [pendingCatering, setPendingCatering] = useState(0);
+  /** Bumped by a catering push so an open list re-reads. */
+  const [cateringRefresh, setCateringRefresh] = useState(0);
   /** Bumped by a reservation push so an open list re-reads. */
   const [reservationsRefresh, setReservationsRefresh] = useState(0);
   /** Bumped after an answer, so the badge doesn't wait out the loop. */
@@ -360,6 +368,7 @@ function Shell(): React.ReactElement {
       setOpenOrders(0);
       setOpenIssues(0);
       setPendingReservations(0);
+      setPendingCatering(0);
       return;
     }
     let alive = true;
@@ -370,6 +379,7 @@ function Shell(): React.ReactElement {
         setOpenOrders(res.data.openOrders);
         setOpenIssues(res.data.openIssues);
         setPendingReservations(res.data.pendingReservations);
+        setPendingCatering(res.data.pendingCatering);
       } else if (res.error === "unauthorized") clearStaff();
       // Offline: keep the last count rather than flashing a zero.
     };
@@ -403,6 +413,13 @@ function Shell(): React.ReactElement {
       setBoardRefresh((n) => n + 1);
       return;
     }
+    if (target.kind === "catering") {
+      setOpenIssueId(null);
+      setTab("cateringowner");
+      setCateringRefresh((n) => n + 1);
+      setSummaryTick((n) => n + 1);
+      return;
+    }
     if (target.kind === "reservation") {
       setOpenIssueId(null);
       setTab("reservations");
@@ -418,6 +435,7 @@ function Shell(): React.ReactElement {
   const onPushReceived = useCallback(() => {
     setBoardRefresh((n) => n + 1);
     setReservationsRefresh((n) => n + 1);
+    setCateringRefresh((n) => n + 1);
     setSummaryTick((n) => n + 1);
   }, []);
   usePushRouting({ enabled: restaurant, onTarget: onPushTarget, onReceived: onPushReceived });
@@ -674,6 +692,17 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
+        {menuCurrent && tab === "cateringowner" && restaurant ? (
+          <CateringOwnerScreen
+            refreshKey={cateringRefresh}
+            onChanged={() => setSummaryTick((n) => n + 1)}
+            onBack={() => setTab("board")}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
+        {menuCurrent && tab === "team" && restaurant ? (
+          <TeamScreen onBack={() => setTab("board")} onOpenOwnerMenu={() => setOwnerMenu(true)} />
+        ) : null}
         {menuCurrent && tab === "rating" && restaurant ? (
           <RatingOwnerScreen
             venueName={displayVenueName(menu.venue.name)}
@@ -840,6 +869,8 @@ function Shell(): React.ReactElement {
             setTab("issues");
           }}
           onReservations={() => setTab("reservations")}
+          onCatering={() => setTab("cateringowner")}
+          onTeam={() => setTab("team")}
           onRating={() => setTab("rating")}
           onHours={() => setTab("hours")}
           onContact={() => setTab("contact")}
@@ -849,6 +880,7 @@ function Shell(): React.ReactElement {
           onPassword={() => setPasswordSheet(true)}
           openIssues={openIssues}
           pendingReservations={pendingReservations}
+          pendingCatering={pendingCatering}
         />
       ) : null}
       {restaurant ? (

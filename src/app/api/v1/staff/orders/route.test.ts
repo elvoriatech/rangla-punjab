@@ -389,6 +389,7 @@ describe("/api/v1/staff/*", () => {
       unpaidOnline: open,
       pendingReservations: 1,
       openIssues: 0,
+      pendingCatering: 0,
     });
 
     const guestRes = await SUMMARY(request("/api/v1/staff/summary", guestToken));

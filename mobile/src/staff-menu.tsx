@@ -63,6 +63,11 @@ export function staffViewOfGuestMenu(categories: ApiCategory[]): StaffMenuCatego
         : null,
       offerActive: Boolean(i.offer),
       sourceItemId: null,
+      dineInOnly: Boolean(i.dineInOnly),
+      // The guest payload leaves off-day dishes out entirely, so it cannot
+      // say which days a dish is on; the editor shows "every day" until the
+      // staff menu (which can) is loaded.
+      availableDays: [0, 1, 2, 3, 4, 5, 6],
     })),
   }));
 }
@@ -269,6 +274,9 @@ function StaffItemForm({
   const [description, setDescription] = useState(item.description ?? "");
   const [price, setPrice] = useState(formatPrice(item.priceCents, decimal));
   const [available, setAvailable] = useState(item.isAvailable);
+  const [dineInOnly, setDineInOnly] = useState(item.dineInOnly);
+  /** The weekdays the dish is on the menu (not the offer's days below). */
+  const [menuDays, setMenuDays] = useState<number[]>(item.availableDays);
   const [offerOn, setOfferOn] = useState(item.offer !== null);
   const [offerPrice, setOfferPrice] = useState(
     item.offer ? formatPrice(item.offer.priceCents, decimal) : "",
@@ -326,6 +334,15 @@ function StaffItemForm({
     }
     return out;
   }, []);
+
+  const toggleMenuDay = (index: number): void => {
+    setMenuDays((current) =>
+      current.includes(index) ? current.filter((d) => d !== index) : [...current, index].sort(),
+    );
+    setError(null);
+  };
+  const sameDays = (a: number[], b: number[]): boolean =>
+    a.length === b.length && a.every((d, i) => d === b[i]);
 
   const toggleDay = (index: number): void => {
     setDays((current) =>
@@ -450,6 +467,12 @@ function StaffItemForm({
       setError({ field: "name", text: t.staffNameInvalid });
       return;
     }
+    // "On no day" is what the Available switch is for; the server
+    // refuses an empty list too.
+    if (menuDays.length === 0) {
+      setError({ field: "general", text: t.staffMenuDaysNone });
+      return;
+    }
     const trimmedDescription = description.trim();
     if (trimmedDescription.length > DESCRIPTION_MAX) {
       setError({ field: "description", text: t.staffDescriptionInvalid });
@@ -505,6 +528,8 @@ function StaffItemForm({
         : { description: trimmedDescription.length > 0 ? trimmedDescription : null }),
       ...(cents === item.priceCents ? {} : { priceCents: cents }),
       ...(available === item.isAvailable ? {} : { isAvailable: available }),
+      ...(dineInOnly === item.dineInOnly ? {} : { dineInOnly }),
+      ...(sameDays(menuDays, item.availableDays) ? {} : { availableDays: menuDays }),
       ...(offer === undefined ? {} : { offer }),
     };
     if (Object.keys(patch).length === 0) {
@@ -706,6 +731,39 @@ function StaffItemForm({
                 value={available}
                 onChange={(next) => setAvailable(next)}
               />
+
+              <SwitchRow
+                label={t.staffDineInOnly}
+                value={dineInOnly}
+                onChange={(next) => setDineInOnly(next)}
+              />
+              <Text style={styles.hint}>{t.staffDineInOnlyHint}</Text>
+
+              <View style={{ gap: 6 }}>
+                <Text style={styles.label}>{t.staffMenuDays}</Text>
+                <View style={styles.dayRow}>
+                  {t.daysShort.map((label, index) => {
+                    const on = menuDays.includes(index);
+                    return (
+                      <Pressable
+                        key={label}
+                        onPress={() => toggleMenuDay(index)}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: on }}
+                        accessibilityLabel={t.days[index]}
+                        style={[styles.dayChip, on && styles.dayChipOn]}
+                      >
+                        <Text style={[styles.dayChipText, on && styles.dayChipTextOn]}>
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={[styles.hint, menuDays.length === 0 && styles.error]}>
+                  {menuDays.length === 0 ? t.staffMenuDaysNone : t.staffMenuDaysHint}
+                </Text>
+              </View>
 
               <View style={styles.offerBox}>
                 <SwitchRow
