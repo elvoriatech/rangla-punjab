@@ -31,9 +31,17 @@ import { registerStaffDevice, unregisterStaffDevice } from "./staff";
  */
 
 /** Android notification channel. Orders are the reason the phone is in
- *  someone's pocket during service, so it gets sound and a high
- *  importance rather than the silent default. */
-const CHANNEL_ID = "orders";
+ *  someone's pocket during service, so it gets the restaurant's bell and a
+ *  high importance rather than the silent default.
+ *
+ *  A channel's sound is fixed once Android has created it, so the bell
+ *  came with a NEW id; the old "orders" channel (default ding) is deleted
+ *  so the phone's settings don't list two. The server's push names the
+ *  same id (`src/lib/push-service.ts`). */
+const CHANNEL_ID = "orders_bell";
+const LEGACY_CHANNEL_ID = "orders";
+/** Bundled by the expo-notifications plugin (`app.json` → `sounds`). */
+const BELL_SOUND = "new_order.wav";
 
 /** What a push is ABOUT — the only part of the payload the app acts on.
  *  Everything else (title, body) is the server's to write. */
@@ -161,12 +169,13 @@ export async function registerForStaffPush(
     try {
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
         name: opts.channelName ?? "Orders",
-        importance: Notifications.AndroidImportance.HIGH,
-        sound: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        sound: BELL_SOUND,
         vibrationPattern: [0, 250, 250, 250],
         enableVibrate: true,
         showBadge: true,
       });
+      await Notifications.deleteNotificationChannelAsync(LEGACY_CHANNEL_ID).catch(() => undefined);
     } catch {
       /* A channel we couldn't create just means the OS default is used. */
     }

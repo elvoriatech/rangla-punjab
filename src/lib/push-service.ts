@@ -107,10 +107,14 @@ export class ExpoPushProvider implements PushProvider {
             title: m.title,
             body: m.body,
             ...(m.data ? { data: m.data } : {}),
-            sound: "default",
+            // The restaurant's bell, bundled into the app. iOS plays it
+            // from this field (an older build without the file falls back
+            // to the default sound); Android takes it from the channel.
+            sound: "new_order.wav",
             priority: "high",
-            // Matches the Android channel the app creates; ignored on iOS.
-            channelId: "orders",
+            // Matches the Android channel the app creates (it carries the
+            // bell); ignored on iOS.
+            channelId: "orders_bell",
           })),
         ),
       });

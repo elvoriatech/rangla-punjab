@@ -22,6 +22,12 @@
     "plugins": [
       "expo-font",
       [
+        "expo-notifications",
+        {
+          "sounds": ["./assets/sounds/new_order.wav"]
+        }
+      ],
+      [
         "expo-audio",
         {
           "microphonePermission": "Rangla Punjab Restaurant does not record audio. The app only plays a short sound when a new order arrives.",

@@ -12,6 +12,9 @@
  * https://docs.expo.dev/versions/v57.0.0/config/app/ and
  * https://docs.expo.dev/workflow/configuration/.
  */
+const fs = require("fs");
+const path = require("path");
+
 let brand;
 try {
   brand = require("./brand.generated.json");
@@ -127,6 +130,11 @@ module.exports = ({ config }) => {
   // generated foreground with a stale monochrome layer would ship two
   // different logos in one icon.
   if (generated.android?.adaptiveIcon) android.adaptiveIcon = generated.android.adaptiveIcon;
+  // Firebase config for Android push (FCM). Downloaded from the Firebase
+  // console for this package id and dropped next to this file; until it is
+  // there the build still succeeds, the phone just never receives a push.
+  const googleServicesFile = path.join(__dirname, "google-services.json");
+  if (fs.existsSync(googleServicesFile)) android.googleServicesFile = "./google-services.json";
 
   const plugins = [
     ...(config.plugins ?? []),
