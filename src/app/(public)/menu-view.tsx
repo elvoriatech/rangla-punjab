@@ -743,9 +743,8 @@ export function MenuView({
                 the venue's own app. Every piece is an ordinary anchor, so
                 it works with JS off. Absent entirely until an owner
                 publishes a link, and the badges come from a list so an
-                unpublished store is never an empty list item. The artwork
-                is our own brand-neutral drawing (see `app-badges.tsx`),
-                not Apple's or Google's files. The section's aria-label is
+                unpublished store is never an empty list item. The badges
+                wear the stores' own look (see `app-badges.tsx`). The section's aria-label is
                 what names it now that the heading and the blurb are gone. */}
             {appLinks ? (
               <section id="get-the-app" aria-label={t.app.title} className="min-w-0 scroll-mt-32">
@@ -762,7 +761,7 @@ export function MenuView({
                         <AppStoreBadge
                           topLine={t.app.iosTop}
                           storeName={t.app.iosName}
-                          className="h-[38px] w-[127px]"
+                          className="h-10 w-[135px]"
                         />
                       </a>
                     </li>
@@ -779,7 +778,7 @@ export function MenuView({
                         <GooglePlayBadge
                           topLine={t.app.androidTop}
                           storeName={t.app.androidName}
-                          className="h-[38px] w-[127px]"
+                          className="h-10 w-[135px]"
                         />
                       </a>
                     </li>
@@ -802,7 +801,7 @@ export function MenuView({
                         <AndroidBadge
                           topLine={t.app.apkTop}
                           storeName="Android"
-                          className="h-[38px] w-[127px]"
+                          className="h-10 w-[135px]"
                         />
                       </a>
                     </li>

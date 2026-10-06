@@ -117,7 +117,7 @@ export default async function AppDownloadPage(): Promise<React.ReactElement> {
                   <AppStoreBadge
                     topLine={t.iosTop}
                     storeName="App Store"
-                    className="h-[54px] w-[180px]"
+                    className="h-[54px] w-[182px]"
                   />
                 </a>
               </li>
@@ -132,7 +132,7 @@ export default async function AppDownloadPage(): Promise<React.ReactElement> {
                   <GooglePlayBadge
                     topLine={t.androidTop}
                     storeName="Google Play"
-                    className="h-[54px] w-[180px]"
+                    className="h-[54px] w-[182px]"
                   />
                 </a>
               </li>
