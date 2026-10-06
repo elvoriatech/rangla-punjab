@@ -24,11 +24,13 @@ export function OwnerMenuSheet({
   onRedeemGiftCard,
   onGiftCards,
   onIssues,
+  onReservations,
   onRating,
   onHours,
   onContact,
   onPassword,
   openIssues = 0,
+  pendingReservations = 0,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -41,6 +43,7 @@ export function OwnerMenuSheet({
   /** The venue's gift-card book: what was sold, redeemed, outstanding. */
   onGiftCards: () => void;
   onIssues: () => void;
+  onReservations: () => void;
   /** The Google star line under the restaurant's name (P7-14). */
   onRating: () => void;
   /** The week the kitchen is open. */
@@ -51,6 +54,8 @@ export function OwnerMenuSheet({
   onPassword: () => void;
   /** Unresolved complaints; 0 hides the badge entirely. */
   openIssues?: number;
+  /** Table requests still awaiting Confirm / Decline — the row's badge. */
+  pendingReservations?: number;
 }): React.ReactElement {
   const { t } = useI18n();
   const { logoutStaff, staffCan } = useAuth();
@@ -95,6 +100,14 @@ export function OwnerMenuSheet({
               anyway; hiding them is so nobody taps into a "no access". */}
           {staffCan("orders") ? (
             <Row icon="restaurant-outline" label={t.ownerBoard} onPress={() => go(onBoard)} />
+          ) : null}
+          {staffCan("reservations") ? (
+            <Row
+              icon="calendar-outline"
+              label={t.ownerReservations}
+              badge={pendingReservations}
+              onPress={() => go(onReservations)}
+            />
           ) : null}
           {staffCan("menu") ? (
             <Row

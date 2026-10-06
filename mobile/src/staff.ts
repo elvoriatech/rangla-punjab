@@ -552,6 +552,76 @@ export async function resolveStaffIssue(
   return { ok: true, data: issue };
 }
 
+/* ------------------------------------------------------------------ *
+ * Reservations — the table requests guests send from the web menu and
+ * the app. Same list and same three buttons as the dashboard's
+ * Reservations page.
+ * ------------------------------------------------------------------ */
+
+export interface StaffReservation {
+  id: string;
+  name: string;
+  phone: string;
+  guests: number;
+  /** The same moment as `date` + `time`, as an ISO instant. */
+  at: string;
+  /** Venue-local wall clock the guest picked — "YYYY-MM-DD" / "HH:MM". */
+  date: string;
+  time: string;
+  note: string | null;
+  /** "requested" | "confirmed" | "declined" | "cancelled" — anything
+   *  else is shown as-is and gets no buttons. */
+  status: string;
+}
+
+function asStaffReservation(raw: unknown): StaffReservation | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = str(r.id);
+  if (!id) return null;
+  return {
+    id,
+    name: str(r.name),
+    phone: str(r.phone),
+    guests: num(r.guests, 1),
+    at: str(r.at),
+    date: str(r.date),
+    time: str(r.time),
+    note: nullableStr(r.note),
+    status: str(r.status, "requested"),
+  };
+}
+
+export async function fetchStaffReservations(
+  token: string,
+): Promise<StaffResult<StaffReservation[]>> {
+  const res = await staffFetch(token, "/api/v1/staff/reservations");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const raw = res.body.reservations;
+  return {
+    ok: true,
+    data: Array.isArray(raw)
+      ? raw.map(asStaffReservation).filter((r): r is StaffReservation => r !== null)
+      : [],
+  };
+}
+
+export async function setStaffReservationStatus(
+  token: string,
+  reservationId: string,
+  status: "confirmed" | "declined",
+): Promise<StaffResult<null>> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/reservations/${encodeURIComponent(reservationId)}`,
+    { method: "POST", body: { status } },
+  );
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: null };
+}
+
 /** Best effort: the local session is cleared whatever the server says. */
 export async function staffLogout(token: string): Promise<void> {
   await staffFetch(token, "/api/v1/staff/logout", { method: "POST" });

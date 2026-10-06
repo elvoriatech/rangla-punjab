@@ -437,3 +437,30 @@ export async function sendNewIssuePush(tenantId: string, issueId: string): Promi
     captureException(err, { tenantId, issueId, where: "push-service" });
   }
 }
+
+/**
+ * "Table request · 4 guests". A booking is the one guest request that
+ * arrives without an order, so without this the owner only learned of it
+ * from the dashboard. Same bell and channel as a new order.
+ */
+export async function sendNewReservationPush(
+  tenantId: string,
+  reservationId: string,
+): Promise<void> {
+  try {
+    const r = await asTenant(tenantId, (tx) =>
+      tx.reservation.findFirst({
+        where: { id: reservationId },
+        select: { name: true, guests: true, date: true, time: true },
+      }),
+    );
+    if (!r) return;
+    await sendStaffPush(tenantId, {
+      title: `Table request · ${r.guests} ${r.guests === 1 ? "guest" : "guests"}`,
+      body: `${r.date.split("-").reverse().join(".")} · ${r.time} · ${r.name}`,
+      data: { kind: "reservation", reservationId },
+    });
+  } catch (err) {
+    captureException(err, { tenantId, reservationId, where: "push-service" });
+  }
+}

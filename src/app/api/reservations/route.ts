@@ -60,6 +60,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const status = result.error === "reservations_off" ? 403 : 400;
     return withCors(NextResponse.json({ error: result.error }, { status }));
   }
+  // Fire-and-forget, like the new-order push: a push hiccup must not fail
+  // the guest's booking.
+  const { sendNewReservationPush } = await import("@/lib/push-service");
+  void sendNewReservationPush(context.tenantId, result.value.reservationId);
   return withCors(
     NextResponse.json(
       {

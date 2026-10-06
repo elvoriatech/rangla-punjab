@@ -46,7 +46,9 @@ const BELL_SOUND = "new_order.wav";
 /** What a push is ABOUT — the only part of the payload the app acts on.
  *  Everything else (title, body) is the server's to write. */
 export type PushTarget =
-  { kind: "order"; orderId: string | null } | { kind: "issue"; issueId: string | null };
+  | { kind: "order"; orderId: string | null }
+  | { kind: "issue"; issueId: string | null }
+  | { kind: "reservation"; reservationId: string | null };
 
 /**
  * Reads `data` off a notification the same way `asStaffOrder` reads an
@@ -64,6 +66,7 @@ export function asPushTarget(raw: unknown): PushTarget | null {
   };
   if (kind === "order") return { kind: "order", orderId: id("orderId") };
   if (kind === "issue") return { kind: "issue", issueId: id("issueId") };
+  if (kind === "reservation") return { kind: "reservation", reservationId: id("reservationId") };
   return null;
 }
 

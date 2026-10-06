@@ -278,8 +278,15 @@ export async function getStaffSummary(userId: string): Promise<StaffSummary> {
         status: { notIn: [...TERMINAL_STATUSES] },
       },
     });
+    // Same window as the Reservations list (`listReservations`): a request
+    // whose time has long passed is no longer something to answer, and
+    // counting it would keep the badge lit forever.
     const pendingReservations = await tx.reservation.count({
-      where: { deletedAt: null, status: "requested" },
+      where: {
+        deletedAt: null,
+        status: "requested",
+        at: { gte: new Date(Date.now() - 6 * 3_600_000) },
+      },
     });
     const openIssues = await tx.orderIssue.count({ where: { status: { not: "resolved" } } });
     return { openOrders, unpaidOnline, pendingReservations, openIssues };
