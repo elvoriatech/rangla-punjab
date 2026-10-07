@@ -38,7 +38,7 @@
     "name": "Rangla Punjab Restaurant",
     "slug": "rangla-punjab",
     "scheme": "ranglapunjab",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "icon": "./assets/generated/icon.png",
     "backgroundColor": "#8f1a1a",
     "splash": {

@@ -5,6 +5,7 @@ import { useAuth } from "./auth";
 import { useI18n } from "./i18n";
 import { CHEVRON_FORWARD, colors, fonts, radius } from "./theme";
 import { SHEET_MAX } from "./layout";
+import { appVersionLabel } from "./app-version";
 
 /**
  * The owner's menu — everything the restaurant can do that isn't a tab.
@@ -181,6 +182,7 @@ export function OwnerMenuSheet({
           ) : null}
           <View style={styles.rule} />
           <Row icon="log-out-outline" label={t.signOutStaff} danger onPress={confirmSignOut} />
+          <Text style={styles.version}>{appVersionLabel(t.versionWord)}</Text>
         </Pressable>
       </Pressable>
     </Modal>
@@ -257,6 +259,13 @@ const styles = StyleSheet.create({
   },
   rowText: { flex: 1, color: colors.ink, ...fonts.bodyBold, fontSize: 15.5 },
   chevron: { color: colors.inkSoft, ...fonts.body, fontSize: 18 },
+  version: {
+    color: colors.inkSoft,
+    ...fonts.body,
+    fontSize: 11.5,
+    textAlign: "center",
+    marginTop: 6,
+  },
   rule: { height: 1, backgroundColor: colors.line, marginVertical: 4 },
   badge: {
     backgroundColor: colors.danger,

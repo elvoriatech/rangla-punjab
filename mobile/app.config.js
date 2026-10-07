@@ -13,6 +13,7 @@
  * https://docs.expo.dev/workflow/configuration/.
  */
 const fs = require("fs");
+const { execSync } = require("child_process");
 const path = require("path");
 
 let brand;
@@ -117,6 +118,19 @@ function withHomeScreenName(config, name) {
     );
     return c;
   });
+}
+
+function gitShortCommit() {
+  try {
+    return execSync("git rev-parse --short HEAD", {
+      cwd: __dirname,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return "";
+  }
 }
 
 module.exports = ({ config }) => {
@@ -224,10 +238,7 @@ module.exports = ({ config }) => {
   const ios = { ...config.ios, ...generated.ios };
   ios.infoPlist = { ...ios.infoPlist, CFBundleDisplayName: homeScreenName };
   if (host && appleUniversalLinks) {
-    ios.associatedDomains = [
-      ...(ios.associatedDomains ?? []),
-      `applinks:${host}`,
-    ];
+    ios.associatedDomains = [...(ios.associatedDomains ?? []), `applinks:${host}`];
   }
 
   // `splash` is the pre-SDK-52 launch-screen key: ignored by the build and
@@ -248,6 +259,10 @@ module.exports = ({ config }) => {
     extra: {
       ...config.extra,
       ...generated.extra,
+      // The commit this build was made from, shown beside the version on the
+      // Account screen and in the restaurant menu — two builds with the same
+      // version number are still told apart (owner, 2026-10-07).
+      buildCode: gitShortCommit(),
       applePayEnabled: Boolean(appleMerchantId),
       ...(appleMerchantId ? { appleMerchantId } : {}),
     },

@@ -48,6 +48,7 @@ import { CartoonTitle } from "../cartoon-title";
 import { CHEVRON_FORWARD, colors, fonts, money, radius } from "../theme";
 import { useLayout } from "../layout";
 import { Row, useColumn } from "../responsive";
+import { appVersionLabel } from "../app-version";
 
 /**
  * Konto / Account — language, sign-in (one-tap Google, the browser device
@@ -791,6 +792,7 @@ export function AccountScreen({
         </View>
 
         <Text style={styles.footer}>{t.footer}</Text>
+        <Text style={styles.footer}>{appVersionLabel(t.versionWord)}</Text>
       </ScrollView>
       <RewardSheet
         visible={rewardOpen}
