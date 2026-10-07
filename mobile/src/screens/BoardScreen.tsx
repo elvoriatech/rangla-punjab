@@ -1117,17 +1117,24 @@ export function BoardScreen({
                 </Text>
               ) : null}
               {cancelTo ? (
-                <Text
+                /* A red round ✕ instead of the words (owner, 2026-10-07):
+                   unmistakable as "danger", and it takes less room. The
+                   tap still goes through the confirm dialog — cancelling
+                   cannot be undone. The words stay as its spoken label. */
+                <Pressable
                   onPress={busy ? undefined : () => onAction(order, cancelTo)}
-                  suppressHighlighting
+                  disabled={busy}
+                  hitSlop={6}
                   accessibilityRole="button"
                   accessibilityLabel={t.boardCancelAction}
                   accessibilityState={{ disabled: busy }}
-                  style={[styles.cancelAction, busy && { opacity: 0.5 }]}
-                  numberOfLines={2}
+                  style={({ pressed }) => [
+                    styles.cancelIcon,
+                    (busy || pressed) && { opacity: 0.6 },
+                  ]}
                 >
-                  {t.boardCancelAction}
-                </Text>
+                  <Ionicons name="close" size={22} color="#fff" />
+                </Pressable>
               ) : null}
             </View>
           </>
@@ -1525,6 +1532,15 @@ const styles = StyleSheet.create({
    *  separates them — a hairline, not a gap, so the card stays compact
    *  enough to sit above the board rather than in front of it. */
   switchRowNext: { borderTopWidth: 1, borderTopColor: colors.line },
+  cancelIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: "auto",
+  },
   requestsHeading: {
     color: colors.inkSoft,
     ...fonts.bodyBold,
