@@ -326,32 +326,37 @@ export function IssueSheet({
     if (!target || target.mode !== "staff" || busy) return;
     // Resolving takes the guest's ability to write away, so it is asked
     // once rather than being a single unguarded tap.
-    Alert.alert(t.issueResolve, t.issueResolveConfirm, [
-      { text: t.issueCancel, style: "cancel" },
-      {
-        text: t.issueResolve,
-        onPress: () => {
-          void (async () => {
-            setBusy(true);
-            setError(null);
-            const res = await resolveStaffIssue(target.token, target.issueId);
-            setBusy(false);
-            if (!res.ok) {
-              if (res.error === "unauthorized") {
-                clearStaff();
-                onClose();
+    Alert.alert(
+      t.issueResolve,
+      t.issueResolveConfirm,
+      [
+        { text: t.issueCancel, style: "cancel" },
+        {
+          text: t.issueResolve,
+          onPress: () => {
+            void (async () => {
+              setBusy(true);
+              setError(null);
+              const res = await resolveStaffIssue(target.token, target.issueId);
+              setBusy(false);
+              if (!res.ok) {
+                if (res.error === "unauthorized") {
+                  clearStaff();
+                  onClose();
+                  return;
+                }
+                setError(t.staffLoadFailed);
                 return;
               }
-              setError(t.staffLoadFailed);
-              return;
-            }
-            const next = staffToThread(res.data);
-            setThread(next);
-            onChanged?.(next.status);
-          })();
+              const next = staffToThread(res.data);
+              setThread(next);
+              onChanged?.(next.status);
+            })();
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: true },
+    );
   }
 
   const timeOf = (iso: string): string => {

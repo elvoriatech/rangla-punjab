@@ -57,6 +57,23 @@ export function InstallAppButton({
 }): React.ReactElement | null {
   const [canPrompt, setCanPrompt] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
+  /** The hint closes on any tap outside it, not only on its ✕. */
+  const wrapRef = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    if (!hintOpen) return;
+    const away = (e: PointerEvent): void => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setHintOpen(false);
+    };
+    const esc = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setHintOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [hintOpen]);
   const deferred = useRef<InstallPromptEvent | null>(null);
   // What this browser offers WITHOUT the event — read once on the client;
   // the server snapshot is "nothing", so the no-JS page stays as it was.
@@ -114,7 +131,7 @@ export function InstallAppButton({
   };
 
   return (
-    <span className="relative inline-flex shrink-0">
+    <span ref={wrapRef} className="relative inline-flex shrink-0">
       <button
         type="button"
         onClick={() => void onClick()}

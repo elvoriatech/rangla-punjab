@@ -452,6 +452,15 @@ export function CartDrawer({
     () => EMPTY_CART,
   );
   const [open, setOpen] = useState(false);
+  // Escape closes the drawer too, like the page's other popups.
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [open]);
   // Guest-copy locale for links we hand on (receipt PDF, tracker): the
   // venue locale collapsed to a language those surfaces can render.
   const copyLocale = uiLocale(locale);
@@ -949,6 +958,19 @@ export function CartDrawer({
             </>
           )}
         </button>
+      ) : null}
+
+      {/* Tap-away: a click anywhere outside the drawer closes it, like
+          every other popup on the page (owner, 2026-10-07). A real button
+          so keyboard and screen-reader users have the same way out. */}
+      {open ? (
+        <button
+          type="button"
+          aria-label={t.close}
+          tabIndex={-1}
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 cursor-default bg-black/40"
+        />
       ) : null}
 
       {/* Drawer */}

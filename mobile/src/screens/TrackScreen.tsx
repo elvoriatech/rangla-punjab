@@ -740,8 +740,9 @@ export function TrackScreen({
         animationType="fade"
         onRequestClose={() => setExitOpen(false)}
       >
-        <View style={styles.exitScrim}>
-          <View style={styles.exitCard} accessibilityViewIsModal>
+        {/* A tap outside the card closes it, like every other sheet. */}
+        <Pressable style={styles.exitScrim} onPress={() => setExitOpen(false)}>
+          <Pressable style={styles.exitCard} accessibilityViewIsModal onPress={() => {}}>
             <Text style={styles.exitTitle}>{t.payExitTitle}</Text>
             <Text style={styles.exitBody}>{t.payExitBody}</Text>
             {exitAsk ? (
@@ -802,8 +803,8 @@ export function TrackScreen({
             <Pressable onPress={() => setExitOpen(false)} style={styles.exitClose}>
               <Text style={styles.exitCloseText}>{t.payExitClose}</Text>
             </Pressable>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );

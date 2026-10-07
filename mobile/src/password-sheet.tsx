@@ -126,7 +126,9 @@ export function PasswordSheet({
     // is already dead server-side.
     await replaceStaffToken(res.token);
     setDone(t.passwordChanged);
-    Alert.alert(t.passwordChangedTitle, t.passwordChanged, [{ text: t.close, onPress: onClose }]);
+    Alert.alert(t.passwordChangedTitle, t.passwordChanged, [{ text: t.close, onPress: onClose }], {
+      cancelable: true,
+    });
   }, [
     staffToken,
     canSave,

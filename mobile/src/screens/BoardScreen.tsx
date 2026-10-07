@@ -620,14 +620,19 @@ export function BoardScreen({
       void advance(order, to);
       return;
     }
-    Alert.alert(t.boardCancelTitle, t.boardCancelBody, [
-      { text: t.boardCancelKeep, style: "cancel" },
-      {
-        text: t.boardCancelConfirm,
-        style: "destructive",
-        onPress: () => void advance(order, to),
-      },
-    ]);
+    Alert.alert(
+      t.boardCancelTitle,
+      t.boardCancelBody,
+      [
+        { text: t.boardCancelKeep, style: "cancel" },
+        {
+          text: t.boardCancelConfirm,
+          style: "destructive",
+          onPress: () => void advance(order, to),
+        },
+      ],
+      { cancelable: true },
+    );
   }
 
   async function advance(order: StaffOrder, to: string): Promise<void> {

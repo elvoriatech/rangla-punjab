@@ -56,11 +56,16 @@ export function askPhotoSource(
   labels: { title: string; camera: string; library: string; cancel: string },
   onChoose: (source: PhotoSource) => void,
 ): void {
-  Alert.alert(labels.title, undefined, [
-    { text: labels.camera, onPress: () => onChoose("camera") },
-    { text: labels.library, onPress: () => onChoose("library") },
-    { text: labels.cancel, style: "cancel" },
-  ]);
+  Alert.alert(
+    labels.title,
+    undefined,
+    [
+      { text: labels.camera, onPress: () => onChoose("camera") },
+      { text: labels.library, onPress: () => onChoose("library") },
+      { text: labels.cancel, style: "cancel" },
+    ],
+    { cancelable: true },
+  );
 }
 
 /**

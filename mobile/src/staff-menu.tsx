@@ -440,29 +440,34 @@ function StaffItemForm({
   function confirmRemovePhoto(): void {
     if (photoBusy !== null) return;
     // Removing is live and immediate, so it is asked once.
-    Alert.alert(t.staffRemovePhoto, t.staffRemovePhotoConfirm, [
-      { text: t.staffCancel, style: "cancel" },
-      {
-        text: t.staffRemovePhoto,
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            setPhotoBusy("remove");
-            setPhotoError(null);
-            try {
-              const res = await onPhoto(item, null);
-              if (!res.ok) {
-                setPhotoError(photoMessage(res.error));
-                return;
+    Alert.alert(
+      t.staffRemovePhoto,
+      t.staffRemovePhotoConfirm,
+      [
+        { text: t.staffCancel, style: "cancel" },
+        {
+          text: t.staffRemovePhoto,
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              setPhotoBusy("remove");
+              setPhotoError(null);
+              try {
+                const res = await onPhoto(item, null);
+                if (!res.ok) {
+                  setPhotoError(photoMessage(res.error));
+                  return;
+                }
+                setPhotoUrl(res.item ? res.item.photoUrl : null);
+              } finally {
+                setPhotoBusy(null);
               }
-              setPhotoUrl(res.item ? res.item.photoUrl : null);
-            } finally {
-              setPhotoBusy(null);
-            }
-          })();
+            })();
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: true },
+    );
   }
 
   async function save(): Promise<void> {

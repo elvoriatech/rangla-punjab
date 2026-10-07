@@ -216,27 +216,37 @@ export function AccountScreen({
   // native confirm that says what goes and what stays; the server call
   // signs the device out itself once the account is gone.
   const confirmDeleteAccount = (): void => {
-    Alert.alert(t.deleteAccountTitle, t.deleteAccountBody, [
-      { text: t.signInCancel, style: "cancel" },
-      {
-        text: t.deleteAccountConfirm,
-        style: "destructive",
-        onPress: () => {
-          void auth.deleteAccount().then((ok) => {
-            Alert.alert(ok ? t.deleteAccountDone : t.deleteAccountFailed);
-          });
+    Alert.alert(
+      t.deleteAccountTitle,
+      t.deleteAccountBody,
+      [
+        { text: t.signInCancel, style: "cancel" },
+        {
+          text: t.deleteAccountConfirm,
+          style: "destructive",
+          onPress: () => {
+            void auth.deleteAccount().then((ok) => {
+              Alert.alert(ok ? t.deleteAccountDone : t.deleteAccountFailed);
+            });
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: true },
+    );
   };
 
   // Restaurant mode asks first: signing out takes the live orders board
   // off the counter's phone, which is not something to lose to a mis-tap.
   const confirmStaffSignOut = (): void => {
-    Alert.alert(t.signOutStaff, undefined, [
-      { text: t.signInCancel, style: "cancel" },
-      { text: t.signOut, style: "destructive", onPress: () => void auth.logoutStaff() },
-    ]);
+    Alert.alert(
+      t.signOutStaff,
+      undefined,
+      [
+        { text: t.signInCancel, style: "cancel" },
+        { text: t.signOut, style: "destructive", onPress: () => void auth.logoutStaff() },
+      ],
+      { cancelable: true },
+    );
   };
 
   const providerLabel = (id: string): string => (id === "google" ? t.signInGoogle : t.signInDev);

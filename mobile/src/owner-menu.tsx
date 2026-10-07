@@ -70,17 +70,22 @@ export function OwnerMenuSheet({
   // Same confirm as the Account screen's: signing out takes the live
   // board off the counter's phone, which is not a mis-tap's to decide.
   const confirmSignOut = (): void => {
-    Alert.alert(t.signOutStaff, undefined, [
-      { text: t.signInCancel, style: "cancel" },
-      {
-        text: t.signOut,
-        style: "destructive",
-        onPress: () => {
-          onClose();
-          void logoutStaff();
+    Alert.alert(
+      t.signOutStaff,
+      undefined,
+      [
+        { text: t.signInCancel, style: "cancel" },
+        {
+          text: t.signOut,
+          style: "destructive",
+          onPress: () => {
+            onClose();
+            void logoutStaff();
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: true },
+    );
   };
 
   // Tab switches are pure React state: closing the sheet and switching in
