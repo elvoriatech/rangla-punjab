@@ -318,6 +318,38 @@ export async function placeOrder(
     // Per-area validation happens after totals are known (fee and
     // minimum depend on the guest's ZIP row) — see deliveryQuote below.
 
+    // A basket filled before the menu was last published still names the
+    // PREVIOUS version's item ids. Every menu save in the dashboard now
+    // publishes (owner, 2026-10-07), so that is common, not rare: map each
+    // stale id onto the current published copy of the same dish — both
+    // copies carry the draft row they came from in `sourceItemId` — instead
+    // of refusing the order. Prices are still read from the current row.
+    const stale = await tx.item.findMany({
+      where: {
+        id: { in: [...wanted.keys()] },
+        NOT: { category: { menuVersionId: context.publishedVersionId! } },
+      },
+      select: { id: true, sourceItemId: true },
+    });
+    if (stale.length > 0) {
+      const origin = new Map(stale.map((row) => [row.id, row.sourceItemId ?? row.id]));
+      const current = await tx.item.findMany({
+        where: {
+          sourceItemId: { in: [...new Set(origin.values())] },
+          category: { menuVersionId: context.publishedVersionId! },
+        },
+        select: { id: true, sourceItemId: true },
+      });
+      const now = new Map(current.map((row) => [row.sourceItemId!, row.id]));
+      for (const [oldId, from] of origin) {
+        const next = now.get(from);
+        if (!next) continue; // really gone — refused below like before
+        const qty = wanted.get(oldId) ?? 0;
+        wanted.delete(oldId);
+        wanted.set(next, Math.min(50, (wanted.get(next) ?? 0) + qty));
+      }
+    }
+
     const items = await tx.item.findMany({
       where: {
         id: { in: [...wanted.keys()] },

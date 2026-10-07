@@ -454,8 +454,8 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       delivery: true,
       // Never set on this venue, so the config default answers (P7-10).
       issueWindowHours: 3,
-      // Cancelling from the app is OFF until the owner arms it on the web.
-      appCancelEnabled: false,
+      // "May this login cancel?" — the owner always may (owner, 2026-10-07).
+      appCancelEnabled: true,
       pausedUntil: null,
     });
 
@@ -468,7 +468,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       takeaway: true,
       delivery: false,
       issueWindowHours: 3,
-      appCancelEnabled: false,
+      appCancelEnabled: true,
       pausedUntil: null,
     });
 
@@ -492,7 +492,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       takeaway: false,
       delivery: true,
       issueWindowHours: 3,
-      appCancelEnabled: false,
+      appCancelEnabled: true,
       pausedUntil: null,
     });
   });
@@ -544,20 +544,19 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
     expect(await zero.json()).toMatchObject({ ok: false, error: "invalid" });
   });
 
-  it("will not let the app arm its own cancel button", async () => {
-    // The GET reports the switch so the app can explain itself; the PATCH
-    // has no such key, so an app that sends one changes nothing. Arming
-    // it is a web-dashboard decision by design.
+  it("reports that the owner may cancel, and ignores an attempt to write it", async () => {
+    // `appCancelEnabled` answers "may THIS login cancel?" — the owner always
+    // may; the PATCH has no such key, so sending one stores nothing.
     const res = await PATCH_ORDERING(
-      request("/api/v1/staff/ordering", staffToken, { appCancelEnabled: true }),
+      request("/api/v1/staff/ordering", staffToken, { appCancelEnabled: false }),
     );
     expect(res.status).toBe(200);
-    expect(((await res.json()) as MenuBody).ordering).toMatchObject({ appCancelEnabled: false });
+    expect(((await res.json()) as MenuBody).ordering).toMatchObject({ appCancelEnabled: true });
 
     const stored = await asTenant(tenantId, (tx) =>
       tx.venue.findFirstOrThrow({ where: { id: venueId }, select: { ordering: true } }),
     );
-    expect((stored.ordering as Record<string, unknown>).appCancelEnabled).toBe(false);
+    expect((stored.ordering as Record<string, unknown>).appCancelEnabled).not.toBe(true);
   });
 
   it("answers the loyalty overview with the programme's totals and its regulars", async () => {

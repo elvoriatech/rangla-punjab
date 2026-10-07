@@ -3,6 +3,7 @@ import { issueRefByOrder, type IssueRef, type IssueStatus } from "./issue-servic
 import { getKitchenOrder, listRecentOrders, type KitchenOrder } from "./order-service";
 import { ORDER_STATUSES, TERMINAL_STATUSES, canTransition } from "./order-status";
 import { parseOrderingConfig, type OrderingConfig } from "./ordering-config";
+import { can, getAccess } from "./team-access";
 import { asUser, resolveActiveTenantId } from "./tenant";
 
 /**
@@ -97,25 +98,18 @@ function toAddress(address: KitchenOrder["deliveryAddress"]): StaffOrderAddress 
 }
 
 /**
- * Is the app allowed to cancel orders on this venue? Owner switch, OFF by
- * default (`ordering.appCancelEnabled`) — see `ordering-config.ts` for why.
- *
- * Read through `asUser` like everything else on the board, so one RLS-scoped
- * path serves the whole request. Callers that need it more than once (the
- * status endpoint reads the order twice) resolve it ONCE and pass it down.
+ * May this person cancel orders from the app? The owner always may; a team
+ * member only with the "Cancel orders" box ticked (owner, 2026-10-07 —
+ * replaced the venue-wide `ordering.appCancelEnabled` switch, which kept
+ * the button away from the owner too). Callers that need it more than once
+ * (the status endpoint reads the order twice) resolve it ONCE and pass it.
  */
-export async function isAppCancelEnabled(userId: string): Promise<boolean> {
-  return asUser(userId, async (tx) => {
-    const venue = await tx.venue.findFirst({
-      where: { deletedAt: null },
-      select: { ordering: true },
-    });
-    return parseOrderingConfig(venue?.ordering).appCancelEnabled;
-  });
+export async function staffMayCancel(userId: string): Promise<boolean> {
+  return can(await getAccess(userId), "cancel");
 }
 
-/** The venue's ordering settings the board needs: the cancel switch and
- *  the expected-time defaults. One RLS-scoped read. */
+/** The venue's ordering settings the board needs: the expected-time
+ *  defaults. One RLS-scoped read. */
 async function boardConfig(userId: string): Promise<OrderingConfig> {
   return asUser(userId, async (tx) => {
     const venue = await tx.venue.findFirst({
@@ -152,8 +146,8 @@ export function toStaffOrder(
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
-    // The owner switch is subtracted from the lifecycle, not added to it:
-    // "cancelled" only reaches the app when cancelling from the app is on.
+    // The cancel permission is subtracted from the lifecycle, not added to
+    // it: "cancelled" only reaches the app for someone who may cancel.
     // The endpoint enforces the same rule, so this is what the app DRAWS,
     // never what the server TRUSTS.
     allowedNext: ORDER_STATUSES.filter(
@@ -219,18 +213,18 @@ export async function listStaffOrders(userId: string, since?: Date): Promise<Sta
 
   // One read for the whole board, same reason as the issues map above.
   const config = await boardConfig(userId);
+  const cancelOk = await staffMayCancel(userId);
 
-  return orders.map((order) =>
-    toStaffOrder(order, issues.get(order.id) ?? null, config.appCancelEnabled, config),
-  );
+  return orders.map((order) => toStaffOrder(order, issues.get(order.id) ?? null, cancelOk, config));
 }
 
 /**
  * One order, reshaped — what the status endpoint answers with.
  *
- * `appCancelEnabled` may be passed in by a caller that already resolved it
- * (the status endpoint reads the order before and after the move); left out,
- * it is looked up, so no caller can accidentally ship a cancel button.
+ * `appCancelEnabled` (= "may this person cancel") may be passed in by a
+ * caller that already resolved it (the status endpoint reads the order
+ * before and after the move); left out, it is looked up from the person's
+ * team boxes, so no caller can accidentally ship a cancel button.
  */
 export async function getStaffOrder(
   userId: string,
@@ -242,7 +236,7 @@ export async function getStaffOrder(
   const tenantId = await resolveActiveTenantId(userId);
   const issues = tenantId ? await issueRefByOrder(tenantId, [order.id]) : null;
   const config = await boardConfig(userId);
-  const cancelOk = appCancelEnabled ?? config.appCancelEnabled;
+  const cancelOk = appCancelEnabled ?? (await staffMayCancel(userId));
   return toStaffOrder(order, issues?.get(order.id) ?? null, cancelOk, config);
 }
 

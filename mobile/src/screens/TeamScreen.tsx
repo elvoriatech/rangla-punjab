@@ -45,6 +45,7 @@ const PRESETS: Record<"manager" | "staff", readonly string[]> = {
   manager: [
     "overview",
     "orders",
+    "cancel",
     "reservations",
     "catering",
     "kitchen",

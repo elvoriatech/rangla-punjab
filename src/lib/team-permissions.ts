@@ -8,6 +8,7 @@
 export const PERMISSIONS = [
   "overview",
   "orders",
+  "cancel",
   "reservations",
   "catering",
   "kitchen",
@@ -28,11 +29,15 @@ export const PERMISSION_LABELS: Record<Permission, { label: string; hint: string
     label: "Orders & complaints",
     hint: "See orders, change status, answer complaints, print",
   },
+  cancel: {
+    label: "Cancel orders",
+    hint: "Cancel an order (web and app) — it cannot be undone",
+  },
   reservations: { label: "Reservations", hint: "Confirm or decline table requests" },
   catering: { label: "Catering", hint: "See and answer catering requests" },
   kitchen: { label: "Kitchen screen", hint: "The live kitchen board" },
   qr: { label: "QR codes", hint: "View and download table / app QR codes" },
-  menu: { label: "Menu", hint: "Edit dishes, prices, offers and publish the menu" },
+  menu: { label: "Edit the menu", hint: "Edit dishes, prices, offers and publish the menu" },
   giftcards: { label: "Gift cards", hint: "Sold gift cards and redemptions" },
   appearance: { label: "Appearance", hint: "Menu theme and look" },
   reports: { label: "Reports", hint: "Sales and order reports" },
@@ -47,6 +52,7 @@ export const PRESETS: Record<"manager" | "staff", readonly Permission[]> = {
   manager: [
     "overview",
     "orders",
+    "cancel",
     "reservations",
     "catering",
     "kitchen",

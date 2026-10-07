@@ -5,6 +5,7 @@ import { signupUser } from "@/lib/auth-service";
 import { registerCustomerWithPassword } from "@/lib/customer-auth";
 import { prisma } from "@/lib/db";
 import { placeOrder } from "@/lib/order-service";
+import { createStaffMember, updateStaffMember } from "@/lib/team-service";
 import { signSession } from "@/lib/session";
 import type { StaffOrder } from "@/lib/staff-service";
 import { asTenant } from "@/lib/tenant";
@@ -40,6 +41,7 @@ describe("/api/v1/staff/*", () => {
   let tenantId: string;
   let userId: string;
   let ownerEmail: string;
+  const memberEmail = `orders-member-${randomUUID()}@ex.com`;
   let staffToken: string;
   let guestToken: string;
   let venue: { tenantId: string; venueId: string; publishedVersionId: string; itemId: string };
@@ -107,7 +109,7 @@ describe("/api/v1/staff/*", () => {
     await asTenant(tenantId, (tx) => tx.customer.deleteMany({}));
     await asTenant(tenantId, (tx) => tx.membership.deleteMany({}));
     await asTenant(tenantId, (tx) => tx.tenant.deleteMany({}));
-    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.user.deleteMany({ where: { OR: [{ id: userId }, { email: memberEmail }] } });
   });
 
   function request(url: string, token?: string, body?: unknown): NextRequest {
@@ -130,17 +132,6 @@ describe("/api/v1/staff/*", () => {
     });
     if (!placed.ok) throw new Error(`order failed: ${placed.error}`);
     return placed.value.orderId;
-  }
-
-  /** Flip the owner's "the app may cancel" switch (`ordering.appCancelEnabled`),
-   *  which is web-dashboard-only and OFF by default. */
-  async function setAppCancel(enabled: boolean): Promise<void> {
-    await asTenant(tenantId, (tx) =>
-      tx.venue.updateMany({
-        where: { id: venue.venueId },
-        data: { ordering: { appCancelEnabled: enabled } },
-      }),
-    );
   }
 
   async function board(query = ""): Promise<OrdersBody> {
@@ -184,11 +175,10 @@ describe("/api/v1/staff/*", () => {
       issueStatus: null,
       issueId: null,
     });
-    // dine-in never walks the courier leg, and "cancelled" is absent
-    // because the owner switch is OFF by default — `allowedNext` is the
-    // only thing that puts a cancel button on the board, so a fresh venue
-    // ships an app that cannot cancel by accident.
-    expect(order?.allowedNext).toEqual(["preparing", "ready", "done"]);
+    // dine-in never walks the courier leg; "cancelled" is there because
+    // this is the OWNER, who may always cancel (owner, 2026-10-07). A team
+    // member without the "Cancel orders" box gets no such button — below.
+    expect(order?.allowedNext).toEqual(["preparing", "ready", "done", "cancelled"]);
     expect(order?.items).toEqual([{ name: "Dal", quantity: 2, priceCents: 1200 }]);
     expect(typeof order?.orderNumber).toBe("number");
     expect(new Date(order!.createdAt).getTime()).toBeGreaterThan(0);
@@ -205,7 +195,7 @@ describe("/api/v1/staff/*", () => {
     expect(ok.status).toBe(200);
     const body = (await ok.json()) as OrdersBody;
     expect(body.order).toMatchObject({ id: orderId, status: "preparing" });
-    expect(body.order?.allowedNext).toEqual(["ready", "done"]);
+    expect(body.order?.allowedNext).toEqual(["ready", "done", "cancelled"]);
 
     const row = await asTenant(tenantId, (tx) =>
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { status: true } }),
@@ -281,18 +271,29 @@ describe("/api/v1/staff/*", () => {
     expect(done?.allowedNext).toEqual([]);
   });
 
-  it("hides cancel from the app and refuses it server-side while the switch is off", async () => {
+  it("hides cancel from a team member without the box, and refuses it server-side", async () => {
     const orderId = await placeDineIn("13a");
+    const member = await createStaffMember(userId, {
+      name: "Kitchen",
+      email: memberEmail,
+      password: "kitchen-2026!",
+      permissions: ["orders"],
+    });
+    if (!member.ok) throw new Error(`staff member failed: ${member.error}`);
+    const memberToken = signSession(member.value.userId);
 
     // The board draws one button per `allowedNext` entry, so an absent
     // "cancelled" is the missing button.
-    const listed = (await board()).orders?.find((o) => o.id === orderId);
+    const memberBoard = (await (
+      await GET(request("/api/v1/staff/orders", memberToken))
+    ).json()) as OrdersBody;
+    const listed = memberBoard.orders?.find((o) => o.id === orderId);
     expect(listed?.allowedNext).not.toContain("cancelled");
 
     // UI-only would not be enough: a stale app, a replay or a curl must
     // be refused too, because a cancel cannot be undone.
     const res = await STATUS(
-      request(`/api/v1/staff/orders/${orderId}/status`, staffToken, { to: "cancelled" }),
+      request(`/api/v1/staff/orders/${orderId}/status`, memberToken, { to: "cancelled" }),
       { params: Promise.resolve({ id: orderId }) },
     );
     expect(res.status).toBe(409);
@@ -307,17 +308,29 @@ describe("/api/v1/staff/*", () => {
     // An id this restaurant cannot see still 404s: a refused cancel must
     // not tell the caller that an order exists.
     const missing = await STATUS(
-      request("/api/v1/staff/orders/nope/status", staffToken, { to: "cancelled" }),
+      request("/api/v1/staff/orders/nope/status", memberToken, { to: "cancelled" }),
       { params: Promise.resolve({ id: "nope" }) },
     );
     expect(missing.status).toBe(404);
+
+    // Tick the box and the same person may cancel.
+    const memberships = await asTenant(tenantId, (tx) =>
+      tx.membership.findMany({ where: { userId: member.value.userId }, select: { id: true } }),
+    );
+    await updateStaffMember(userId, memberships[0]!.id, {
+      name: "Kitchen",
+      permissions: ["orders", "cancel"],
+    });
+    const allowed = await STATUS(
+      request(`/api/v1/staff/orders/${orderId}/status`, memberToken, { to: "cancelled" }),
+      { params: Promise.resolve({ id: orderId }) },
+    );
+    expect(allowed.status).toBe(200);
   });
 
-  it("cancels an open order and leaves it with nowhere to go once the owner allows it", async () => {
+  it("lets the owner cancel an open order and leaves it with nowhere to go", async () => {
     const orderId = await placeDineIn("13");
-    await setAppCancel(true);
 
-    // With the switch on, the button is back on every open card.
     const listed = (await board()).orders?.find((o) => o.id === orderId);
     expect(listed?.allowedNext).toEqual(["preparing", "ready", "done", "cancelled"]);
 
@@ -347,8 +360,6 @@ describe("/api/v1/staff/*", () => {
       );
       expect(again.status, `${to} must not reopen a cancelled order`).toBe(409);
     }
-
-    await setAppCancel(false);
   });
 
   it("counts the three numbers the app badges", async () => {

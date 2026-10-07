@@ -2357,24 +2357,25 @@ function DishCard({
             ))}
           </ul>
         ) : null}
-        {/* Price left, add button right; old + new price stay together on
-            one line. The button only drops below the price when the card
-            really is too narrow. */}
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-3">
+        {/* Price left, add button right, on ONE line (owner, 2026-10-07):
+            on an offer the struck-through regular price sits ABOVE the
+            current one instead of beside it, so the pair is no wider than
+            a plain price and never pushes the button onto its own line. */}
+        <div className="mt-auto flex items-end justify-between gap-x-3 pt-3">
           <p
             aria-label={t.badges.price}
-            className="whitespace-nowrap text-lg font-bold tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
+            className="flex flex-col whitespace-nowrap text-lg font-bold leading-tight tabular-nums text-[var(--menu-surface-accent,var(--menu-accent))] sm:text-xl"
           >
             {item.offer ? (
               <>
-                <s className="me-2 text-[0.8em] font-normal opacity-55">
+                <s className="text-[0.75em] font-normal opacity-55">
                   <span className="sr-only">{t.badges.regularPrice} </span>
                   {formatPrice(item.offer.basePriceCents, item.currency, locale)}
                 </s>
                 <span className="sr-only">{t.badges.offerPrice} </span>
               </>
             ) : null}
-            {formatPrice(item.priceCents, item.currency, locale)}
+            <span>{formatPrice(item.priceCents, item.currency, locale)}</span>
           </p>
           {(item.offer && !item.description) || (ordering && item.isAvailable) ? (
             <div className="ms-auto flex flex-col items-end gap-1.5">

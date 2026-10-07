@@ -115,6 +115,7 @@ export interface AccountOrder {
 export type StaffArea =
   | "overview"
   | "orders"
+  | "cancel"
   | "reservations"
   | "catering"
   | "kitchen"

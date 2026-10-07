@@ -85,6 +85,7 @@ export async function requirePermission(permission: Permission): Promise<string>
 export const PERMISSION_HOME: Record<Permission, string> = {
   overview: "/dashboard",
   orders: "/dashboard/orders",
+  cancel: "/dashboard/orders",
   reservations: "/dashboard/reservations",
   catering: "/dashboard/catering",
   kitchen: "/kitchen",

@@ -24,7 +24,7 @@ import { NewOrderChime } from "../../../kitchen/new-order-chime";
 import { AutoPrint } from "./auto-print";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
-import { getAccess, requirePermission } from "@/lib/team-access";
+import { can, getAccess, requirePermission } from "@/lib/team-access";
 import { DELETE_REASON_MAX, DELETE_REASON_MIN, orderDeleteBlock } from "@/lib/order-delete-service";
 import { FlashMessage } from "@/components/flash-message";
 
@@ -223,7 +223,10 @@ export default async function OrdersPage({
   } = await searchParams;
   // Deleting is the owner's alone — a team member with Orders never sees
   // the link, and the service refuses them regardless.
-  const isOwner = (await getAccess(userId))?.isOwner === true;
+  const access = await getAccess(userId);
+  const isOwner = access?.isOwner === true;
+  /** The owner always; a team member only with the "Cancel orders" box. */
+  const canCancel = can(access, "cancel");
   // The venue's expected-time defaults and accept window. A failed read
   // falls back to the schema defaults rather than taking the page down.
   const orderingSettings = await getOrderingSettings(userId);
@@ -352,21 +355,23 @@ export default async function OrdersPage({
                       timeStyle: "short",
                       timeZone: "Europe/Berlin",
                     }).format(order.createdAt)}
-                    <form action={advanceOrderAction} className="inline">
-                      <input type="hidden" name="orderId" value={order.id} />
-                      <input type="hidden" name="to" value="cancelled" />
-                      <ConfirmSubmit
-                        message={`Cancel order #${String(order.orderNumber)}? The guest is told it was called off, and this cannot be undone.`}
-                        pendingLabel="…"
-                        confirmLabel="Yes, cancel order"
-                        cancelLabel="Keep order"
-                        title="Cancel order"
-                        ariaLabel={`Cancel order #${order.orderNumber}`}
-                        className="inline-flex h-8 w-8 items-center justify-center self-center text-muted hover:text-[#b3261e]"
-                      >
-                        <CircleX className="h-4 w-4" aria-hidden />
-                      </ConfirmSubmit>
-                    </form>
+                    {canCancel ? (
+                      <form action={advanceOrderAction} className="inline">
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <input type="hidden" name="to" value="cancelled" />
+                        <ConfirmSubmit
+                          message={`Cancel order #${String(order.orderNumber)}? The guest is told it was called off, and this cannot be undone.`}
+                          pendingLabel="…"
+                          confirmLabel="Yes, cancel order"
+                          cancelLabel="Keep order"
+                          title="Cancel order"
+                          ariaLabel={`Cancel order #${order.orderNumber}`}
+                          className="inline-flex h-8 w-8 items-center justify-center self-center text-muted hover:text-[#b3261e]"
+                        >
+                          <CircleX className="h-4 w-4" aria-hidden />
+                        </ConfirmSubmit>
+                      </form>
+                    ) : null}
                   </span>
                 </div>
                 <ul className="mt-3 flex-1 space-y-1 text-sm">
@@ -511,21 +516,23 @@ export default async function OrdersPage({
                   }).format(order.createdAt)}{" "}
                   · {formatPrice(order.totalCents, order.currency, "de")}
                 </span>
-                <form action={advanceOrderAction} className="inline">
-                  <input type="hidden" name="orderId" value={order.id} />
-                  <input type="hidden" name="to" value="cancelled" />
-                  <ConfirmSubmit
-                    message={`Cancel unpaid order #${String(order.orderNumber)}?`}
-                    pendingLabel="…"
-                    confirmLabel="Yes, cancel order"
-                    cancelLabel="Keep order"
-                    title="Cancel order"
-                    ariaLabel={`Cancel unpaid order #${order.orderNumber}`}
-                    className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#b3261e]"
-                  >
-                    <CircleX className="h-4 w-4" aria-hidden />
-                  </ConfirmSubmit>
-                </form>
+                {canCancel ? (
+                  <form action={advanceOrderAction} className="inline">
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <input type="hidden" name="to" value="cancelled" />
+                    <ConfirmSubmit
+                      message={`Cancel unpaid order #${String(order.orderNumber)}?`}
+                      pendingLabel="…"
+                      confirmLabel="Yes, cancel order"
+                      cancelLabel="Keep order"
+                      title="Cancel order"
+                      ariaLabel={`Cancel unpaid order #${order.orderNumber}`}
+                      className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#b3261e]"
+                    >
+                      <CircleX className="h-4 w-4" aria-hidden />
+                    </ConfirmSubmit>
+                  </form>
+                ) : null}
               </li>
             ))}
           </ul>

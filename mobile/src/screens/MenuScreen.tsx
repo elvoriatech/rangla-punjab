@@ -60,7 +60,11 @@ export function MenuScreen({
   onMenuChanged?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
-  const { staffToken, clearStaff } = useAuth();
+  const { staffToken, clearStaff, staffCan } = useAuth();
+  /** Only a login with the "Speisekarte bearbeiten" box (and the owner)
+   *  may change dishes; everyone else in restaurant mode sees the menu
+   *  read-only. */
+  const canEdit = staffCan("menu");
   const layout = useLayout();
   const [activeId, setActiveId] = useState<string | null>(initialCategoryId);
   const [openDish, setOpenDish] = useState<ApiItem | null>(null);
@@ -81,6 +85,12 @@ export function MenuScreen({
       setStaffCategories(null);
       return;
     }
+    if (!canEdit) {
+      // The staff menu route is behind the same box — no point asking it
+      // for a 403. The published menu, read-only, is the whole view.
+      setStaffCategories(staffViewOfGuestMenu(guestCategories.current));
+      return;
+    }
     let alive = true;
     void fetchStaffMenu(staffToken).then((res) => {
       if (!alive) return;
@@ -96,7 +106,7 @@ export function MenuScreen({
     return () => {
       alive = false;
     };
-  }, [staffToken, clearStaff, reloadKey]);
+  }, [staffToken, clearStaff, reloadKey, canEdit]);
 
   const applyItem = useCallback((next: StaffItem) => {
     setStaffCategories((current) =>
@@ -215,7 +225,7 @@ export function MenuScreen({
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <BrandHeader
-        title={staffMode || staffPending ? t.staffMenuTitle : t.categories}
+        title={(staffMode || staffPending) && canEdit ? t.staffMenuTitle : t.categories}
         onMenu={onOpenOwnerMenu}
       />
       <View style={styles.chipBar}>
@@ -258,7 +268,7 @@ export function MenuScreen({
         </ScrollView>
       </View>
 
-      {staffMode ? (
+      {staffMode && canEdit ? (
         <>
           <Text style={styles.liveHint}>{t.staffMenuLive}</Text>
           {note ? <Text style={styles.note}>{note}</Text> : null}
@@ -291,6 +301,7 @@ export function MenuScreen({
                 busy={busyId === item.id}
                 onEdit={setEditing}
                 onToggle={(target, next) => void toggleAvailable(target, next)}
+                readOnly={!canEdit}
               />
             ))
           ) : (
@@ -313,6 +324,7 @@ export function MenuScreen({
                     busy={busyId === item.id}
                     onEdit={setEditing}
                     onToggle={(target, next) => void toggleAvailable(target, next)}
+                    readOnly={!canEdit}
                   />
                 ))}
               </View>

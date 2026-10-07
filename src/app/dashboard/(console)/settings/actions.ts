@@ -277,9 +277,6 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     // Minutes a guest may cancel a CASH order; 0 = off, capped at 60 by
     // the schema, blank falls back to the default 10.
     cashCancelMinutes: parseInt(String(form.get("cashCancelMinutes") ?? ""), 10),
-    // An unchecked checkbox sends nothing at all, which is exactly the
-    // `off` we want — and off is where this one belongs by default.
-    appCancelEnabled: form.get("appCancelEnabled") === "on",
     // The promised time for an ASAP order and how long the restaurant has
     // to change it; the schema snaps each to its range, blank → default.
     etaDeliveryMinutes: parseInt(String(form.get("etaDeliveryMinutes") ?? ""), 10),

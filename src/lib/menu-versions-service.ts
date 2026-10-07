@@ -297,6 +297,10 @@ export async function ensureDraftForTenant(tenantId: string): Promise<{ ok: bool
   return asTenant(tenantId, ensureDraftInTx);
 }
 
+/** Published versions kept (the live one included); older ones are deleted
+ *  on the next publish. */
+export const KEEP_PUBLISHED_VERSIONS = 5;
+
 export async function publishDraft(userId: string): Promise<PublishResult> {
   return asUser(userId, async (tx) => {
     const draft = await tx.menuVersion.findFirst({
@@ -337,12 +341,37 @@ export async function publishDraft(userId: string): Promise<PublishResult> {
       pairSnapshotIds(draft.categories, published.categories),
     );
 
-    // Point the menu at the fresh published version. Old published versions
-    // stay on the row for history/rollback until an explicit cleanup task.
+    // Point the menu at the fresh published version.
     await tx.menu.update({
       where: { id: draft.menuId },
       data: { publishedVersion: published.id },
     });
+
+    // Every dashboard save now publishes (owner, 2026-10-07), so old
+    // published copies would pile up by the hundred. Keep the newest few for
+    // history and drop the rest — their categories, dishes and variants go
+    // with them (cascade); their translations are keyed by id without a
+    // foreign key, so they are removed by hand. Nothing else references a
+    // published dish: order lines keep their own name and price, and a
+    // basket holding an old id is mapped onto the current copy at checkout.
+    const old = await tx.menuVersion.findMany({
+      where: { menuId: draft.menuId, status: "published", id: { not: published.id } },
+      orderBy: { publishedAt: "desc" },
+      skip: KEEP_PUBLISHED_VERSIONS - 1,
+      select: { id: true },
+    });
+    if (old.length > 0) {
+      const oldIds = old.map((v) => v.id);
+      const cats = await tx.category.findMany({
+        where: { menuVersionId: { in: oldIds } },
+        select: { id: true, items: { select: { id: true } } },
+      });
+      const entityIds = cats.flatMap((c) => [c.id, ...c.items.map((i) => i.id)]);
+      if (entityIds.length > 0) {
+        await tx.translation.deleteMany({ where: { entityId: { in: entityIds } } });
+      }
+      await tx.menuVersion.deleteMany({ where: { id: { in: oldIds } } });
+    }
 
     return { ok: true, publishedVersionId: published.id, publishedAt };
   });

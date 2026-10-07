@@ -5,11 +5,11 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-aud
  * The new-order chime — the audible half of the board's "something
  * landed" signal, beside the gold highlight and the buzz.
  *
- * Why a bundled file rather than a synthesized tone: the pass is often a
+ * Why bundled files rather than a synthesized tone: the pass is often a
  * tablet on a wall bracket with no network worth trusting mid-service,
  * and React Native has no WebAudio to synthesize with the way the
- * kitchen-display page does. One 18 KB asset ships in the binary and
- * plays offline.
+ * kitchen-display page does. Four small assets ship in the binary and
+ * play offline; which one, and how loud, is the pass's own choice.
  *
  * Nothing here ever throws. A device with the audio route taken by a
  * phone call, a build where the native module is missing (Expo Go on a
@@ -19,6 +19,68 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-aud
  */
 
 const ENABLED_KEY = "rangla-new-order-sound";
+const CHOICE_KEY = "rangla-new-order-sound-choice";
+const VOLUME_KEY = "rangla-new-order-sound-volume";
+
+/**
+ * The tones the pass can pick from (owner, 2026-10-07: "should be louder,
+ * and let us choose"). All four are mastered loud — the original bell sat
+ * at −16 dBFS average; these sit between −10 and −4 — and the bell comes
+ * once or three times for a kitchen that does not hear the first ring.
+ */
+export const ORDER_SOUNDS = ["bell", "bell3", "dingdong", "alarm"] as const;
+export type OrderSound = (typeof ORDER_SOUNDS)[number];
+
+const SOUND_FILES: Record<OrderSound, number> = {
+  bell: require("../assets/sounds/order-bell.m4a"),
+  bell3: require("../assets/sounds/order-bell3.m4a"),
+  dingdong: require("../assets/sounds/order-dingdong.m4a"),
+  alarm: require("../assets/sounds/order-alarm.m4a"),
+};
+
+/** The three-ring bell is the default: loud, and long enough to hear
+ *  over a kitchen. */
+export const DEFAULT_ORDER_SOUND: OrderSound = "bell3";
+
+/** Volume steps offered on the board, as fractions of the device volume. */
+export const ORDER_VOLUMES = [0.25, 0.5, 0.75, 1] as const;
+
+export async function getOrderSound(): Promise<OrderSound> {
+  try {
+    const v = await AsyncStorage.getItem(CHOICE_KEY);
+    return (ORDER_SOUNDS as readonly string[]).includes(v ?? "")
+      ? (v as OrderSound)
+      : DEFAULT_ORDER_SOUND;
+  } catch {
+    return DEFAULT_ORDER_SOUND;
+  }
+}
+
+export async function setOrderSound(choice: OrderSound): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CHOICE_KEY, choice);
+  } catch {
+    // Honoured for this session even if it cannot be kept.
+  }
+}
+
+/** 0–1, default full: the device's own volume is the ceiling anyway. */
+export async function getOrderVolume(): Promise<number> {
+  try {
+    const v = Number(await AsyncStorage.getItem(VOLUME_KEY));
+    return Number.isFinite(v) && v > 0 && v <= 1 ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+
+export async function setOrderVolume(volume: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(VOLUME_KEY, String(volume));
+  } catch {
+    // Same as above.
+  }
+}
 
 /** Default ON, unlike auto-print: a sound costs nothing and un-missing
  *  an order is the whole point of the board. Only an explicit "0"
@@ -62,10 +124,11 @@ const SILENT: Chime = { play: () => {}, release: () => {} };
  * all; `mixWithOthers` means the kitchen's radio keeps playing rather
  * than being ducked or stopped by a 1.5-second ding.
  */
-export function loadChime(): Chime {
+export function loadChime(choice: OrderSound = DEFAULT_ORDER_SOUND, volume = 1): Chime {
   let player: AudioPlayer;
   try {
-    player = createAudioPlayer(require("../assets/sounds/new-order.mp3"));
+    player = createAudioPlayer(SOUND_FILES[choice] ?? SOUND_FILES[DEFAULT_ORDER_SOUND]);
+    player.volume = Math.max(0, Math.min(1, volume));
   } catch {
     return SILENT;
   }

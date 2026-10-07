@@ -122,8 +122,12 @@ export function BrandHeader({
   rating,
   points,
   onPoints,
+  start,
 }: {
   title: string;
+  /** Replaces the mascot in the start corner — the order board's
+   *  reservations bubble. Ignored when `onBack` is set. */
+  start?: React.ReactNode;
   /**
    * Set the title in the venue's own STICKER lettering (lime, outlined —
    * `CartoonTitle`) instead of the app's heading face.
@@ -185,6 +189,8 @@ export function BrandHeader({
                 color={colors.onRed}
               />
             </Pressable>
+          ) : start ? (
+            start
           ) : (
             <Image source={LOGO_CUTOUT} style={styles.headerLogo} resizeMode="contain" />
           )}

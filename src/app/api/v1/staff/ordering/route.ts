@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { getStaffOrdering, updateStaffOrdering } from "@/lib/staff-menu-service";
+import { staffCan } from "@/lib/staff-auth";
 import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
 
 /**
@@ -21,20 +22,21 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * setting — an owner switch the app draws and can change on the spot —
  * and because the dashboard's Settings form writes the identical key.
  *
- * `appCancelEnabled` is READ-ONLY here, and that is the whole point of it:
- * the GET reports it so the app can say "cancelling is switched off" instead
- * of drawing a dead button, but the PATCH body has no such key (unknown keys
- * are stripped, so sending one changes nothing). Cancelling is terminal and
- * gets tapped by accident on a phone carried through a service, so arming it
- * is a decision the owner makes in the web dashboard — never one the app can
- * make for itself. Enforcement of the switch lives on
+ * `appCancelEnabled` is READ-ONLY and answers "may this login cancel
+ * orders?": always for the owner, for a team member only with the "Cancel
+ * orders" box (owner, 2026-10-07). Enforcement lives on
  * `POST /api/v1/staff/orders/{id}/status` (409 `cancel_disabled`).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const gate = await requireStaff(req);
   if (!gate.ok) return gate.response;
 
-  const ordering = await getStaffOrdering(gate.staff.tenantId);
+  // "May THIS login cancel?" — the owner always, a team member with the
+  // "Cancel orders" box. The stored venue switch no longer decides it.
+  const ordering = {
+    ...(await getStaffOrdering(gate.staff.tenantId)),
+    appCancelEnabled: staffCan(gate.staff, "cancel"),
+  };
   return withCors(NextResponse.json({ ok: true, ordering }, { headers: STAFF_NO_STORE }));
 }
 
@@ -54,7 +56,13 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     );
   }
   return withCors(
-    NextResponse.json({ ok: true, ordering: result.value }, { headers: STAFF_NO_STORE }),
+    NextResponse.json(
+      {
+        ok: true,
+        ordering: { ...result.value, appCancelEnabled: staffCan(gate.staff, "cancel") },
+      },
+      { headers: STAFF_NO_STORE },
+    ),
   );
 }
 

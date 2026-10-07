@@ -9,6 +9,7 @@ import {
   reorderCategories,
   setCategoryPhoto,
 } from "@/lib/categories-service";
+import { publishAfterEdit } from "@/lib/menu-autopublish";
 import { publishDraft } from "@/lib/menu-versions-service";
 import { saveUploadedImage } from "@/lib/media-service";
 import { requirePermission } from "@/lib/team-access";
@@ -47,6 +48,7 @@ export async function addCategoryAction(form: FormData): Promise<void> {
   const parsed = createSchema.safeParse({ name: form.get("name"), photoMediaId });
   if (!parsed.success) return;
   await createCategory(userId, parsed.data);
+  await publishAfterEdit(userId);
   revalidatePath(path, "page");
 }
 
@@ -58,6 +60,7 @@ export async function setCategoryPhotoAction(form: FormData): Promise<void> {
 
   if (form.get("remove") === "1") {
     await setCategoryPhoto(userId, id, null);
+    await publishAfterEdit(userId);
     revalidatePath(path);
     redirect(`${path}?saved=photo`);
   }
@@ -67,6 +70,7 @@ export async function setCategoryPhotoAction(form: FormData): Promise<void> {
   const saved = await saveUploadedImage(userId, photo, `category-${id}`);
   if (!saved.ok) redirect(`${path}?error=photo`);
   const result = await setCategoryPhoto(userId, id, saved.mediaId);
+  if (result.ok) await publishAfterEdit(userId);
   revalidatePath(path);
   redirect(result.ok ? `${path}?saved=photo` : `${path}?error=photo`);
 }
@@ -76,6 +80,7 @@ export async function deleteCategoryAction(form: FormData): Promise<void> {
   const id = String(form.get("id") ?? "");
   if (!id) return;
   await deleteCategory(userId, id);
+  await publishAfterEdit(userId);
   revalidatePath(path, "page");
 }
 
@@ -101,6 +106,7 @@ export async function moveCategoryAction(form: FormData): Promise<void> {
   if (target < 0 || target >= ids.length) return;
   [ids[idx], ids[target]] = [ids[target]!, ids[idx]!];
   await reorderCategories(userId, { orderedIds: ids });
+  await publishAfterEdit(userId);
   revalidatePath(path, "page");
 }
 
@@ -130,6 +136,7 @@ export async function applyTemplateAction(form: FormData): Promise<void> {
   const key = String(form.get("templateKey") ?? "");
   const { applyTemplateToDraft } = await import("@/lib/menu-template-service");
   const result = await applyTemplateToDraft(userId, key);
+  if (result.ok) await publishAfterEdit(userId);
   const { venueAdminBase } = await import("@/lib/venue-service");
   const base = (await venueAdminBase(userId)) ?? "/dashboard";
   revalidatePath("/dashboard/categories", "page");

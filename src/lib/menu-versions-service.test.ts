@@ -6,7 +6,13 @@ import { completeOnboarding, saveStep1, saveStep2, saveStep3 } from "./onboardin
 import { asTenant, asUser } from "./tenant";
 import { createCategory, renameCategory } from "./categories-service";
 import { createItem, updateItem } from "./items-service";
-import { ensureDraft, getMenuStatus, publishDraft } from "./menu-versions-service";
+import {
+  ensureDraft,
+  getMenuStatus,
+  KEEP_PUBLISHED_VERSIONS,
+  publishDraft,
+} from "./menu-versions-service";
+import { placeOrder } from "./order-service";
 import { resolvePreviewContext } from "./preview-context";
 import { loadPublicMenu } from "./public-menu";
 
@@ -39,6 +45,8 @@ describe("draft/publish workflow", () => {
 
   afterEach(async () => {
     for (const tid of createdTenantIds) {
+      await asTenant(tid, (tx) => tx.orderItem.deleteMany({}));
+      await asTenant(tid, (tx) => tx.order.deleteMany({}));
       await asTenant(tid, (tx) => tx.translation.deleteMany({}));
       await asTenant(tid, (tx) => tx.itemVariant.deleteMany({}));
       await asTenant(tid, (tx) => tx.item.deleteMany({}));
@@ -57,6 +65,62 @@ describe("draft/publish workflow", () => {
     }
     createdUserIds.length = 0;
     createdTenantIds.length = 0;
+  });
+
+  it("keeps only the newest published versions — every dashboard save now publishes", async () => {
+    const { userId, categoryId } = await onboardedUserWithMenu();
+    await createItem(userId, { categoryId, name: "Risotto", priceCents: 1800, variants: [] });
+    for (let i = 0; i < KEEP_PUBLISHED_VERSIONS + 3; i += 1) {
+      const r = await publishDraft(userId);
+      expect(r.ok).toBe(true);
+    }
+    const versions = await asUser(userId, (tx) =>
+      tx.menuVersion.findMany({ where: { status: "published" }, select: { id: true } }),
+    );
+    expect(versions).toHaveLength(KEEP_PUBLISHED_VERSIONS);
+    // The live one is among them, with its dish.
+    const status = await getMenuStatus(userId);
+    expect(versions.map((v) => v.id)).toContain(status.publishedVersionId);
+    const live = await asUser(userId, (tx) =>
+      tx.item.findMany({
+        where: { category: { menuVersionId: status.publishedVersionId! } },
+        select: { name: true },
+      }),
+    );
+    expect(live.map((i) => i.name)).toEqual(["Risotto"]);
+  });
+
+  it("an order still placed with a dish id from before the last publish goes through", async () => {
+    const { userId, tenantId, categoryId } = await onboardedUserWithMenu();
+    await createItem(userId, { categoryId, name: "Dal", priceCents: 1200, variants: [] });
+    await asTenant(tenantId, (tx) => tx.tenant.updateMany({ data: { plan: "scale" } }));
+    const first = await publishDraft(userId);
+    if (!first.ok) throw new Error("publish failed");
+    const venue = await asTenant(tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { id: true } }),
+    );
+    // The guest's basket was filled from THIS version…
+    const oldItem = await asUser(userId, (tx) =>
+      tx.item.findFirstOrThrow({
+        where: { category: { menuVersionId: first.publishedVersionId } },
+        select: { id: true },
+      }),
+    );
+    // …and the owner saved something in the meantime.
+    const second = await publishDraft(userId);
+    if (!second.ok) throw new Error("publish failed");
+
+    const placed = await placeOrder(
+      { tenantId, venueId: venue.id, publishedVersionId: second.publishedVersionId },
+      { orderType: "dine_in", tableNumber: "5", items: [{ itemId: oldItem.id, quantity: 2 }] },
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const lines = await asTenant(tenantId, (tx) =>
+      tx.orderItem.findMany({ where: { orderId: placed.value.orderId } }),
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ name: "Dal", quantity: 2 });
   });
 
   it("publish snapshots the draft into a new version and stamps published_at", async () => {

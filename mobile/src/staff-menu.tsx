@@ -82,11 +82,16 @@ export function StaffDishRow({
   busy,
   onEdit,
   onToggle,
+  readOnly = false,
 }: {
   item: StaffItem;
   /** A toggle is in flight — the switch is the thing waiting, so it is
    *  the thing that goes quiet. */
   busy?: boolean;
+  /** A team login without the "Speisekarte bearbeiten" box: the dish is
+   *  shown, but there is no pencil and no switch — the server would refuse
+   *  the save anyway, and a control that silently fails is worse than none. */
+  readOnly?: boolean;
   onEdit: (item: StaffItem) => void;
   onToggle: (item: StaffItem, next: boolean) => void;
 }): React.ReactElement {
@@ -135,25 +140,27 @@ export function StaffDishRow({
       {/* The owner's two controls, at the END of the row where the
           guest's "+" sits. Outside the dimmed body: a sold-out dish is
           exactly when its switch has to be legible. */}
-      <View style={styles.controls}>
-        <Pressable
-          onPress={() => onEdit(item)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={`${t.staffEditDish} — ${item.name}`}
-          style={({ pressed }) => [styles.pencil, pressed && { opacity: 0.6 }]}
-        >
-          <Ionicons name="pencil" size={17} color={colors.red} />
-        </Pressable>
-        <Switch
-          value={item.isAvailable}
-          onValueChange={(next) => onToggle(item, next)}
-          disabled={busy}
-          accessibilityLabel={`${t.staffAvailable} — ${item.name}`}
-          trackColor={{ false: colors.line, true: colors.red }}
-          thumbColor={colors.cream}
-        />
-      </View>
+      {readOnly ? null : (
+        <View style={styles.controls}>
+          <Pressable
+            onPress={() => onEdit(item)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.staffEditDish} — ${item.name}`}
+            style={({ pressed }) => [styles.pencil, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="pencil" size={17} color={colors.red} />
+          </Pressable>
+          <Switch
+            value={item.isAvailable}
+            onValueChange={(next) => onToggle(item, next)}
+            disabled={busy}
+            accessibilityLabel={`${t.staffAvailable} — ${item.name}`}
+            trackColor={{ false: colors.line, true: colors.red }}
+            thumbColor={colors.cream}
+          />
+        </View>
+      )}
     </View>
   );
 }

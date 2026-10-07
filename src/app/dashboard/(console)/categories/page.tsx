@@ -61,10 +61,7 @@ export default async function CategoriesPage({
       </p>
 
       {saved === "photo" ? (
-        <FlashMessage
-          kind="success"
-          text="Category photo saved. Publish the menu to show it to guests."
-        />
+        <FlashMessage kind="success" text="Category photo saved — guests see it now." />
       ) : null}
       {error === "photo" ? (
         <FlashMessage
@@ -85,8 +82,7 @@ export default async function CategoriesPage({
                 : "Not published yet"}
             </p>
             <p className="text-xs text-brand-green/60">
-              Guests see only what you publish. Draft edits are private until then — use{" "}
-              <span className="font-medium">Publish</span> in the sidebar to make them live.
+              Every save goes live for guests straight away — no separate publish step.
             </p>
           </section>
 

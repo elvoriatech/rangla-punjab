@@ -177,7 +177,7 @@ export default async function CategoryDetailPage({
           kind={translationFlash === "saved" ? "success" : "error"}
           text={
             translationFlash === "saved"
-              ? "Translations saved. Publish the menu to make them live for guests."
+              ? "Translations saved and live for guests."
               : "Translations were not saved — reload the page and try again."
           }
         />
@@ -191,10 +191,7 @@ export default async function CategoryDetailPage({
           }
         />
       ) : saved ? (
-        <FlashMessage
-          kind="success"
-          text="Item saved. Publish the menu to make it live for guests."
-        />
+        <FlashMessage kind="success" text="Item saved — guests see it now." />
       ) : null}
 
       <form
@@ -572,7 +569,7 @@ export default async function CategoryDetailPage({
         <form action={translationsAction} className="mt-2 space-y-4">
           <p className="text-sm text-brand-green/70">
             Leave a field empty and guests reading in that language see the {defaultLocaleLabel}{" "}
-            text instead. Translations go live with the next publish.
+            text instead. Translations go live as soon as you save.
           </p>
           {translations.locales.translatable.map((locale) => {
             const meta = localeEntry(locale);

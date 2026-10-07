@@ -1,3 +1,4 @@
+import { useKeepAwake } from "expo-keep-awake";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -155,6 +156,19 @@ interface TrackTarget {
   /** Open the order's problem thread with the screen: the guest asked
    *  for it from the orders list, not from the tracking view. */
   issue?: boolean;
+}
+
+/**
+ * Holds the screen on for as long as it is mounted (owner, 2026-10-07: "as
+ * long as the app is open the screen should stay on, even 24 h"). Mounted
+ * for the whole restaurant session — every tab, every sheet — not just the
+ * board, which is where it used to live: a pass phone left on the menu or
+ * on Reservations went dark and missed the next order. A guest's phone
+ * never mounts it.
+ */
+function RestaurantKeepAwake(): null {
+  useKeepAwake();
+  return null;
 }
 
 function Shell(): React.ReactElement {
@@ -602,6 +616,7 @@ function Shell(): React.ReactElement {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
+      {restaurant ? <RestaurantKeepAwake /> : null}
       {/* Remounted on every language change. Screens keep menu-derived
           snapshots of their own — the open dish sheet, a chip row, a
           scroll offset measured against the old names — and a switch is
@@ -663,7 +678,12 @@ function Shell(): React.ReactElement {
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
         {menuCurrent && tab === "board" && restaurant && canBoard ? (
-          <BoardScreen refreshKey={boardRefresh} onOpenOwnerMenu={() => setOwnerMenu(true)} />
+          <BoardScreen
+            refreshKey={boardRefresh}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+            onOpenReservations={() => setTab("reservations")}
+            onOpenCatering={() => setTab("cateringowner")}
+          />
         ) : null}
         {menuCurrent && tab === "loyalty" && restaurant ? (
           <LoyaltyStaffScreen

@@ -9,6 +9,7 @@ import {
   saveCategoryTranslations,
   type SaveCategoryTranslationsInput,
 } from "@/lib/translation-service";
+import { publishAfterEdit } from "@/lib/menu-autopublish";
 import { requirePermission } from "@/lib/team-access";
 
 async function requireUser(): Promise<string> {
@@ -65,6 +66,7 @@ export async function addItemAction(categoryId: string, form: FormData): Promise
     photoMediaId,
     variants: [],
   });
+  await publishAfterEdit(userId);
   revalidatePath("/dashboard/categories/[id]", "page");
   if (photoError) redirect(`/dashboard/categories/${categoryId}?saved=1&photo=${photoError}`);
 }
@@ -131,6 +133,7 @@ export async function updateItemAction(categoryId: string, form: FormData): Prom
     offerStartsAt,
     offerEndsAt,
   });
+  await publishAfterEdit(userId);
   revalidatePath("/dashboard/categories/[id]", "page");
   redirect(
     `/dashboard/categories/${categoryId}?saved=1${photoError ? `&photo=${photoError}` : ""}`,
@@ -169,6 +172,7 @@ export async function saveTranslationsAction(categoryId: string, form: FormData)
     category,
     items: [...items.values()],
   });
+  if (result.ok) await publishAfterEdit(userId);
   revalidatePath("/dashboard/categories/[id]", "page");
   redirect(
     `/dashboard/categories/${categoryId}?translations=${result.ok ? "saved" : "error"}#translations`,
@@ -180,5 +184,6 @@ export async function deleteItemAction(categoryId: string, form: FormData): Prom
   const id = String(form.get("id") ?? "");
   if (!id) return;
   await softDeleteItem(userId, id);
+  await publishAfterEdit(userId);
   revalidatePath("/dashboard/categories/[id]", "page");
 }

@@ -15,7 +15,6 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useKeepAwake } from "expo-keep-awake";
 import { useAuth } from "../auth";
 import type { StaffOrder } from "../staff";
 import {
@@ -30,6 +29,7 @@ import {
 import { BrandHeader } from "../components";
 import { IssueSheet } from "../issue-sheet";
 import { DeleteOrderSheet } from "../delete-order-sheet";
+import { RequestCard, RequestsBubble, RequestsSheet, useRequests } from "../requests";
 import type { PrintOutcome } from "../print";
 import {
   baselinePrinted,
@@ -39,7 +39,19 @@ import {
   setAutoPrintOn,
 } from "../print";
 import type { Chime } from "../sound";
-import { isNewOrderSoundOn, loadChime, setNewOrderSoundOn } from "../sound";
+import type { OrderSound } from "../sound";
+import {
+  DEFAULT_ORDER_SOUND,
+  getOrderSound,
+  getOrderVolume,
+  isNewOrderSoundOn,
+  loadChime,
+  ORDER_SOUNDS,
+  ORDER_VOLUMES,
+  setNewOrderSoundOn,
+  setOrderSound,
+  setOrderVolume,
+} from "../sound";
 import { useLayout } from "../layout";
 import { venueTimezone } from "../hours";
 import { colors, fonts, money, radius } from "../theme";
@@ -159,7 +171,12 @@ function isToday(iso: string): boolean {
 export function BoardScreen({
   refreshKey = 0,
   onOpenOwnerMenu,
+  onOpenReservations,
+  onOpenCatering,
 }: {
+  /** The full Reservations / Catering screens, from the bubble's popup. */
+  onOpenReservations?: () => void;
+  onOpenCatering?: () => void;
   /** Changes when something OUTSIDE this screen knows the board is stale
    *  — today that is a push landing while the app is open (P7-11). The
    *  value itself means nothing; only that it changed. */
@@ -173,9 +190,12 @@ export function BoardScreen({
   /** Only the owner deletes a cancelled order (as on the dashboard). */
   const isOwner = staffCan("owner");
   const [deleting, setDeleting] = useState<{ id: string; orderNumber: number } | null>(null);
-  // A board nobody can read is no board: hold the screen on while it is
-  // the visible tab, and release it the moment it isn't.
-  useKeepAwake();
+  /** Table and catering requests ride on the board too (owner, 2026-10-07). */
+  const requests = useRequests(refreshKey);
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  const showRequests = staffCan("reservations") || staffCan("catering");
+  // The screen is held on for the whole restaurant session by
+  // `RestaurantKeepAwake` in App.tsx, not just while this tab is up.
   // Two columns on a tablet, three on a big one, one on a phone — and it
   // follows a rotation without anything having to be invalidated.
   const layout = useLayout();
@@ -222,6 +242,12 @@ export function BoardScreen({
    * order nobody noticed is the failure this board exists to prevent.
    */
   const [sound, setSound] = useState(true);
+  /** Which tone and how loud — this device's own choice, kept across restarts. */
+  const [soundChoice, setSoundChoice] = useState<OrderSound>(DEFAULT_ORDER_SOUND);
+  const [volume, setVolume] = useState(1);
+  /** The tone/volume pickers are folded into one summary line until
+   *  tapped, so they don't push the orders down the screen. */
+  const [soundOpen, setSoundOpen] = useState(false);
   const soundRef = useRef(true);
   soundRef.current = sound;
   /** Printing talks back in one line above the board rather than on a
@@ -394,6 +420,12 @@ export function BoardScreen({
     void isNewOrderSoundOn().then((on) => {
       if (alive) setSound(on);
     });
+    void getOrderSound().then((choice) => {
+      if (alive) setSoundChoice(choice);
+    });
+    void getOrderVolume().then((v) => {
+      if (alive) setVolume(v);
+    });
     return () => {
       alive = false;
     };
@@ -412,13 +444,15 @@ export function BoardScreen({
    */
   useEffect(() => {
     if (!staffToken) return;
-    const chime = loadChime();
+    // Re-loaded when the tone or volume changes, so the next order (and
+    // the Test button) rings with what was just picked.
+    const chime = loadChime(soundChoice, volume);
     chimeRef.current = chime;
     return () => {
       chimeRef.current = null;
       chime.release();
     };
-  }, [staffToken]);
+  }, [staffToken, soundChoice, volume]);
 
   useEffect(
     () => () => {
@@ -530,10 +564,37 @@ export function BoardScreen({
    * is a shared room, and a switch that dings every time someone brushes
    * it is a switch that gets turned off for good.
    */
+  // A new table or catering request rings like a new order does.
+  useEffect(() => {
+    if (requests.arrivals.length === 0) return;
+    if (soundRef.current) chimeRef.current?.play();
+  }, [requests.arrivals]);
+
   const toggleSound = useCallback((next: boolean): void => {
     setSound(next);
     void setNewOrderSoundOn(next);
   }, []);
+
+  /** Picking a tone plays it once, so the pass hears what it chose. */
+  const pickSound = useCallback((choice: OrderSound): void => {
+    setSoundChoice(choice);
+    void setOrderSound(choice);
+    previewRef.current = true;
+  }, []);
+  const pickVolume = useCallback((v: number): void => {
+    setVolume(v);
+    void setOrderVolume(v);
+    previewRef.current = true;
+  }, []);
+  /** Set by a pick; the freshly loaded player rings once when it lands. */
+  const previewRef = useRef(false);
+  useEffect(() => {
+    if (!previewRef.current) return;
+    previewRef.current = false;
+    // Give the new player a moment to decode before it is asked to play.
+    const timer = setTimeout(() => chimeRef.current?.play(), 250);
+    return () => clearTimeout(timer);
+  }, [soundChoice, volume]);
 
   const toggleCard = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -1089,7 +1150,19 @@ export function BoardScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <BrandHeader title={t.boardTitle} onMenu={onOpenOwnerMenu} />
+      <BrandHeader
+        title={t.boardTitle}
+        onMenu={onOpenOwnerMenu}
+        start={
+          showRequests ? (
+            <RequestsBubble
+              count={requests.upcoming.length}
+              urgent={requests.pending.length > 0}
+              onPress={() => setRequestsOpen(true)}
+            />
+          ) : undefined
+        }
+      />
       <ScrollView
         contentContainerStyle={{ padding: layout.pad, gap: 12, paddingBottom: 32 }}
         refreshControl={
@@ -1125,7 +1198,106 @@ export function BoardScreen({
               thumbColor={colors.cream}
             />
           </View>
+          {sound && !soundOpen ? (
+            <Pressable
+              onPress={() => setSoundOpen(true)}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.soundSummary, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons name="volume-high-outline" size={16} color={colors.inkSoft} />
+              <Text style={styles.soundSummaryText}>
+                {t.boardSoundTone}: {(t.boardSoundNames as Record<string, string>)[soundChoice]} ·{" "}
+                {Math.round(volume * 100)}%
+              </Text>
+              <Text style={styles.soundChange}>{t.staffResChange}</Text>
+            </Pressable>
+          ) : null}
+          {sound && soundOpen ? (
+            <View style={styles.soundBox}>
+              <Text style={styles.soundLabel}>{t.boardSoundTone}</Text>
+              <View style={styles.chipRow}>
+                {ORDER_SOUNDS.map((choice) => {
+                  const on = choice === soundChoice;
+                  return (
+                    <Pressable
+                      key={choice}
+                      onPress={() => pickSound(choice)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
+                      style={[styles.soundChip, on && styles.soundChipOn]}
+                    >
+                      <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
+                        {(t.boardSoundNames as Record<string, string>)[choice] ?? choice}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.soundLabel}>{t.boardSoundVolume}</Text>
+              <View style={styles.chipRow}>
+                {ORDER_VOLUMES.map((v) => {
+                  const on = Math.abs(v - volume) < 0.01;
+                  return (
+                    <Pressable
+                      key={v}
+                      onPress={() => pickVolume(v)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
+                      style={[styles.soundChip, on && styles.soundChipOn]}
+                    >
+                      <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
+                        {Math.round(v * 100)}%
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable
+                  onPress={() => chimeRef.current?.play()}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.boardSoundTest}
+                  style={({ pressed }) => [styles.testChip, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name="volume-high" size={16} color={colors.onRed} />
+                  <Text style={styles.testChipText}>{t.boardSoundTest}</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.switchHint}>{t.boardSoundHint}</Text>
+              <Pressable
+                onPress={() => setSoundOpen(false)}
+                accessibilityRole="button"
+                hitSlop={8}
+                style={{ alignSelf: "flex-end" }}
+              >
+                <Text style={styles.soundChange}>{t.close}</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
+
+        {/* Unanswered table and catering requests sit where new orders
+            land, above them; once answered they leave the board and live
+            on their own screens. */}
+        {requests.pending.length > 0 ? (
+          <View style={{ gap: layout.gap }}>
+            <Text style={styles.requestsHeading}>
+              {t.boardRequestsTitle} · {requests.pending.length}
+            </Text>
+            <View style={gridStyle}>
+              {requests.pending.map((r) => (
+                <View
+                  key={`${r.kind}:${r.id}`}
+                  style={layout.cardWidth ? { width: layout.cardWidth } : null}
+                >
+                  <RequestCard
+                    request={r}
+                    busy={requests.busyId === r.id}
+                    onAnswer={(status) => void requests.answer(r, status)}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {open.length === 0 ? (
           loaded ? (
@@ -1156,6 +1328,13 @@ export function BoardScreen({
         // Replying or resolving changes the card's pill: re-read the
         // board rather than patching one order in place.
         onChanged={() => void load("full")}
+      />
+      <RequestsSheet
+        visible={requestsOpen}
+        upcoming={requests.upcoming}
+        onClose={() => setRequestsOpen(false)}
+        onOpenTables={onOpenReservations}
+        onOpenCatering={onOpenCatering}
       />
       <DeleteOrderSheet
         order={deleting}
@@ -1346,6 +1525,48 @@ const styles = StyleSheet.create({
    *  separates them — a hairline, not a gap, so the card stays compact
    *  enough to sit above the board rather than in front of it. */
   switchRowNext: { borderTopWidth: 1, borderTopColor: colors.line },
+  requestsHeading: {
+    color: colors.inkSoft,
+    ...fonts.bodyBold,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  soundBox: { gap: 6, paddingBottom: 10 },
+  soundSummary: { flexDirection: "row", alignItems: "center", gap: 6, paddingBottom: 10 },
+  soundSummaryText: { flex: 1, color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12.5 },
+  soundChange: {
+    color: colors.red,
+    ...fonts.bodyBold,
+    fontSize: 12.5,
+    textDecorationLine: "underline",
+  },
+  soundLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 12 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  soundChip: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.pill,
+    backgroundColor: colors.cream,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    minHeight: 34,
+    justifyContent: "center",
+  },
+  soundChipOn: { backgroundColor: colors.red, borderColor: colors.red },
+  soundChipText: { color: colors.ink, ...fonts.bodySemi, fontSize: 13 },
+  soundChipTextOn: { color: colors.onRed, ...fonts.bodyBold },
+  testChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.red,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    minHeight: 34,
+  },
+  testChipText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 13 },
   switchHint: {
     color: colors.inkSoft,
     ...fonts.body,

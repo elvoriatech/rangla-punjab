@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { deleteCancelledOrder } from "@/lib/order-delete-service";
 import { acceptOrderWithEta, advanceOrderStatus, markOrderDone } from "@/lib/order-service";
 import { replyToIssue, resolveIssue } from "@/lib/issue-service";
-import { requirePermission } from "@/lib/team-access";
+import { can, getAccess, requirePermission } from "@/lib/team-access";
 
 export async function markDoneAction(form: FormData): Promise<void> {
   const userId = await requirePermission("orders");
@@ -22,6 +22,9 @@ export async function advanceOrderAction(form: FormData): Promise<void> {
 
   const orderId = String(form.get("orderId") ?? "");
   const to = String(form.get("to") ?? "");
+  // Cancelling is its own box (owner, 2026-10-07): the owner always may,
+  // a team member only with "Cancel orders" ticked — same rule as the app.
+  if (to === "cancelled" && !can(await getAccess(userId), "cancel")) return;
   if (orderId && to) await advanceOrderStatus(userId, orderId, to);
   revalidatePath("/dashboard/orders", "page");
   revalidatePath("/kitchen", "page");
