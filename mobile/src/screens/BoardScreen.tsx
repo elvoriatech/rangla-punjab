@@ -30,6 +30,8 @@ import { BrandHeader } from "../components";
 import { IssueSheet } from "../issue-sheet";
 import { DeleteOrderSheet } from "../delete-order-sheet";
 import { RequestCard, RequestsBubble, RequestsSheet, useRequests } from "../requests";
+import { BtPrinterSheet } from "../bt-printer-sheet";
+import { btPrintingAvailable } from "../../modules/bt-printer";
 import type { PrintOutcome } from "../print";
 import {
   baselinePrinted,
@@ -37,7 +39,9 @@ import {
   isAutoPrintOn,
   printTicket,
   setAutoPrintOn,
+  getBtPrinter,
 } from "../print";
+import type { BtPrinterChoice } from "../print";
 import type { Chime } from "../sound";
 import type { OrderSound } from "../sound";
 import {
@@ -245,6 +249,13 @@ export function BoardScreen({
   /** Which tone and how loud — this device's own choice, kept across restarts. */
   const [soundChoice, setSoundChoice] = useState<OrderSound>(DEFAULT_ORDER_SOUND);
   const [volume, setVolume] = useState(1);
+  /** This device's Bluetooth receipt printer (Android) — prints with no dialog. */
+  const canBt = Platform.OS === "android" && btPrintingAvailable();
+  const [btPrinter, setBtPrinterState] = useState<BtPrinterChoice | null>(null);
+  const [btSheet, setBtSheet] = useState(false);
+  useEffect(() => {
+    if (canBt) void getBtPrinter().then(setBtPrinterState);
+  }, [canBt]);
   /** The tone/volume pickers are folded into one summary line until
    *  tapped, so they don't push the orders down the screen. */
   const [soundOpen, setSoundOpen] = useState(false);
@@ -1200,6 +1211,31 @@ export function BoardScreen({
             />
           </View>
           {autoPrint ? <Text style={styles.switchHint}>{t.boardAutoPrintHint}</Text> : null}
+          {canBt ? (
+            <Pressable
+              onPress={() => setBtSheet(true)}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.soundSummary, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons
+                name="bluetooth"
+                size={16}
+                color={btPrinter ? colors.red : colors.inkSoft}
+              />
+              <Text style={styles.soundSummaryText}>
+                {t.btPrinter}:{" "}
+                {btPrinter ? `${btPrinter.name} · ${btPrinter.paper} mm` : t.btPrinterNone}
+              </Text>
+              <Text style={styles.soundChange}>
+                {btPrinter ? t.staffResChange : t.btPrinterChoose}
+              </Text>
+            </Pressable>
+          ) : null}
+          {autoPrint && Platform.OS === "android" && !btPrinter ? (
+            <Text style={[styles.switchHint, { color: colors.danger }]}>
+              {t.boardAutoPrintDialogHint}
+            </Text>
+          ) : null}
           <View style={[styles.switchRow, styles.switchRowNext]}>
             <Text style={styles.switchLabel}>{t.boardSound}</Text>
             <Switch
@@ -1341,6 +1377,14 @@ export function BoardScreen({
         // board rather than patching one order in place.
         onChanged={() => void load("full")}
       />
+      {canBt ? (
+        <BtPrinterSheet
+          visible={btSheet}
+          current={btPrinter}
+          onClose={() => setBtSheet(false)}
+          onChanged={setBtPrinterState}
+        />
+      ) : null}
       <RequestsSheet
         visible={requestsOpen}
         upcoming={requests.upcoming}

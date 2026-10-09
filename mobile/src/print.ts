@@ -1,7 +1,8 @@
 import { Platform } from "react-native";
 import * as Print from "expo-print";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fetchStaffTicketHtml } from "./staff";
+import { btPrint, btPrintingAvailable } from "../modules/bt-printer";
+import { fetchStaffTicketEscPos, fetchStaffTicketHtml } from "./staff";
 
 /**
  * Kitchen tickets, printed from the phone or tablet on the pass.
@@ -74,8 +75,79 @@ function printInBrowser(html: string): PrintOutcome {
   return "ok";
 }
 
-/** Fetch one order's ticket and put it in front of a printer. */
+/* ------------------------------------------------------------------ *
+ * Bluetooth receipt printer (Android).
+ *
+ * The phone's own print dialog always needs a tap, so a new order can
+ * never print by itself through it. A receipt printer paired over
+ * Bluetooth is spoken to directly instead (`modules/bt-printer`): no
+ * dialog, and auto-print really is automatic (owner, 2026-10-09). The
+ * choice is this device's own, like the auto-print switch.
+ * ------------------------------------------------------------------ */
+
+const BT_PRINTER_KEY = "rangla-bt-printer";
+
+export interface BtPrinterChoice {
+  name: string;
+  address: string;
+  paper: 58 | 80;
+}
+
+export async function getBtPrinter(): Promise<BtPrinterChoice | null> {
+  try {
+    const raw = await AsyncStorage.getItem(BT_PRINTER_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Partial<BtPrinterChoice>;
+    if (typeof p.address !== "string" || !p.address) return null;
+    return { name: p.name || p.address, address: p.address, paper: p.paper === 58 ? 58 : 80 };
+  } catch {
+    return null;
+  }
+}
+
+export async function setBtPrinter(choice: BtPrinterChoice | null): Promise<void> {
+  try {
+    if (choice) await AsyncStorage.setItem(BT_PRINTER_KEY, JSON.stringify(choice));
+    else await AsyncStorage.removeItem(BT_PRINTER_KEY);
+  } catch {
+    // Kept for this session by the caller's state.
+  }
+}
+
+/** A short test slip, built on the device — no order needed. */
+export function testSlipBase64(): string {
+  const text =
+    "\x1b@\x1c.\x1bt\x00\x1ba\x01\x1bE\x01Rangla Punjab\n\x1bE\x00Testdruck OK\n" +
+    new Date().toLocaleString("de-DE") +
+    "\n\x1bd\x04\x1dVB\x00";
+  // Pure ASCII by construction, so btoa is safe.
+  return globalThis.btoa(text);
+}
+
+/** Send bytes to the chosen Bluetooth printer. */
+export async function printViaBluetooth(
+  printer: BtPrinterChoice,
+  base64: string,
+): Promise<PrintOutcome> {
+  const res = await btPrint(printer.address, base64);
+  return res.ok ? "ok" : "failed";
+}
+
+/** Fetch one order's ticket and put it in front of a printer — the paired
+ *  Bluetooth receipt printer when this device has one, else the phone's
+ *  print dialog. */
 export async function printTicket(staffToken: string, orderId: string): Promise<PrintOutcome> {
+  const printer = Platform.OS === "android" && btPrintingAvailable() ? await getBtPrinter() : null;
+  if (printer) {
+    const bytes = await fetchStaffTicketEscPos(staffToken, orderId, printer.paper);
+    if (!bytes.ok) {
+      if (bytes.error === "unauthorized") return "unauthorized";
+      if (bytes.error === "notfound") return "notfound";
+      if (bytes.error === "network") return "network";
+      return "failed";
+    }
+    return printViaBluetooth(printer, bytes.data);
+  }
   const res = await fetchStaffTicketHtml(staffToken, orderId);
   if (!res.ok) {
     if (res.error === "unauthorized") return "unauthorized";

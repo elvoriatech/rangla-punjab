@@ -1815,6 +1815,24 @@ export async function fetchStaffTicketHtml(
   return { ok: true, data: html };
 }
 
+/** The same ticket as raw receipt-printer (ESC/POS) bytes, base64, for the
+ *  app's Bluetooth printer. `paper` picks 58 mm (32 columns) or 80 mm. */
+export async function fetchStaffTicketEscPos(
+  token: string,
+  orderId: string,
+  paper: 58 | 80,
+): Promise<StaffResult<string>> {
+  const res = await staffFetch(
+    token,
+    `/api/v1/staff/orders/${encodeURIComponent(orderId)}/ticket?format=escpos&paper=${paper}`,
+  );
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const base64 = str(res.body.base64);
+  if (!base64) return { ok: false, error: "server" };
+  return { ok: true, data: base64 };
+}
+
 /* ------------------------------------------------------------------ *
  * The owner's own password.
  *

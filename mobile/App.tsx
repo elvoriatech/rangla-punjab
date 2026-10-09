@@ -677,13 +677,19 @@ function Shell(): React.ReactElement {
         {menuCurrent && tab === "orders" && !restaurant ? (
           <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
         ) : null}
-        {menuCurrent && tab === "board" && restaurant && canBoard ? (
-          <BoardScreen
-            refreshKey={boardRefresh}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-            onOpenReservations={() => setTab("reservations")}
-            onOpenCatering={() => setTab("cateringowner")}
-          />
+        {/* The board stays MOUNTED for the whole restaurant session and is only
+            hidden behind other tabs: its poll is what rings the bell and
+            auto-prints new orders, and staff on the Menu or Reservations
+            tab must not silently miss them (owner, 2026-10-09). */}
+        {menuCurrent && restaurant && canBoard ? (
+          <View style={tab === "board" ? { flex: 1 } : { display: "none" }}>
+            <BoardScreen
+              refreshKey={boardRefresh}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+              onOpenReservations={() => setTab("reservations")}
+              onOpenCatering={() => setTab("cateringowner")}
+            />
+          </View>
         ) : null}
         {menuCurrent && tab === "loyalty" && restaurant ? (
           <LoyaltyStaffScreen

@@ -3,6 +3,7 @@ import { corsPreflight, withCors } from "@/lib/cors";
 import { getKitchenOrder } from "@/lib/order-service";
 import { renderQrSvg } from "@/lib/qr";
 import { requireStaff } from "@/lib/staff-request";
+import { renderTicketEscPos } from "@/lib/ticket-escpos";
 import { renderTicketHtml, ticketAddressLine } from "@/lib/ticket-html";
 import { ticketLogoDataUri } from "@/lib/ticket-logo";
 import { dispatchUrl } from "@/lib/dispatch-service";
@@ -48,6 +49,25 @@ export async function GET(
   // the destination — it just lives on the other side of that redirect
   // now (see `dispatch-service.ts`).
   const addressLine = ticketAddressLine(order);
+
+  // `?format=escpos` — the same ticket as raw receipt-printer bytes
+  // (base64 in JSON) for the app's Bluetooth printer, which prints with
+  // no dialog. `paper=58|80` picks the column count (owner, 2026-10-09).
+  if (req.nextUrl.searchParams.get("format") === "escpos") {
+    const paper = req.nextUrl.searchParams.get("paper") === "58" ? 58 : 80;
+    const bytes = renderTicketEscPos(
+      order,
+      { name: venue.value.name },
+      { paper, navQrData: addressLine ? dispatchUrl(order.id, gate.staff.tenantId) : null },
+    );
+    return withCors(
+      NextResponse.json(
+        { ok: true, base64: Buffer.from(bytes).toString("base64") },
+        { headers: { "Cache-Control": "private, no-store" } },
+      ),
+    );
+  }
+
   const navQrSvg = addressLine
     ? await renderQrSvg(dispatchUrl(order.id, gate.staff.tenantId))
     : null;
