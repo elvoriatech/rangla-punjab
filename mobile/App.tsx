@@ -181,6 +181,28 @@ function Shell(): React.ReactElement {
   // A team login without Orders has no board — it starts on Home and its
   // middle tab is hidden (owner, 2026-09-30).
   const canBoard = auth.staffCan("orders");
+  /**
+   * What a restaurant login may see (owner, 2026-10-10: "team only sees the
+   * screens it is permitted"). The owner passes every check. A team member's
+   * tab bar carries only their areas, and their "home" — where sign-in lands
+   * and every back arrow returns — is the first area they have, so nobody is
+   * ever sent to a board they may not open (that was an empty screen).
+   */
+  const canTables = auth.staffCan("reservations");
+  const canCateringArea = auth.staffCan("catering");
+  const canMenuTab = !restaurant || auth.staffCan("menu");
+  const canStartTab = !restaurant || auth.staffCan("settings");
+  const restaurantHome: Tab = canBoard
+    ? "board"
+    : canTables
+      ? "reservations"
+      : canCateringArea
+        ? "cateringowner"
+        : auth.staffCan("menu")
+          ? "menu"
+          : auth.staffCan("settings")
+            ? "home"
+            : "info";
   const [openOrders, setOpenOrders] = useState(0);
   /** Complaints the restaurant still owes an answer or a verdict on —
    *  the owner menu's badge. Same 30 s loop as the board's count. */
@@ -347,13 +369,14 @@ function Shell(): React.ReactElement {
     if (restaurant) {
       // The counter tablet has no use for the welcome splash.
       setWelcomed(true);
-      setTab((current) =>
-        current === "menu" || current === "info" ? current : canBoard ? "board" : "home",
-      );
+      // Signing in lands on this login's own work screen, not on Konto
+      // where the sign-in form was.
+      setTab(restaurantHome);
     } else {
       setTab((current) => (OWNER_ONLY.includes(current) ? "home" : current));
     }
-  }, [restaurant, canBoard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on the sign-in transition only
+  }, [restaurant]);
 
   // Opening the app when there is already a session — the owner's counter
   // tablet, or a guest who signed in on an earlier run — goes straight to
@@ -369,7 +392,10 @@ function Shell(): React.ReactElement {
     if (!hasSession) return;
     setSkipWelcome(true);
     setWelcomed(true);
-    setTab("menu");
+    // A restaurant login opens on its own work screen (the board for most,
+    // Reservations for a reservations-only team member); a guest on the menu.
+    setTab(auth.staff !== null ? restaurantHome : "menu");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- decided once, at start-up
   }, [authReady, hasSession]);
 
   // The Board tab's badge. Cheap enough to keep running from any tab —
@@ -694,7 +720,7 @@ function Shell(): React.ReactElement {
         {menuCurrent && tab === "loyalty" && restaurant ? (
           <LoyaltyStaffScreen
             currency={menu.venue.currency}
-            onBack={() => setTab("board")}
+            onBack={() => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
@@ -705,7 +731,7 @@ function Shell(): React.ReactElement {
             initialIssueId={openIssueId}
             onBack={() => {
               setOpenIssueId(null);
-              setTab("board");
+              setTab(restaurantHome);
             }}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
@@ -714,7 +740,7 @@ function Shell(): React.ReactElement {
           <ReservationsOwnerScreen
             refreshKey={reservationsRefresh}
             onChanged={() => setSummaryTick((n) => n + 1)}
-            onBack={() => setTab("board")}
+            onBack={restaurantHome === "reservations" ? undefined : () => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
@@ -722,12 +748,15 @@ function Shell(): React.ReactElement {
           <CateringOwnerScreen
             refreshKey={cateringRefresh}
             onChanged={() => setSummaryTick((n) => n + 1)}
-            onBack={() => setTab("board")}
+            onBack={restaurantHome === "cateringowner" ? undefined : () => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
         {menuCurrent && tab === "team" && restaurant ? (
-          <TeamScreen onBack={() => setTab("board")} onOpenOwnerMenu={() => setOwnerMenu(true)} />
+          <TeamScreen
+            onBack={() => setTab(restaurantHome)}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
         ) : null}
         {menuCurrent && tab === "rating" && restaurant ? (
           <RatingOwnerScreen
@@ -735,7 +764,7 @@ function Shell(): React.ReactElement {
             // The rating rides on the menu payload — a saved (or
             // refreshed) rating has to reach the header's stars.
             onMenuChanged={refresh}
-            onBack={() => setTab("board")}
+            onBack={() => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
@@ -744,7 +773,7 @@ function Shell(): React.ReactElement {
             // Saved hours change `openNow`, `acceptsAsapNow` and today's
             // slots on the public payload every other screen reads.
             onSaved={refresh}
-            onBack={() => setTab("board")}
+            onBack={() => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
@@ -752,7 +781,7 @@ function Shell(): React.ReactElement {
           <ContactOwnerScreen
             // The phone book is published with the menu.
             onMenuChanged={refresh}
-            onBack={() => setTab("board")}
+            onBack={() => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
@@ -783,14 +812,14 @@ function Shell(): React.ReactElement {
         ) : null}
         {menuCurrent && tab === "redeemgift" && restaurant ? (
           <RedeemGiftCardScreen
-            onBack={() => setTab("board")}
+            onBack={() => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
         {menuCurrent && tab === "giftcardsowner" && restaurant ? (
           <GiftCardsOwnerScreen
             currency={menu.venue.currency}
-            onBack={() => setTab("board")}
+            onBack={() => setTab(restaurantHome)}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
@@ -799,7 +828,7 @@ function Shell(): React.ReactElement {
             orderId={dispatchOrderId}
             onBack={() => {
               setDispatchOrderId(null);
-              setTab("board");
+              setTab(restaurantHome);
             }}
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
@@ -821,33 +850,60 @@ function Shell(): React.ReactElement {
           overflow by exactly the margin on a narrow phone. */}
       <View style={[styles.tabBarWrap, { marginBottom: Math.max(insets.bottom, 12) }]}>
         <View style={[styles.tabBar, wideLayout && styles.tabBarWide]}>
-          <TabButton
-            label={t.tabStart}
-            icon="home"
-            active={tab === "home"}
-            onPress={() => setTab("home")}
-          />
-          <TabButton
-            label={t.tabMenu}
-            icon="grid"
-            // What is on offer right now — the one number on this bar that
-            // is about the menu rather than about this device (P7-12).
-            badge={offerCount > 0 ? offerCount : undefined}
-            active={tab === "menu"}
-            onPress={() => setTab("menu")}
-          />
+          {canStartTab ? (
+            <TabButton
+              label={t.tabStart}
+              icon="home"
+              active={tab === "home"}
+              onPress={() => setTab("home")}
+            />
+          ) : null}
+          {canMenuTab ? (
+            <TabButton
+              label={t.tabMenu}
+              icon="grid"
+              // What is on offer right now — the one number on this bar that
+              // is about the menu rather than about this device (P7-12).
+              badge={offerCount > 0 ? offerCount : undefined}
+              active={tab === "menu"}
+              onPress={() => setTab("menu")}
+            />
+          ) : null}
           {/* The middle of the bar is whichever job this device has: the
             guest's basket + receipts, or the restaurant's board. */}
           {restaurant ? (
-            canBoard ? (
-              <TabButton
-                label={t.tabBoard}
-                icon="restaurant"
-                badge={openOrders > 0 ? openOrders : undefined}
-                active={tab === "board"}
-                onPress={() => setTab("board")}
-              />
-            ) : null
+            <>
+              {canBoard ? (
+                <TabButton
+                  label={t.tabBoard}
+                  icon="restaurant"
+                  badge={openOrders > 0 ? openOrders : undefined}
+                  active={tab === "board"}
+                  onPress={() => setTab("board")}
+                />
+              ) : null}
+              {/* Without the board, reservations and catering get their
+                  own tabs — the board's bubble is where everyone else
+                  reaches them. */}
+              {!canBoard && canTables ? (
+                <TabButton
+                  label={t.ownerReservations}
+                  icon="calendar"
+                  badge={pendingReservations > 0 ? pendingReservations : undefined}
+                  active={tab === "reservations"}
+                  onPress={() => setTab("reservations")}
+                />
+              ) : null}
+              {!canBoard && canCateringArea ? (
+                <TabButton
+                  label={t.ownerCatering}
+                  icon="wine"
+                  badge={pendingCatering > 0 ? pendingCatering : undefined}
+                  active={tab === "cateringowner"}
+                  onPress={() => setTab("cateringowner")}
+                />
+              ) : null}
+            </>
           ) : (
             <>
               <TabButton
@@ -961,7 +1017,7 @@ function TabButton({
   onPress,
 }: {
   label: string;
-  icon: "home" | "grid" | "cart" | "receipt" | "person" | "restaurant";
+  icon: "home" | "grid" | "cart" | "receipt" | "person" | "restaurant" | "calendar" | "wine";
   active: boolean;
   badge?: number;
   onPress: () => void;

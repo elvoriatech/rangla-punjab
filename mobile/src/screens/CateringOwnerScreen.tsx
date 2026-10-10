@@ -39,7 +39,8 @@ export function CateringOwnerScreen({
   refreshKey?: number;
   /** After an answer — the burger's badge re-reads the summary. */
   onChanged?: () => void;
-  onBack: () => void;
+  /** Absent when this screen IS the login's home — no arrow to itself. */
+  onBack?: () => void;
   onOpenOwnerMenu?: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
