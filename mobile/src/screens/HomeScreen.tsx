@@ -12,10 +12,12 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import type { ApiHeroSlide, ApiMenu, ApiItem } from "../api";
 import { offerItems } from "../api";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth";
 import type { StaffHoursWeek, StaffOrdering } from "../staff";
 import { fetchStaffHours, fetchStaffOrdering, updateStaffOrdering } from "../staff";
@@ -963,28 +965,39 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
     [staffToken, busy, ordering, clearStaff, onChanged],
   );
 
-  /** The order-wide discount, in steps of 5 % (0–50). Saved on each tap. */
-  const setDiscount = useCallback(
-    async (next: number): Promise<void> => {
-      if (!staffToken || busy) return;
-      const value = Math.max(0, Math.min(50, next));
-      const before = ordering;
-      setBusy("discount");
-      setFailed(false);
-      setOrdering({ ...ordering, orderDiscountPercent: value });
-      const res = await updateStaffOrdering(staffToken, { orderDiscountPercent: value });
-      setBusy(null);
-      if (!res.ok) {
-        setOrdering(before);
-        if (res.error === "unauthorized") clearStaff();
-        else setFailed(true);
-        return;
-      }
-      setOrdering(res.data);
-      onChanged?.();
-    },
-    [staffToken, busy, ordering, clearStaff, onChanged],
-  );
+  /**
+   * The order-wide discount (0–50 %), typed and saved with its own button
+   * (owner, 2026-10-11): the button is live only when the typed value is a
+   * valid change from what is stored.
+   */
+  const [discountDraft, setDiscountDraft] = useState("0");
+  const [discountSaved, setDiscountSaved] = useState(false);
+  const storedDiscount = ordering.orderDiscountPercent;
+  useEffect(() => {
+    setDiscountDraft(String(storedDiscount));
+  }, [storedDiscount]);
+  const draftTrim = discountDraft.trim();
+  const draftValid = /^\d{1,2}$/.test(draftTrim) && Number(draftTrim) <= 50;
+  const draftValue = draftValid ? Number(draftTrim) : null;
+  const discountDirty = draftTrim !== String(storedDiscount);
+  const canSaveDiscount = draftValue !== null && draftValue !== storedDiscount && busy === null;
+
+  const saveDiscount = useCallback(async (): Promise<void> => {
+    if (!staffToken || busy || draftValue === null) return;
+    setBusy("discount");
+    setFailed(false);
+    const res = await updateStaffOrdering(staffToken, { orderDiscountPercent: draftValue });
+    setBusy(null);
+    if (!res.ok) {
+      if (res.error === "unauthorized") clearStaff();
+      else setFailed(true);
+      return;
+    }
+    setOrdering(res.data);
+    setDiscountSaved(true);
+    setTimeout(() => setDiscountSaved(false), 2500);
+    onChanged?.();
+  }, [staffToken, busy, draftValue, clearStaff, onChanged]);
 
   /** Close for a while ("30" | "60" | "day") or reopen now ("off"). */
   const setPause = useCallback(
@@ -1078,12 +1091,13 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
           </Pressable>
         </Pressable>
       </Modal>
-      <View style={styles.pauseDivider} />
-      <Text style={styles.serviceTitle}>{t.staffOrderingTitle}</Text>
-      <View style={[styles.serviceRow, closed && { opacity: 0.45 }]}>
+      {/* One row per service — icon, title, one line, switch on the end —
+          instead of two small switches under floating icons. */}
+      <View style={[closed && { opacity: 0.45 }]}>
         <ServiceSwitch
           emoji="🛍️"
           label={t.pickup}
+          sub={t.servicePickupSub}
           value={ordering.takeaway}
           busy={busy === "takeaway"}
           onChange={(next) => void toggle("takeaway", next)}
@@ -1091,43 +1105,68 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
         <ServiceSwitch
           emoji="🛵"
           label={t.delivery}
+          sub={t.serviceDeliverySub}
           value={ordering.delivery}
           busy={busy === "delivery"}
           onChange={(next) => void toggle("delivery", next)}
         />
       </View>
-      <View style={styles.pauseDivider} />
-      <Text style={styles.serviceTitle}>{t.orderDiscountSetting}</Text>
+      <View style={styles.serviceRule} />
+      <Text style={styles.serviceTitle}>{t.orderDiscountPerOrder}</Text>
       <View style={styles.discountRow}>
-        <Pressable
-          onPress={() => void setDiscount(ordering.orderDiscountPercent - 5)}
-          disabled={busy !== null || ordering.orderDiscountPercent <= 0}
-          accessibilityRole="button"
-          accessibilityLabel={`${t.orderDiscountSetting} −5 %`}
-          style={({ pressed }) => [
-            styles.discountBtn,
-            (pressed || ordering.orderDiscountPercent <= 0) && { opacity: 0.4 },
+        <View
+          style={[
+            styles.discountField,
+            discountDirty && styles.discountFieldDirty,
+            !draftValid && styles.discountFieldBad,
           ]}
         >
-          <Text style={styles.discountBtnText}>−</Text>
-        </Pressable>
-        <Text style={styles.discountValue}>
-          {busy === "discount" ? "…" : `${ordering.orderDiscountPercent} %`}
-        </Text>
+          <TextInput
+            value={discountDraft}
+            onChangeText={(v) => {
+              setDiscountDraft(v.replace(/[^0-9]/g, "").slice(0, 2));
+              setDiscountSaved(false);
+            }}
+            keyboardType="number-pad"
+            maxLength={2}
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              if (canSaveDiscount) void saveDiscount();
+            }}
+            accessibilityLabel={t.orderDiscountPerOrder}
+            style={styles.discountInput}
+          />
+          <Text style={styles.discountPct}>%</Text>
+        </View>
         <Pressable
-          onPress={() => void setDiscount(ordering.orderDiscountPercent + 5)}
-          disabled={busy !== null || ordering.orderDiscountPercent >= 50}
+          onPress={() => void saveDiscount()}
+          disabled={!canSaveDiscount}
           accessibilityRole="button"
-          accessibilityLabel={`${t.orderDiscountSetting} +5 %`}
+          accessibilityState={{ disabled: !canSaveDiscount, busy: busy === "discount" }}
           style={({ pressed }) => [
-            styles.discountBtn,
-            (pressed || ordering.orderDiscountPercent >= 50) && { opacity: 0.4 },
+            styles.discountSave,
+            canSaveDiscount ? styles.discountSaveOn : styles.discountSaveOff,
+            pressed && canSaveDiscount && { opacity: 0.8 },
           ]}
         >
-          <Text style={styles.discountBtnText}>+</Text>
+          <Ionicons
+            name="checkmark"
+            size={18}
+            color={canSaveDiscount ? colors.onRed : colors.inkSoft}
+          />
+          <Text style={[styles.discountSaveText, !canSaveDiscount && { color: colors.inkSoft }]}>
+            {busy === "discount" ? "…" : t.staffSave}
+          </Text>
         </Pressable>
       </View>
-      <Text style={styles.discountHint}>{t.orderDiscountHint}</Text>
+      <View accessibilityLiveRegion="polite">
+        {!draftValid ? (
+          <Text style={styles.serviceError}>{t.orderDiscountInvalid}</Text>
+        ) : discountSaved ? (
+          <Text style={styles.discountOk}>{t.orderDiscountSaved}</Text>
+        ) : null}
+      </View>
+      <Text style={styles.discountHint}>{t.orderDiscountHint2}</Text>
       {failed ? <Text style={styles.serviceError}>{t.staffToggleFailed}</Text> : null}
     </View>
   );
@@ -1136,19 +1175,27 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
 function ServiceSwitch({
   emoji,
   label,
+  sub,
   value,
   busy,
   onChange,
 }: {
   emoji: string;
   label: string;
+  sub: string;
   value: boolean;
   busy: boolean;
   onChange: (next: boolean) => void;
 }): React.ReactElement {
   return (
     <View style={styles.serviceSwitch}>
-      <Text style={styles.serviceEmoji}>{emoji}</Text>
+      <View style={styles.serviceIcon}>
+        <Text style={styles.serviceEmoji}>{emoji}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.serviceName}>{label}</Text>
+        <Text style={styles.serviceSub}>{sub}</Text>
+      </View>
       <Switch
         value={value}
         onValueChange={onChange}
@@ -1157,7 +1204,6 @@ function ServiceSwitch({
         trackColor={{ false: colors.line, true: colors.red }}
         thumbColor={colors.cream}
       />
-      <Text style={styles.serviceLabel}>{label}</Text>
     </View>
   );
 }
@@ -1166,7 +1212,7 @@ const styles = StyleSheet.create({
   /** The open/closed master switch on the restaurant's ordering card. */
   serviceCardOpen: { borderColor: "#3f7030", borderWidth: 1.5 },
   serviceCardClosed: { borderColor: colors.red, borderWidth: 1.5 },
-  pauseRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  pauseRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 10 },
   pauseTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 16 },
   pauseSub: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginTop: 2 },
   pauseSubClosed: { color: colors.red, ...fonts.bodyBold },
@@ -1228,50 +1274,80 @@ const styles = StyleSheet.create({
    *  pill's band; what came off is the air under the dish. */
   hero: { height: 132, borderRadius: radius.lg, overflow: "hidden" },
   serviceCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 12,
+    // A plain column: each row below lays itself out across the full width.
     backgroundColor: colors.creamCard,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
     marginTop: 14,
   },
-  discountRow: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 6 },
-  discountBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.creamCard,
+  discountRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
+  discountField: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    backgroundColor: "#fff",
+    paddingHorizontal: 14,
   },
-  discountBtnText: { color: colors.red, ...fonts.bodyHeavy, fontSize: 22, lineHeight: 26 },
-  discountValue: {
-    minWidth: 64,
-    textAlign: "center",
+  discountFieldDirty: { borderColor: colors.red },
+  discountFieldBad: { borderColor: colors.danger },
+  discountInput: {
+    flex: 1,
+    minWidth: 0,
+    width: 0,
     color: colors.ink,
     ...fonts.bodyHeavy,
     fontSize: 20,
+    paddingVertical: 0,
   },
+  discountPct: { color: colors.inkSoft, ...fonts.bodyHeavy, fontSize: 18 },
+  discountSave: {
+    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  discountSaveOn: { backgroundColor: colors.red },
+  discountSaveOff: { backgroundColor: colors.line },
+  discountSaveText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 15 },
+  discountOk: { color: colors.positive, ...fonts.bodyBold, fontSize: 12.5, marginTop: 6 },
   discountHint: {
     color: colors.inkSoft,
     ...fonts.body,
     fontSize: 12,
     lineHeight: 16,
-    marginTop: 4,
+    marginTop: 6,
   },
-  serviceTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
-  serviceRow: { flexDirection: "row", alignItems: "flex-start", gap: 18 },
-  serviceSwitch: { alignItems: "center", gap: 2 },
-  serviceEmoji: { ...fonts.body, fontSize: 20 },
-  serviceLabel: { color: colors.inkSoft, ...fonts.bodySemi, fontSize: 11 },
+  serviceTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 16 },
+  serviceRule: { height: 1, backgroundColor: colors.line, marginVertical: 12 },
+  serviceSwitch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  serviceIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: colors.cream,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  serviceEmoji: { ...fonts.body, fontSize: 19 },
+  serviceName: { color: colors.ink, ...fonts.bodyBold, fontSize: 16 },
+  serviceSub: { color: colors.inkSoft, ...fonts.body, fontSize: 13, marginTop: 1 },
   serviceError: { color: colors.danger, ...fonts.bodySemi, fontSize: 12, width: "100%" },
   heroScrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: scrim },
   // The scrim is an absolutely-positioned sibling, so the slides need to be

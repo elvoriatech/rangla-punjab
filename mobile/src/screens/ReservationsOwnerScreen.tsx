@@ -200,17 +200,6 @@ export function ReservationsOwnerScreen({
                           {statusLabel[r.status] ?? r.status}
                         </Text>
                       </View>
-                      {canDelete ? (
-                        <Pressable
-                          onPress={() => remove(r.id, `${r.name} · ${r.date}`)}
-                          hitSlop={8}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${t.boardDelete} ${r.name}`}
-                          style={({ pressed }) => [{ padding: 2 }, pressed && { opacity: 0.5 }]}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                        </Pressable>
-                      ) : null}
                     </View>
 
                     <Text style={styles.name}>{r.name}</Text>
@@ -274,6 +263,19 @@ export function ReservationsOwnerScreen({
                         <Text style={styles.changeText}>{t.staffResChange}</Text>
                       </Pressable>
                     ) : null}
+                    {/* Owner only: a full-width button, not a small icon in
+                        the corner (owner, 2026-10-11: "make delete bigger"). */}
+                    {canDelete ? (
+                      <Pressable
+                        onPress={() => remove(r.id, `${r.name} · ${r.date}`)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t.boardDelete} ${r.name}`}
+                        style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                        <Text style={styles.deleteBtnText}>{t.boardDelete}</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 );
               })}
@@ -333,6 +335,17 @@ function pillTextStyle(status: string): object {
 const GREEN = "#3f7030";
 
 const styles = StyleSheet.create({
+  deleteBtn: {
+    marginTop: 10,
+    minHeight: 46,
+    borderRadius: radius.pill,
+    backgroundColor: "#FBE4E1",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  deleteBtnText: { color: colors.danger, ...fonts.bodyBold, fontSize: 14.5 },
   failed: { color: colors.danger, ...fonts.bodySemi, fontSize: 13 },
   empty: {
     backgroundColor: colors.creamCard,
