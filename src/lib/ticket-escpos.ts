@@ -1,3 +1,4 @@
+import { orderLabel } from "./order-label";
 import { formatPrice } from "./public-menu";
 import {
   paymentBanner,
@@ -227,7 +228,7 @@ export function renderTicketEscPos(
   const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone });
   const money = (cents: number): string => formatPrice(cents, order.currency, locale);
   const name = ticketVenueName(venue.name);
-  const number = `#${String(order.orderNumber)}`;
+  const number = `#${orderLabel(order)}`;
   const when = stamp.format(order.createdAt);
 
   const t = new Ticket(width);

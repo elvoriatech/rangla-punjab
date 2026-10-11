@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import { notFound } from "next/navigation";
 import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
@@ -137,7 +138,7 @@ export default async function OrderTicketPage({
           --------------------------------------
         </p>
         <div className="flex justify-between font-bold">
-          <span>#{String(order.orderNumber)}</span>
+          <span>#{orderLabel(order)}</span>
           <span>{time.format(order.createdAt)}</span>
         </div>
         {paid ? <p className="mt-0.5 font-bold">{paid}</p> : null}
@@ -245,7 +246,7 @@ export default async function OrderTicketPage({
             --------------------------------------
           </p>
           <div className="flex justify-between text-[17px] font-bold">
-            <span>#{String(order.orderNumber)}</span>
+            <span>#{orderLabel(order)}</span>
             <span>{time.format(order.createdAt)}</span>
           </div>
           {readyLine || order.requestedFor ? (

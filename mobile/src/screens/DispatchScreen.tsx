@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { orderLabelOf } from "../order-label";
 import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth";
@@ -147,7 +148,7 @@ export function DispatchScreen({
             <View style={styles.doneBox}>
               <Ionicons name="bicycle" size={44} color={colors.positive} />
               <Text style={styles.doneTitle}>{t.dispatchOnTheWay}</Text>
-              <Text style={styles.number}>#{String(done.orderNumber)}</Text>
+              <Text style={styles.number}>#{orderLabelOf(done)}</Text>
               {done.customerName ? <Text style={styles.meta}>{done.customerName}</Text> : null}
               {done.addressLine ? <Text style={styles.address}>{done.addressLine}</Text> : null}
               {/* Only when it is news: on a first scan the button above
@@ -168,7 +169,7 @@ export function DispatchScreen({
             <View style={styles.card}>
               {order ? (
                 <>
-                  <Text style={styles.number}>#{String(order.orderNumber)}</Text>
+                  <Text style={styles.number}>#{orderLabelOf(order)}</Text>
                   {order.customerName ? (
                     <Text style={styles.meta}>{order.customerName}</Text>
                   ) : null}

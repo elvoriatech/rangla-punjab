@@ -1,4 +1,5 @@
 "use client";
+import { orderLabel } from "@/lib/order-label";
 
 import dynamic from "next/dynamic";
 import { orderDiscountLabel } from "@/lib/order-discount-label";
@@ -30,6 +31,8 @@ import { rememberOrder } from "./last-order-store";
 interface PlacedOrder {
   orderId: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   totalCents: number;
   currency: string;
   receiptToken: string;
@@ -761,7 +764,7 @@ export function CartDrawer({
   function downloadReceipt(order: PlacedOrder): void {
     const a = document.createElement("a");
     a.href = `/api/orders/${order.orderId}/receipt?token=${encodeURIComponent(order.receiptToken)}&locale=${copyLocale}`;
-    a.download = `receipt-${String(order.orderNumber)}.pdf`;
+    a.download = `receipt-${orderLabel(order)}.pdf`;
     a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
@@ -949,7 +952,7 @@ export function CartDrawer({
           }
         >
           {placed ? (
-            <span>{t.placedBadge(String(placed.orderNumber))}</span>
+            <span>{t.placedBadge(orderLabel(placed))}</span>
           ) : (
             <>
               <span className="relative inline-flex" aria-hidden="true">
@@ -999,7 +1002,7 @@ export function CartDrawer({
               >
                 <CartIcon className="h-4.5 w-4.5 text-[var(--menu-surface-accent,var(--menu-accent))]" />
               </span>
-              {placed ? t.headingPlaced(String(placed.orderNumber)) : t.yourOrder}
+              {placed ? t.headingPlaced(orderLabel(placed)) : t.yourOrder}
             </h2>
             <button
               type="button"
@@ -1016,7 +1019,7 @@ export function CartDrawer({
               <p className="text-sm leading-relaxed text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                 {t.placedIntro}{" "}
                 <span className="font-semibold text-[var(--menu-surface-text,var(--menu-text))]">
-                  {t.placedRef(String(placed.orderNumber))}
+                  {t.placedRef(orderLabel(placed))}
                 </span>
                 {tableNumber.trim() ? t.placedForTable(tableNumber.trim()) : ""}. {t.total}{" "}
                 {/* Ink, not accent: 14px semibold, same 3.28:1 reason. */}

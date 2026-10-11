@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { orderLabelOf } from "./order-label";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -31,7 +32,7 @@ export function DeleteOrderSheet({
   onDeleted,
 }: {
   /** The order to delete, or null when the sheet is closed. */
-  order: { id: string; orderNumber: number } | null;
+  order: { id: string; orderNumber: number; orderLabel?: string } | null;
   onClose: () => void;
   onDeleted: () => void;
 }): React.ReactElement {
@@ -88,7 +89,7 @@ export function DeleteOrderSheet({
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.header}>
               <Text style={styles.title}>
-                {fill(t.boardDeleteTitle, { number: order?.orderNumber ?? "" })}
+                {fill(t.boardDeleteTitle, { number: order ? orderLabelOf(order) : "" })}
               </Text>
               <Pressable onPress={onClose} hitSlop={10} accessibilityLabel={t.close}>
                 <Text style={styles.close}>×</Text>

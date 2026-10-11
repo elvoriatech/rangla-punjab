@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import { resolveReportRange } from "@/lib/report-range";
-import { getVenueReport } from "@/lib/report-service";
+import { getVenueReport, parsePayFilter } from "@/lib/report-service";
 import { reportToCsv } from "@/lib/report-export";
 
 /** CSV export — session-authenticated, same range resolution as the page. */
@@ -18,7 +18,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     from: q.get("from") ?? undefined,
     to: q.get("to") ?? undefined,
   });
-  const report = await getVenueReport(userId, venueResult.value.id, range);
+  const report = await getVenueReport(
+    userId,
+    venueResult.value.id,
+    range,
+    parsePayFilter(q.get("pay")),
+  );
   if (!report) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const filename = `report-${report.venue.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${range.fromInput}-to-${range.toInput}.csv`;

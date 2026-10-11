@@ -173,6 +173,18 @@ describe("order-service (guest self-ordering)", () => {
     expect(second.value.orderNumber).toBe(2);
   });
 
+  it("numbers cash (B-…) and online (O-…) orders in their own series", async () => {
+    const fx = await fixtureVenue();
+    const naan = [{ itemId: fx.itemIds.naan, quantity: 1 }];
+    const cash1 = await placeOrder(fx, { items: naan });
+    const card1 = await placeOrder(fx, { items: naan, intendedPayment: "card" });
+    const cash2 = await placeOrder(fx, { items: naan });
+    const paypal = await placeOrder(fx, { items: naan, intendedPayment: "paypal" });
+    if (!cash1.ok || !card1.ok || !cash2.ok || !paypal.ok) throw new Error("placement failed");
+    expect([cash1, cash2].map((r) => r.value.orderLabel)).toEqual(["B-1", "B-2"]);
+    expect([card1, paypal].map((r) => r.value.orderLabel)).toEqual(["O-1", "O-2"]);
+  });
+
   it("keeps an optional receipt email (lower-cased) and rejects a malformed one", async () => {
     const fx = await fixtureVenue();
     const placed = await placeOrder(fx, {

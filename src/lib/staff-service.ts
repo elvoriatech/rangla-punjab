@@ -1,4 +1,5 @@
 import { orderEta, type EtaDefaults } from "./order-eta";
+import { orderLabel } from "./order-label";
 import { issueRefByOrder, type IssueRef, type IssueStatus } from "./issue-service";
 import { getKitchenOrder, listRecentOrders, type KitchenOrder } from "./order-service";
 import { ORDER_STATUSES, TERMINAL_STATUSES, canTransition } from "./order-status";
@@ -30,8 +31,12 @@ export interface StaffOrderAddress {
 }
 
 export interface StaffOrder {
+  /** "B-12" / "O-7" (or the plain number on an older order) — what the app shows. */
+  orderLabel: string;
   id: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   status: string;
   /** Every status this order may legally move to, in lifecycle order.
    *  Empty on a finished order. The client renders one button per entry
@@ -154,6 +159,7 @@ export function toStaffOrder(
     issueId: issue ? issue.id : null,
     id: order.id,
     orderNumber: order.orderNumber,
+    orderLabel: orderLabel(order),
     status: order.status,
     // The cancel permission is subtracted from the lifecycle, not added to
     // it: "cancelled" only reaches the app for someone who may cancel.

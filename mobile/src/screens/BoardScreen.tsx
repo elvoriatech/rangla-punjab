@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { orderLabelOf } from "../order-label";
 import {
   ActivityIndicator,
   Modal,
@@ -194,7 +195,11 @@ export function BoardScreen({
   const { staffToken, clearStaff, staffCan } = useAuth();
   /** Only the owner deletes a cancelled order (as on the dashboard). */
   const isOwner = staffCan("owner");
-  const [deleting, setDeleting] = useState<{ id: string; orderNumber: number } | null>(null);
+  const [deleting, setDeleting] = useState<{
+    id: string;
+    orderNumber: number;
+    orderLabel?: string;
+  } | null>(null);
   /** Table and catering requests ride on the board too (owner, 2026-10-07). */
   const requests = useRequests(refreshKey);
   const [requestsOpen, setRequestsOpen] = useState(false);
@@ -841,7 +846,7 @@ export function BoardScreen({
   function renderCard(order: StaffOrder, closed: boolean): React.ReactElement {
     const lit = fresh.includes(order.id);
     const expanded = expandedIds.has(order.id);
-    const number = `#${String(order.orderNumber)}`;
+    const number = `#${orderLabelOf(order)}`;
     const placed = timeOf(order.createdAt);
     /**
      * When the food actually left, on a delivery that is still out.
@@ -1174,10 +1179,16 @@ export function BoardScreen({
               </Text>
               {isOwner && closed && canDeleteOrder(order) ? (
                 <Text
-                  onPress={() => setDeleting({ id: order.id, orderNumber: order.orderNumber })}
+                  onPress={() =>
+                    setDeleting({
+                      id: order.id,
+                      orderNumber: order.orderNumber,
+                      orderLabel: orderLabelOf(order),
+                    })
+                  }
                   suppressHighlighting
                   accessibilityRole="button"
-                  accessibilityLabel={fill(t.boardDeleteTitle, { number: order.orderNumber })}
+                  accessibilityLabel={fill(t.boardDeleteTitle, { number: orderLabelOf(order) })}
                   style={styles.cancelAction}
                   numberOfLines={1}
                 >

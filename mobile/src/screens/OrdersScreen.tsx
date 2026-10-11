@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { orderLabelOf } from "../order-label";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ApiTracking } from "../api";
 import { fetchOrderStatus } from "../api";
@@ -177,7 +178,7 @@ export function OrdersScreen({
                         one word so the row survives a small phone. */}
                     <View style={styles.numberRow}>
                       <View style={styles.numberPills}>
-                        <Text style={styles.number}>#{String(order.orderNumber)}</Text>
+                        <Text style={styles.number}>#{orderLabelOf(order)}</Text>
                         {s ? (
                           <View
                             style={[

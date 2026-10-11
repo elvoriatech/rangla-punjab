@@ -1,3 +1,4 @@
+import { orderLabel } from "./order-label";
 import { formatPrice } from "./public-menu";
 import type { KitchenOrder } from "./order-service";
 import { onlinePaymentLabel } from "./payment-methods";
@@ -56,6 +57,8 @@ type Glyph = keyof typeof GLYPHS;
  *  prints without another renderer. */
 export interface TicketOrder {
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   orderType: string;
   tableNumber: string | null;
   customerName: string | null;
@@ -305,7 +308,7 @@ export function renderTicketHtml(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=302">
-<title>${esc(`#${String(order.orderNumber)} — ${venue.name}`)}</title>
+<title>${esc(`#${orderLabel(order)} — ${venue.name}`)}</title>
 <style>
 @page { margin: 0; size: auto; }
 * { box-sizing: border-box; }
@@ -387,7 +390,7 @@ ${
 ${venueName.sub ? `<p class="venue-sub">${esc(venueName.sub)}</p>` : ""}
 <p class="kind">Online-Bestellung</p>
 <p class="rule">${RULE}</p>
-<div class="head"><span>#${String(order.orderNumber)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
+<div class="head"><span>#${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
 ${paid ? `<p class="pay">${esc(paid)}</p>` : ""}
 <p class="banner">${esc(typeBanner(order))}</p>
 ${rows.length > 0 ? `<div class="rows">${rows.join("")}</div>` : ""}
@@ -442,7 +445,7 @@ ${
     : `<section class="kitchen">
 <p class="kitchen-title">K&Uuml;CHENBON</p>
 <p class="rule">${RULE}</p>
-<div class="head kitchen-head"><span>#${String(order.orderNumber)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
+<div class="head kitchen-head"><span>#${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
 ${readyLine || order.requestedFor ? `<p class="kitchen-head" style="font-weight:700;margin-top:4px">${esc(readyLine ?? `Geplant für ${clock.format(order.requestedFor!)} Uhr`)}</p>` : ""}
 <p class="rule">${RULE}</p>
 <ul class="kitchen-items">${kitchenItems}</ul>

@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import { PasswordInput } from "@/components/password-input";
 import type { Metadata } from "next";
 import { FlashMessage } from "@/components/flash-message";
@@ -93,6 +94,7 @@ export default async function AccountPage({
             select: {
               id: true,
               orderNumber: true,
+              orderSeries: true,
               status: true,
               orderType: true,
               paymentStatus: true,
@@ -527,7 +529,7 @@ export default async function AccountPage({
                     key={o.id}
                     className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm"
                   >
-                    <span className="font-semibold">#{String(o.orderNumber)}</span>
+                    <span className="font-semibold">#{orderLabel(o)}</span>
                     <span className="text-muted">{dt.format(o.createdAt)}</span>
                     <span className="text-muted">{typeLabel[o.orderType] ?? o.orderType}</span>
                     <span className="tabular-nums font-semibold">

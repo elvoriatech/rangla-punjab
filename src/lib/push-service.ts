@@ -1,3 +1,4 @@
+import { orderLabel } from "./order-label";
 import { env } from "./env";
 import { createLogger } from "./logger";
 import { captureException } from "./observability";
@@ -380,7 +381,7 @@ export async function sendNewOrderPush(tenantId: string, orderId: string): Promi
     if (!order) return;
     const label = ORDER_TYPE_LABEL[order.orderType] ?? order.orderType;
     await sendStaffPush(tenantId, {
-      title: `New order #${order.orderNumber}`,
+      title: `New order #${orderLabel(order)}`,
       body: `${label} · ${formatTotal(order.totalCents, order.currency)}`,
       data: { kind: "order", orderId },
     });
@@ -405,7 +406,7 @@ export async function sendGuestCancelPush(tenantId: string, orderId: string): Pr
     if (!order) return;
     const label = ORDER_TYPE_LABEL[order.orderType] ?? order.orderType;
     await sendStaffPush(tenantId, {
-      title: `Order #${order.orderNumber} cancelled by the guest`,
+      title: `Order #${orderLabel(order)} cancelled by the guest`,
       body: `${label} · ${formatTotal(order.totalCents, order.currency)} · cash`,
       data: { kind: "order", orderId },
     });
@@ -429,7 +430,7 @@ export async function sendNewIssuePush(tenantId: string, issueId: string): Promi
     );
     if (!issue) return;
     await sendStaffPush(tenantId, {
-      title: `Problem reported on #${issue.order.orderNumber}`,
+      title: `Problem reported on #${orderLabel(issue.order)}`,
       body: "A guest is waiting for an answer.",
       data: { kind: "issue", issueId },
     });

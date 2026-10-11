@@ -559,6 +559,9 @@ model Order {
   tenantId            String    @map("tenant_id")
   venueId             String    @map("venue_id")
   orderNumber         Int       @map("order_number")
+  /// "B" = cash, "O" = online (owner, 2026-10-11); `orderNumber` counts within
+  /// the series. Null on orders placed before the split.
+  orderSeries         String?   @map("order_series")
   tableNumber         String?   @map("table_number")
   // dine_in | takeaway | delivery — CHECK-constrained in the migration.
   orderType           String    @default("dine_in") @map("order_type")
@@ -673,7 +676,7 @@ model Order {
   issue         OrderIssue?
   customer      Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
-  @@unique([venueId, orderNumber])
+  @@unique([venueId, orderSeries, orderNumber])
   @@unique([venueId, clientRequestId])
   @@index([tenantId])
   @@map("orders")
@@ -1075,6 +1078,7 @@ model DeletedOrder {
   tenantId      String   @map("tenant_id")
   venueId       String   @map("venue_id")
   orderNumber   Int      @map("order_number")
+  orderSeries   String?  @map("order_series")
   orderType     String   @map("order_type")
   paymentStatus String   @map("payment_status")
   totalCents    Int      @map("total_cents")

@@ -57,6 +57,8 @@ function asEta(raw: unknown): StaffOrderEta | null {
 }
 
 export interface StaffOrder {
+  /** "B-12" / "O-7", from the server; absent on an older server. */
+  orderLabel?: string;
   id: string;
   orderNumber: number;
   status: string;
@@ -221,6 +223,7 @@ export function asStaffOrder(raw: unknown): StaffOrder | null {
       : [],
     issueStatus: nullableStr(o.issueStatus),
     issueId: nullableStr(o.issueId),
+    orderLabel: nullableStr(o.orderLabel) ?? undefined,
   };
 }
 

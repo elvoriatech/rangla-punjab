@@ -44,6 +44,11 @@ describe("paymentMethodOf", () => {
     expect(paymentMethodOf("refunded", "paypal")).toBe("paypal");
     expect(paymentMethodOf("none", null)).toBe("cash");
     expect(paymentMethodOf("pending", "stripe")).toBe("cash"); // never settled
+    expect(paymentMethodOf("paid", "stripe", "apple_pay")).toBe("apple_pay");
+    expect(paymentMethodOf("paid", "stripe", "google_pay")).toBe("google_pay");
+    expect(paymentMethodOf("paid", "stripe", "card")).toBe("stripe");
+    expect(paymentMethodOf("paid", "voucher")).toBe("voucher");
+    expect(paymentMethodOf("paid", "gift_card")).toBe("voucher");
   });
 });
 

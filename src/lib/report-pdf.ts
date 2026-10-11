@@ -1,6 +1,7 @@
+import { orderLabel } from "./order-label";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { rangeLabel } from "./report-range";
-import { METHOD_LABELS, TYPE_LABELS, type VenueReport } from "./report-service";
+import { METHOD_LABELS, PAY_FILTER_LABELS, TYPE_LABELS, type VenueReport } from "./report-service";
 
 /**
  * A4 monthly/period statement PDF — the restaurant's own accounting
@@ -143,6 +144,8 @@ export async function renderReportPdf(
     ["Zeitraum / Period", rangeLabel(report.range)],
     ["Erstellt / Created", created],
   ];
+  if (report.payFilter !== "all")
+    meta.push(["Zahlungsart / Payment", PAY_FILTER_LABELS[report.payFilter]]);
   meta.forEach(([label, value], i) => {
     const y = top - 14 - i * 24;
     ctx.page.drawText(label, {
@@ -267,7 +270,7 @@ export async function renderReportPdf(
       // A table that runs onto a new page repeats its column titles.
       if (ctx.page !== before) columns();
       row(ctx, [
-        { text: `#${o.orderNumber}`, x: MARGIN },
+        { text: `#${orderLabel(o)}`, x: MARGIN },
         { text: when.format(o.placedAt), x: MARGIN + 44 },
         { text: TYPE_LABELS[o.orderType] ?? o.orderType, x: MARGIN + 140 },
         {

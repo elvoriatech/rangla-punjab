@@ -1,6 +1,8 @@
 import { activePauseUntil } from "./ordering-pause";
 import { defaultEtaMinutes, etaApplies, withinAcceptWindow } from "./order-eta";
 import type { Prisma } from "@prisma/client";
+import { orderLabel } from "./order-label";
+export { orderLabel };
 import { z } from "zod";
 import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer-auth";
 import { TERMINAL_STATUSES, canTransition, isOrderStatus } from "./order-status";
@@ -179,6 +181,10 @@ export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 export interface PlacedOrder {
   orderId: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
+  /** "B-12" / "O-7" — what every surface prints. */
+  orderLabel?: string;
   /** What the guest owes: the basket AFTER any reward discount. Always
    *  equal to `chargedCents` — it keeps its name so clients written
    *  before redemption existed keep charging the right amount. */
@@ -469,6 +475,7 @@ export async function placeOrder(
         select: {
           id: true,
           orderNumber: true,
+          orderSeries: true,
           totalCents: true,
           currency: true,
           discountCents: true,
@@ -488,6 +495,8 @@ export async function placeOrder(
           value: {
             orderId: existing.id,
             orderNumber: existing.orderNumber,
+            orderSeries: existing.orderSeries,
+            orderLabel: orderLabel(existing),
             totalCents: existing.totalCents,
             currency: existing.currency,
             receiptToken: signReceiptToken(existing.id, context.tenantId),
@@ -550,22 +559,18 @@ export async function placeOrder(
     const paidByGiftCard = fullyCovered && giftCardDiscountCents > 0;
     const paidByVoucher = fullyCovered && !paidByGiftCard;
 
-    const max = await tx.order.aggregate({
-      where: { venueId: context.venueId },
-      _max: { orderNumber: true },
-    });
-    // An owner-deleted order keeps its number in the deletion log: without
-    // this, deleting the newest order would hand its number out again.
-    const maxDeleted = await tx.deletedOrder.aggregate({
-      where: { venueId: context.venueId },
-      _max: { orderNumber: true },
-    });
-    const orderNumber = Math.max(max._max.orderNumber ?? 0, maxDeleted._max.orderNumber ?? 0) + 1;
+    // Cash orders count in the B series, everything paid online (or by a
+    // voucher / gift card) in the O series (owner, 2026-10-11).
+    const online =
+      fullyCovered || input.intendedPayment === "card" || input.intendedPayment === "paypal";
+    const orderSeries: OrderSeries = online ? "O" : "B";
+    const orderNumber = await nextOrderNumber(tx, context.venueId, orderSeries);
     const order = await tx.order.create({
       data: {
         tenantId: context.tenantId,
         venueId: context.venueId,
         orderNumber,
+        orderSeries,
         clientRequestId,
         orderType,
         customerId,
@@ -676,6 +681,8 @@ export async function placeOrder(
       value: {
         orderId: order.id,
         orderNumber,
+        orderSeries,
+        orderLabel: orderLabel({ orderNumber, orderSeries }),
         totalCents,
         currency,
         receiptToken: signReceiptToken(order.id, context.tenantId),
@@ -706,6 +713,8 @@ export interface ReceiptOrder extends OrderFulfilment {
    *  mailer uses it to ask whether this venue has a Google review link. */
   venueId?: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   tableNumber: string | null;
   customerEmail: string | null;
   /** The signed-in guest's own UI language, when this order has one.
@@ -768,6 +777,7 @@ export async function getOrderForReceipt(
         id: true,
         venueId: true,
         orderNumber: true,
+        orderSeries: true,
         tableNumber: true,
         orderType: true,
         customerName: true,
@@ -838,6 +848,8 @@ export async function getOrderForReceipt(
 export interface KitchenOrder extends OrderFulfilment {
   id: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   tableNumber: string | null;
   status: string;
   paymentStatus: string;
@@ -939,6 +951,7 @@ export async function listRecentOrders(
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         tableNumber: true,
         orderType: true,
         customerName: true,
@@ -983,6 +996,7 @@ export async function getKitchenOrder(
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         tableNumber: true,
         orderType: true,
         customerName: true,
@@ -1159,6 +1173,8 @@ export async function acceptOrderWithEta(
 export interface OrderTracking {
   id: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   status: string;
   orderType: string;
   paymentStatus: string;
@@ -1226,6 +1242,7 @@ export async function getOrderTracking(
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         status: true,
         orderType: true,
         paymentStatus: true,
@@ -1409,4 +1426,28 @@ export async function getPublicVenueAccess(
       paypalAvailable(Boolean(tenant.paypalClientIdEnc && tenant.paypalSecretEnc)),
     loyalty: parseLoyaltyConfig(venue.loyalty),
   };
+}
+
+/** "B" = cash, "O" = online — the two order-number series (owner, 2026-10-11). */
+export type OrderSeries = "B" | "O";
+
+/**
+ * The next number in a series for one venue. The caller holds the venue's
+ * advisory lock (see `placeOrder`), so two checkouts cannot read the same
+ * maximum. A deleted order's number counts too, so it is never reused.
+ */
+export async function nextOrderNumber(
+  tx: Prisma.TransactionClient,
+  venueId: string,
+  series: OrderSeries,
+): Promise<number> {
+  const max = await tx.order.aggregate({
+    where: { venueId, orderSeries: series },
+    _max: { orderNumber: true },
+  });
+  const maxDeleted = await tx.deletedOrder.aggregate({
+    where: { venueId, orderSeries: series },
+    _max: { orderNumber: true },
+  });
+  return Math.max(max._max.orderNumber ?? 0, maxDeleted._max.orderNumber ?? 0) + 1;
 }

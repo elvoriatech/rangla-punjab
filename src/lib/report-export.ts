@@ -1,3 +1,4 @@
+import { orderLabel } from "./order-label";
 import type { VenueReport } from "./report-service";
 
 /**
@@ -35,7 +36,7 @@ export function reportToCsv(report: VenueReport): string {
   for (const o of report.orders) {
     rows.push(
       [
-        String(o.orderNumber),
+        orderLabel(o),
         o.placedAt.toISOString(),
         o.orderType,
         o.status,

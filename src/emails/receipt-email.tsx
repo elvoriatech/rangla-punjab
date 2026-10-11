@@ -1,4 +1,5 @@
 import type { ReceiptOrder } from "@/lib/order-service";
+import { orderLabel } from "@/lib/order-label";
 import { orderDiscountLabel } from "@/lib/order-discount-label";
 import { formatPrice } from "@/lib/public-menu";
 import { receiptCopy } from "@/lib/i18n/emails";
@@ -51,7 +52,7 @@ const C = {
 const FONT = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
 
 function orderNo(order: ReceiptOrder): string {
-  return String(order.orderNumber);
+  return orderLabel(order);
 }
 
 export function receiptSubject(order: ReceiptOrder, locale: UiLocale): string {

@@ -1,4 +1,5 @@
 import type { ReceiptOrder } from "@/lib/order-service";
+import { orderLabel } from "@/lib/order-label";
 import { orderDiscountLabel } from "@/lib/order-discount-label";
 import { formatPrice } from "@/lib/public-menu";
 import { newOrderCopy } from "@/lib/i18n/emails";
@@ -22,7 +23,7 @@ export interface NewOrderEmailProps {
 }
 
 function orderNo(order: ReceiptOrder): string {
-  return String(order.orderNumber);
+  return orderLabel(order);
 }
 
 /** One phrase for where the order goes: "Table 4", "Pickup", "Delivery". */

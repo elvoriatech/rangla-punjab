@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { orderLabelOf } from "../order-label";
 import {
   ActivityIndicator,
   Image,
@@ -745,7 +746,7 @@ export function CartScreen({
                   <Text style={styles.placingTitle}>
                     {placing.order
                       ? fill(t.placedTitle, {
-                          orderNo: String(placing.order.orderNumber),
+                          orderNo: orderLabelOf(placing.order),
                         })
                       : t.placingTitle}
                   </Text>

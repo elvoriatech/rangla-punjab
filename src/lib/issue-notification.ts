@@ -37,7 +37,11 @@ export async function sendNewIssueNotification(
     const subject = newIssueSubject(context.issue.orderNumber, locale);
     const results = await Promise.allSettled(
       context.recipients.map((to) =>
-        sendEmail({ to, subject, react: NewIssueEmail({ issue: context.issue, locale, issueUrl }) }),
+        sendEmail({
+          to,
+          subject,
+          react: NewIssueEmail({ issue: context.issue, locale, issueUrl }),
+        }),
       ),
     );
     let sent = 0;
@@ -94,6 +98,7 @@ async function loadIssue(
         order: {
           select: {
             orderNumber: true,
+            orderSeries: true,
             customerName: true,
             customerPhone: true,
             createdAt: true,

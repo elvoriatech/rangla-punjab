@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { orderLabelOf } from "../order-label";
 import {
   ActivityIndicator,
   Pressable,
@@ -164,7 +165,7 @@ export function IssuesScreen({
                         {statusLabels[issue.status] ?? issue.status}
                       </Text>
                     </View>
-                    <Text style={styles.number}>#{String(issue.orderNumber)}</Text>
+                    <Text style={styles.number}>#{orderLabelOf(issue)}</Text>
                     <Text style={styles.name} numberOfLines={1}>
                       {issue.customerName ?? t.issueGuest}
                     </Text>

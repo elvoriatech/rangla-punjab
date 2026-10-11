@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import { notFound } from "next/navigation";
 import { sanitizeAppReturnUrl } from "@/lib/app-return";
 import { getOrderForReceipt } from "@/lib/order-service";
@@ -54,7 +55,7 @@ export default async function PayPage({
   const money = (cents: number): string => formatPrice(cents, order.currency, locale);
   const paid = order.paymentStatus === "paid";
   const vatCents = vatFromGross(order.totalCents);
-  const orderNo = String(order.orderNumber);
+  const orderNo = orderLabel(order);
   // P2-4: site kill switch — no new payments while paused (a settled order
   // still shows its paid state below).
   const { siteActive } = await getOperatorSettings();

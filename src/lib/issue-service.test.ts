@@ -330,7 +330,9 @@ describe("guest side", () => {
       error: "invalid",
     });
     expect(
-      await postGuestIssueMessage(fx.tenantId, fx.orderId, { body: "x".repeat(ISSUE_BODY_MAX + 1) }),
+      await postGuestIssueMessage(fx.tenantId, fx.orderId, {
+        body: "x".repeat(ISSUE_BODY_MAX + 1),
+      }),
     ).toEqual({ ok: false, error: "invalid" });
     expect((await getGuestIssueState(fx.tenantId, fx.orderId))!.issue).toBeNull();
   });
@@ -488,9 +490,9 @@ describe("restaurant side", () => {
     expect(await countOpenIssues(fx.userId)).toBe(0);
 
     // The guest side is now read-only...
-    expect(await postGuestIssueMessage(fx.tenantId, fx.orderId, { body: "one more thing" })).toEqual(
-      { ok: false, error: "resolved" },
-    );
+    expect(
+      await postGuestIssueMessage(fx.tenantId, fx.orderId, { body: "one more thing" }),
+    ).toEqual({ ok: false, error: "resolved" });
     expect((await getGuestIssueState(fx.tenantId, fx.orderId))!.canReport).toBe(false);
 
     // ...but the restaurant may still add a note, and it stays resolved.
@@ -528,7 +530,7 @@ describe("restaurant side", () => {
 
     await resolveIssue(fx.userId, byOrder!.id);
     expect((await listStaffIssues(fx.userId)).map((i) => i.orderId)).toEqual([orderIds[1]]);
-    expect((await listStaffIssues(fx.userId, { includeResolved: true }))).toHaveLength(2);
+    expect(await listStaffIssues(fx.userId, { includeResolved: true })).toHaveLength(2);
     expect(await issueStatusByOrder(fx.tenantId, orderIds)).toEqual(
       new Map([
         [orderIds[0]!, "resolved"],

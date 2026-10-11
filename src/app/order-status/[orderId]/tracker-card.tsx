@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import Link from "next/link";
 import { orderDiscountLabel } from "@/lib/order-discount-label";
 import type { CSSProperties } from "react";
@@ -18,6 +19,8 @@ import type { UiLocale } from "@/lib/locales";
  */
 export interface TrackerOrder {
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   status: string;
   orderType: string;
   paymentStatus: string;
@@ -120,7 +123,7 @@ export function OrderTrackerCard({
           {t.trackTitle}
         </p>
         <h1 className="mt-2 text-center font-serif text-3xl">
-          {t.orderHeading(String(order.orderNumber))}
+          {t.orderHeading(orderLabel(order))}
         </h1>
         <p className="mt-1 text-center text-sm text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
           {time.format(order.createdAt)}

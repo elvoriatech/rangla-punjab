@@ -43,6 +43,8 @@ export type DispatchResult =
        *  failure they will try to work around. */
       already: boolean;
       orderNumber: number;
+      /** "B" (cash) / "O" (online); null on older orders. */
+      orderSeries?: string | null;
       customerName: string | null;
       addressLine: string | null;
       directionsUrl: string | null;
@@ -53,6 +55,8 @@ export type DispatchResult =
 interface DispatchOrderRow {
   id: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   status: string;
   orderType: string;
   customerName: string | null;
@@ -99,6 +103,7 @@ export async function getDispatchOrder(tenantId: string, orderId: string): Promi
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         status: true,
         orderType: true,
         customerName: true,
@@ -133,6 +138,7 @@ export async function dispatchOrder(
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         status: true,
         orderType: true,
         customerName: true,
@@ -210,6 +216,7 @@ export async function sendOnTheWayEmail(tenantId: string, orderId: string): Prom
         where: { id: orderId },
         select: {
           orderNumber: true,
+          orderSeries: true,
           orderType: true,
           customerEmail: true,
           customerName: true,

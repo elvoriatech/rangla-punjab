@@ -270,7 +270,7 @@ describe.runIf(env.EMAIL_TRANSPORT === "mailhog")("new-order notification delive
     const [ma, mb] = await Promise.all([mailFor(a), mailFor(b)]);
     expect(ma.length).toBe(1);
     expect(mb.length).toBe(1);
-    expect(ma[0]!.subject).toMatch(/Neue Bestellung Nr\. 1 · Tisch 7/);
+    expect(ma[0]!.subject).toMatch(/Neue Bestellung Nr\. B-1 · Tisch 7/);
 
     // Settling an online order alerts too (fire-and-forget from markOrderPaid).
     await asTenant(fx.tenantId, (tx) =>

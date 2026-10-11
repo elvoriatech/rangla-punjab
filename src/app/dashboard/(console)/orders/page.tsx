@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import { CircleX, Eye, Printer, Trash2 } from "lucide-react";
 import { reconcilePendingPayments } from "@/lib/connect-service";
 import { resolveActiveTenantId } from "@/lib/tenant";
@@ -326,7 +327,7 @@ export default async function OrdersPage({
                 })()}
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-serif text-2xl">
-                    #{String(order.orderNumber)}
+                    #{orderLabel(order)}
                     <span
                       className={
                         order.paymentStatus === "paid"
@@ -360,12 +361,12 @@ export default async function OrdersPage({
                         <input type="hidden" name="orderId" value={order.id} />
                         <input type="hidden" name="to" value="cancelled" />
                         <ConfirmSubmit
-                          message={`Cancel order #${String(order.orderNumber)}? The guest is told it was called off, and this cannot be undone.`}
+                          message={`Cancel order #${orderLabel(order)}? The guest is told it was called off, and this cannot be undone.`}
                           pendingLabel="…"
                           confirmLabel="Yes, cancel order"
                           cancelLabel="Keep order"
                           title="Cancel order"
-                          ariaLabel={`Cancel order #${order.orderNumber}`}
+                          ariaLabel={`Cancel order #${orderLabel(order)}`}
                           className="inline-flex h-8 w-8 items-center justify-center self-center text-muted hover:text-[#b3261e]"
                         >
                           <CircleX className="h-4 w-4" aria-hidden />
@@ -427,7 +428,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`View order #${order.orderNumber}`}
+                    aria-label={`View order #${orderLabel(order)}`}
                     title="View"
                     className={CARD_ICON}
                   >
@@ -437,7 +438,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}?auto=1`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`Print order #${order.orderNumber}`}
+                    aria-label={`Print order #${orderLabel(order)}`}
                     title="Print"
                     className={CARD_ICON}
                   >
@@ -506,7 +507,7 @@ export default async function OrdersPage({
                 key={order.id}
                 className="flex flex-wrap items-baseline justify-between gap-3 px-5 py-3 text-sm"
               >
-                <span className="font-serif text-lg">#{String(order.orderNumber)}</span>
+                <span className="font-serif text-lg">#{orderLabel(order)}</span>
                 <span className="text-muted">
                   {order.paymentProvider === "paypal" ? "PayPal" : "Card"} ·{" "}
                   {order.paymentStatus === "failed" ? "payment failed" : "not paid yet"} ·{" "}
@@ -521,12 +522,12 @@ export default async function OrdersPage({
                     <input type="hidden" name="orderId" value={order.id} />
                     <input type="hidden" name="to" value="cancelled" />
                     <ConfirmSubmit
-                      message={`Cancel unpaid order #${String(order.orderNumber)}?`}
+                      message={`Cancel unpaid order #${orderLabel(order)}?`}
                       pendingLabel="…"
                       confirmLabel="Yes, cancel order"
                       cancelLabel="Keep order"
                       title="Cancel order"
-                      ariaLabel={`Cancel unpaid order #${order.orderNumber}`}
+                      ariaLabel={`Cancel unpaid order #${orderLabel(order)}`}
                       className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#b3261e]"
                     >
                       <CircleX className="h-4 w-4" aria-hidden />
@@ -548,7 +549,7 @@ export default async function OrdersPage({
                 key={order.id}
                 className="grid grid-cols-[3.5rem_minmax(0,1fr)_max-content] items-baseline gap-x-3 gap-y-0.5 px-5 py-3 text-sm text-muted sm:grid-cols-[3.5rem_minmax(0,1fr)_11rem_max-content]"
               >
-                <span className="tabular-nums">#{String(order.orderNumber)}</span>
+                <span className="tabular-nums">#{orderLabel(order)}</span>
                 <span className="truncate">
                   {fulfilmentLines(order)[0] ?? ""}
                   <span
@@ -610,7 +611,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`View order #${order.orderNumber}`}
+                    aria-label={`View order #${orderLabel(order)}`}
                     title="View"
                     className={ROW_ICON}
                   >
@@ -620,7 +621,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}?auto=1`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`Print order #${order.orderNumber}`}
+                    aria-label={`Print order #${orderLabel(order)}`}
                     title="Print"
                     className={ROW_ICON}
                   >
@@ -632,7 +633,7 @@ export default async function OrdersPage({
                     <form action={deleteOrderAction} className="inline">
                       <input type="hidden" name="orderId" value={order.id} />
                       <ConfirmSubmit
-                        message={`Delete cancelled order #${order.orderNumber}? It is removed everywhere and cannot be brought back.`}
+                        message={`Delete cancelled order #${orderLabel(order)}? It is removed everywhere and cannot be brought back.`}
                         reason={{
                           name: "reason",
                           label: "Why is it being deleted?",
@@ -644,7 +645,7 @@ export default async function OrdersPage({
                         confirmLabel="Delete order"
                         cancelLabel="Keep order"
                         title="Delete"
-                        ariaLabel={`Delete cancelled order #${order.orderNumber}`}
+                        ariaLabel={`Delete cancelled order #${orderLabel(order)}`}
                         className={`${ROW_ICON} hover:border-[#b3261e]/50 hover:text-[#b3261e]`}
                       >
                         <Trash2 className="h-4 w-4" aria-hidden />

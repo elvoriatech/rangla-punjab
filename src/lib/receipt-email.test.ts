@@ -398,7 +398,7 @@ describe.runIf(env.EMAIL_TRANSPORT === "mailhog")("receipt email delivery", () =
     expect(sent).toEqual({ sent: true });
     const mails = await mailFor(to);
     expect(mails.length).toBe(1);
-    expect(mails[0]!.subject).toMatch(/Bestellung Nr\. 1 bei Mail Venue/);
+    expect(mails[0]!.subject).toMatch(/Bestellung Nr\. B-1 bei Mail Venue/);
 
     const noEmail = await placeOrder(fx, { items: [{ itemId: fx.itemId, quantity: 1 }] });
     if (!noEmail.ok) throw new Error("order failed");

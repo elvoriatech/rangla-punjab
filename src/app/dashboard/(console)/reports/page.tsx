@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import { uploadedImageUrl } from "@/lib/menu-images";
 import { listDeletedOrders } from "@/lib/order-delete-service";
 import {
@@ -14,7 +15,12 @@ import { redirect } from "next/navigation";
 import { getVenueForUser } from "@/lib/venue-service";
 import { formatPrice } from "@/lib/public-menu";
 import { rangeLabel, resolveReportRange, type ReportPreset } from "@/lib/report-range";
-import { getVenueReport } from "@/lib/report-service";
+import {
+  getVenueReport,
+  PAY_FILTER_LABELS,
+  PAY_FILTERS,
+  parsePayFilter,
+} from "@/lib/report-service";
 import { SubmitButton } from "@/components/submit-button";
 import { requirePermission } from "@/lib/team-access";
 
@@ -34,7 +40,7 @@ const PRESETS: { key: Exclude<ReportPreset, "custom">; label: string }[] = [
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ preset?: string; from?: string; to?: string; pay?: string }>;
 }): Promise<React.ReactElement> {
   const userId = await requirePermission("reports");
   const venueResult = await getVenueForUser(userId);
@@ -43,13 +49,15 @@ export default async function ReportsPage({
 
   const q = await searchParams;
   const range = resolveReportRange(q);
-  const report = await getVenueReport(userId, venue.id, range);
+  const payFilter = parsePayFilter(q.pay);
+  const report = await getVenueReport(userId, venue.id, range, payFilter);
   if (!report) redirect("/dashboard");
   const deleted = await listDeletedOrders(userId, venue.id, range);
 
   const logoUrl = venue.branding.logoKey ? uploadedImageUrl(venue.branding.logoKey, 96) : null;
   const money = (cents: number): string => formatPrice(cents, report.venue.currency, "de");
-  const qs = `preset=${range.preset}&from=${range.fromInput}&to=${range.toInput}`;
+  const rangeQs = `preset=${range.preset}&from=${range.fromInput}&to=${range.toInput}`;
+  const qs = payFilter === "all" ? rangeQs : `${rangeQs}&pay=${payFilter}`;
   // The per-order table speaks the same words as the two cards above it.
   const typeLabel = new Map<string, string>(report.byOrderType.map((t) => [t.key, t.label]));
   const methodLabel = new Map<string, string>(report.byPaymentMethod.map((m) => [m.key, m.label]));
@@ -116,7 +124,7 @@ export default async function ReportsPage({
         {PRESETS.map((p) => (
           <Link
             key={p.key}
-            href={`/dashboard/reports?preset=${p.key}`}
+            href={`/dashboard/reports?preset=${p.key}${payFilter === "all" ? "" : `&pay=${payFilter}`}`}
             className={`rounded-2xl px-4 py-2 text-sm transition-colors [border-bottom-right-radius:3px] ${
               range.preset === p.key
                 ? "bg-orange font-semibold text-card"
@@ -128,6 +136,7 @@ export default async function ReportsPage({
         ))}
         <form className="ml-2 flex items-center gap-2" action="/dashboard/reports" method="get">
           <input type="hidden" name="preset" value="custom" />
+          {payFilter !== "all" ? <input type="hidden" name="pay" value={payFilter} /> : null}
           <input
             type="date"
             name="from"
@@ -151,6 +160,28 @@ export default async function ReportsPage({
           </SubmitButton>
         </form>
       </div>
+
+      {/* Payment filter — cash and online orders have their own number
+          series (B-… / O-…); the totals, statement and CSV follow it. */}
+      <nav aria-label="Zahlungsart filtern" className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+          Zahlungsart
+        </span>
+        {PAY_FILTERS.map((f) => (
+          <Link
+            key={f}
+            href={`/dashboard/reports?${rangeQs}${f === "all" ? "" : `&pay=${f}`}`}
+            aria-current={payFilter === f ? "true" : undefined}
+            className={`rounded-2xl px-3 py-1.5 text-xs transition-colors [border-bottom-right-radius:3px] ${
+              payFilter === f
+                ? "bg-ink font-semibold text-card"
+                : "border border-ink/15 bg-card hover:border-orange"
+            }`}
+          >
+            {PAY_FILTER_LABELS[f]}
+          </Link>
+        ))}
+      </nav>
 
       {/* Summary tiles */}
       <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
@@ -318,9 +349,7 @@ export default async function ReportsPage({
             <tbody>
               {report.orders.slice(0, 100).map((o) => (
                 <tr key={o.orderId} className="border-t border-ink/10 odd:bg-ink/[0.015]">
-                  <td className="px-5 py-2.5 font-semibold tabular-nums">
-                    #{String(o.orderNumber)}
-                  </td>
+                  <td className="px-5 py-2.5 font-semibold tabular-nums">#{orderLabel(o)}</td>
                   <td className="py-2.5 text-muted">
                     {new Intl.DateTimeFormat("de-DE", {
                       dateStyle: "short",
@@ -419,7 +448,7 @@ export default async function ReportsPage({
               <tbody>
                 {deleted.map((d) => (
                   <tr key={d.id} className="border-t border-ink/10 align-top">
-                    <td className="px-5 py-2.5 font-semibold tabular-nums">#{d.orderNumber}</td>
+                    <td className="px-5 py-2.5 font-semibold tabular-nums">#{orderLabel(d)}</td>
                     <td className="py-2.5 text-muted">{dateTime.format(d.placedAt)}</td>
                     <td className="py-2.5 text-right tabular-nums">{money(d.totalCents)}</td>
                     <td className="py-2.5 ps-5">{d.reason}</td>

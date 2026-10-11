@@ -487,6 +487,8 @@ export interface StaffIssueSummary {
   id: string;
   orderId: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   orderType: string;
   status: IssueStatus;
   customerName: string | null;
@@ -499,6 +501,8 @@ export interface StaffIssueSummary {
 
 export interface StaffIssueView extends IssueView {
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   orderType: string;
   customerName: string | null;
   customerPhone: string | null;
@@ -512,6 +516,7 @@ const staffIssueSelect = {
   order: {
     select: {
       orderNumber: true,
+      orderSeries: true,
       orderType: true,
       customerName: true,
       customerPhone: true,
@@ -566,6 +571,7 @@ export async function listStaffIssues(
         order: {
           select: {
             orderNumber: true,
+            orderSeries: true,
             orderType: true,
             customerName: true,
             customerPhone: true,

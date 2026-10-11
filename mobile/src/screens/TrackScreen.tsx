@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { orderLabelOf } from "../order-label";
 import {
   AppState,
   Linking,
@@ -402,7 +403,7 @@ export function TrackScreen({
                   : t.orderConfirmed}
             </Text>
             <Text style={styles.orderNo}>
-              {t.orderNo} #{String(tracking.orderNumber)}
+              {t.orderNo} #{orderLabelOf(tracking)}
             </Text>
             {tracking.tableNumber ? (
               <Text style={styles.meta}>

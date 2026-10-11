@@ -472,6 +472,8 @@ export interface PlaceOrderInput {
 export interface PlacedOrder {
   orderId: string;
   orderNumber: number;
+  /** "B-12" / "O-7" from the server; absent on an older server. */
+  orderLabel?: string;
   totalCents: number;
   receiptToken: string;
   /** What the voucher took off, 0 when none was applied (or the server
@@ -578,6 +580,7 @@ export async function placeOrder(
     order: {
       orderId: body.orderId,
       orderNumber: Number(body.orderNumber ?? 0),
+      orderLabel: typeof body.orderLabel === "string" ? body.orderLabel : undefined,
       totalCents,
       receiptToken: String(body.receiptToken ?? ""),
       discountCents,

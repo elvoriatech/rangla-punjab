@@ -285,7 +285,13 @@ describe("paypal payments (fake provider, full flow)", () => {
     const row = await asTenant(fx.tenantId, (tx) =>
       tx.order.findFirstOrThrow({
         where: { id: orderId },
-        select: { status: true, paymentStatus: true, paymentProvider: true, paymentRef: true },
+        select: {
+          status: true,
+          paymentStatus: true,
+          paymentProvider: true,
+          paymentRef: true,
+          orderSeries: true,
+        },
       }),
     );
     expect(row).toEqual({
@@ -293,6 +299,8 @@ describe("paypal payments (fake provider, full flow)", () => {
       paymentStatus: "none",
       paymentProvider: null,
       paymentRef: null,
+      // It leaves the online series (O-…) for the cash one (B-…).
+      orderSeries: "B",
     });
     // Now it is a cash order: on the kitchen board, and PayPal's late
     // return leg does not capture anything for it.

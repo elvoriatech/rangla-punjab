@@ -41,6 +41,7 @@ export async function createPayPalOrderPayment(
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         totalCents: true,
         currency: true,
         paymentStatus: true,

@@ -66,6 +66,7 @@ export async function deleteCancelledOrder(
         tenantId: true,
         venueId: true,
         orderNumber: true,
+        orderSeries: true,
         orderType: true,
         status: true,
         paymentStatus: true,
@@ -84,6 +85,7 @@ export async function deleteCancelledOrder(
         tenantId: order.tenantId,
         venueId: order.venueId,
         orderNumber: order.orderNumber,
+        orderSeries: order.orderSeries ?? null,
         orderType: order.orderType,
         paymentStatus: order.paymentStatus,
         totalCents: order.totalCents,
@@ -104,6 +106,8 @@ export async function deleteCancelledOrder(
 export interface DeletedOrderRow {
   id: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   orderType: string;
   totalCents: number;
   currency: string;

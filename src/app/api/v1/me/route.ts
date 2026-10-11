@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { clientIp } from "@/lib/client-ip";
@@ -88,6 +89,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         status: true,
         orderType: true,
         paymentStatus: true,
@@ -106,6 +108,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         orders: orders.map((o) => ({
           orderId: o.id,
           orderNumber: o.orderNumber,
+          orderLabel: orderLabel(o),
           status: o.status,
           orderType: o.orderType,
           paymentStatus: o.paymentStatus,

@@ -25,11 +25,52 @@ export interface ReportRange {
   to: Date;
 }
 
-export type PaymentMethod = "cash" | "stripe" | "paypal";
+/** How an order was paid. "stripe" is a plain card; Apple Pay and Google Pay
+ *  are told apart from the Stripe payment's own method (owner, 2026-10-11). */
+export type PaymentMethod = "cash" | "stripe" | "apple_pay" | "google_pay" | "paypal" | "voucher";
+
+/**
+ * The report's payment filter: one method, or "online" for everything that
+ * was not cash. "all" (or absent) is the unfiltered report.
+ */
+export type ReportPayFilter = "all" | "online" | PaymentMethod;
+
+export const PAY_FILTERS: readonly ReportPayFilter[] = [
+  "all",
+  "cash",
+  "online",
+  "paypal",
+  "apple_pay",
+  "google_pay",
+  "stripe",
+];
+
+export function parsePayFilter(raw: string | null | undefined): ReportPayFilter {
+  return (PAY_FILTERS as readonly string[]).includes(raw ?? "") ? (raw as ReportPayFilter) : "all";
+}
+
+export const PAY_FILTER_LABELS: Record<ReportPayFilter, string> = {
+  all: "Alle",
+  cash: "Bar",
+  online: "Online (alle)",
+  paypal: "PayPal",
+  apple_pay: "Apple Pay",
+  google_pay: "Google Pay",
+  stripe: "Karte",
+  voucher: "Gutschein",
+};
+
+function matchesPayFilter(method: PaymentMethod, filter: ReportPayFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "online") return method !== "cash";
+  return method === filter;
+}
 
 export interface ReportOrderRow {
   orderId: string;
   orderNumber: number;
+  /** "B" (cash) / "O" (online); null on older orders. */
+  orderSeries?: string | null;
   placedAt: Date;
   status: string;
   paymentStatus: string;
@@ -76,6 +117,8 @@ export interface ReportSummary {
 export interface VenueReport {
   venue: { id: string; name: string; currency: string; timezone: string };
   range: ReportRange;
+  /** Which payments this report covers ("all" unless the owner filtered). */
+  payFilter: ReportPayFilter;
   granularity: ReportGranularity;
   summary: ReportSummary;
   orders: ReportOrderRow[];
@@ -109,9 +152,14 @@ export function countsAsRevenue(paymentStatus: string, status: string): boolean 
 export function paymentMethodOf(
   paymentStatus: string,
   paymentProvider: string | null,
+  stripeMethod?: string | null,
 ): PaymentMethod {
   if (paymentStatus === "paid" || paymentStatus === "refunded") {
-    return paymentProvider === "paypal" ? "paypal" : "stripe";
+    if (paymentProvider === "paypal") return "paypal";
+    if (paymentProvider === "voucher" || paymentProvider === "gift_card") return "voucher";
+    if (stripeMethod === "apple_pay") return "apple_pay";
+    if (stripeMethod === "google_pay") return "google_pay";
+    return "stripe";
   }
   return "cash";
 }
@@ -125,7 +173,10 @@ export const TYPE_LABELS: Record<string, string> = {
 export const METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: "Bar / im Restaurant",
   stripe: "Karte (Stripe)",
+  apple_pay: "Apple Pay",
+  google_pay: "Google Pay",
   paypal: "PayPal",
+  voucher: "Gutschein / Geschenkkarte",
 };
 
 /**
@@ -174,6 +225,8 @@ export async function getVenueReport(
   userId: string,
   venueId: string,
   range: ReportRange,
+  /** Only these orders — totals, periods, statement and CSV follow it. */
+  payFilter: ReportPayFilter = "all",
 ): Promise<VenueReport | null> {
   return asUser(userId, async (tx) => {
     const venue = await tx.venue.findFirst({
@@ -188,10 +241,12 @@ export async function getVenueReport(
       select: {
         id: true,
         orderNumber: true,
+        orderSeries: true,
         createdAt: true,
         status: true,
         paymentStatus: true,
         paymentProvider: true,
+        paymentMethod: true,
         orderType: true,
         totalCents: true,
         items: { select: { name: true, priceCents: true, quantity: true } },
@@ -199,16 +254,17 @@ export async function getVenueReport(
     });
 
     const granularity = granularityFor(range);
-    const orders: ReportOrderRow[] = rows.map((o) => {
+    const allOrders: ReportOrderRow[] = rows.map((o) => {
       const vat = vatFromGross(o.totalCents);
       return {
         orderId: o.id,
         orderNumber: o.orderNumber,
+        orderSeries: o.orderSeries,
         placedAt: o.createdAt,
         status: o.status,
         paymentStatus: o.paymentStatus,
         orderType: o.orderType,
-        paymentMethod: paymentMethodOf(o.paymentStatus, o.paymentProvider),
+        paymentMethod: paymentMethodOf(o.paymentStatus, o.paymentProvider, o.paymentMethod),
         netCents: o.totalCents - vat,
         vatCents: vat,
         totalCents: o.totalCents,
@@ -216,6 +272,7 @@ export async function getVenueReport(
       };
     });
 
+    const orders = allOrders.filter((o) => matchesPayFilter(o.paymentMethod, payFilter));
     const revenue = orders.filter((o) => o.countsAsRevenue);
     const grossCents = revenue.reduce((s, o) => s + o.totalCents, 0);
     const vatCents = revenue.reduce((s, o) => s + o.vatCents, 0);
@@ -280,6 +337,7 @@ export async function getVenueReport(
     return {
       venue,
       range,
+      payFilter,
       granularity,
       summary,
       orders,

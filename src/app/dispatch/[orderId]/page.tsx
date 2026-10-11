@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getDispatchOrder } from "@/lib/dispatch-service";
@@ -83,7 +84,7 @@ export default async function DispatchPage({
             phone, at arm's length — the one place to spend legibility on. */}
         <p className="text-xs uppercase tracking-[0.28em] text-muted">Delivery</p>
         <h1 className="mt-1 font-serif text-4xl leading-tight">
-          {order ? `Order #${String(order.orderNumber)}` : "Delivery"}
+          {order ? `Order #${orderLabel(order)}` : "Delivery"}
         </h1>
       </header>
 

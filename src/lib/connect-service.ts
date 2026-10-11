@@ -170,6 +170,7 @@ export async function createOrderPayment(
         select: {
           id: true,
           orderNumber: true,
+          orderSeries: true,
           totalCents: true,
           currency: true,
           paymentStatus: true,
@@ -331,6 +332,7 @@ export async function createOrderPaymentIntent(
         select: {
           id: true,
           orderNumber: true,
+          orderSeries: true,
           totalCents: true,
           currency: true,
           paymentStatus: true,
@@ -761,16 +763,31 @@ export async function switchUnpaidOrderToCash(
   const released = await releaseOnlinePayment(tenantId, orderId, token);
   if (!released.ok) return released;
 
-  const switched = await asTenant(tenantId, (tx) =>
-    tx.order.updateMany({
+  const switched = await asTenant(tenantId, async (tx) => {
+    const res = await tx.order.updateMany({
       where: {
         id: orderId,
         status: "placed",
         paymentStatus: { in: ["pending", "failed"] },
       },
       data: { paymentStatus: "none", paymentProvider: null, paymentRef: null },
-    }),
-  );
+    });
+    if (res.count === 0) return res;
+    // A cash order now: it moves into the B series (owner, 2026-10-11). The
+    // kitchen has not seen it yet — online orders reach the board only once
+    // paid — so the new number is the first one anybody prints.
+    const row = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { venueId: true, orderSeries: true },
+    });
+    if (row && row.orderSeries === "O") {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${row.venueId})::bigint)`;
+      const { nextOrderNumber } = await import("./order-service");
+      const orderNumber = await nextOrderNumber(tx, row.venueId, "B");
+      await tx.order.update({ where: { id: orderId }, data: { orderSeries: "B", orderNumber } });
+    }
+    return res;
+  });
   if (switched.count === 0) return { ok: false, error: "not_cancellable" };
   log.info("order.switched_to_cash", { orderId, tenantId });
 

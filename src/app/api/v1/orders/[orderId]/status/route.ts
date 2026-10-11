@@ -1,3 +1,4 @@
+import { orderLabel } from "@/lib/order-label";
 import { guestExpectedAt } from "@/lib/order-eta";
 import { NextRequest, NextResponse } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
@@ -58,6 +59,7 @@ export async function GET(
         order: {
           id: order.id,
           orderNumber: order.orderNumber,
+          orderLabel: orderLabel(order),
           status: order.status,
           // P7-17. `cancelled` is off the chain, so `currentStepIndex`
           // comes back as -1 and the steps are all unreached — correct,

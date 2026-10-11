@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { getVenueForUser } from "@/lib/venue-service";
 import { resolveReportRange } from "@/lib/report-range";
-import { getVenueReport } from "@/lib/report-service";
+import { getVenueReport, parsePayFilter } from "@/lib/report-service";
 import { renderReportPdf } from "@/lib/report-pdf";
 import { readUpload } from "@/lib/image-storage";
 import { resizeImage } from "@/lib/image-resize";
@@ -33,7 +33,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     from: q.get("from") ?? undefined,
     to: q.get("to") ?? undefined,
   });
-  const report = await getVenueReport(userId, venueResult.value.id, range);
+  const report = await getVenueReport(
+    userId,
+    venueResult.value.id,
+    range,
+    parsePayFilter(q.get("pay")),
+  );
   if (!report) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const pdf = await renderReportPdf(report, await logoPng(venueResult.value.branding.logoKey));

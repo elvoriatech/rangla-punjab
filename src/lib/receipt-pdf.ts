@@ -1,3 +1,4 @@
+import { orderLabel } from "./order-label";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { orderDiscountLabel } from "./order-discount-label";
 import { formatPrice } from "./public-menu";
@@ -241,7 +242,7 @@ export async function buildReceiptPdf(
   y -= LINE / 2;
   rule();
   spread(
-    `${t.order} ${String(order.orderNumber)}`,
+    `${t.order} ${orderLabel(order)}`,
     new Intl.DateTimeFormat(intlLocale, {
       dateStyle: "short",
       timeStyle: "short",
