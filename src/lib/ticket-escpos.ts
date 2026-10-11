@@ -267,13 +267,16 @@ export function renderTicketEscPos(
   }
 
   t.rule();
+  // Dishes in emphasised print: plain font A comes out thin on a weak
+  // thermal head, and this is the part the counter must read.
+  t.bold(true);
   for (const item of order.items) {
     t.lines(
       twoColumns(`${item.quantity}x ${item.name}`, money(item.priceCents * item.quantity), width),
     );
     if (item.note) t.lines(wrap(`  > ${item.note}`, width));
   }
-  t.rule();
+  t.bold(false).rule();
   if ((order.orderDiscountCents ?? 0) > 0) {
     t.lines(
       twoColumns(

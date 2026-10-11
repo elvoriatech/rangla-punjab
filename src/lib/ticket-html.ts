@@ -322,18 +322,22 @@ body {
   margin: 0 auto;
   padding: 8px 10px 16px;
   font-family: "Menlo", "Consolas", "DejaVu Sans Mono", monospace;
-  font-size: 13px;
-  line-height: 1.32;
+  /* Big and heavy: a thermal head prints thin 13 px monospace faint and
+     broken (owner, 2026-10-11: "the kitchen ticket is clear, the order
+     receipt is not") — the receipt now uses the kitchen copy's weights. */
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
   -webkit-text-size-adjust: 100%;
 }
 p { margin: 0; }
-.venue { text-align: center; font-size: 17px; font-weight: 700; text-transform: uppercase; }
+.venue { text-align: center; font-size: 19px; font-weight: 700; text-transform: uppercase; }
 .logo { text-align: center; margin-bottom: 4px; }
 .logo img { width: 80px; height: auto; }
-.venue-sub { text-align: center; font-size: 11px; }
-.kind { margin-top: 4px; text-align: center; font-size: 11px; font-weight: 700; }
+.venue-sub { text-align: center; font-size: 13px; }
+.kind { margin-top: 4px; text-align: center; font-size: 13px; font-weight: 700; }
 .rule { margin: 7px 0; overflow: hidden; white-space: nowrap; }
-.head { display: flex; justify-content: space-between; font-weight: 700; }
+.head { display: flex; justify-content: space-between; font-weight: 700; font-size: 17px; }
 .pay { margin-top: 2px; font-weight: 700; }
 .banner {
   margin-top: 7px;
@@ -341,7 +345,7 @@ p { margin: 0; }
   border-bottom: 2px solid #000;
   padding: 3px 0;
   text-align: center;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: .05em;
 }
@@ -352,22 +356,22 @@ p { margin: 0; }
 .txt { min-width: 0; word-break: break-word; }
 .qr { margin-top: 10px; text-align: center; }
 .qr svg { width: 140px; height: 140px; }
-.qr p { margin-top: 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.qr p { margin-top: 3px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
 ul { margin: 0; padding: 0; list-style: none; }
 li { display: flex; justify-content: space-between; gap: 7px; margin-top: 3px; }
-li.note { display: block; padding-left: 20px; font-size: 11px; font-style: italic; }
+li.note { display: block; padding-left: 20px; font-size: 14px; }
 .qty { font-weight: 700; }
-.nm { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+.nm { font-weight: 700; flex: 1 1 auto; min-width: 0; word-break: break-word; }
 .amt { flex: 0 0 auto; white-space: nowrap; }
-.total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; }
+.total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; }
 .disc { display: flex; justify-content: space-between; }
-.foot { margin-top: 7px; text-align: center; font-size: 11px; }
+.foot { margin-top: 7px; text-align: center; font-size: 13px; }
 /* The kitchen copy starts on its own page, so a receipt printer cuts the
    paper between the two tickets. */
 .kitchen { break-before: page; page-break-before: always; padding-top: 8px; }
 .kitchen-title { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: .08em; }
 .kitchen-head { font-size: 17px; }
-.kitchen-items li { font-size: 15px; margin-top: 5px; justify-content: flex-start; }
+.kitchen-items li { font-size: 17px; margin-top: 5px; justify-content: flex-start; }
 @media print {
   /* A receipt printer that honours the page size cuts to the roll instead of
      padding the ticket out to a letter/A4 sheet. One that ignores it falls
