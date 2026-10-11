@@ -1,7 +1,6 @@
 import { activePauseUntil } from "./ordering-pause";
 import { defaultEtaMinutes, etaApplies, withinAcceptWindow } from "./order-eta";
 import type { Prisma } from "@prisma/client";
-import { drinkItemIds } from "./drink-items";
 import { orderLabel } from "./order-label";
 export { orderLabel };
 import { z } from "zod";
@@ -887,8 +886,7 @@ export interface KitchenOrder extends OrderFulfilment {
    *  order was paid — the two inputs of `orderEta` (`order-eta.ts`). */
   etaMinutes: number | null;
   paidAt: Date | null;
-  /** `isDrink` is set by `getKitchenOrder` for the ticket's drink boxes. */
-  items: { name: string; priceCents: number; quantity: number; isDrink?: boolean }[];
+  items: { name: string; priceCents: number; quantity: number }[];
 }
 
 /** Narrow Prisma's JsonValue to the address shape we stored. */
@@ -992,8 +990,8 @@ export async function getKitchenOrder(
   userId: string,
   orderId: string,
 ): Promise<KitchenOrder | null> {
-  const row = await asUser(userId, async (tx) => {
-    const found = await tx.order.findFirst({
+  const row = await asUser(userId, (tx) =>
+    tx.order.findFirst({
       where: { id: orderId },
       select: {
         id: true,
@@ -1023,25 +1021,12 @@ export async function getKitchenOrder(
         etaMinutes: true,
         paidAt: true,
         items: {
-          select: { itemId: true, name: true, priceCents: true, quantity: true },
+          select: { name: true, priceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
         },
       },
-    });
-    if (!found) return null;
-    // Drinks get a box on the receipt (`drink-items.ts`).
-    const drinks = await drinkItemIds(
-      tx,
-      found.items.map((i) => i.itemId),
-    );
-    return {
-      ...found,
-      items: found.items.map(({ itemId, ...i }) => ({
-        ...i,
-        isDrink: itemId !== null && drinks.has(itemId),
-      })),
-    };
-  });
+    }),
+  );
   return row ? withAddress(row) : null;
 }
 

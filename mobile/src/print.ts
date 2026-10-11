@@ -114,13 +114,16 @@ export async function setBtPrinter(choice: BtPrinterChoice | null): Promise<void
   }
 }
 
-/** A short test slip, built on the device — no order needed. */
+/** A short test slip, built on the device — no order needed. Same code
+ *  page as the real tickets (PC858), with a € and umlauts on it, so the
+ *  test shows whether this printer prints them. */
 export function testSlipBase64(): string {
   const text =
-    "\x1b@\x1c.\x1bt\x00\x1ba\x01\x1bE\x01Rangla Punjab\n\x1bE\x00Testdruck OK\n" +
+    "\x1b@\x1c.\x1bt\x13\x1ba\x01\x1bE\x01Rangla Punjab\n\x1bE\x00Testdruck OK\n" +
+    "Euro: \xd5  Umlaute: \x84 \x94 \x81 \xe1\n" +
     new Date().toLocaleString("de-DE") +
     "\n\x1bd\x04\x1dVB\x00";
-  // Pure ASCII by construction, so btoa is safe.
+  // Every char is a single byte (< 0x100), so btoa is safe.
   return globalThis.btoa(text);
 }
 

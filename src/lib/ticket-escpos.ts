@@ -23,9 +23,11 @@ import {
  * the kitchen copy after a cut — set in the printer's own font. Two paper
  * widths: 58 mm (32 characters) and 80 mm (48).
  *
- * Text goes out in code page 437, which every ESC/POS printer has and
- * which carries ä ö ü ß; anything it lacks (€, typographic quotes, the
- * middle dot) is spelled out instead of printing as garbage.
+ * Text goes out in code page 858 (PC858: the Western-European DOS page
+ * with the euro sign) — ä ö ü ß sit where they do in CP437, and € is a
+ * real € (owner, 2026-10-11: "write the euro symbol, not EUR"). Anything
+ * it lacks (typographic quotes, the middle dot) is spelled out instead of
+ * printing as garbage.
  */
 
 export type PaperWidth = 58 | 80;
@@ -34,7 +36,7 @@ const ESC = 0x1b;
 const GS = 0x1d;
 const FS = 0x1c;
 
-const CP437: Record<string, number> = {
+const PC858: Record<string, number> = {
   Ç: 0x80,
   ü: 0x81,
   é: 0x82,
@@ -69,11 +71,11 @@ const CP437: Record<string, number> = {
   ñ: 0xa4,
   Ñ: 0xa5,
   ß: 0xe1,
+  "€": 0xd5,
 };
 
-/** Characters CP437 lacks, said in plain ASCII. */
+/** Characters PC858 lacks, said in plain ASCII. */
 const SPELLED: Record<string, string> = {
-  "€": "EUR",
   "–": "-",
   "—": "-",
   "·": "-",
@@ -91,7 +93,7 @@ const SPELLED: Record<string, string> = {
 function encode(text: string): number[] {
   const out: number[] = [];
   for (const ch of text.normalize("NFC")) {
-    const mapped = CP437[ch];
+    const mapped = PC858[ch];
     if (mapped !== undefined) {
       out.push(mapped);
       continue;
@@ -249,8 +251,8 @@ export function renderTicketEscPos(
   const when = stamp.format(order.createdAt);
 
   const t = new Ticket(width);
-  // Initialise, leave any Chinese double-byte mode, select code page 437.
-  t.raw(ESC, 0x40).raw(FS, 0x2e).raw(ESC, 0x74, 0x00);
+  // Initialise, leave any Chinese double-byte mode, select code page 858.
+  t.raw(ESC, 0x40).raw(FS, 0x2e).raw(ESC, 0x74, 19);
 
   if (opts.logo) t.align("center").image(opts.logo).feed(1);
   t.align("center").bold(true).lines(wrap(name.main, width)).bold(false);
@@ -290,17 +292,6 @@ export function renderTicketEscPos(
   t.bold(true);
   for (const item of order.items) {
     const amount = money(item.priceCents * item.quantity);
-    if (item.isDrink) {
-      // Drinks in a drawn box (owner, 2026-10-11), as on the HTML ticket.
-      const inner = width - 4;
-      t.line(`+${"-".repeat(width - 2)}+`);
-      for (const l of twoColumns(`${item.quantity}x ${item.name}`, amount, inner))
-        t.line(`| ${l.padEnd(inner)} |`);
-      if (item.note)
-        for (const l of wrap(`  > ${item.note}`, inner)) t.line(`| ${l.padEnd(inner)} |`);
-      t.line(`+${"-".repeat(width - 2)}+`);
-      continue;
-    }
     t.lines(twoColumns(`${item.quantity}x ${item.name}`, amount, width));
     if (item.note) t.lines(wrap(`  > ${item.note}`, width));
   }

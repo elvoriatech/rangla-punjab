@@ -37,17 +37,18 @@ describe("ESC/POS kitchen ticket", () => {
     ),
   );
 
-  it("starts with init, leaves Chinese mode and selects code page 437", () => {
-    expect(out.slice(0, 7)).toEqual([0x1b, 0x40, 0x1c, 0x2e, 0x1b, 0x74, 0x00]);
+  it("starts with init, leaves Chinese mode and selects code page 858", () => {
+    expect(out.slice(0, 7)).toEqual([0x1b, 0x40, 0x1c, 0x2e, 0x1b, 0x74, 19]);
   });
 
-  it("prints German umlauts and ß in code page 437, and spells out the euro", () => {
+  it("prints German umlauts, ß and the € sign in code page 858", () => {
     // "Jürgen Müller": ü = 0x81
     expect(has(out, [...ascii("J"), 0x81, ...ascii("rgen M"), 0x81, ...ascii("ller")])).toBe(true);
     // "Bodanstraße": ß = 0xE1
     expect(has(out, [...ascii("Bodanstra"), 0xe1, ...ascii("e")])).toBe(true);
-    expect(has(out, ascii("EUR"))).toBe(true);
-    expect(out.includes(0x20ac)).toBe(false);
+    // "€" = 0xD5 in PC858, never the letters EUR.
+    expect(out.includes(0xd5)).toBe(true);
+    expect(has(out, ascii("EUR"))).toBe(false);
   });
 
   it("carries the order number, the payment banner, the driver QR and two cuts (ticket + kitchen copy)", () => {
