@@ -149,7 +149,7 @@ describe("renderTicketHtml", () => {
       VENUE,
     );
     expect(html).toContain("GUTSCHEIN");
-    expect(html).toContain("-5,00");
+    expect(html).toContain("-€\u00a05,00");
     expect(html).toContain("19,00");
   });
 
@@ -165,7 +165,7 @@ describe("renderTicketHtml", () => {
       VENUE,
     );
     expect(html).toContain("GESCHENKGUTSCHEIN &middot;&middot;&middot;&middot;EFGH");
-    expect(html).toContain("-4,00");
+    expect(html).toContain("-€\u00a04,00");
     // The reward row is still above it — one order, two instruments.
     expect(html).toContain("GUTSCHEIN");
     expect(html).toContain("15,00");
@@ -225,10 +225,23 @@ describe("renderTicketHtml", () => {
     expect(html).not.toContain("out for delivery + route");
   });
 
-  it("formats money and times in the requested locale", () => {
+  it("writes amounts with the € sign first, German decimals, whatever the locale", () => {
     const en = renderTicketHtml(order(), VENUE, { locale: "en" });
-    expect(en).toContain("€24.00");
+    expect(en).toContain("€\u00a024,00");
     expect(en).toContain('<html lang="en">');
+  });
+});
+
+describe("offer lines", () => {
+  it("cross out the regular price before the offer price", () => {
+    const html = renderTicketHtml(
+      order({
+        items: [{ name: "Butter Chicken", quantity: 2, priceCents: 1090, basePriceCents: 1290 }],
+        totalCents: 2180,
+      }),
+      VENUE,
+    );
+    expect(html).toContain('<s class="was">€\u00a025,80</s> €\u00a021,80');
   });
 });
 

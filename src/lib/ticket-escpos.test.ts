@@ -82,3 +82,18 @@ describe("ESC/POS kitchen ticket", () => {
     ).toBe(true);
   });
 });
+
+describe("ESC/POS offer lines", () => {
+  it("puts the € first and says the regular price under an offer dish", () => {
+    const out = bytes(
+      renderTicketEscPos(
+        { ...order, items: [{ name: "Dal", quantity: 1, priceCents: 900, basePriceCents: 1100 }] },
+        { name: "Rangla Punjab" },
+        { kitchenCopy: false },
+      ),
+    );
+    // "€ 9,00" — € (0xD5), a space, then the amount.
+    expect(has(out, [0xd5, ...ascii(" 9,00")])).toBe(true);
+    expect(has(out, [...ascii("statt "), 0xd5, ...ascii(" 11,00")])).toBe(true);
+  });
+});

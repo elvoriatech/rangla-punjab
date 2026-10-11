@@ -1,5 +1,4 @@
 import { orderLabel } from "./order-label";
-import { formatPrice } from "./public-menu";
 import type { KitchenOrder } from "./order-service";
 import { onlinePaymentLabel } from "./payment-methods";
 
@@ -92,6 +91,8 @@ export interface TicketOrder {
     quantity: number;
     priceCents: number;
     note?: string | null;
+    /** The regular price an offer was cut from; shown crossed out. */
+    basePriceCents?: number | null;
   }[];
 }
 
@@ -192,6 +193,31 @@ export function typeBanner(order: TicketOrder): string {
   return `IM RESTAURANT${order.tableNumber ? ` — TISCH ${order.tableNumber}` : ""}`;
 }
 
+/**
+ * An amount as the receipt writes it: the € sign FIRST, "€ 21,80" (owner,
+ * 2026-10-11), German decimals. Another currency shows its code instead.
+ */
+export function ticketMoney(cents: number, currency: string): string {
+  const sign = cents < 0 ? "-" : "";
+  const n = new Intl.NumberFormat("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(cents) / 100);
+  const symbol = !currency || currency === "EUR" ? "€" : currency;
+  return `${sign}${symbol}\u00a0${n}`;
+}
+
+/** Was this line an offer? The regular price it was cut from, or null. */
+export function offerWasCents(item: {
+  priceCents: number;
+  quantity: number;
+  basePriceCents?: number | null;
+}): number | null {
+  return item.basePriceCents != null && item.basePriceCents > item.priceCents
+    ? item.basePriceCents * item.quantity
+    : null;
+}
+
 /** "App-Bestellung" / "Website-Bestellung" — where the order came from
  *  (owner, 2026-10-11); "Online-Bestellung" on older orders. */
 export function channelLine(order: Pick<TicketOrder, "orderChannel">): string {
@@ -276,7 +302,7 @@ export function renderTicketHtml(
   });
 
   const addressLine = ticketAddressLine(order);
-  const money = (cents: number): string => formatPrice(cents, order.currency, locale);
+  const money = (cents: number): string => ticketMoney(cents, order.currency);
 
   const rows: string[] = [];
   const readyLine = ticketReadyLine(order, opts.readyAt, timeZone);
@@ -300,7 +326,12 @@ export function renderTicketHtml(
     .map((item) => {
       const line =
         `<li><span class="qty">${item.quantity}x</span> <span class="nm">${esc(item.name)}</span>` +
-        `<span class="amt">${esc(money(item.priceCents * item.quantity))}</span></li>`;
+        `<span class="amt">${
+          // An offer: the regular price crossed out, then what was charged.
+          offerWasCents(item) !== null
+            ? `<s class="was">${esc(money(offerWasCents(item)!))}</s> `
+            : ""
+        }${esc(money(item.priceCents * item.quantity))}</span></li>`;
       // A per-line note belongs UNDER its dish, indented: the cook reads
       // the column of dish names first and the exception second.
       return item.note ? `${line}<li class="note">${esc(item.note)}</li>` : line;
@@ -378,6 +409,7 @@ li.note { display: block; padding-left: 20px; font-size: 14px; }
 .qty { font-weight: 700; }
 .nm { font-weight: 700; flex: 1 1 auto; min-width: 0; word-break: break-word; }
 .amt { flex: 0 0 auto; white-space: nowrap; }
+.was { font-weight: 400; font-size: 13px; text-decoration-thickness: 2px; margin-right: 2px; }
 .total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; }
 .disc { display: flex; justify-content: space-between; }
 .foot { margin-top: 7px; text-align: center; font-size: 13px; }

@@ -1,8 +1,9 @@
 import { orderLabel } from "./order-label";
 import type { RasterImage } from "./ticket-logo";
-import { formatPrice } from "./public-menu";
 import {
   channelLine,
+  offerWasCents,
+  ticketMoney,
   paymentBanner,
   paymentFooter,
   ticketAddressLine,
@@ -246,7 +247,7 @@ export function renderTicketEscPos(
     timeZone,
   });
   const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone });
-  const money = (cents: number): string => formatPrice(cents, order.currency, locale);
+  const money = (cents: number): string => ticketMoney(cents, order.currency);
   const name = ticketVenueName(venue.name);
   const number = `#${orderLabel(order)}`;
   const when = stamp.format(order.createdAt);
@@ -294,6 +295,13 @@ export function renderTicketEscPos(
   for (const item of order.items) {
     const amount = money(item.priceCents * item.quantity);
     t.lines(twoColumns(`${item.quantity}x ${item.name}`, amount, width));
+    // An offer: a receipt printer cannot strike text through, so the
+    // regular price goes on a small line under the dish instead.
+    const was = offerWasCents(item);
+    if (was !== null)
+      t.bold(false)
+        .line(`   statt ${money(was)}`)
+        .bold(true);
     if (item.note) t.lines(wrap(`  > ${item.note}`, width));
   }
   t.bold(false).rule();

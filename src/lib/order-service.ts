@@ -910,7 +910,8 @@ export interface KitchenOrder extends OrderFulfilment {
    *  order was paid — the two inputs of `orderEta` (`order-eta.ts`). */
   etaMinutes: number | null;
   paidAt: Date | null;
-  items: { name: string; priceCents: number; quantity: number }[];
+  /** `basePriceCents`: the regular price an offer was cut from (null = no offer). */
+  items: { name: string; priceCents: number; quantity: number; basePriceCents?: number | null }[];
 }
 
 /** Narrow Prisma's JsonValue to the address shape we stored. */
@@ -1046,7 +1047,7 @@ export async function getKitchenOrder(
         etaMinutes: true,
         paidAt: true,
         items: {
-          select: { name: true, priceCents: true, quantity: true },
+          select: { name: true, priceCents: true, basePriceCents: true, quantity: true },
           orderBy: { createdAt: "asc" },
         },
       },

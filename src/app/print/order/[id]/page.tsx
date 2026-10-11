@@ -4,7 +4,6 @@ import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { orderEta } from "@/lib/order-eta";
 import { getOrderingConfigForUser } from "@/lib/staff-service";
-import { formatPrice } from "@/lib/public-menu";
 import { renderQrSvg } from "@/lib/qr";
 import {
   paymentBanner,
@@ -13,6 +12,8 @@ import {
   ticketVenueName,
   typeBanner as ticketTypeBanner,
   ticketReadyLine,
+  offerWasCents,
+  ticketMoney,
 } from "@/lib/ticket-html";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { ticketLogoDataUri } from "@/lib/ticket-logo";
@@ -191,7 +192,12 @@ export default async function OrderTicketPage({
                 <span className="font-bold">{item.quantity}x</span> {item.name}
               </span>
               <span className="whitespace-nowrap">
-                {formatPrice(item.priceCents * item.quantity, order.currency, "de")}
+                {offerWasCents(item) !== null ? (
+                  <s className="mr-1 font-normal opacity-80">
+                    {ticketMoney(offerWasCents(item)!, order.currency)}
+                  </s>
+                ) : null}
+                {ticketMoney(item.priceCents * item.quantity, order.currency)}
               </span>
             </li>
           ))}
@@ -204,7 +210,7 @@ export default async function OrderTicketPage({
         {(order.orderDiscountCents ?? 0) > 0 ? (
           <div className="flex justify-between">
             <span>RABATT {order.orderDiscountPercent ?? 0} %</span>
-            <span>-{formatPrice(order.orderDiscountCents ?? 0, order.currency, "de")}</span>
+            <span>-{ticketMoney(order.orderDiscountCents ?? 0, order.currency)}</span>
           </div>
         ) : null}
         {order.discountCents > 0 ? (
@@ -215,7 +221,7 @@ export default async function OrderTicketPage({
               GUTSCHEIN
               {order.discountPoints > 0 ? ` · ${order.discountPoints} P` : ""}
             </span>
-            <span>-{formatPrice(order.discountCents, order.currency, "de")}</span>
+            <span>-{ticketMoney(order.discountCents, order.currency)}</span>
           </div>
         ) : null}
         {/* A gift card gets its own row under the reward — both can land on
@@ -227,12 +233,12 @@ export default async function OrderTicketPage({
               GESCHENKGUTSCHEIN
               {order.giftCardLast4 ? ` ····${order.giftCardLast4}` : ""}
             </span>
-            <span>-{formatPrice(order.giftCardDiscountCents, order.currency, "de")}</span>
+            <span>-{ticketMoney(order.giftCardDiscountCents, order.currency)}</span>
           </div>
         ) : null}
         <div className="flex justify-between text-sm font-bold">
           <span>GESAMT</span>
-          <span>{formatPrice(order.totalCents, order.currency, "de")}</span>
+          <span>{ticketMoney(order.totalCents, order.currency)}</span>
         </div>
         <p className="mt-2 text-center text-[11px]">{paymentFooter(order)}</p>
 
