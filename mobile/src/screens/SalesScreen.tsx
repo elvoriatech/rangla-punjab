@@ -63,7 +63,7 @@ function payLabel(t: Strings, key: SalesFilter): string {
 
 function typeLabel(t: Strings, o: StaffSalesOrder): string {
   if (o.orderType === "delivery") return t.delivery;
-  if (o.orderType === "pickup") return t.pickup;
+  if (o.orderType === "takeaway") return t.pickup;
   return o.tableNumber ? fill(t.salesTable, { table: o.tableNumber }) : t.dineIn;
 }
 
