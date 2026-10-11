@@ -457,6 +457,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       // "May this login cancel?" — the owner always may (owner, 2026-10-07).
       appCancelEnabled: true,
       pausedUntil: null,
+      orderDiscountPercent: 0,
     });
 
     const res = await PATCH_ORDERING(
@@ -470,6 +471,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       issueWindowHours: 3,
       appCancelEnabled: true,
       pausedUntil: null,
+      orderDiscountPercent: 0,
     });
 
     const stored = await asTenant(tenantId, (tx) =>
@@ -494,6 +496,7 @@ describe("/api/v1/staff/{menu,items,ordering,loyalty}", () => {
       issueWindowHours: 3,
       appCancelEnabled: true,
       pausedUntil: null,
+      orderDiscountPercent: 0,
     });
   });
 

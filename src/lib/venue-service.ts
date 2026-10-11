@@ -675,10 +675,17 @@ export async function updateVenueOrdering(userId: string, input: unknown): Promi
     if (!venue) return { ok: false, error: "no_venue" as const };
     // The open/closed switch is not part of this form: saving the settings
     // must not silently reopen (or re-close) ordering.
-    const pausedUntil = parseOrderingConfig(venue.ordering).pausedUntil;
+    const stored = parseOrderingConfig(venue.ordering);
+    const pausedUntil = stored.pausedUntil;
+    // The order discount is set from the app too: a form that does not
+    // carry the field keeps the stored value rather than zeroing it.
+    const orderDiscountPercent =
+      input && typeof input === "object" && "orderDiscountPercent" in input
+        ? parsed.data.orderDiscountPercent
+        : stored.orderDiscountPercent;
     await tx.venue.update({
       where: { id: venue.id },
-      data: { ordering: { ...parsed.data, pausedUntil } },
+      data: { ordering: { ...parsed.data, pausedUntil, orderDiscountPercent } },
     });
     return { ok: true as const, value: undefined };
   });

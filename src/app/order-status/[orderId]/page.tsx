@@ -1,4 +1,5 @@
 import { guestExpectedAt } from "@/lib/order-eta";
+
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { verifyReceiptToken } from "@/lib/receipt-token";
@@ -136,6 +137,8 @@ export default async function OrderStatusPage({
           paymentStatus: order.paymentStatus,
           paymentProvider: order.paymentProvider,
           discountCents: order.discountCents,
+          orderDiscountPercent: order.orderDiscountPercent,
+          orderDiscountCents: order.orderDiscountCents,
           discountPoints: order.discountPoints,
           giftCardDiscountCents: order.giftCardDiscountCents,
           giftCardLast4: order.giftCardLast4,

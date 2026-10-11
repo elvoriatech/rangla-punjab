@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { orderDiscountLabel } from "@/lib/order-discount-label";
 import type { CSSProperties } from "react";
 import { guestSteps, isCancelledStatus, stepIndex } from "@/lib/order-status";
 import { postOrderCopy } from "@/lib/i18n/post-order";
@@ -24,6 +25,8 @@ export interface TrackerOrder {
   paymentProvider?: string | null;
   /** Reward applied to this order (0 = none). `totalCents` is net of it. */
   discountCents?: number;
+  orderDiscountPercent?: number;
+  orderDiscountCents?: number;
   /** What that reward cost in points. 0/absent on an order placed before
    *  the column existed — the line then omits the points. */
   discountPoints?: number;
@@ -234,6 +237,12 @@ export function OrderTrackerCard({
               </li>
             ))}
           </ul>
+          {order.orderDiscountCents ? (
+            <div className="mb-1 flex justify-between text-[var(--menu-surface-accent,var(--menu-accent))]">
+              <span>{orderDiscountLabel(order.orderDiscountPercent, locale)}</span>
+              <span className="tabular-nums">−{money.format(order.orderDiscountCents / 100)}</span>
+            </div>
+          ) : null}
           {order.discountCents ? (
             <div className="mb-1 flex justify-between text-[var(--menu-surface-accent,var(--menu-accent))]">
               <span>

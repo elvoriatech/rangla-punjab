@@ -1643,6 +1643,21 @@ export default async function SettingsPage({
           </fieldset>
 
           <div className="mt-4 border-t border-ink/10 pt-4">
+            <label className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+              <span className="font-medium">Discount on every order</span>
+              <input
+                type="number"
+                name="orderDiscountPercent"
+                min={0}
+                max={50}
+                step={1}
+                defaultValue={ordering.config.orderDiscountPercent}
+                className="w-20 border border-ink/30 bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+              />
+              <span className="text-sm text-muted">
+                % off the food (pickup, delivery and dine-in; not the delivery fee). 0 = off.
+              </span>
+            </label>
             <p className="text-sm text-muted">
               Cancelling orders in the app: the owner always can; team members only with the
               &quot;Cancel orders&quot; box ticked on the Team page.

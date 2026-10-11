@@ -344,7 +344,8 @@ export function TrackScreen({
   const giftCardLast4 = tracking?.giftCardLast4 ?? null;
   /** Anything took money off this bill — what the total row's spacing
    *  keys on, whichever of the two (or both) it was. */
-  const anyDiscount = discountCents > 0 || giftCardCents > 0;
+  const anyDiscount =
+    discountCents > 0 || giftCardCents > 0 || (tracking?.orderDiscountCents ?? 0) > 0;
   /**
    * When the food actually left the kitchen, on the venue's clock.
    *
@@ -505,6 +506,16 @@ export function TrackScreen({
               </View>
             ) : null}
 
+            {(tracking.orderDiscountCents ?? 0) > 0 ? (
+              <View style={styles.rewardRow}>
+                <Text style={styles.rewardLabel}>
+                  {t.orderDiscountWord} {tracking.orderDiscountPercent ?? 0} %
+                </Text>
+                <Text style={styles.rewardValue}>
+                  −{money(tracking.orderDiscountCents ?? 0, tracking.currency)}
+                </Text>
+              </View>
+            ) : null}
             {/* What the reward took off, above the total it produced —
                 the guest sees the subtraction, not just a smaller number. */}
             {discountCents > 0 ? (

@@ -67,6 +67,9 @@ export interface TicketOrder {
   /** How a Stripe payment was made ("apple_pay", …); absent/null = card. */
   paymentMethod?: string | null;
   discountCents: number;
+  /** Order-wide discount: percent and cents off the food (owner, 2026-10-11). */
+  orderDiscountPercent?: number;
+  orderDiscountCents?: number;
   /** Points the reward cost. 0 = no reward, or an order from before the
    *  column existed — the row then omits the points. */
   discountPoints: number;
@@ -410,6 +413,11 @@ ${
   // The points are on the label so the counter can see what the guest
   // gave up for it; 0 means an order from before the column existed and
   // the row reads exactly as it always did.
+  (order.orderDiscountCents ?? 0) > 0
+    ? `<div class="disc"><span>RABATT ${order.orderDiscountPercent ?? 0} %</span><span>-${esc(money(order.orderDiscountCents ?? 0))}</span></div>`
+    : ""
+}
+${
   order.discountCents > 0
     ? `<div class="disc"><span>GUTSCHEIN${
         order.discountPoints > 0 ? ` &middot; ${order.discountPoints} P` : ""

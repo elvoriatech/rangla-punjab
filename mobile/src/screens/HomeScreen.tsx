@@ -902,8 +902,9 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
     takeaway: true,
     delivery: true,
     pausedUntil: null,
+    orderDiscountPercent: 0,
   });
-  const [busy, setBusy] = useState<"takeaway" | "delivery" | "pause" | null>(null);
+  const [busy, setBusy] = useState<"takeaway" | "delivery" | "pause" | "discount" | null>(null);
   // The "for how long?" sheet, and the choice ticked in it.
   const [pauseSheet, setPauseSheet] = useState(false);
   const [pauseChoice, setPauseChoice] = useState<"30" | "60" | "day">("60");
@@ -949,6 +950,29 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
       setFailed(false);
       setOrdering({ ...ordering, [key]: next });
       const res = await updateStaffOrdering(staffToken, { [key]: next });
+      setBusy(null);
+      if (!res.ok) {
+        setOrdering(before);
+        if (res.error === "unauthorized") clearStaff();
+        else setFailed(true);
+        return;
+      }
+      setOrdering(res.data);
+      onChanged?.();
+    },
+    [staffToken, busy, ordering, clearStaff, onChanged],
+  );
+
+  /** The order-wide discount, in steps of 5 % (0–50). Saved on each tap. */
+  const setDiscount = useCallback(
+    async (next: number): Promise<void> => {
+      if (!staffToken || busy) return;
+      const value = Math.max(0, Math.min(50, next));
+      const before = ordering;
+      setBusy("discount");
+      setFailed(false);
+      setOrdering({ ...ordering, orderDiscountPercent: value });
+      const res = await updateStaffOrdering(staffToken, { orderDiscountPercent: value });
       setBusy(null);
       if (!res.ok) {
         setOrdering(before);
@@ -1072,6 +1096,38 @@ function ServiceSwitches({ onChanged }: { onChanged?: () => void }): React.React
           onChange={(next) => void toggle("delivery", next)}
         />
       </View>
+      <View style={styles.pauseDivider} />
+      <Text style={styles.serviceTitle}>{t.orderDiscountSetting}</Text>
+      <View style={styles.discountRow}>
+        <Pressable
+          onPress={() => void setDiscount(ordering.orderDiscountPercent - 5)}
+          disabled={busy !== null || ordering.orderDiscountPercent <= 0}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.orderDiscountSetting} −5 %`}
+          style={({ pressed }) => [
+            styles.discountBtn,
+            (pressed || ordering.orderDiscountPercent <= 0) && { opacity: 0.4 },
+          ]}
+        >
+          <Text style={styles.discountBtnText}>−</Text>
+        </Pressable>
+        <Text style={styles.discountValue}>
+          {busy === "discount" ? "…" : `${ordering.orderDiscountPercent} %`}
+        </Text>
+        <Pressable
+          onPress={() => void setDiscount(ordering.orderDiscountPercent + 5)}
+          disabled={busy !== null || ordering.orderDiscountPercent >= 50}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.orderDiscountSetting} +5 %`}
+          style={({ pressed }) => [
+            styles.discountBtn,
+            (pressed || ordering.orderDiscountPercent >= 50) && { opacity: 0.4 },
+          ]}
+        >
+          <Text style={styles.discountBtnText}>+</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.discountHint}>{t.orderDiscountHint}</Text>
       {failed ? <Text style={styles.serviceError}>{t.staffToggleFailed}</Text> : null}
     </View>
   );
@@ -1184,6 +1240,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 14,
+  },
+  discountRow: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 6 },
+  discountBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.creamCard,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  discountBtnText: { color: colors.red, ...fonts.bodyHeavy, fontSize: 22, lineHeight: 26 },
+  discountValue: {
+    minWidth: 64,
+    textAlign: "center",
+    color: colors.ink,
+    ...fonts.bodyHeavy,
+    fontSize: 20,
+  },
+  discountHint: {
+    color: colors.inkSoft,
+    ...fonts.body,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
   },
   serviceTitle: { color: colors.ink, ...fonts.bodyBold, fontSize: 14 },
   serviceRow: { flexDirection: "row", alignItems: "flex-start", gap: 18 },

@@ -1,4 +1,5 @@
 import type { ReceiptOrder } from "@/lib/order-service";
+import { orderDiscountLabel } from "@/lib/order-discount-label";
 import { formatPrice } from "@/lib/public-menu";
 import { receiptCopy } from "@/lib/i18n/emails";
 import { dirFor, type UiLocale } from "@/lib/locales";
@@ -405,6 +406,12 @@ export function ReceiptEmail({
                                         </td>
                                       </tr>
                                     ))}
+                                    {(order.orderDiscountCents ?? 0) > 0
+                                      ? row(
+                                          orderDiscountLabel(order.orderDiscountPercent, locale),
+                                          `−${money(order.orderDiscountCents ?? 0)}`,
+                                        )
+                                      : null}
                                     {order.discountCents > 0
                                       ? row(
                                           order.discountPoints > 0

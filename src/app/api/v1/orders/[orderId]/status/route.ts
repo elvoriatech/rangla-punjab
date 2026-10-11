@@ -91,6 +91,8 @@ export async function GET(
           // discount), so an app that never learns about rewards keeps
           // showing the right number.
           discountCents: order.discountCents,
+          orderDiscountPercent: order.orderDiscountPercent ?? 0,
+          orderDiscountCents: order.orderDiscountCents ?? 0,
           // What the reward cost in points, so the tracker's reward line
           // can say so. 0 on an order placed before the column existed.
           discountPoints: order.discountPoints,

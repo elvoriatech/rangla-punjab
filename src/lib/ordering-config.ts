@@ -194,6 +194,17 @@ export const orderingConfigSchema = z.object({
   etaAcceptSeconds: z
     .preprocess((v) => clampAcceptSeconds(v), z.number().int())
     .default(DEFAULT_ETA_ACCEPT_SECONDS),
+  // A percentage off the whole order's food (owner, 2026-10-11), for every
+  // order type; 0 = off. Whole percent, 0–50 — a typo of 100 must not give
+  // the kitchen away.
+  orderDiscountPercent: z
+    .preprocess((v) => {
+      const n = typeof v === "string" ? parseInt(v, 10) : typeof v === "number" ? v : NaN;
+      return Number.isFinite(n)
+        ? Math.min(MAX_ORDER_DISCOUNT_PERCENT, Math.max(0, Math.round(n)))
+        : 0;
+    }, z.number().int())
+    .default(0),
   // "Stop taking orders" until this instant (ISO); null = taking orders.
   // Set by the open/closed switch (`ordering-pause.ts`), never by the
   // settings form — the form's save carries the stored value through.
@@ -282,6 +293,8 @@ export interface EffectiveOrdering {
   deliveryFeeCents: number;
   deliveryMinCents: number;
   acceptedPayments: PaymentMethodId[];
+  /** Percent off the food of every order; 0 or absent = none. */
+  orderDiscountPercent?: number;
 }
 
 /** Effective capability = plan/override entitlement AND owner switch. */
@@ -298,7 +311,17 @@ export function effectiveOrdering(
     deliveryFeeCents: config.deliveryFeeCents,
     deliveryMinCents: config.deliveryMinCents,
     acceptedPayments: config.acceptedPayments,
+    orderDiscountPercent: config.orderDiscountPercent,
   };
+}
+
+/** The ceiling the owner can set for the order-wide discount. */
+export const MAX_ORDER_DISCOUNT_PERCENT = 50;
+
+/** Cents the order-wide discount takes off a food total — rounded to the cent. */
+export function orderDiscountCents(itemsCents: number, percent: number): number {
+  if (percent <= 0 || itemsCents <= 0) return 0;
+  return Math.round((itemsCents * percent) / 100);
 }
 
 /**

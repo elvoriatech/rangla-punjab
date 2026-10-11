@@ -62,6 +62,8 @@ export interface ApiOrdering {
   delivery: boolean;
   deliveryAreas: ApiDeliveryArea[];
   deliveryFeeCents: number;
+  /** Percent off every order's food (owner setting); 0/absent = none. */
+  orderDiscountPercent?: number;
   deliveryMinCents: number;
   acceptedPayments: string[];
   onlinePayment: boolean;
@@ -625,6 +627,9 @@ export interface ApiTracking {
   items?: ApiTrackItem[];
   /** What a redeemed reward took off this order; absent/0 = none. */
   discountCents?: number;
+  /** The order-wide discount: percent and cents off the food. */
+  orderDiscountPercent?: number;
+  orderDiscountCents?: number;
   /** The points that reward cost. Absent on a server that predates the
    *  column, and 0 on an order placed before it — the reward line then
    *  shows the money without the points rather than "0 points". */

@@ -282,6 +282,8 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     etaDeliveryMinutes: parseInt(String(form.get("etaDeliveryMinutes") ?? ""), 10),
     etaPickupMinutes: parseInt(String(form.get("etaPickupMinutes") ?? ""), 10),
     etaAcceptSeconds: parseInt(String(form.get("etaAcceptSeconds") ?? ""), 10),
+    // Percent off every order's food; blank or 0 = no discount.
+    orderDiscountPercent: parseInt(String(form.get("orderDiscountPercent") ?? "0"), 10),
   });
   return finish(userId, result.ok, "ordering");
 }

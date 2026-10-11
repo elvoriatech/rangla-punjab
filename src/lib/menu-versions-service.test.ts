@@ -123,6 +123,44 @@ describe("draft/publish workflow", () => {
     expect(lines[0]).toMatchObject({ name: "Dal", quantity: 2 });
   });
 
+  it("takes the owner's order-wide discount off the food, and stores it on the order", async () => {
+    const { userId, tenantId, categoryId } = await onboardedUserWithMenu();
+    await createItem(userId, { categoryId, name: "Dal", priceCents: 1200, variants: [] });
+    await asTenant(tenantId, (tx) => tx.tenant.updateMany({ data: { plan: "scale" } }));
+    await asTenant(tenantId, async (tx) => {
+      const v = await tx.venue.findFirstOrThrow({ select: { id: true, ordering: true } });
+      await tx.venue.update({
+        where: { id: v.id },
+        data: { ordering: { ...((v.ordering as object) ?? {}), orderDiscountPercent: 10 } },
+      });
+    });
+    const pub = await publishDraft(userId);
+    if (!pub.ok) throw new Error("publish failed");
+    const venue = await asTenant(tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ select: { id: true } }),
+    );
+    const item = await asUser(userId, (tx) =>
+      tx.item.findFirstOrThrow({
+        where: { category: { menuVersionId: pub.publishedVersionId } },
+        select: { id: true },
+      }),
+    );
+    const placed = await placeOrder(
+      { tenantId, venueId: venue.id, publishedVersionId: pub.publishedVersionId },
+      { orderType: "dine_in", tableNumber: "3", items: [{ itemId: item.id, quantity: 2 }] },
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const row = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({
+        where: { id: placed.value.orderId },
+        select: { totalCents: true, orderDiscountPercent: true, orderDiscountCents: true },
+      }),
+    );
+    // 2 × 12,00 = 24,00; 10 % = 2,40; charged 21,60.
+    expect(row).toEqual({ totalCents: 2160, orderDiscountPercent: 10, orderDiscountCents: 240 });
+  });
+
   it("publish snapshots the draft into a new version and stamps published_at", async () => {
     const { userId, categoryId } = await onboardedUserWithMenu();
     await createItem(userId, { categoryId, name: "Risotto", priceCents: 1800, variants: [] });

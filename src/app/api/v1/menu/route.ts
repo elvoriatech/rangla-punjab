@@ -176,6 +176,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           deliveryFeeCents: access.modes.deliveryFeeCents,
           deliveryMinCents: access.modes.deliveryMinCents,
           acceptedPayments: access.modes.acceptedPayments,
+          // Percent off every order's food (owner setting); 0 = none. The
+          // app's cart previews it exactly as /api/orders applies it.
+          orderDiscountPercent: access.modes.orderDiscountPercent ?? 0,
           onlinePayment: access.onlinePayment,
           paypal: access.paypalPayment,
           // Later-today "HH:MM" pickup/delivery slots inside opening hours

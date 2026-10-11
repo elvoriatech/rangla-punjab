@@ -234,7 +234,12 @@ export function CartScreen({
     : menu.ordering.deliveryFeeCents;
   const areaMin = area ? (area.minCents ?? 0) : menu.ordering.deliveryMinCents;
   const deliveryFee = orderType === "delivery" && cart.totalCents > 0 ? areaFee : 0;
-  const grandTotal = cart.totalCents + deliveryFee;
+  // The order-wide discount, previewed exactly as the server applies it: a
+  // percentage of the food, before the delivery fee (owner, 2026-10-11).
+  const discountPercent = menu.ordering.orderDiscountPercent ?? 0;
+  const orderDiscount =
+    discountPercent > 0 ? Math.round((cart.totalCents * discountPercent) / 100) : 0;
+  const grandTotal = cart.totalCents - orderDiscount + deliveryFee;
   const belowMinimum =
     orderType === "delivery" && areaMin > 0 && cart.totalCents > 0 && cart.totalCents < areaMin;
   // Loyalty is earned on the FOOD subtotal — a delivery fee never buys
@@ -1104,6 +1109,12 @@ export function CartScreen({
 
               <View style={styles.totalBox}>
                 <Row label={t.subtotal} value={money(cart.totalCents, menu.venue.currency)} />
+                {orderDiscount > 0 ? (
+                  <Row
+                    label={`${t.orderDiscountWord} ${discountPercent} %`}
+                    value={`−${money(orderDiscount, menu.venue.currency)}`}
+                  />
+                ) : null}
                 {orderType === "delivery" ? (
                   <Row label={t.deliveryFee} value={money(deliveryFee, menu.venue.currency)} />
                 ) : null}

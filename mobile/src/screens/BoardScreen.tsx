@@ -1103,6 +1103,12 @@ export function BoardScreen({
               ))}
             </View>
 
+            {order.orderDiscountCents > 0 ? (
+              <Text style={styles.rewardOff}>
+                {t.orderDiscountWord} {order.orderDiscountPercent} %: −
+                {money(order.orderDiscountCents, order.currency)}
+              </Text>
+            ) : null}
             {discountCents > 0 ? (
               <Text style={styles.rewardOff}>
                 {fill(discountPoints > 0 ? t.ordersRewardOffPoints : t.ordersRewardOff, {

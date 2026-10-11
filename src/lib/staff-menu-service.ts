@@ -518,6 +518,8 @@ export interface StaffOrdering {
   /** Ordering is switched off until this instant (ISO); null = taking
    *  orders. Set through `pause` on the PATCH, never written directly. */
   pausedUntil: string | null;
+  /** Percent off every order's food (owner, 2026-10-11); 0 = none. */
+  orderDiscountPercent: number;
 }
 
 export const staffOrderingPatchSchema = z.object({
@@ -526,6 +528,8 @@ export const staffOrderingPatchSchema = z.object({
   takeaway: z.boolean().optional(),
   delivery: z.boolean().optional(),
   issueWindowHours: z.number().int().min(1).optional(),
+  /** Percent off every order's food, 0–50; 0 switches it off. */
+  orderDiscountPercent: z.number().int().min(0).max(50).optional(),
 });
 
 /**
@@ -547,6 +551,7 @@ export async function getStaffOrdering(tenantId: string): Promise<StaffOrdering>
       issueWindowHours: config.issueWindowHours,
       appCancelEnabled: config.appCancelEnabled,
       pausedUntil: activePauseUntil(config)?.toISOString() ?? null,
+      orderDiscountPercent: config.orderDiscountPercent,
     };
   });
 }
@@ -588,6 +593,9 @@ export async function updateStaffOrdering(
       ...(parsed.data.issueWindowHours === undefined
         ? {}
         : { issueWindowHours: parsed.data.issueWindowHours }),
+      ...(parsed.data.orderDiscountPercent === undefined
+        ? {}
+        : { orderDiscountPercent: parsed.data.orderDiscountPercent }),
     });
     await tx.venue.update({ where: { id: venue.id }, data: { ordering: next } });
     return {
@@ -599,6 +607,7 @@ export async function updateStaffOrdering(
         issueWindowHours: next.issueWindowHours,
         appCancelEnabled: next.appCancelEnabled,
         pausedUntil: activePauseUntil(next)?.toISOString() ?? null,
+        orderDiscountPercent: next.orderDiscountPercent,
       },
     };
   });

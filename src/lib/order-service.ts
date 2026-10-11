@@ -23,6 +23,7 @@ import {
   deliveryQuote,
   DELIVERY_FEE_LINE_NAME,
   effectiveOrdering,
+  orderDiscountCents,
   orderTypeAllowed,
   clampEtaMinutes,
   parseOrderingConfig,
@@ -429,8 +430,14 @@ export async function placeOrder(
       // restaurant's own name for the area, whatever the client sent.
       if (quote.locality) input.address!.city = quote.locality;
     }
+    // The order-wide discount (owner, 2026-10-11): a percentage of the food,
+    // never of the delivery fee, taken before any reward or gift card. The
+    // delivery minimum above is checked against the undiscounted food, so a
+    // discount never turns an order away.
+    const discountPercent = mode.orderDiscountPercent ?? 0;
+    const orderDiscount = orderDiscountCents(itemsCents, discountPercent);
     // What the basket is worth before any reward is applied.
-    const grossCents = itemsCents + feeCents;
+    const grossCents = itemsCents - orderDiscount + feeCents;
     const customerId = opts?.customerId ?? null;
 
     // Per-venue running receipt number. Serialised with a
@@ -570,6 +577,8 @@ export async function placeOrder(
         deliveryAddress: orderType === "delivery" && input.address ? input.address : undefined,
         requestedFor,
         totalCents,
+        orderDiscountPercent: orderDiscount > 0 ? discountPercent : 0,
+        orderDiscountCents: orderDiscount,
         discountCents,
         voucherId: claim?.voucherId ?? null,
         // Copied off the voucher rather than looked up later: the reward
@@ -728,6 +737,9 @@ export interface ReceiptOrder extends OrderFulfilment {
    *  reward rather than a reprice. */
   giftCardDiscountCents: number;
   giftCardLast4: string | null;
+  /** The order-wide discount: percent in force and cents off the food. */
+  orderDiscountPercent?: number;
+  orderDiscountCents?: number;
   /** The CHARGED total: already net of `discountCents`. */
   totalCents: number;
   currency: string;
@@ -770,6 +782,8 @@ export async function getOrderForReceipt(
         discountCents: true,
         discountPoints: true,
         giftCardDiscountCents: true,
+        orderDiscountPercent: true,
+        orderDiscountCents: true,
         giftCardLast4: true,
         totalCents: true,
         currency: true,
@@ -844,6 +858,9 @@ export interface KitchenOrder extends OrderFulfilment {
    *  reward rather than a reprice. */
   giftCardDiscountCents: number;
   giftCardLast4: string | null;
+  /** The order-wide discount: percent in force and cents off the food. */
+  orderDiscountPercent?: number;
+  orderDiscountCents?: number;
   totalCents: number;
   currency: string;
   createdAt: Date;
@@ -935,6 +952,8 @@ export async function listRecentOrders(
         discountCents: true,
         discountPoints: true,
         giftCardDiscountCents: true,
+        orderDiscountPercent: true,
+        orderDiscountCents: true,
         giftCardLast4: true,
         totalCents: true,
         currency: true,
@@ -977,6 +996,8 @@ export async function getKitchenOrder(
         discountCents: true,
         discountPoints: true,
         giftCardDiscountCents: true,
+        orderDiscountPercent: true,
+        orderDiscountCents: true,
         giftCardLast4: true,
         totalCents: true,
         currency: true,
@@ -1155,6 +1176,9 @@ export interface OrderTracking {
    *  reward rather than a reprice. */
   giftCardDiscountCents: number;
   giftCardLast4: string | null;
+  /** The order-wide discount: percent in force and cents off the food. */
+  orderDiscountPercent?: number;
+  orderDiscountCents?: number;
   totalCents: number;
   currency: string;
   requestedFor: Date | null;
@@ -1209,6 +1233,8 @@ export async function getOrderTracking(
         discountCents: true,
         discountPoints: true,
         giftCardDiscountCents: true,
+        orderDiscountPercent: true,
+        orderDiscountCents: true,
         giftCardLast4: true,
         totalCents: true,
         currency: true,

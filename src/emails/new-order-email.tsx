@@ -1,4 +1,5 @@
 import type { ReceiptOrder } from "@/lib/order-service";
+import { orderDiscountLabel } from "@/lib/order-discount-label";
 import { formatPrice } from "@/lib/public-menu";
 import { newOrderCopy } from "@/lib/i18n/emails";
 import { dirFor, type UiLocale } from "@/lib/locales";
@@ -157,6 +158,14 @@ export function NewOrderEmail({
               <td style={{ ...right, fontSize: 16 }}>{money(item.priceCents * item.quantity)}</td>
             </tr>
           ))}
+          {(order.orderDiscountCents ?? 0) > 0 ? (
+            <tr>
+              <td style={{ ...styles.itemCell, fontSize: 16 }}>
+                {orderDiscountLabel(order.orderDiscountPercent, locale)}
+              </td>
+              <td style={{ ...right, fontSize: 16 }}>−{money(order.orderDiscountCents ?? 0)}</td>
+            </tr>
+          ) : null}
           {order.discountCents > 0 ? (
             <tr>
               {/* Points as well as money: the restaurant reading this

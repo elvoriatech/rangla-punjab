@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { orderDiscountLabel } from "./order-discount-label";
 import { formatPrice } from "./public-menu";
 import { pdfCopy, pdfLocale } from "./i18n/pdf";
 import { vatFromGross } from "./vat";
@@ -152,6 +153,7 @@ export async function buildReceiptPdf(
   // tax record both need those), and the discount is visible as the thing
   // that brought the total down.
   const discountCents = Math.max(0, order.discountCents);
+  const orderDiscount = Math.max(0, order.orderDiscountCents ?? 0);
   // The POINTS the reward cost, on the row itself — a guest reading
   // "Reward -20,00" a week later has no way to tell what they gave up for
   // it. 0 means the order predates the column, and the row then reads as
@@ -174,6 +176,7 @@ export async function buildReceiptPdf(
     (order.paymentStatus === "paid" ? LINE : 0) +
     bodyLines * LINE +
     (discountCents > 0 ? LINE : 0) + // the reward row
+    (orderDiscount > 0 ? LINE : 0) + // the order-discount row
     (giftCardCents > 0 ? LINE : 0) + // the gift-card row
     2 * LINE + // net + VAT rows above the total
     110; // total + footer block
@@ -263,6 +266,9 @@ export async function buildReceiptPdf(
   // The reward comes off the bill before the tax split: `order.totalCents`
   // is already the charged amount, so the VAT below is the VAT on what the
   // guest actually paid.
+  if (orderDiscount > 0) {
+    spread(orderDiscountLabel(order.orderDiscountPercent, locale), `-${price(orderDiscount)}`);
+  }
   if (discountCents > 0) spread(rewardLabel, `-${price(discountCents)}`);
   if (giftCardCents > 0) spread(giftCardLabel, `-${price(giftCardCents)}`);
   // German gross pricing: the total already includes 19 % VAT — show the

@@ -87,6 +87,9 @@ export interface StaffOrder {
   paymentProvider: string | null;
   totalCents: number;
   discountCents: number;
+  /** Order-wide discount: percent and cents off the food (0 = none). */
+  orderDiscountPercent: number;
+  orderDiscountCents: number;
   /** Points the reward cost the guest. 0 = no reward, or an order from
    *  before the server carried the number. */
   discountPoints: number;
@@ -205,6 +208,8 @@ export function asStaffOrder(raw: unknown): StaffOrder | null {
     paymentProvider: nullableStr(o.paymentProvider),
     totalCents: num(o.totalCents),
     discountCents: num(o.discountCents),
+    orderDiscountPercent: num(o.orderDiscountPercent),
+    orderDiscountCents: num(o.orderDiscountCents),
     discountPoints: num(o.discountPoints),
     outForDeliveryAt: nullableStr(o.outForDeliveryAt),
     eta: asEta(o.eta),
@@ -983,6 +988,8 @@ export interface StaffOrdering {
   /** Ordering is switched off until this instant (ISO); null = taking
    *  orders, and what a server that predates the switch answers. */
   pausedUntil: string | null;
+  /** Percent off every order's food (owner setting); 0 = none. */
+  orderDiscountPercent: number;
 }
 
 /** How long "stop taking orders" lasts; "off" reopens now. */
@@ -1249,6 +1256,7 @@ function asOrdering(raw: unknown): StaffOrdering {
     takeaway: bool(o.takeaway, true),
     delivery: bool(o.delivery, true),
     pausedUntil: nullableStr(o.pausedUntil),
+    orderDiscountPercent: num(o.orderDiscountPercent, 0),
   };
 }
 
@@ -1262,7 +1270,12 @@ export async function fetchStaffOrdering(token: string): Promise<StaffResult<Sta
 /** Dine-in is not the app's to change — it is the QR menu on the table. */
 export async function updateStaffOrdering(
   token: string,
-  patch: { takeaway?: boolean; delivery?: boolean; pause?: StaffPauseChoice },
+  patch: {
+    takeaway?: boolean;
+    delivery?: boolean;
+    pause?: StaffPauseChoice;
+    orderDiscountPercent?: number;
+  },
 ): Promise<StaffResult<StaffOrdering>> {
   const res = await staffFetch(token, "/api/v1/staff/ordering", { method: "PATCH", body: patch });
   if (!res) return { ok: false, error: "network" };

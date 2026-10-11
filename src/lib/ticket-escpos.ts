@@ -273,6 +273,15 @@ export function renderTicketEscPos(
     if (item.note) t.lines(wrap(`  > ${item.note}`, width));
   }
   t.rule();
+  if ((order.orderDiscountCents ?? 0) > 0) {
+    t.lines(
+      twoColumns(
+        `RABATT ${order.orderDiscountPercent ?? 0} %`,
+        `-${money(order.orderDiscountCents ?? 0)}`,
+        width,
+      ),
+    );
+  }
   if (order.discountCents > 0) {
     const label = `GUTSCHEIN${order.discountPoints > 0 ? ` - ${order.discountPoints} P` : ""}`;
     t.lines(twoColumns(label, `-${money(order.discountCents)}`, width));
