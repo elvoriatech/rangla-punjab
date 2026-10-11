@@ -4,7 +4,9 @@ import { corsPreflight, withCors } from "@/lib/cors";
 import { setCateringStatus, deleteCateringRequest } from "@/lib/catering-service";
 import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
 
-const bodySchema = z.object({ status: z.enum(["confirmed", "declined", "cancelled"]) });
+const bodySchema = z.object({
+  status: z.enum(["confirmed", "declined", "cancelled", "completed"]),
+});
 
 /**
  * POST /api/v1/staff/catering/{id} `{ status }` — the dashboard's

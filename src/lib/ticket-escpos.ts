@@ -236,6 +236,8 @@ export function renderTicketEscPos(
     readyAt?: Date | null;
     /** The venue logo as dots (`ticketLogoRaster`), on both copies. */
     logo?: RasterImage | null;
+    /** Offer lines pre-drawn as pictures, by item index (`offerLineRaster`). */
+    offerImages?: (RasterImage | null)[];
   } = {},
 ): Uint8Array {
   const width = opts.paper === 58 ? 32 : 48;
@@ -292,18 +294,24 @@ export function renderTicketEscPos(
   // Dishes in emphasised print: plain font A comes out thin on a weak
   // thermal head, and this is the part the counter must read.
   t.bold(true);
-  for (const item of order.items) {
+  order.items.forEach((item, index) => {
     const amount = money(item.priceCents * item.quantity);
-    t.lines(twoColumns(`${item.quantity}x ${item.name}`, amount, width));
-    // An offer: a receipt printer cannot strike text through, so the
-    // regular price goes on a small line under the dish instead.
     const was = offerWasCents(item);
-    if (was !== null)
-      t.bold(false)
-        .line(`   statt ${money(was)}`)
-        .bold(true);
+    const picture = opts.offerImages?.[index];
+    if (was !== null && picture) {
+      // An offer: the whole line as a picture, the regular price really
+      // crossed out (`receipt-raster.ts`) — a printer has no strike mode.
+      t.align("left").image(picture);
+    } else {
+      t.lines(twoColumns(`${item.quantity}x ${item.name}`, amount, width));
+      // No picture (it could not be drawn): say the regular price instead.
+      if (was !== null)
+        t.bold(false)
+          .line(`   statt ${money(was)}`)
+          .bold(true);
+    }
     if (item.note) t.lines(wrap(`  > ${item.note}`, width));
-  }
+  });
   t.bold(false).rule();
   if ((order.orderDiscountCents ?? 0) > 0) {
     t.lines(

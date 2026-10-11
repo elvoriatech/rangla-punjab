@@ -621,7 +621,7 @@ export async function fetchStaffReservations(
 export async function setStaffReservationStatus(
   token: string,
   reservationId: string,
-  status: "confirmed" | "declined",
+  status: "confirmed" | "declined" | "completed",
 ): Promise<StaffResult<null>> {
   const res = await staffFetch(
     token,
@@ -687,7 +687,7 @@ export async function fetchStaffCatering(token: string): Promise<StaffResult<Sta
 export async function setStaffCateringStatus(
   token: string,
   requestId: string,
-  status: "confirmed" | "declined",
+  status: "confirmed" | "declined" | "completed",
 ): Promise<StaffResult<null>> {
   const res = await staffFetch(token, `/api/v1/staff/catering/${encodeURIComponent(requestId)}`, {
     method: "POST",

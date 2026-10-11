@@ -83,7 +83,7 @@ export function CateringOwnerScreen({
   }, [load]);
 
   const answer = useCallback(
-    async (id: string, status: "confirmed" | "declined"): Promise<void> => {
+    async (id: string, status: "confirmed" | "declined" | "completed"): Promise<void> => {
       if (!staffToken || busyId) return;
       setBusyId(id);
       const res = await setStaffCateringStatus(staffToken, id, status);
@@ -141,6 +141,7 @@ export function CateringOwnerScreen({
     confirmed: t.resStatusConfirmed,
     declined: t.resStatusDeclined,
     cancelled: t.staffResCancelled,
+    completed: t.bookingCompleted,
   };
 
   const groups = groupByDate(rows);
@@ -273,6 +274,25 @@ export function CateringOwnerScreen({
                         style={({ pressed }) => [styles.change, pressed && { opacity: 0.6 }]}
                       >
                         <Text style={styles.changeText}>{t.staffResChange}</Text>
+                      </Pressable>
+                    ) : null}
+                    {/* A confirmed booking that took place: mark it done
+                        (owner, 2026-10-11). */}
+                    {r.status === "confirmed" && !showButtons ? (
+                      <Pressable
+                        onPress={() => void answer(r.id, "completed")}
+                        disabled={busy}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t.bookingMarkCompleted} ${r.name}`}
+                        style={({ pressed }) => [
+                          styles.btn,
+                          styles.btnConfirm,
+                          { marginTop: 10, flex: 0 },
+                          (pressed || busy) && { opacity: 0.7 },
+                        ]}
+                      >
+                        <Ionicons name="checkmark-done" size={18} color="#fff" />
+                        <Text style={styles.btnConfirmText}>{t.bookingMarkCompleted}</Text>
                       </Pressable>
                     ) : null}
                     {/* Owner only: a full-width button, not a small icon in

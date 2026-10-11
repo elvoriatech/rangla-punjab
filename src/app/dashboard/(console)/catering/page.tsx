@@ -31,6 +31,7 @@ const STATUS_STYLE: Record<string, string> = {
   confirmed: "bg-[#3f7030]/15 text-[#3f7030]",
   declined: "bg-red-900/10 text-red-900",
   cancelled: "bg-ink/10 text-muted",
+  completed: "bg-ink/10 text-ink",
 };
 
 /** "YYYY-MM-DD" drawn at noon UTC so the weekday never slips a day. */
@@ -116,6 +117,19 @@ function OpenRequest({ r }: { r: CateringRow }): React.ReactElement {
             </SubmitButton>
           </form>
         ) : null}
+        {/* The guests came / the event was served (owner, 2026-10-11). */}
+        {r.status === "confirmed" ? (
+          <form action={setCateringStatusAction}>
+            <input type="hidden" name="id" value={r.id} />
+            <input type="hidden" name="status" value="completed" />
+            <SubmitButton
+              pendingLabel="Saving…"
+              className="whitespace-nowrap bg-[#3f7030] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-card hover:bg-[#335b27]"
+            >
+              ✓ Completed
+            </SubmitButton>
+          </form>
+        ) : null}
         <form action={setCateringStatusAction}>
           <input type="hidden" name="id" value={r.id} />
           <input
@@ -145,7 +159,9 @@ export default async function CateringPage({
 
   const rows = await listCateringRequests(userId);
   const open = rows.filter((r) => r.status === "requested" || r.status === "confirmed");
-  const closed = rows.filter((r) => r.status === "declined" || r.status === "cancelled");
+  const closed = rows.filter(
+    (r) => r.status === "declined" || r.status === "cancelled" || r.status === "completed",
+  );
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-6 py-12 text-ink lg:px-10">

@@ -105,12 +105,14 @@ const en = {
     confirmed: "Confirmed",
     declined: "Declined",
     cancelled: "Cancelled",
+    completed: "Completed",
   },
   reservationHint: {
     requested: "The restaurant will call you to confirm this table.",
     confirmed: "Your table is booked — see you then.",
     declined: "The restaurant couldn't take this one. Please try another time.",
     cancelled: "This reservation was cancelled.",
+    completed: "Thanks for visiting — we hope you enjoyed it.",
   },
 
   /* Problem reports — the complaint thread under the tracker. One thread
@@ -316,6 +318,7 @@ const de: PostOrderCopy = {
     confirmed: "Bestätigt",
     declined: "Abgelehnt",
     cancelled: "Storniert",
+    completed: "Erledigt",
   },
   reservationHint: {
     requested: "Das Restaurant meldet sich telefonisch zur Bestätigung.",
@@ -323,6 +326,7 @@ const de: PostOrderCopy = {
     declined:
       "Das Restaurant konnte diesen Termin nicht annehmen. Bitte wählen Sie eine andere Zeit.",
     cancelled: "Diese Reservierung wurde storniert.",
+    completed: "Danke für Ihren Besuch – wir hoffen, es hat geschmeckt.",
   },
 
   issue: {
@@ -510,12 +514,14 @@ const fr: PostOrderCopy = {
     confirmed: "Confirmée",
     declined: "Refusée",
     cancelled: "Annulée",
+    completed: "Terminée",
   },
   reservationHint: {
     requested: "Le restaurant vous appellera pour confirmer cette table.",
     confirmed: "Votre table est réservée — à très bientôt.",
     declined: "Le restaurant n'a pas pu retenir ce créneau. Merci d'en choisir un autre.",
     cancelled: "Cette réservation a été annulée.",
+    completed: "Merci de votre visite – nous espérons que vous avez apprécié.",
   },
 
   issue: {
@@ -696,12 +702,14 @@ const es: PostOrderCopy = {
     confirmed: "Confirmada",
     declined: "Rechazada",
     cancelled: "Cancelada",
+    completed: "Completada",
   },
   reservationHint: {
     requested: "El restaurante te llamará para confirmar la mesa.",
     confirmed: "Tu mesa está reservada: nos vemos.",
     declined: "El restaurante no ha podido aceptarla. Prueba con otra hora.",
     cancelled: "Esta reserva se ha cancelado.",
+    completed: "Gracias por su visita, esperamos que lo haya disfrutado.",
   },
 
   issue: {
@@ -881,12 +889,14 @@ const it: PostOrderCopy = {
     confirmed: "Confermata",
     declined: "Rifiutata",
     cancelled: "Annullata",
+    completed: "Completata",
   },
   reservationHint: {
     requested: "Il ristorante ti chiamerà per confermare il tavolo.",
     confirmed: "Il tuo tavolo è prenotato: a presto.",
     declined: "Il ristorante non ha potuto accettarla. Prova con un altro orario.",
     cancelled: "Questa prenotazione è stata annullata.",
+    completed: "Grazie per la visita, speriamo che sia piaciuto.",
   },
 
   issue: {
@@ -1063,12 +1073,14 @@ const ar: PostOrderCopy = {
     confirmed: "مؤكد",
     declined: "مرفوض",
     cancelled: "ملغى",
+    completed: "مكتملة",
   },
   reservationHint: {
     requested: "سيتصل بك المطعم لتأكيد الطاولة.",
     confirmed: "تم حجز طاولتك — نراك قريبًا.",
     declined: "لم يتمكن المطعم من قبول هذا الموعد. جرّب وقتًا آخر.",
     cancelled: "تم إلغاء هذا الحجز.",
+    completed: "شكرًا لزيارتكم – نتمنى أن تكونوا قد استمتعتم.",
   },
 
   issue: {

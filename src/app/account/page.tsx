@@ -50,6 +50,7 @@ const RESERVATION_BADGE: Record<string, string> = {
   confirmed: "bg-[#3f7030]/15 text-[#3f7030]",
   declined: "bg-red-900/10 text-red-900",
   cancelled: "bg-ink/10 text-muted",
+  completed: "bg-ink/10 text-muted",
 };
 
 export default async function AccountPage({

@@ -515,6 +515,8 @@ const en = {
 
   ownerGiftCards: "Gift cards",
   ownerSales: "Daily sales",
+  bookingCompleted: "Completed",
+  bookingMarkCompleted: "✓ Completed",
   redeemPointsOnlineNote:
     "Loyalty points are not redeemed here: guests turn their points into a voucher themselves when ordering online (app or website).",
   chooseOrderType: "Please choose: dine-in, pickup or delivery.",
@@ -1481,6 +1483,8 @@ const de: Strings = {
 
   ownerGiftCards: "Geschenkgutscheine",
   ownerSales: "Tagesumsatz",
+  bookingCompleted: "Erledigt",
+  bookingMarkCompleted: "✓ Erledigt",
   redeemPointsOnlineNote:
     "Treuepunkte werden hier nicht eingelöst: Gäste tauschen ihre Punkte selbst beim Online-Bestellen (App oder Website) in einen Gutschein.",
   chooseOrderType: "Bitte wählen: Im Restaurant, Abholung oder Lieferung.",
@@ -2443,6 +2447,8 @@ const fr: Strings = {
 
   ownerGiftCards: "Cartes cadeaux",
   ownerSales: "Ventes du jour",
+  bookingCompleted: "Terminée",
+  bookingMarkCompleted: "✓ Terminée",
   redeemPointsOnlineNote:
     "Les points fidélité ne s'encaissent pas ici : les clients échangent eux-mêmes leurs points contre un bon en commandant en ligne (app ou site).",
   chooseOrderType: "Veuillez choisir : sur place, à emporter ou livraison.",
@@ -3401,6 +3407,8 @@ const it: Strings = {
 
   ownerGiftCards: "Carte regalo",
   ownerSales: "Vendite del giorno",
+  bookingCompleted: "Completata",
+  bookingMarkCompleted: "✓ Completata",
   redeemPointsOnlineNote:
     "I punti fedeltà non si riscuotono qui: gli ospiti trasformano da soli i loro punti in un buono ordinando online (app o sito).",
   chooseOrderType: "Scegli: al tavolo, asporto o consegna.",
@@ -4359,6 +4367,8 @@ const es: Strings = {
 
   ownerGiftCards: "Tarjetas regalo",
   ownerSales: "Ventas del día",
+  bookingCompleted: "Completada",
+  bookingMarkCompleted: "✓ Completada",
   redeemPointsOnlineNote:
     "Los puntos no se canjean aquí: los clientes cambian ellos mismos sus puntos por un vale al pedir online (app o web).",
   chooseOrderType: "Elige: en el local, para recoger o a domicilio.",
@@ -5308,6 +5318,8 @@ const ar: Strings = {
 
   ownerGiftCards: "بطاقات الهدايا",
   ownerSales: "مبيعات اليوم",
+  bookingCompleted: "مكتملة",
+  bookingMarkCompleted: "✓ مكتملة",
   redeemPointsOnlineNote:
     "لا تُصرف نقاط الولاء هنا: يحوّل الضيوف نقاطهم إلى قسيمة بأنفسهم عند الطلب عبر الإنترنت (التطبيق أو الموقع).",
   chooseOrderType: "يرجى الاختيار: داخل المطعم أو استلام أو توصيل.",

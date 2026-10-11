@@ -53,7 +53,13 @@ export const cateringSchema = z.object({
 
 export type CateringInput = z.infer<typeof cateringSchema>;
 
-export const CATERING_STATUSES = ["requested", "confirmed", "declined", "cancelled"] as const;
+export const CATERING_STATUSES = [
+  "requested",
+  "confirmed",
+  "declined",
+  "cancelled",
+  "completed",
+] as const;
 export type CateringStatus = (typeof CATERING_STATUSES)[number];
 
 export type CreateCateringResult =
@@ -202,7 +208,7 @@ export async function listCateringRequests(userId: string): Promise<CateringRow[
   );
 }
 
-const SETTABLE = ["confirmed", "declined", "cancelled"] as const;
+const SETTABLE = ["confirmed", "declined", "cancelled", "completed"] as const;
 
 export async function setCateringStatus(
   userId: string,

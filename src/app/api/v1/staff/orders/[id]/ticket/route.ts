@@ -4,7 +4,8 @@ import { getKitchenOrder } from "@/lib/order-service";
 import { renderQrSvg } from "@/lib/qr";
 import { requireStaff } from "@/lib/staff-request";
 import { renderTicketEscPos } from "@/lib/ticket-escpos";
-import { renderTicketHtml, ticketAddressLine } from "@/lib/ticket-html";
+import { offerWasCents, renderTicketHtml, ticketAddressLine, ticketMoney } from "@/lib/ticket-html";
+import { offerLineRaster } from "@/lib/receipt-raster";
 import { ticketLogoDataUri, ticketLogoRaster } from "@/lib/ticket-logo";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { getVenueForUser } from "@/lib/venue-service";
@@ -67,6 +68,22 @@ export async function GET(
         paper,
         readyAt,
         logo: await ticketLogoRaster(venue.value.branding.logoKey, paper === 58 ? 160 : 192),
+        // Offer lines as pictures, so the old price prints crossed out.
+        offerImages: await Promise.all(
+          order.items.map((item) => {
+            const was = offerWasCents(item);
+            return was === null
+              ? null
+              : offerLineRaster(
+                  {
+                    left: `${item.quantity}x ${item.name}`,
+                    was: ticketMoney(was, order.currency),
+                    now: ticketMoney(item.priceCents * item.quantity, order.currency),
+                  },
+                  paper === 58 ? 384 : 576,
+                ).catch(() => null);
+          }),
+        ),
         navQrData: addressLine ? dispatchUrl(order.id, gate.staff.tenantId) : null,
       },
     );

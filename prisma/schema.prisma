@@ -1035,6 +1035,7 @@ enum ReservationStatus {
   confirmed
   declined
   cancelled
+  completed
 }
 
 /// Table reservation requested from the public menu. The restaurant

@@ -41,6 +41,7 @@ export const RESERVATION_STATUSES = [
   "confirmed",
   "declined",
   "cancelled",
+  "completed",
 ] as const satisfies readonly ReservationStatusValue[];
 
 export type CreateReservationResult =
@@ -300,7 +301,7 @@ export async function listCustomerReservations(
   return rows.map(toReservationView);
 }
 
-const SETTABLE = ["confirmed", "declined", "cancelled"] as const;
+const SETTABLE = ["confirmed", "declined", "cancelled", "completed"] as const;
 
 export async function setReservationStatus(
   userId: string,
