@@ -85,7 +85,14 @@ export interface TicketOrder {
   totalCents: number;
   currency: string;
   createdAt: Date;
-  items: { name: string; quantity: number; priceCents: number; note?: string | null }[];
+  items: {
+    name: string;
+    quantity: number;
+    priceCents: number;
+    note?: string | null;
+    /** Drinks are boxed on the order receipt (owner, 2026-10-11). */
+    isDrink?: boolean;
+  }[];
 }
 
 /* A compile-time nudge: if `KitchenOrder` ever stops fitting the ticket,
@@ -284,7 +291,7 @@ export function renderTicketHtml(
   const items = order.items
     .map((item) => {
       const line =
-        `<li><span class="qty">${item.quantity}x</span> <span class="nm">${esc(item.name)}</span>` +
+        `<li${item.isDrink ? ' class="drink"' : ""}><span class="qty">${item.quantity}x</span> <span class="nm">${esc(item.name)}</span>` +
         `<span class="amt">${esc(money(item.priceCents * item.quantity))}</span></li>`;
       // A per-line note belongs UNDER its dish, indented: the cook reads
       // the column of dish names first and the exception second.
@@ -361,6 +368,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 li { display: flex; justify-content: space-between; gap: 7px; margin-top: 3px; }
 li.note { display: block; padding-left: 20px; font-size: 14px; }
 .qty { font-weight: 700; }
+/* Drinks in a box: the counter pours them, the kitchen cooks the rest. */
+li.drink { border: 2px solid #000; padding: 2px 5px; margin-top: 5px; }
 .nm { font-weight: 700; flex: 1 1 auto; min-width: 0; word-break: break-word; }
 .amt { flex: 0 0 auto; white-space: nowrap; }
 .total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; }

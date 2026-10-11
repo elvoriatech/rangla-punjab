@@ -186,7 +186,10 @@ export default async function OrderTicketPage({
         </p>
         <ul className="space-y-1">
           {order.items.map((item, i) => (
-            <li key={i} className="flex justify-between gap-2">
+            <li
+              key={i}
+              className={`flex justify-between gap-2 ${item.isDrink ? "border-2 border-black px-1.5 py-0.5" : ""}`}
+            >
               <span>
                 <span className="font-bold">{item.quantity}x</span> {item.name}
               </span>

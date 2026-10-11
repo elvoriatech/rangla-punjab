@@ -271,9 +271,19 @@ export function renderTicketEscPos(
   // thermal head, and this is the part the counter must read.
   t.bold(true);
   for (const item of order.items) {
-    t.lines(
-      twoColumns(`${item.quantity}x ${item.name}`, money(item.priceCents * item.quantity), width),
-    );
+    const amount = money(item.priceCents * item.quantity);
+    if (item.isDrink) {
+      // Drinks in a drawn box (owner, 2026-10-11), as on the HTML ticket.
+      const inner = width - 4;
+      t.line(`+${"-".repeat(width - 2)}+`);
+      for (const l of twoColumns(`${item.quantity}x ${item.name}`, amount, inner))
+        t.line(`| ${l.padEnd(inner)} |`);
+      if (item.note)
+        for (const l of wrap(`  > ${item.note}`, inner)) t.line(`| ${l.padEnd(inner)} |`);
+      t.line(`+${"-".repeat(width - 2)}+`);
+      continue;
+    }
+    t.lines(twoColumns(`${item.quantity}x ${item.name}`, amount, width));
     if (item.note) t.lines(wrap(`  > ${item.note}`, width));
   }
   t.bold(false).rule();

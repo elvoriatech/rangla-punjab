@@ -1,3 +1,4 @@
+import { VenueWordmark } from "./venue-wordmark";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { ComplaintLink } from "./complaint-link";
@@ -1998,9 +1999,12 @@ function HeroBanner({
             written twice on the same scrim. */}
         <VenueMark venue={venue} showName={false} />
         <div className="min-w-0">
-          <span className="block font-serif text-2xl italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] sm:text-3xl">
-            {venue.name}
-          </span>
+          {/* The app's lime sticker lockup (owner, 2026-10-11). */}
+          <VenueWordmark
+            name={venue.name}
+            id="hero-name"
+            className="block h-auto w-[150px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] sm:w-[300px]"
+          />
         </div>
       </div>
     </div>

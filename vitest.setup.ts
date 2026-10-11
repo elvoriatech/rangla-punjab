@@ -13,3 +13,15 @@ delete process.env.GOOGLE_CLIENT_SECRET;
 delete process.env.MICROSOFT_CLIENT_ID;
 delete process.env.MICROSOFT_CLIENT_SECRET;
 delete process.env.STRIPE_WEBHOOK_SECRET;
+
+// `next/font` is a build-time loader — outside Next it is not callable. The
+// components that load a font only need a class name back.
+import { vi } from "vitest";
+vi.mock("next/font/google", () => {
+  const font = (): { className: string; variable: string; style: object } => ({
+    className: "",
+    variable: "",
+    style: {},
+  });
+  return { Luckiest_Guy: font, Geist: font, Cormorant_Garamond: font };
+});
