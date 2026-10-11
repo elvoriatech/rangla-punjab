@@ -51,9 +51,13 @@ function detectPlatform(): "installed" | "ios" | "mac" | "none" {
 export function InstallAppButton({
   labels,
   onDark = false,
+  lime = false,
 }: {
   labels: InstallLabels;
   onDark?: boolean;
+  /** The app's lime sticker look — the hero's first, stand-out badge
+   *  (owner, 2026-10-11). Black on lime, far past AA. */
+  lime?: boolean;
 }): React.ReactElement | null {
   const [canPrompt, setCanPrompt] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
@@ -137,10 +141,14 @@ export function InstallAppButton({
         onClick={() => void onClick()}
         aria-label={labels.aria}
         aria-expanded={mode === "prompt" ? undefined : hintOpen}
-        className={`inline-flex min-h-6 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${
-          onDark
-            ? "border-white/40 bg-black/45 text-white backdrop-blur"
-            : "border-[var(--menu-text)]/25 text-[var(--menu-text)]/85 hover:border-[var(--menu-text)]/50"
+        className={`inline-flex min-h-6 items-center gap-1 rounded-full ${
+          lime
+            ? "border-2 border-[#141414] bg-[linear-gradient(180deg,#E8FA4B,#A9E01C)] px-3 py-1.5 text-sm font-extrabold uppercase tracking-wide text-[#141414] shadow-[0_0_0_2px_#fff,0_4px_12px_rgba(0,0,0,0.35)] hover:brightness-105"
+            : `border px-2.5 py-1 text-xs font-medium ${
+                onDark
+                  ? "border-white/40 bg-black/45 text-white backdrop-blur"
+                  : "border-[var(--menu-text)]/25 text-[var(--menu-text)]/85 hover:border-[var(--menu-text)]/50"
+              }`
         }`}
       >
         <svg

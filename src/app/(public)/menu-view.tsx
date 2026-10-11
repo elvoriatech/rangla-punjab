@@ -1981,7 +1981,9 @@ function HeroBanner({
           bottom-left to one job (who this restaurant is) and puts the
           social proof where a guest is already deciding whether to book. */}
       <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
-        <OpenBadge state={openNow} t={t} locale={locale} />
+        {/* Install first, in the app's lime, so it stands out (owner,
+            2026-10-11); the open/closed pill moved to the end. */}
+        <InstallAppButton labels={t.app.install} onDark lime />
         {reserve ? (
           <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
         ) : null}
@@ -1991,7 +1993,14 @@ function HeroBanner({
         <ComplaintLink slug={venue.slug} labels={t.complaint} onDark />
         {rating ? <RatingLine rating={rating} locale={locale} t={t} onDark /> : null}
         {hasApp ? <AppJumpLink t={t} onDark /> : null}
-        <InstallAppButton labels={t.app.install} onDark />
+        {/* From sm up the open/closed pill ends the column; on a phone
+            the column runs out of banner, so it sits top-left instead. */}
+        <span className="hidden sm:contents">
+          <OpenBadge state={openNow} t={t} locale={locale} onDark />
+        </span>
+      </div>
+      <div className="absolute start-4 top-4 sm:hidden">
+        <OpenBadge state={openNow} t={t} locale={locale} onDark />
       </div>
       <div className="absolute bottom-4 start-4 flex items-center gap-3 sm:bottom-5 sm:start-6 lg:start-12">
         {/* `showName={false}`: the big white serif below IS the name here,
@@ -2173,10 +2182,13 @@ function OpenBadge({
   state,
   t,
   locale,
+  onDark = false,
 }: {
   state?: OpenState;
   t: MenuCopy;
   locale: string;
+  /** On the banner photo: white words on a dark backing. */
+  onDark?: boolean;
 }): React.ReactElement | null {
   if (!state || !state.configured) return null;
 
@@ -2191,7 +2203,9 @@ function OpenBadge({
   // which ignored the theme entirely.
   if (state.open) {
     return (
-      <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-positive)]/14 py-1.5 ps-2.5 pe-3 text-xs font-semibold text-[var(--menu-text)]">
+      <span
+        className={`z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1.5 ps-2.5 pe-3 text-xs font-semibold ${onDark ? "bg-black/60 text-white backdrop-blur" : "bg-[var(--menu-positive)]/14 text-[var(--menu-text)]"}`}
+      >
         <span
           aria-hidden="true"
           className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-positive)] ring-4 ring-[var(--menu-positive)]/25"
@@ -2208,7 +2222,9 @@ function OpenBadge({
       ? t.badges.opensAt(shortWeekday(state.opensDay, locale), state.opensAt)
       : "";
   return (
-    <span className="z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--menu-danger)]/12 py-1.5 ps-2.5 pe-3 text-xs font-semibold text-[var(--menu-text)]">
+    <span
+      className={`z-10 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1.5 ps-2.5 pe-3 text-xs font-semibold ${onDark ? "bg-black/60 text-white backdrop-blur" : "bg-[var(--menu-danger)]/12 text-[var(--menu-text)]"}`}
+    >
       <span
         aria-hidden="true"
         className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--menu-danger)] ring-4 ring-[var(--menu-danger)]/25"
