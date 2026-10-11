@@ -118,6 +118,8 @@ export function BrandHeader({
   title,
   sticker = false,
   onMenu,
+  onSettings,
+  settingsLabel,
   onBack,
   rating,
   points,
@@ -141,6 +143,10 @@ export function BrandHeader({
    */
   sticker?: boolean;
   onMenu?: () => void;
+  /** A ⚙ under the burger in the end corner (the order board's sound and
+   *  printer settings — owner, 2026-10-11: "move the gear to the corner"). */
+  onSettings?: () => void;
+  settingsLabel?: string;
   onBack?: () => void;
   /** The venue's Google rating, on the screens that carry its name. */
   rating?: ApiRating | null;
@@ -246,6 +252,17 @@ export function BrandHeader({
               style={({ pressed }) => [styles.headerMenuBtn, pressed && { opacity: 0.6 }]}
             >
               <Ionicons name="menu" size={26} color={colors.onRed} />
+            </Pressable>
+          ) : null}
+          {onSettings ? (
+            <Pressable
+              onPress={onSettings}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={settingsLabel}
+              style={({ pressed }) => [styles.headerMenuBtn, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons name="settings-outline" size={23} color={colors.onRed} />
             </Pressable>
           ) : null}
         </View>

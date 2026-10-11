@@ -1239,6 +1239,10 @@ export function BoardScreen({
       <BrandHeader
         title={t.boardTitle}
         onMenu={onOpenOwnerMenu}
+        // Sound and printer stay out of the way until asked for (owner,
+        // 2026-10-11): just a ⚙ in the header's corner.
+        onSettings={() => setSettingsOpen(true)}
+        settingsLabel={t.boardSettingsTitle}
         start={
           showRequests ? (
             <RequestsBubble
@@ -1257,25 +1261,6 @@ export function BoardScreen({
       >
         {offline ? <Text style={styles.offline}>{t.boardReconnecting}</Text> : null}
         {toast ? <Text style={styles.toast}>{toast}</Text> : null}
-
-        {/* One slim line instead of the settings card (owner, 2026-10-11): the
-            board is for orders; sound and printing live behind the ⚙. */}
-        <Pressable
-          onPress={() => setSettingsOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel={t.boardSettingsTitle}
-          style={({ pressed }) => [styles.settingsLine, pressed && { opacity: 0.6 }]}
-        >
-          <Ionicons name="settings-outline" size={17} color={colors.red} />
-          <Text style={styles.settingsLineText} numberOfLines={1}>
-            {t.boardSettingsTitle} ·{" "}
-            {sound
-              ? `${(t.boardSoundNames as Record<string, string>)[soundChoice]} ${Math.round(volume * 100)}%`
-              : t.boardSoundOff}{" "}
-            · {autoPrint ? t.boardAutoPrintOn : t.boardAutoPrintOff}
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.inkSoft} />
-        </Pressable>
 
         {/* Unanswered table and catering requests sit where new orders
             land, above them; once answered they leave the board and live
@@ -1687,19 +1672,6 @@ const styles = StyleSheet.create({
    *  separates them — a hairline, not a gap, so the card stays compact
    *  enough to sit above the board rather than in front of it. */
   switchRowNext: { borderTopWidth: 1, borderTopColor: colors.line },
-  settingsLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: colors.creamCard,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.pill,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    minHeight: 44,
-  },
-  settingsLineText: { flex: 1, color: colors.ink, ...fonts.bodySemi, fontSize: 13 },
   settingsBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(20,10,5,0.5)" },
   settingsSheet: {
     backgroundColor: colors.cream,
