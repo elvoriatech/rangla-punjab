@@ -2,7 +2,6 @@
 import { orderLabel } from "@/lib/order-label";
 
 import dynamic from "next/dynamic";
-import { orderDiscountLabel } from "@/lib/order-discount-label";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Dispatch, SetStateAction } from "react";
@@ -711,9 +710,9 @@ export function CartDrawer({
   const feeCents = orderType === "delivery" ? areaFee : 0;
   // The order-wide discount, previewed exactly as the server applies it:
   // a percentage of the food, before the delivery fee.
-  const discountPercent = modes.orderDiscountPercent ?? 0;
-  const orderDiscount = discountPercent > 0 ? Math.round((itemsTotal * discountPercent) / 100) : 0;
-  const total = itemsTotal - orderDiscount + feeCents;
+  // The order discount is for app orders only (owner, 2026-10-11), so the
+  // website's basket never shows or applies it.
+  const total = itemsTotal + feeCents;
   const belowMinimum = orderType === "delivery" && itemsTotal < areaMin;
   const detailsMissing =
     orderType === "dine_in"
@@ -1166,12 +1165,6 @@ export function CartDrawer({
               {/* Kept — a summary rule is not a peer divider, and it is now the
                   only line in the list region. Re-based to ink/12 so it is
                   actually visible on all 19 themes instead of 1.2:1 on 17. */}
-              {orderDiscount > 0 ? (
-                <div className="mt-3 flex items-center justify-between text-sm text-[var(--menu-surface-accent,var(--menu-accent))]">
-                  <span>{orderDiscountLabel(discountPercent, locale)}</span>
-                  <span className="tabular-nums">−{money(orderDiscount)}</span>
-                </div>
-              ) : null}
               <div className="mt-4 flex items-center justify-between border-t border-[var(--menu-surface-text,var(--menu-text))]/12 pt-3">
                 <span className="text-sm uppercase tracking-[0.18em] rtl:normal-case rtl:tracking-normal text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
                   {t.total}

@@ -19,7 +19,7 @@ export const CORS_HEADERS = {
   // bypass the edge copy of /api/v1/menu, and without this the Expo web
   // surface's preflight would refuse that request outright.
   "Access-Control-Allow-Headers":
-    "Content-Type, X-Customer-Token, X-Staff-Token, Authorization, Cache-Control",
+    "Content-Type, X-Customer-Token, X-Staff-Token, X-Rangla-Client, Authorization, Cache-Control",
 } as const;
 
 export function withCors(res: NextResponse): NextResponse {

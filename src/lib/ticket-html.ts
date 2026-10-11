@@ -85,6 +85,8 @@ export interface TicketOrder {
   totalCents: number;
   currency: string;
   createdAt: Date;
+  /** "app" / "web" — printed as App- or Website-Bestellung. */
+  orderChannel?: string | null;
   items: {
     name: string;
     quantity: number;
@@ -188,6 +190,14 @@ export function typeBanner(order: TicketOrder): string {
   if (order.orderType === "delivery") return "LIEFERUNG";
   if (order.orderType === "takeaway") return "ABHOLUNG";
   return `IM RESTAURANT${order.tableNumber ? ` — TISCH ${order.tableNumber}` : ""}`;
+}
+
+/** "App-Bestellung" / "Website-Bestellung" — where the order came from
+ *  (owner, 2026-10-11); "Online-Bestellung" on older orders. */
+export function channelLine(order: Pick<TicketOrder, "orderChannel">): string {
+  if (order.orderChannel === "app") return "App-Bestellung";
+  if (order.orderChannel === "web") return "Website-Bestellung";
+  return "Online-Bestellung";
 }
 
 /** The bold line under the header: what the kitchen must know about money
@@ -401,7 +411,7 @@ ${
 }
 <p class="venue">${esc(venueName.main)}</p>
 ${venueName.sub ? `<p class="venue-sub">${esc(venueName.sub)}</p>` : ""}
-<p class="kind">Online-Bestellung</p>
+<p class="kind">${esc(channelLine(order))}</p>
 <p class="rule">${RULE}</p>
 <div class="head"><span>#${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
 ${paid ? `<p class="pay">${esc(paid)}</p>` : ""}

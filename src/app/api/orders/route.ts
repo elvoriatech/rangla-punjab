@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { z } from "zod";
 import { resolvePreviewContext } from "@/lib/preview-context";
-import { placeOrder, placeOrderSchema } from "@/lib/order-service";
+import { placeOrder, placeOrderSchema, orderChannelOf } from "@/lib/order-service";
 import { CUSTOMER_COOKIE, verifyCustomerToken } from "@/lib/customer-auth";
 import { cookies } from "next/headers";
 import { getOperatorSettings } from "@/lib/operator-settings";
@@ -61,7 +61,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     const customer = await verifyCustomerToken(context.tenantId, customerToken);
     customerId = customer?.id ?? null;
   }
-  const result = await placeOrder(context, orderInput, { customerId });
+  const result = await placeOrder(context, orderInput, {
+    customerId,
+    channel: orderChannelOf(request.headers),
+  });
   if (!result.ok) {
     // 409 for the three "the world moved on since you loaded the page"
     // refusals — the request was well-formed, the venue's state changed

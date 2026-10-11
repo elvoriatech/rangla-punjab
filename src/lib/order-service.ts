@@ -241,10 +241,29 @@ export type PlaceOrderResult =
         | "venue_paused";
     };
 
+/** "app" — the restaurant's phone app; "web" — the website. */
+export type OrderChannel = "app" | "web";
+
+/**
+ * Which door an order came through. The app says so (`X-Rangla-Client:
+ * app`); apps released before that header still count as the app, because
+ * a native app's request carries neither an `Origin` nor the browser's
+ * `Sec-Fetch-*` headers, which every browser adds to the website's POST.
+ */
+export function orderChannelOf(headers: Headers): OrderChannel {
+  if (headers.get("x-rangla-client") === "app") return "app";
+  const browser = headers.has("origin") || headers.has("sec-fetch-mode");
+  return browser ? "web" : "app";
+}
+
 export async function placeOrder(
   context: { tenantId: string; venueId: string; publishedVersionId: string | null },
   raw: unknown,
-  opts?: { customerId?: string | null },
+  opts?: {
+    customerId?: string | null;
+    /** Where the order came from — the order discount is app-only. */
+    channel?: OrderChannel;
+  },
 ): Promise<PlaceOrderResult> {
   const parsed = placeOrderSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "invalid" };
@@ -439,8 +458,10 @@ export async function placeOrder(
     // The order-wide discount (owner, 2026-10-11): a percentage of the food,
     // never of the delivery fee, taken before any reward or gift card. The
     // delivery minimum above is checked against the undiscounted food, so a
-    // discount never turns an order away.
-    const discountPercent = mode.orderDiscountPercent ?? 0;
+    // discount never turns an order away. App orders only (owner, same day:
+    // "the discount is for the mobile app, not the website").
+    const channel = opts?.channel ?? null;
+    const discountPercent = channel === "app" ? (mode.orderDiscountPercent ?? 0) : 0;
     const orderDiscount = orderDiscountCents(itemsCents, discountPercent);
     // What the basket is worth before any reward is applied.
     const grossCents = itemsCents - orderDiscount + feeCents;
@@ -584,6 +605,7 @@ export async function placeOrder(
         totalCents,
         orderDiscountPercent: orderDiscount > 0 ? discountPercent : 0,
         orderDiscountCents: orderDiscount,
+        orderChannel: channel,
         discountCents,
         voucherId: claim?.voucherId ?? null,
         // Copied off the voucher rather than looked up later: the reward
@@ -850,6 +872,8 @@ export interface KitchenOrder extends OrderFulfilment {
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
   orderSeries?: string | null;
+  /** "app" / "web"; null on older orders. */
+  orderChannel?: string | null;
   tableNumber: string | null;
   status: string;
   paymentStatus: string;
@@ -997,6 +1021,7 @@ export async function getKitchenOrder(
         id: true,
         orderNumber: true,
         orderSeries: true,
+        orderChannel: true,
         tableNumber: true,
         orderType: true,
         customerName: true,

@@ -148,6 +148,8 @@ describe("draft/publish workflow", () => {
     const placed = await placeOrder(
       { tenantId, venueId: venue.id, publishedVersionId: pub.publishedVersionId },
       { orderType: "dine_in", tableNumber: "3", items: [{ itemId: item.id, quantity: 2 }] },
+      // The discount is for app orders (owner, 2026-10-11).
+      { channel: "app" },
     );
     expect(placed.ok).toBe(true);
     if (!placed.ok) return;

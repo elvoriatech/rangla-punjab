@@ -2,6 +2,7 @@ import { orderLabel } from "./order-label";
 import type { RasterImage } from "./ticket-logo";
 import { formatPrice } from "./public-menu";
 import {
+  channelLine,
   paymentBanner,
   paymentFooter,
   ticketAddressLine,
@@ -257,7 +258,7 @@ export function renderTicketEscPos(
   if (opts.logo) t.align("center").image(opts.logo).feed(1);
   t.align("center").bold(true).lines(wrap(name.main, width)).bold(false);
   if (name.sub) t.line(name.sub);
-  t.line("Online-Bestellung").align("left").rule();
+  t.line(channelLine(order)).align("left").rule();
 
   t.size(2).bold(true).line(number).size(1).bold(false).line(when);
   const paid = paymentBanner(order);

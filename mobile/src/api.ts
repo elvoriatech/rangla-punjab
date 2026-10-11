@@ -552,6 +552,8 @@ export async function placeOrder(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      // The order discount is app-only; this tells the server it is the app.
+      "X-Rangla-Client": "app",
       // Signed-in customers get the order linked to their account.
       ...(customerToken ? { "X-Customer-Token": customerToken } : {}),
     },

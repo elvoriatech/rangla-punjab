@@ -11,6 +11,7 @@ import {
   GIFT_CARD_PROVIDER,
   advanceOrderStatus,
   placeOrder,
+  orderChannelOf,
   getOrderForReceipt,
   getOrderStats,
   listRecentOrders,
@@ -171,6 +172,46 @@ describe("order-service (guest self-ordering)", () => {
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.value.orderNumber).toBe(2);
+  });
+
+  it("gives the order discount to app orders only, and records where each came from", async () => {
+    const fx = await fixtureVenue();
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.updateMany({ data: { ordering: { orderDiscountPercent: 10 } } }),
+    );
+    const naan = [{ itemId: fx.itemIds.naan, quantity: 2 }]; // 2 × 350
+    const app = await placeOrder(fx, { items: naan }, { channel: "app" });
+    const web = await placeOrder(fx, { items: naan }, { channel: "web" });
+    if (!app.ok || !web.ok) throw new Error("placement failed");
+    expect(app.value.totalCents).toBe(700 - 70);
+    expect(web.value.totalCents).toBe(700);
+    const rows = await asTenant(fx.tenantId, (tx) =>
+      tx.order.findMany({
+        where: { id: { in: [app.value.orderId, web.value.orderId] } },
+        select: { id: true, orderChannel: true, orderDiscountCents: true },
+      }),
+    );
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    expect(byId.get(app.value.orderId)).toMatchObject({
+      orderChannel: "app",
+      orderDiscountCents: 70,
+    });
+    expect(byId.get(web.value.orderId)).toMatchObject({
+      orderChannel: "web",
+      orderDiscountCents: 0,
+    });
+  });
+
+  it("tells the app from the website by its request headers", () => {
+    const h = (init: Record<string, string>) => new Headers(init);
+    expect(orderChannelOf(h({ "x-rangla-client": "app" }))).toBe("app");
+    // An app released before the header: no Origin, no Sec-Fetch-*.
+    expect(orderChannelOf(h({ "content-type": "application/json" }))).toBe("app");
+    expect(
+      orderChannelOf(
+        h({ origin: "https://rangla-punjab-restaurant.de", "sec-fetch-mode": "cors" }),
+      ),
+    ).toBe("web");
   });
 
   it("numbers cash (B-…) and online (O-…) orders in their own series", async () => {
