@@ -2139,3 +2139,115 @@ export async function dispatchStaffOrder(token: string, orderId: string): Promis
     },
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * Daily sales (owner, 2026-10-11) — one day's cash and online orders,
+ * filterable by payment type. Same rules as the dashboard's Reports.
+ * ------------------------------------------------------------------ */
+
+export type SalesPayment = "cash" | "stripe" | "apple_pay" | "google_pay" | "paypal" | "voucher";
+export type SalesFilter = "all" | "online" | SalesPayment;
+
+export interface StaffSalesOrder {
+  id: string;
+  orderNumber: number;
+  orderLabel: string;
+  placedAt: string;
+  status: string;
+  orderType: string;
+  paymentMethod: SalesPayment;
+  totalCents: number;
+  customerName: string | null;
+  tableNumber: string | null;
+  countsAsRevenue: boolean;
+  deletable: boolean;
+}
+
+export interface StaffSales {
+  date: string;
+  currency: string;
+  totals: {
+    orders: number;
+    grossCents: number;
+    cashOrders: number;
+    cashCents: number;
+    onlineOrders: number;
+    onlineCents: number;
+  };
+  byPaymentMethod: { key: SalesPayment; orders: number; totalCents: number }[];
+  filtered: { orders: number; totalCents: number };
+  orders: StaffSalesOrder[];
+}
+
+const SALES_PAYMENTS: readonly string[] = [
+  "cash",
+  "stripe",
+  "apple_pay",
+  "google_pay",
+  "paypal",
+  "voucher",
+];
+const asPayment = (v: unknown): SalesPayment =>
+  SALES_PAYMENTS.includes(String(v)) ? (v as SalesPayment) : "stripe";
+
+export async function fetchStaffSales(
+  token: string,
+  date: string | null,
+  filter: SalesFilter,
+): Promise<StaffResult<StaffSales>> {
+  const qs = new URLSearchParams();
+  if (date) qs.set("date", date);
+  if (filter !== "all") qs.set("pay", filter);
+  const q = qs.toString();
+  const res = await staffFetch(token, `/api/v1/staff/sales${q ? `?${q}` : ""}`);
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const b = res.body;
+  const totals = (b.totals ?? {}) as Record<string, unknown>;
+  const filtered = (b.filtered ?? {}) as Record<string, unknown>;
+  return {
+    ok: true,
+    data: {
+      date: str(b.date),
+      currency: str(b.currency, "EUR"),
+      totals: {
+        orders: num(totals.orders),
+        grossCents: num(totals.grossCents),
+        cashOrders: num(totals.cashOrders),
+        cashCents: num(totals.cashCents),
+        onlineOrders: num(totals.onlineOrders),
+        onlineCents: num(totals.onlineCents),
+      },
+      byPaymentMethod: Array.isArray(b.byPaymentMethod)
+        ? b.byPaymentMethod.map((r) => {
+            const row = (r ?? {}) as Record<string, unknown>;
+            return {
+              key: asPayment(row.key),
+              orders: num(row.orders),
+              totalCents: num(row.totalCents),
+            };
+          })
+        : [],
+      filtered: { orders: num(filtered.orders), totalCents: num(filtered.totalCents) },
+      orders: Array.isArray(b.orders)
+        ? b.orders.map((r) => {
+            const o = (r ?? {}) as Record<string, unknown>;
+            return {
+              id: str(o.id),
+              orderNumber: num(o.orderNumber),
+              orderLabel: str(o.orderLabel, String(num(o.orderNumber))),
+              placedAt: str(o.placedAt),
+              status: str(o.status),
+              orderType: str(o.orderType),
+              paymentMethod: asPayment(o.paymentMethod),
+              totalCents: num(o.totalCents),
+              customerName: nullableStr(o.customerName),
+              tableNumber: nullableStr(o.tableNumber),
+              countsAsRevenue: o.countsAsRevenue === true,
+              deletable: o.deletable === true,
+            };
+          })
+        : [],
+    },
+  };
+}

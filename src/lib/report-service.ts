@@ -60,7 +60,7 @@ export const PAY_FILTER_LABELS: Record<ReportPayFilter, string> = {
   voucher: "Gutschein",
 };
 
-function matchesPayFilter(method: PaymentMethod, filter: ReportPayFilter): boolean {
+export function matchesPayFilter(method: PaymentMethod, filter: ReportPayFilter): boolean {
   if (filter === "all") return true;
   if (filter === "online") return method !== "cash";
   return method === filter;

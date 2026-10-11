@@ -63,6 +63,7 @@ import { PointsScreen } from "./src/screens/PointsScreen";
 import { MyGiftCardsScreen } from "./src/screens/MyGiftCardsScreen";
 import { RedeemGiftCardScreen } from "./src/screens/RedeemGiftCardScreen";
 import { GiftCardsOwnerScreen } from "./src/screens/GiftCardsOwnerScreen";
+import { SalesScreen } from "./src/screens/SalesScreen";
 import { DispatchScreen } from "./src/screens/DispatchScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { OwnerMenuSheet } from "./src/owner-menu";
@@ -113,6 +114,8 @@ type Tab =
   | "redeemgift"
   /** Restaurant: the venue's gift-card book. */
   | "giftcardsowner"
+  /** Restaurant: one day's cash and online sales. */
+  | "sales"
   /** Restaurant: "out for delivery", opened by a delivery ticket's QR. */
   | "dispatch"
   | "info";
@@ -127,6 +130,7 @@ const OWNER_ONLY: readonly Tab[] = [
   "contact",
   "redeemgift",
   "giftcardsowner",
+  "sales",
   "dispatch",
 ];
 
@@ -202,7 +206,9 @@ function Shell(): React.ReactElement {
           ? "menu"
           : auth.staffCan("settings")
             ? "home"
-            : "info";
+            : auth.staffCan("reports")
+              ? "sales"
+              : "info";
   const [openOrders, setOpenOrders] = useState(0);
   /** Complaints the restaurant still owes an answer or a verdict on —
    *  the owner menu's badge. Same 30 s loop as the board's count. */
@@ -823,6 +829,12 @@ function Shell(): React.ReactElement {
             onOpenOwnerMenu={() => setOwnerMenu(true)}
           />
         ) : null}
+        {menuCurrent && tab === "sales" && restaurant ? (
+          <SalesScreen
+            onBack={restaurantHome === "sales" ? undefined : () => setTab(restaurantHome)}
+            onOpenOwnerMenu={() => setOwnerMenu(true)}
+          />
+        ) : null}
         {menuCurrent && tab === "dispatch" && restaurant && dispatchOrderId ? (
           <DispatchScreen
             orderId={dispatchOrderId}
@@ -944,6 +956,7 @@ function Shell(): React.ReactElement {
           onLoyalty={() => setTab("loyalty")}
           onRedeemGiftCard={() => setTab("redeemgift")}
           onGiftCards={() => setTab("giftcardsowner")}
+          onSales={() => setTab("sales")}
           onIssues={() => {
             // Reached deliberately: the list, not whatever thread a push
             // happened to open earlier.
