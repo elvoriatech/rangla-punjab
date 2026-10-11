@@ -40,3 +40,55 @@ export async function ticketLogoDataUri(
   cache.set(logoKey, uri);
   return uri;
 }
+
+/** A 1-bit image for an ESC/POS printer (`GS v 0`): rows of packed bits,
+ *  most significant bit first, 1 = black. */
+export interface RasterImage {
+  bytesPerRow: number;
+  height: number;
+  data: Uint8Array;
+}
+
+const rasterCache = new Map<string, RasterImage | null>();
+
+/**
+ * The venue logo for the Bluetooth receipt printer — the same picture as
+ * the HTML ticket's, as black dots `widthDots` wide (owner, 2026-10-11:
+ * "add the logo to the kitchen ticket too"). Null when there is no logo.
+ */
+export async function ticketLogoRaster(
+  logoKey: string | null | undefined,
+  widthDots = 192,
+): Promise<RasterImage | null> {
+  if (!logoKey) return null;
+  const key = `${logoKey}@${widthDots}`;
+  const hit = rasterCache.get(key);
+  if (hit !== undefined) return hit;
+  let out: RasterImage | null = null;
+  try {
+    const raw = await readUpload(logoKey);
+    if (raw) {
+      const { data, info } = await sharp(raw)
+        .resize(widthDots, widthDots, { fit: "inside", withoutEnlargement: false })
+        .flatten({ background: "#ffffff" })
+        .grayscale()
+        .normalise()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const bytesPerRow = Math.ceil(info.width / 8);
+      const bits = new Uint8Array(bytesPerRow * info.height);
+      for (let y = 0; y < info.height; y++) {
+        for (let x = 0; x < info.width; x++) {
+          if (data[y * info.width + x]! < 128) {
+            bits[y * bytesPerRow + (x >> 3)]! |= 0x80 >> (x & 7);
+          }
+        }
+      }
+      out = { bytesPerRow, height: info.height, data: bits };
+    }
+  } catch {
+    out = null;
+  }
+  rasterCache.set(key, out);
+  return out;
+}

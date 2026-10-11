@@ -15,8 +15,10 @@ export const PERMISSIONS = [
   "qr",
   "menu",
   "giftcards",
+  "redeem",
   "appearance",
   "reports",
+  "sales",
   "settings",
 ] as const;
 
@@ -39,8 +41,16 @@ export const PERMISSION_LABELS: Record<Permission, { label: string; hint: string
   qr: { label: "QR codes", hint: "View and download table / app QR codes" },
   menu: { label: "Edit the menu", hint: "Edit dishes, prices, offers and publish the menu" },
   giftcards: { label: "Gift cards", hint: "Sold gift cards and redemptions" },
+  redeem: {
+    label: "Redeem gift cards",
+    hint: "Redeem a guest's gift card at the counter (app) — without the gift card book",
+  },
   appearance: { label: "Appearance", hint: "Menu theme and look" },
   reports: { label: "Reports", hint: "Sales and order reports" },
+  sales: {
+    label: "Daily sales (read only)",
+    hint: "The app's daily sales: cash and online totals and the day's orders — no deleting",
+  },
   settings: {
     label: "Settings",
     hint: "Opening hours, ordering, delivery, slider, loyalty, contact",

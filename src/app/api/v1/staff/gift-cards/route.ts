@@ -24,10 +24,12 @@ import { STAFF_NO_STORE, requireStaff } from "@/lib/staff-request";
  * can tell the guest why rather than "not found".
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req, "giftcards");
+  const code = req.nextUrl.searchParams.get("code");
+  // Looking one card up is part of redeeming it ("redeem" box); the whole
+  // gift-card book needs "giftcards".
+  const gate = await requireStaff(req, code ? ["giftcards", "redeem"] : "giftcards");
   if (!gate.ok) return gate.response;
 
-  const code = req.nextUrl.searchParams.get("code");
   if (code) {
     const card = await findGiftCardByCode(gate.staff.tenantId, code);
     if (!card) {

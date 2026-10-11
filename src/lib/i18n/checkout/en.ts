@@ -43,6 +43,7 @@ const en = {
 
   /* Order type */
   orderTypeGroup: "Order type",
+  chooseOrderType: "Please choose: dine-in, pickup or delivery.",
   dineIn: "Dine-in",
   takeaway: "Pickup",
   delivery: "Delivery",

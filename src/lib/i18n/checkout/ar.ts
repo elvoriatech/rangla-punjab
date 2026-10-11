@@ -24,6 +24,8 @@ const ar: CheckoutCopy = {
   addItems: "إضافة أصناف",
 
   orderTypeGroup: "نوع الطلب",
+
+  chooseOrderType: "يرجى الاختيار: داخل المطعم أو استلام أو توصيل.",
   dineIn: "في المطعم",
   takeaway: "استلام",
   delivery: "توصيل",

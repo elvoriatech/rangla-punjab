@@ -22,6 +22,8 @@ const it: CheckoutCopy = {
   addItems: "Aggiungi piatti",
 
   orderTypeGroup: "Tipo di ordine",
+
+  chooseOrderType: "Scegli: al tavolo, asporto o consegna.",
   dineIn: "Al tavolo",
   takeaway: "Ritiro",
   delivery: "Consegna",

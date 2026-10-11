@@ -491,7 +491,18 @@ export function CartDrawer({
   }, [copyLocale]);
 
   const enabledTypes = TYPE_META.filter((t) => t.enabled(modes));
-  const [orderType, setOrderType] = useState<OrderType>(enabledTypes[0]?.type ?? "dine_in");
+  /**
+   * The guest MUST pick dine-in, pickup or delivery (owner, 2026-10-11: "don't
+   * select an order type by default"). Null until they do — unless the
+   * venue offers only one, which then is the choice. `orderType` keeps a
+   * concrete value for the arithmetic below; nothing can be placed while
+   * `typeMissing`.
+   */
+  const [chosenType, setOrderType] = useState<OrderType | null>(
+    enabledTypes.length === 1 ? enabledTypes[0]!.type : null,
+  );
+  const orderType: OrderType = chosenType ?? enabledTypes[0]?.type ?? "dine_in";
+  const typeMissing = chosenType === null;
   const [tableNumber, setTableNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -739,6 +750,7 @@ export function CartDrawer({
    *  delivery minimum, or a payment already running. */
   const payBlocked =
     busy ||
+    typeMissing ||
     paused ||
     count === 0 ||
     detailsMissing ||
@@ -1217,9 +1229,9 @@ export function CartDrawer({
                       key={mode.type}
                       type="button"
                       role="radio"
-                      aria-checked={orderType === mode.type}
+                      aria-checked={chosenType === mode.type}
                       onClick={() => setOrderType(mode.type)}
-                      className={orderType === mode.type ? CHIP_ON : CHIP_IDLE}
+                      className={chosenType === mode.type ? CHIP_ON : CHIP_IDLE}
                     >
                       <span aria-hidden="true" className="block text-base">
                         {mode.icon}
@@ -1231,7 +1243,7 @@ export function CartDrawer({
                           neutral), weight (semibold), and this solid bar, which
                           carries the ≥3:1 state contrast as a FILL rather than a
                           border. Reads as a segmented control. */}
-                      {orderType === mode.type ? (
+                      {chosenType === mode.type ? (
                         <span
                           aria-hidden="true"
                           className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
@@ -1242,334 +1254,345 @@ export function CartDrawer({
                 </div>
               ) : null}
 
-              {dineInClosed ? (
-                /* Closed: ordering at a table nobody is standing at is not
-                   a thing the guest can do, and the place-order button is
-                   disabled to match. */
+              {typeMissing ? (
                 <p
                   role="status"
-                  className="mt-3 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+                  className="mt-3 rounded-lg border-2 border-dashed border-[var(--menu-surface-accent,var(--menu-accent))] px-3 py-2 text-center text-sm font-semibold"
                 >
-                  {t.closedDineIn}
+                  {t.chooseOrderType}
                 </p>
-              ) : null}
-              {orderType === "dine_in" ? (
-                <label className="mt-3 block text-sm">
-                  <span className={FIELD_LABEL}>{t.tableNumber}</span>
-                  <input
-                    type="text"
-                    value={tableNumber}
-                    maxLength={20}
-                    onChange={(e) => setTableNumber(e.target.value)}
-                    placeholder={t.tableNumberPlaceholder}
-                    className={FIELD}
-                  />
-                </label>
               ) : (
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label className="block text-sm">
-                    <span className={FIELD_LABEL}>
-                      {t.yourName}
-                      <RequiredMark label={t.requiredMark} />
-                    </span>
-                    <input
-                      type="text"
-                      value={customerName}
-                      maxLength={80}
-                      required
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className={FIELD}
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className={FIELD_LABEL}>
-                      {t.phone}
-                      <RequiredMark label={t.requiredMark} />
-                    </span>
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      maxLength={30}
-                      required
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder={t.phonePlaceholder}
-                      className={FIELD}
-                    />
-                  </label>
-                  {requestSlots.length > 0 ? (
-                    /* P7-13 — "Now" / "Scheduled", then a ± stepper over
+                <>
+                  {dineInClosed ? (
+                    /* Closed: ordering at a table nobody is standing at is not
+                   a thing the guest can do, and the place-order button is
+                   disabled to match. */
+                    <p
+                      role="status"
+                      className="mt-3 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+                    >
+                      {t.closedDineIn}
+                    </p>
+                  ) : null}
+                  {orderType === "dine_in" ? (
+                    <label className="mt-3 block text-sm">
+                      <span className={FIELD_LABEL}>{t.tableNumber}</span>
+                      <input
+                        type="text"
+                        value={tableNumber}
+                        maxLength={20}
+                        onChange={(e) => setTableNumber(e.target.value)}
+                        placeholder={t.tableNumberPlaceholder}
+                        className={FIELD}
+                      />
+                    </label>
+                  ) : (
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block text-sm">
+                        <span className={FIELD_LABEL}>
+                          {t.yourName}
+                          <RequiredMark label={t.requiredMark} />
+                        </span>
+                        <input
+                          type="text"
+                          value={customerName}
+                          maxLength={80}
+                          required
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          className={FIELD}
+                        />
+                      </label>
+                      <label className="block text-sm">
+                        <span className={FIELD_LABEL}>
+                          {t.phone}
+                          <RequiredMark label={t.requiredMark} />
+                        </span>
+                        <input
+                          type="tel"
+                          value={customerPhone}
+                          maxLength={30}
+                          required
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          placeholder={t.phonePlaceholder}
+                          className={FIELD}
+                        />
+                      </label>
+                      {requestSlots.length > 0 ? (
+                        /* P7-13 — "Now" / "Scheduled", then a ± stepper over
                        the server's own slot list, replacing a <select>
                        whose 30-odd identical-looking times were a scroll,
                        not a choice. No free typing and no wrapping: the
                        slots are later-today times inside opening hours
                        (the server re-checks anyway). */
-                    <div className="block text-sm sm:col-span-2">
-                      <span className={FIELD_LABEL}>
-                        {orderType === "delivery" ? t.deliveryTime : t.pickupTime}
-                      </span>
-                      <div
-                        role="radiogroup"
-                        aria-label={orderType === "delivery" ? t.deliveryTime : t.pickupTime}
-                        className={`mt-1 grid gap-2 ${acceptsAsapNow ? "grid-cols-2" : "grid-cols-1"}`}
-                      >
-                        {/* "Now" exists only while the kitchen is open.
+                        <div className="block text-sm sm:col-span-2">
+                          <span className={FIELD_LABEL}>
+                            {orderType === "delivery" ? t.deliveryTime : t.pickupTime}
+                          </span>
+                          <div
+                            role="radiogroup"
+                            aria-label={orderType === "delivery" ? t.deliveryTime : t.pickupTime}
+                            className={`mt-1 grid gap-2 ${acceptsAsapNow ? "grid-cols-2" : "grid-cols-1"}`}
+                          >
+                            {/* "Now" exists only while the kitchen is open.
                             Hidden rather than disabled: a dead chip invites
                             a tap and explains nothing, while the note below
                             says what IS possible. */}
-                        {acceptsAsapNow ? (
-                          <button
-                            type="button"
-                            role="radio"
-                            aria-checked={!scheduled}
-                            onClick={() => setRequestedTime("")}
-                            className={!scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
-                          >
-                            {t.timeNow}
-                            {!scheduled ? (
-                              <span
-                                aria-hidden="true"
-                                className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
-                              />
+                            {acceptsAsapNow ? (
+                              <button
+                                type="button"
+                                role="radio"
+                                aria-checked={!scheduled}
+                                onClick={() => setRequestedTime("")}
+                                className={!scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
+                              >
+                                {t.timeNow}
+                                {!scheduled ? (
+                                  <span
+                                    aria-hidden="true"
+                                    className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
+                                  />
+                                ) : null}
+                              </button>
                             ) : null}
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={scheduled}
-                          onClick={() => {
-                            if (!scheduled) setRequestedTime(requestSlots[0] ?? "");
-                          }}
-                          className={scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
-                        >
-                          {t.timeScheduled}
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={scheduled}
+                              onClick={() => {
+                                if (!scheduled) setRequestedTime(requestSlots[0] ?? "");
+                              }}
+                              className={scheduled ? TIME_CHIP_ON : TIME_CHIP_IDLE}
+                            >
+                              {t.timeScheduled}
+                              {scheduled ? (
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
+                                />
+                              ) : null}
+                            </button>
+                          </div>
                           {scheduled ? (
-                            <span
-                              aria-hidden="true"
-                              className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--menu-surface-accent,var(--menu-accent))]"
-                            />
-                          ) : null}
-                        </button>
-                      </div>
-                      {scheduled ? (
-                        <div className="mt-2 flex items-center gap-2 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/7 p-1.5">
-                          <button
-                            type="button"
-                            aria-label={t.timeEarlier}
-                            disabled={slotIndex <= 0}
-                            onClick={() => stepSlot(-1)}
-                            className={STEP_BTN}
-                          >
-                            −
-                          </button>
-                          {/* The value itself is what changes, so it is
+                            <div className="mt-2 flex items-center gap-2 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/7 p-1.5">
+                              <button
+                                type="button"
+                                aria-label={t.timeEarlier}
+                                disabled={slotIndex <= 0}
+                                onClick={() => stepSlot(-1)}
+                                className={STEP_BTN}
+                              >
+                                −
+                              </button>
+                              {/* The value itself is what changes, so it is
                               announced rather than the buttons' labels. */}
-                          <span
-                            aria-live="polite"
-                            className="flex-1 text-center text-base font-semibold tabular-nums"
-                          >
-                            {effectiveTime}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label={t.timeLater}
-                            disabled={slotIndex >= requestSlots.length - 1}
-                            onClick={() => stepSlot(1)}
-                            className={STEP_BTN}
-                          >
-                            +
-                          </button>
+                              <span
+                                aria-live="polite"
+                                className="flex-1 text-center text-base font-semibold tabular-nums"
+                              >
+                                {effectiveTime}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={t.timeLater}
+                                disabled={slotIndex >= requestSlots.length - 1}
+                                onClick={() => stepSlot(1)}
+                                className={STEP_BTN}
+                              >
+                                +
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                              {t.asap}
+                            </p>
+                          )}
                         </div>
-                      ) : (
-                        <p className="mt-2 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                          {t.asap}
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-                  {/* One line whenever the venue is shut: it is the only
+                      ) : null}
+                      {/* One line whenever the venue is shut: it is the only
                       thing that explains why "Now" is not there — and,
                       when no later slot is left today either, why the
                       place-order button will not move. */}
-                  {acceptsAsapNow ? null : (
-                    <p
-                      role="status"
-                      className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))] sm:col-span-2"
-                    >
-                      {t.closedPreorderNote}
-                    </p>
+                      {acceptsAsapNow ? null : (
+                        <p
+                          role="status"
+                          className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))] sm:col-span-2"
+                        >
+                          {t.closedPreorderNote}
+                        </p>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
-              <label className="mt-3 block text-sm">
-                <span className={FIELD_LABEL}>{t.email}</span>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={customerEmail}
-                  maxLength={120}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder={t.emailPlaceholder}
-                  className={FIELD}
-                />
-              </label>
+                  <label className="mt-3 block text-sm">
+                    <span className={FIELD_LABEL}>{t.email}</span>
+                    <input
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      value={customerEmail}
+                      maxLength={120}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder={t.emailPlaceholder}
+                      className={FIELD}
+                    />
+                  </label>
 
-              {orderType === "delivery" ? (
-                <div className="mt-3 space-y-3">
-                  {/* P7-13 — a returning guest's address, prefilled from
+                  {orderType === "delivery" ? (
+                    <div className="mt-3 space-y-3">
+                      {/* P7-13 — a returning guest's address, prefilled from
                       their account, reads as a card with one "Change"
                       link instead of four open fields they have to check
                       character by character. A new guest never sees the
                       card: summarising nothing is just a gap. */}
-                  {!addressFieldsOpen ? (
-                    <div className="flex items-start justify-between gap-3 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/7 p-3">
-                      <div className="min-w-0 text-sm">
-                        <p
-                          className={
-                            FIELD_LABEL +
-                            " text-[11px] uppercase tracking-[0.14em] rtl:normal-case rtl:tracking-normal"
-                          }
-                        >
-                          {t.addressTitle}
-                        </p>
-                        <p className="mt-1 truncate font-medium">{street.trim()}</p>
-                        <p className="truncate">
-                          {[zip.trim(), selectedArea?.locality ?? ""].filter(Boolean).join(" ")}
-                        </p>
-                        {note.trim() ? (
-                          <p className="truncate text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                            {note.trim()}
-                          </p>
-                        ) : null}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setEditingAddress(true)}
-                        aria-label={`${t.addressChange} — ${t.addressTitle}`}
-                        className={CHANGE_BTN}
-                      >
-                        {t.addressChange}
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <label className="block text-sm">
-                        <span className={FIELD_LABEL}>
-                          {t.street}
-                          <RequiredMark label={t.requiredMark} />
-                        </span>
-                        <input
-                          type="text"
-                          value={street}
-                          maxLength={120}
-                          required
-                          onChange={(e) => setStreet(e.target.value)}
-                          className={FIELD}
-                        />
-                      </label>
-                      {modes.deliveryAreas.length > 0 ? (
-                        <div className="grid grid-cols-[minmax(0,130px)_1fr] gap-3">
-                          <label className="block text-sm">
-                            <span className={FIELD_LABEL}>
-                              {t.zip}
-                              <RequiredMark label={t.requiredMark} />
-                            </span>
-                            {/* The restaurant delivers to a fixed ZIP list, so
-                            the guest PICKS their area instead of typing —
-                            "do you deliver here?" answers itself. */}
-                            <select
-                              value={zip}
-                              required
-                              onChange={(e) => setZip(e.target.value)}
-                              className={FIELD_SELECT}
+                      {!addressFieldsOpen ? (
+                        <div className="flex items-start justify-between gap-3 rounded-xl bg-[var(--menu-surface-text,var(--menu-text))]/7 p-3">
+                          <div className="min-w-0 text-sm">
+                            <p
+                              className={
+                                FIELD_LABEL +
+                                " text-[11px] uppercase tracking-[0.14em] rtl:normal-case rtl:tracking-normal"
+                              }
                             >
-                              <option value="" disabled>
-                                {t.selectPlaceholder}
-                              </option>
-                              {modes.deliveryAreas.map((a) => (
-                                <option key={a.zip} value={a.zip}>
-                                  {a.zip}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="block text-sm">
-                            <span className={FIELD_LABEL}>{t.city}</span>
-                            {/* Filled automatically from the selected ZIP — the
-                            restaurant named this area, the guest never
-                            types it. */}
-                            <input
-                              type="text"
-                              value={selectedArea?.locality ?? ""}
-                              readOnly
-                              tabIndex={-1}
-                              placeholder={t.cityPlaceholder}
-                              className={FIELD_READONLY}
-                            />
-                          </label>
+                              {t.addressTitle}
+                            </p>
+                            <p className="mt-1 truncate font-medium">{street.trim()}</p>
+                            <p className="truncate">
+                              {[zip.trim(), selectedArea?.locality ?? ""].filter(Boolean).join(" ")}
+                            </p>
+                            {note.trim() ? (
+                              <p className="truncate text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                                {note.trim()}
+                              </p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditingAddress(true)}
+                            aria-label={`${t.addressChange} — ${t.addressTitle}`}
+                            className={CHANGE_BTN}
+                          >
+                            {t.addressChange}
+                          </button>
                         </div>
                       ) : (
-                        <label className="block max-w-[150px] text-sm">
-                          <span className={FIELD_LABEL}>
-                            {t.zip}
-                            <RequiredMark label={t.requiredMark} />
-                          </span>
-                          <input
-                            type="text"
-                            value={zip}
-                            maxLength={10}
-                            required
-                            onChange={(e) => setZip(e.target.value)}
-                            className={FIELD}
-                          />
-                        </label>
+                        <>
+                          <label className="block text-sm">
+                            <span className={FIELD_LABEL}>
+                              {t.street}
+                              <RequiredMark label={t.requiredMark} />
+                            </span>
+                            <input
+                              type="text"
+                              value={street}
+                              maxLength={120}
+                              required
+                              onChange={(e) => setStreet(e.target.value)}
+                              className={FIELD}
+                            />
+                          </label>
+                          {modes.deliveryAreas.length > 0 ? (
+                            <div className="grid grid-cols-[minmax(0,130px)_1fr] gap-3">
+                              <label className="block text-sm">
+                                <span className={FIELD_LABEL}>
+                                  {t.zip}
+                                  <RequiredMark label={t.requiredMark} />
+                                </span>
+                                {/* The restaurant delivers to a fixed ZIP list, so
+                            the guest PICKS their area instead of typing —
+                            "do you deliver here?" answers itself. */}
+                                <select
+                                  value={zip}
+                                  required
+                                  onChange={(e) => setZip(e.target.value)}
+                                  className={FIELD_SELECT}
+                                >
+                                  <option value="" disabled>
+                                    {t.selectPlaceholder}
+                                  </option>
+                                  {modes.deliveryAreas.map((a) => (
+                                    <option key={a.zip} value={a.zip}>
+                                      {a.zip}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="block text-sm">
+                                <span className={FIELD_LABEL}>{t.city}</span>
+                                {/* Filled automatically from the selected ZIP — the
+                            restaurant named this area, the guest never
+                            types it. */}
+                                <input
+                                  type="text"
+                                  value={selectedArea?.locality ?? ""}
+                                  readOnly
+                                  tabIndex={-1}
+                                  placeholder={t.cityPlaceholder}
+                                  className={FIELD_READONLY}
+                                />
+                              </label>
+                            </div>
+                          ) : (
+                            <label className="block max-w-[150px] text-sm">
+                              <span className={FIELD_LABEL}>
+                                {t.zip}
+                                <RequiredMark label={t.requiredMark} />
+                              </span>
+                              <input
+                                type="text"
+                                value={zip}
+                                maxLength={10}
+                                required
+                                onChange={(e) => setZip(e.target.value)}
+                                className={FIELD}
+                              />
+                            </label>
+                          )}
+                          <label className="block text-sm">
+                            <span className={FIELD_LABEL}>{t.deliveryNote}</span>
+                            <input
+                              type="text"
+                              value={note}
+                              maxLength={200}
+                              placeholder={t.deliveryNotePlaceholder}
+                              onChange={(e) => setNote(e.target.value)}
+                              className={FIELD}
+                            />
+                          </label>
+                        </>
                       )}
-                      <label className="block text-sm">
-                        <span className={FIELD_LABEL}>{t.deliveryNote}</span>
-                        <input
-                          type="text"
-                          value={note}
-                          maxLength={200}
-                          placeholder={t.deliveryNotePlaceholder}
-                          onChange={(e) => setNote(e.target.value)}
-                          className={FIELD}
-                        />
-                      </label>
-                    </>
-                  )}
-                  {/* Outside the card/fields switch: the fee, the free-
+                      {/* Outside the card/fields switch: the fee, the free-
                       delivery threshold and the minimum are facts about
                       the order, not about whether the guest happens to be
                       editing their address. */}
-                  {selectedArea && selectedArea.freeOverCents > 0 ? (
-                    <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                      {itemsTotal >= selectedArea.freeOverCents
-                        ? t.freeDeliveryHere
-                        : t.freeDeliveryFrom(money(selectedArea.freeOverCents))}
-                    </p>
+                      {selectedArea && selectedArea.freeOverCents > 0 ? (
+                        <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                          {itemsTotal >= selectedArea.freeOverCents
+                            ? t.freeDeliveryHere
+                            : t.freeDeliveryFrom(money(selectedArea.freeOverCents))}
+                        </p>
+                      ) : null}
+                      {feeCents > 0 ? (
+                        <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                          {t.deliveryFee(money(feeCents))}
+                          {areaMin > 0 ? t.minimumOrderSuffix(money(areaMin)) : ""}
+                        </p>
+                      ) : areaMin > 0 ? (
+                        <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
+                          {t.minimumOrder(money(areaMin))}
+                        </p>
+                      ) : null}
+                    </div>
                   ) : null}
-                  {feeCents > 0 ? (
-                    <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                      {t.deliveryFee(money(feeCents))}
-                      {areaMin > 0 ? t.minimumOrderSuffix(money(areaMin)) : ""}
-                    </p>
-                  ) : areaMin > 0 ? (
-                    <p className="text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]">
-                      {t.minimumOrder(money(areaMin))}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
 
-              {/* One legend for the whole details block. Dine-in has no
+                  {/* One legend for the whole details block. Dine-in has no
                   required field at all — the table number is optional —
                   so it gets no star and no line to explain one. */}
-              {orderType === "dine_in" ? null : (
-                <RequiredLegend
-                  label={t.requiredLegend}
-                  className="mt-3 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
-                />
+                  {orderType === "dine_in" ? null : (
+                    <RequiredLegend
+                      label={t.requiredLegend}
+                      className="mt-3 text-xs text-[var(--menu-surface-text-soft,var(--menu-text-soft))]"
+                    />
+                  )}
+                </>
               )}
 
               {error ? <MessagePopup kind="error" text={error} /> : null}

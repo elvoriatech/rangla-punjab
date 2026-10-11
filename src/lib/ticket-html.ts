@@ -378,9 +378,13 @@ li.drink { border: 2px solid #000; padding: 2px 5px; margin-top: 5px; }
 /* The kitchen copy starts on its own page, so a receipt printer cuts the
    paper between the two tickets. */
 .kitchen { break-before: page; page-break-before: always; padding-top: 8px; }
-.kitchen-title { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: .08em; }
-.kitchen-head { font-size: 17px; }
-.kitchen-items li { font-size: 17px; margin-top: 5px; justify-content: flex-start; }
+/* Kitchen copy: order type and promised time like the receipt, a little
+   smaller type and a longer slip (owner, 2026-10-11). */
+.kitchen-title { text-align: center; font-size: 16px; font-weight: 700; letter-spacing: .08em; }
+.kitchen-head { font-size: 15px; }
+.kitchen-when { margin-top: 5px; font-size: 15px; font-weight: 700; text-align: center; }
+.kitchen-end { height: 48px; }
+.kitchen-items li { margin-top: 8px; font-size: 15px; justify-content: flex-start; }
 @media print {
   /* A receipt printer that honours the page size cuts to the roll instead of
      padding the ticket out to a letter/A4 sheet. One that ignores it falls
@@ -456,13 +460,21 @@ ${
   opts.kitchenCopy === false
     ? ""
     : `<section class="kitchen">
+${
+  // The logo on the kitchen copy too (owner, 2026-10-11).
+  opts.logoDataUri?.startsWith("data:image/")
+    ? `<p class="logo"><img src="${esc(opts.logoDataUri)}" alt=""></p>`
+    : ""
+}
 <p class="kitchen-title">K&Uuml;CHENBON</p>
 <p class="rule">${RULE}</p>
 <div class="head kitchen-head"><span>#${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
-${readyLine || order.requestedFor ? `<p class="kitchen-head" style="font-weight:700;margin-top:4px">${esc(readyLine ?? `Geplant für ${clock.format(order.requestedFor!)} Uhr`)}</p>` : ""}
+<p class="banner">${esc(typeBanner(order))}</p>
+${readyLine || order.requestedFor ? `<p class="kitchen-when">${esc(readyLine ?? `Geplant für ${clock.format(order.requestedFor!)} Uhr`)}</p>` : ""}
 <p class="rule">${RULE}</p>
 <ul class="kitchen-items">${kitchenItems}</ul>
 <p class="rule">${RULE}</p>
+<p class="kitchen-end">&nbsp;</p>
 </section>`
 }
 </body>

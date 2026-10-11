@@ -92,8 +92,13 @@ export const PERMISSION_HOME: Record<Permission, string> = {
   qr: "/dashboard/qr",
   menu: "/dashboard/categories",
   giftcards: "/dashboard/gift-cards",
+  // App-only areas (the counter's redeem screen, the daily sales): there
+  // is no dashboard page, so a login with only these sees the no-access
+  // page on the web and works in the app.
+  redeem: NO_ACCESS_PATH,
   appearance: "/dashboard/appearance",
   reports: "/dashboard/reports",
+  sales: NO_ACCESS_PATH,
   settings: "/dashboard/settings",
 };
 

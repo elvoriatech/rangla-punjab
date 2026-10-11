@@ -1,4 +1,5 @@
 import { orderLabel } from "./order-label";
+import type { RasterImage } from "./ticket-logo";
 import { formatPrice } from "./public-menu";
 import {
   paymentBanner,
@@ -199,6 +200,20 @@ class Ticket {
       .raw(GS, 0x28, 0x6b, len % 256, Math.floor(len / 256), 0x31, 0x50, 0x30, ...payload)
       .raw(GS, 0x28, 0x6b, 3, 0, 0x31, 0x51, 0x30);
   }
+  /** A 1-bit picture (`GS v 0`, normal density), centred by the caller. */
+  image(img: RasterImage): this {
+    return this.raw(
+      GS,
+      0x76,
+      0x30,
+      0,
+      img.bytesPerRow % 256,
+      Math.floor(img.bytesPerRow / 256),
+      img.height % 256,
+      Math.floor(img.height / 256),
+      ...img.data,
+    );
+  }
   done(): Uint8Array {
     return Uint8Array.from(this.bytes);
   }
@@ -215,6 +230,8 @@ export function renderTicketEscPos(
     kitchenCopy?: boolean;
     /** The promised pickup/delivery time, printed on both copies. */
     readyAt?: Date | null;
+    /** The venue logo as dots (`ticketLogoRaster`), on both copies. */
+    logo?: RasterImage | null;
   } = {},
 ): Uint8Array {
   const width = opts.paper === 58 ? 32 : 48;
@@ -235,6 +252,7 @@ export function renderTicketEscPos(
   // Initialise, leave any Chinese double-byte mode, select code page 437.
   t.raw(ESC, 0x40).raw(FS, 0x2e).raw(ESC, 0x74, 0x00);
 
+  if (opts.logo) t.align("center").image(opts.logo).feed(1);
   t.align("center").bold(true).lines(wrap(name.main, width)).bold(false);
   if (name.sub) t.line(name.sub);
   t.line("Online-Bestellung").align("left").rule();
@@ -313,19 +331,27 @@ export function renderTicketEscPos(
   t.cut();
 
   if (opts.kitchenCopy !== false) {
+    // Logo, order type and the promised time like the receipt; dishes in
+    // bold normal-size type rather than double, and a longer slip (owner,
+    // 2026-10-11).
+    if (opts.logo) t.align("center").image(opts.logo).feed(1);
     t.align("center").bold(true).size(2).line("KÜCHENBON").size(1).bold(false).align("left");
     t.rule().size(2).bold(true).line(number).size(1).bold(false).line(when);
+    t.align("center")
+      .bold(true)
+      .lines(wrap(typeBanner(order), width))
+      .bold(false);
     if (whenLine) t.bold(true).lines(wrap(whenLine, width)).bold(false);
-    t.rule();
-    t.size(2);
+    t.align("left").rule();
+    t.bold(true);
     for (const item of order.items) {
-      t.lines(wrap(`${item.quantity}x ${item.name}`, Math.floor(width / 2)));
+      t.lines(wrap(`${item.quantity}x ${item.name}`, width)).feed(1);
       if (item.note)
-        t.size(1)
+        t.bold(false)
           .lines(wrap(`  > ${item.note}`, width))
-          .size(2);
+          .bold(true);
     }
-    t.size(1).rule();
+    t.bold(false).rule().feed(3);
     t.cut();
   }
   return t.done();

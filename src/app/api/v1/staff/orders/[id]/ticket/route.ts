@@ -5,7 +5,7 @@ import { renderQrSvg } from "@/lib/qr";
 import { requireStaff } from "@/lib/staff-request";
 import { renderTicketEscPos } from "@/lib/ticket-escpos";
 import { renderTicketHtml, ticketAddressLine } from "@/lib/ticket-html";
-import { ticketLogoDataUri } from "@/lib/ticket-logo";
+import { ticketLogoDataUri, ticketLogoRaster } from "@/lib/ticket-logo";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { orderEta } from "@/lib/order-eta";
@@ -66,6 +66,7 @@ export async function GET(
       {
         paper,
         readyAt,
+        logo: await ticketLogoRaster(venue.value.branding.logoKey, paper === 58 ? 160 : 192),
         navQrData: addressLine ? dispatchUrl(order.id, gate.staff.tenantId) : null,
       },
     );

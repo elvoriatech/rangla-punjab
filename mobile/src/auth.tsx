@@ -122,8 +122,10 @@ export type StaffArea =
   | "qr"
   | "menu"
   | "giftcards"
+  | "redeem"
   | "appearance"
   | "reports"
+  | "sales"
   | "settings";
 
 export interface StaffAccess {

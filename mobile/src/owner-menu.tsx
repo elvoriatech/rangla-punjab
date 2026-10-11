@@ -132,7 +132,7 @@ export function OwnerMenuSheet({
               onPress={() => go(onCatering)}
             />
           ) : null}
-          {staffCan("reports") ? (
+          {staffCan("reports") || staffCan("sales") ? (
             <Row icon="cash-outline" label={t.ownerSales} onPress={() => go(onSales)} />
           ) : null}
           {staffCan("menu") ? (
@@ -148,19 +148,21 @@ export function OwnerMenuSheet({
           {/* `card-outline`, not another gift: Loyalty already owns the
               gift glyph above, and two identical icons in one column is
               how a cashier taps the wrong row mid-service. */}
+          {/* "redeem" is the counter's box: the redeem screen without the
+              gift-card book (owner, 2026-10-11). */}
+          {staffCan("giftcards") || staffCan("redeem") ? (
+            <Row
+              icon="card-outline"
+              label={t.ownerRedeemGiftCard}
+              onPress={() => go(onRedeemGiftCard)}
+            />
+          ) : null}
           {staffCan("giftcards") ? (
-            <>
-              <Row
-                icon="card-outline"
-                label={t.ownerRedeemGiftCard}
-                onPress={() => go(onRedeemGiftCard)}
-              />
-              <Row
-                icon="pricetags-outline"
-                label={t.ownerGiftCards}
-                onPress={() => go(onGiftCards)}
-              />
-            </>
+            <Row
+              icon="pricetags-outline"
+              label={t.ownerGiftCards}
+              onPress={() => go(onGiftCards)}
+            />
           ) : null}
           {staffCan("orders") ? (
             <Row

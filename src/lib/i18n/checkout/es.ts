@@ -22,6 +22,8 @@ const es: CheckoutCopy = {
   addItems: "Añadir platos",
 
   orderTypeGroup: "Tipo de pedido",
+
+  chooseOrderType: "Elige: en el local, para recoger o a domicilio.",
   dineIn: "En el local",
   takeaway: "Recogida",
   delivery: "Entrega",

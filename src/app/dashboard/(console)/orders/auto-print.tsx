@@ -16,16 +16,21 @@ export interface PrintableOrder {
   orderSeries?: string | null;
   /** none = cash, pending = online payment started, paid = settled. */
   paymentStatus: string;
+  /** Still inside its accept window, untouched: no ticket yet. */
+  awaitingAccept?: boolean;
 }
 
 /**
- * A ticket goes to the kitchen when the restaurant is sure of the money:
- * cash orders at once; card / PayPal orders only once the payment has
- * settled (a pending one may be abandoned in the checkout, and a kitchen
- * that already cooked it has no recourse). Pure, so it is unit-tested.
+ * A ticket goes to the kitchen when the restaurant is sure of the money
+ * AND of the time: card / PayPal orders only once the payment has settled
+ * (a pending one may be abandoned in the checkout), and a pickup or
+ * delivery only once it was accepted with a time — or its accept window
+ * ran out and it was auto-accepted (owner, 2026-10-11: "don't print before
+ * acceptance"), so the promised time on the ticket is final. Pure, so it
+ * is unit-tested.
  */
 export function isReadyToPrint(order: PrintableOrder): boolean {
-  return order.paymentStatus !== "pending";
+  return order.paymentStatus !== "pending" && !order.awaitingAccept;
 }
 
 /** Which of the open orders still need a ticket on this device. */
@@ -104,7 +109,8 @@ export function AutoPrint({
       // First run on this device (or first run since the id-based tracker
       // replaced the order-number high-water mark): baseline to what is on
       // screen instead of reprinting the whole backlog. Pending online
-      // orders are deliberately NOT baselined — they print when paid.
+      // orders and orders still awaiting acceptance are deliberately NOT
+      // baselined — they print when paid / accepted.
       for (const o of open) if (isReadyToPrint(o)) printed.add(o.id);
       // Legacy high-water mark: anything at or below it was already printed.
       if (legacyMax !== null) {

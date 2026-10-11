@@ -10,11 +10,11 @@ import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
  * GET /api/v1/staff/sales?date=YYYY-MM-DD&pay=cash|online|paypal|… — one
  * day's sales for the app's "Tagesumsatz" screen: cash and online totals,
  * the split by payment type and the day's orders (newest first). Needs
- * the team box "reports"; the owner always passes. No date = today in the
+ * the team box "reports" or "sales" (read only); the owner always passes. No date = today in the
  * venue's time zone.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req, "reports");
+  const gate = await requireStaff(req, ["reports", "sales"]);
   if (!gate.ok) return gate.response;
 
   const ctx = await resolvePreviewContext(await getRestaurantSlug(), null);

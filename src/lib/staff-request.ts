@@ -23,7 +23,8 @@ export type StaffGate = { ok: true; staff: StaffPrincipal } | { ok: false; respo
  */
 export async function requireStaff(
   req: NextRequest,
-  area?: Permission | "owner",
+  /** One area, or several where ANY of them lets the member in. */
+  area?: Permission | "owner" | readonly Permission[],
 ): Promise<StaffGate> {
   const rl = await checkRateLimit(STAFF_IP, clientIp(req));
   if (!rl.ok) {
@@ -45,7 +46,13 @@ export async function requireStaff(
       response: withCors(NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })),
     };
   }
-  if (area && !staffCan(staff, area)) {
+  const allowed =
+    area === undefined
+      ? true
+      : typeof area === "string"
+        ? staffCan(staff, area)
+        : area.some((a) => staffCan(staff, a));
+  if (!allowed) {
     return {
       ok: false,
       response: withCors(NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 })),

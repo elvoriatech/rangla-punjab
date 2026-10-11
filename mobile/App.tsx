@@ -206,9 +206,11 @@ function Shell(): React.ReactElement {
           ? "menu"
           : auth.staffCan("settings")
             ? "home"
-            : auth.staffCan("reports")
+            : auth.staffCan("reports") || auth.staffCan("sales")
               ? "sales"
-              : "info";
+              : auth.staffCan("giftcards") || auth.staffCan("redeem")
+                ? "redeemgift"
+                : "info";
   const [openOrders, setOpenOrders] = useState(0);
   /** Complaints the restaurant still owes an answer or a verdict on —
    *  the owner menu's badge. Same 30 s loop as the board's count. */

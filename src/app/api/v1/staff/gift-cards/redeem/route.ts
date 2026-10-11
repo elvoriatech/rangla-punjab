@@ -34,7 +34,7 @@ function statusFor(error: RedeemError): number {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const gate = await requireStaff(req, "giftcards");
+  const gate = await requireStaff(req, ["giftcards", "redeem"]);
   if (!gate.ok) return gate.response;
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));

@@ -16,6 +16,12 @@ describe("kitchen auto-print selection", () => {
     ]);
   });
 
+  it("waits for the accept (or the window running out) before printing", () => {
+    const waiting = { ...cash, id: "w", awaitingAccept: true };
+    expect(isReadyToPrint(waiting)).toBe(false);
+    expect(isReadyToPrint({ ...waiting, awaitingAccept: false })).toBe(true);
+  });
+
   it("prints an order once, and prints a formerly pending order when it becomes paid", () => {
     const printed = new Set(["a", "c"]);
     expect(pickOrdersToPrint([cash, pendingCard, paidPaypal], printed)).toEqual([]);

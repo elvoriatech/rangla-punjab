@@ -22,6 +22,8 @@ const de: CheckoutCopy = {
   addItems: "Weitere Artikel",
 
   orderTypeGroup: "Bestellart",
+
+  chooseOrderType: "Bitte wählen: Im Restaurant, Abholung oder Lieferung.",
   dineIn: "Im Restaurant",
   takeaway: "Abholung",
   delivery: "Lieferung",

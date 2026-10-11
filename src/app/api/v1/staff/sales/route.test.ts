@@ -5,6 +5,7 @@ import { signupUser } from "@/lib/auth-service";
 import { dayBounds } from "@/lib/daily-sales";
 import { prisma } from "@/lib/db";
 import { signSession } from "@/lib/session";
+import { createStaffMember } from "@/lib/team-service";
 import { asTenant } from "@/lib/tenant";
 import { GET } from "./route";
 
@@ -40,6 +41,7 @@ describe("/api/v1/staff/sales", () => {
   let tenantId: string;
   let userId: string;
   let staffToken: string;
+  const teamIds: string[] = [];
   const originalSlug = process.env.RESTAURANT_SLUG;
   const ip = `10.14.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
   const day = "2026-10-11";
@@ -109,7 +111,7 @@ describe("/api/v1/staff/sales", () => {
       await tx.membership.deleteMany({});
     });
     await asTenant(tenantId, (tx) => tx.tenant.deleteMany({}));
-    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.user.deleteMany({ where: { id: { in: [userId, ...teamIds] } } });
   });
 
   const request = (qs: string, token?: string): NextRequest =>
@@ -137,6 +139,22 @@ describe("/api/v1/staff/sales", () => {
     });
     expect(body.orders!.map((o) => o.orderLabel)).toEqual(["B-2", "O-2", "O-1", "B-1"]);
     expect(body.orders!.map((o) => o.deletable)).toEqual([true, true, true, true]);
+  });
+
+  it("lets a team login with only 'sales' read it, and refuses one without", async () => {
+    const make = async (permissions: string[]) => {
+      const made = await createStaffMember(userId, {
+        name: "Counter",
+        email: `sales-team-${randomUUID()}@ex.com`,
+        password: "counter-pass-1",
+        permissions,
+      });
+      if (!made.ok) throw new Error("staff create failed");
+      teamIds.push(made.value.userId);
+      return signSession(made.value.userId);
+    };
+    expect((await GET(request(`?date=${day}`, await make(["sales"])))).status).toBe(200);
+    expect((await GET(request(`?date=${day}`, await make(["orders"])))).status).toBe(403);
   });
 
   it("filters the list by payment type; the day's totals stay whole", async () => {

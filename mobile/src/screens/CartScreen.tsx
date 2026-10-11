@@ -124,11 +124,21 @@ export function CartScreen({
     return types;
   }, [menu.ordering, t]);
 
-  const [orderType, setOrderType] = useState<OrderType>(
+  /**
+   * The guest MUST pick dine-in, pickup or delivery (owner, 2026-10-11: no
+   * order type selected by default). Null until they do — unless a table QR
+   * preset it or the venue offers only one. `orderType` keeps a concrete
+   * value for the arithmetic; nothing can be placed while `typeMissing`.
+   */
+  const [chosenType, setOrderType] = useState<OrderType | null>(
     presetType && allowed.some((t) => t.key === presetType)
       ? presetType
-      : (allowed[0]?.key ?? "dine_in"),
+      : allowed.length === 1
+        ? allowed[0]!.key
+        : null,
   );
+  const orderType: OrderType = chosenType ?? allowed[0]?.key ?? "dine_in";
+  const typeMissing = chosenType === null;
   const [tableNumber, setTableNumber] = useState("");
   const [requestedTime, setRequestedTime] = useState(""); // "" = ASAP
   const [zipOpen, setZipOpen] = useState(false);
@@ -495,6 +505,7 @@ export function CartScreen({
 
   const needsContact = orderType !== "dine_in";
   const missing =
+    typeMissing ||
     paused ||
     cart.lines.length === 0 ||
     closedBlocked ||
@@ -834,11 +845,13 @@ export function CartScreen({
                   <Pressable
                     key={t.key}
                     onPress={() => setOrderType(t.key)}
-                    style={[styles.typeChip, orderType === t.key && styles.typeChipActive]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: chosenType === t.key }}
+                    style={[styles.typeChip, chosenType === t.key && styles.typeChipActive]}
                   >
                     <Text style={{ ...fonts.body, fontSize: 18 }}>{t.emoji}</Text>
                     <Text
-                      style={[styles.typeChipText, orderType === t.key && { color: colors.red }]}
+                      style={[styles.typeChipText, chosenType === t.key && { color: colors.red }]}
                     >
                       {t.label}
                     </Text>
@@ -846,267 +859,280 @@ export function CartScreen({
                 ))}
               </View>
 
-              {/* Closed: say so once, in the words that fit the choice
-                  the guest has just made — a table order cannot happen
-                  at all, a pickup or delivery becomes a pre-order. */}
-              {!asapOk ? (
-                <Text style={styles.closedNote}>
-                  {orderType === "dine_in"
-                    ? t.orderClosedDineIn
-                    : slots.length > 0
-                      ? t.orderClosedNow
-                      : t.orderClosedNoSlots}
+              {typeMissing ? (
+                <Text style={styles.chooseType} accessibilityLiveRegion="polite">
+                  {t.chooseOrderType}
                 </Text>
-              ) : null}
-
-              {/* Dine-in asks for nothing mandatory (the table number is
-                  optional), so the legend appears only with the form
-                  that actually has required fields. */}
-              {needsContact ? <RequiredLegend /> : null}
-
-              {orderType === "dine_in" ? (
-                <Field
-                  label={t.tableOptional}
-                  value={tableNumber}
-                  onChange={setTableNumber}
-                  placeholder={t.tablePlaceholder}
-                />
               ) : (
                 <>
-                  {/* When to fulfil it: two radios, and a ± stepper over
+                  {/* Closed: say so once, in the words that fit the choice
+                  the guest has just made — a table order cannot happen
+                  at all, a pickup or delivery becomes a pre-order. */}
+                  {!asapOk ? (
+                    <Text style={styles.closedNote}>
+                      {orderType === "dine_in"
+                        ? t.orderClosedDineIn
+                        : slots.length > 0
+                          ? t.orderClosedNow
+                          : t.orderClosedNoSlots}
+                    </Text>
+                  ) : null}
+
+                  {/* Dine-in asks for nothing mandatory (the table number is
+                  optional), so the legend appears only with the form
+                  that actually has required fields. */}
+                  {needsContact ? <RequiredLegend /> : null}
+
+                  {orderType === "dine_in" ? (
+                    <Field
+                      label={t.tableOptional}
+                      value={tableNumber}
+                      onChange={setTableNumber}
+                      placeholder={t.tablePlaceholder}
+                    />
+                  ) : (
+                    <>
+                      {/* When to fulfil it: two radios, and a ± stepper over
                       the server's own slot list once "Scheduled" is
                       chosen. No free typing and no wrapping — the ends of
                       the list are the ends of the service window. */}
-                  {slots.length > 0 ? (
-                    <View style={{ gap: 8 }}>
-                      <Text style={styles.fieldLabel}>
-                        {orderType === "delivery" ? t.timeDelivery : t.timePickup}
-                      </Text>
-                      <View style={styles.radioRow}>
-                        {/* "Now" is not offered while the venue is shut —
+                      {slots.length > 0 ? (
+                        <View style={{ gap: 8 }}>
+                          <Text style={styles.fieldLabel}>
+                            {orderType === "delivery" ? t.timeDelivery : t.timePickup}
+                          </Text>
+                          <View style={styles.radioRow}>
+                            {/* "Now" is not offered while the venue is shut —
                             the server would refuse it with a 409, and an
                             option that cannot be taken is worse than no
                             option at all. */}
-                        {asapOk ? (
-                          <RadioChip
-                            label={t.timeNow}
-                            selected={!scheduled}
-                            onPress={() => setRequestedTime("")}
-                          />
-                        ) : null}
-                        <RadioChip
-                          label={t.timeScheduled}
-                          selected={scheduled}
-                          onPress={() => {
-                            if (!scheduled) setRequestedTime(slots[0] ?? "");
-                          }}
-                        />
-                      </View>
-                      {scheduled ? (
-                        <View style={styles.stepper}>
-                          <StepButton
-                            icon="remove"
-                            label={t.timeEarlier}
-                            disabled={slotIndex <= 0}
-                            onPress={() => stepSlot(-1)}
-                          />
-                          <Text style={styles.stepperValue}>{requestedTime}</Text>
-                          <StepButton
-                            icon="add"
-                            label={t.timeLater}
-                            disabled={slotIndex >= slots.length - 1}
-                            onPress={() => stepSlot(1)}
-                          />
+                            {asapOk ? (
+                              <RadioChip
+                                label={t.timeNow}
+                                selected={!scheduled}
+                                onPress={() => setRequestedTime("")}
+                              />
+                            ) : null}
+                            <RadioChip
+                              label={t.timeScheduled}
+                              selected={scheduled}
+                              onPress={() => {
+                                if (!scheduled) setRequestedTime(slots[0] ?? "");
+                              }}
+                            />
+                          </View>
+                          {scheduled ? (
+                            <View style={styles.stepper}>
+                              <StepButton
+                                icon="remove"
+                                label={t.timeEarlier}
+                                disabled={slotIndex <= 0}
+                                onPress={() => stepSlot(-1)}
+                              />
+                              <Text style={styles.stepperValue}>{requestedTime}</Text>
+                              <StepButton
+                                icon="add"
+                                label={t.timeLater}
+                                disabled={slotIndex >= slots.length - 1}
+                                onPress={() => stepSlot(1)}
+                              />
+                            </View>
+                          ) : (
+                            <Text style={styles.stepperHint}>{t.asap}</Text>
+                          )}
                         </View>
-                      ) : (
-                        <Text style={styles.stepperHint}>{t.asap}</Text>
-                      )}
-                    </View>
-                  ) : null}
-                  {/* Signed out: one tap fills name, phone, email and
+                      ) : null}
+                      {/* Signed out: one tap fills name, phone, email and
                       the last delivery address. Signed in, it's gone. */}
-                  {!auth.customer && (auth.googleAvailable || auth.appleAvailable) ? (
-                    <View style={styles.signInNudge}>
-                      <Text style={styles.fieldLabel}>{t.signInToPrefill}</Text>
-                      {auth.appleAvailable ? (
-                        <AppleButton
-                          compact
-                          onPress={() => void startApple()}
-                          busy={auth.busyProvider === APPLE_NATIVE}
-                        />
+                      {!auth.customer && (auth.googleAvailable || auth.appleAvailable) ? (
+                        <View style={styles.signInNudge}>
+                          <Text style={styles.fieldLabel}>{t.signInToPrefill}</Text>
+                          {auth.appleAvailable ? (
+                            <AppleButton
+                              compact
+                              onPress={() => void startApple()}
+                              busy={auth.busyProvider === APPLE_NATIVE}
+                            />
+                          ) : null}
+                          {auth.googleAvailable ? (
+                            <GoogleButton
+                              compact
+                              label={t.continueWithGoogle}
+                              onPress={() => void startGoogle()}
+                              busy={auth.busyProvider === GOOGLE_NATIVE}
+                            />
+                          ) : null}
+                        </View>
                       ) : null}
-                      {auth.googleAvailable ? (
-                        <GoogleButton
-                          compact
-                          label={t.continueWithGoogle}
-                          onPress={() => void startGoogle()}
-                          busy={auth.busyProvider === GOOGLE_NATIVE}
-                        />
-                      ) : null}
-                    </View>
-                  ) : null}
+                      <Field
+                        label={t.name}
+                        value={name}
+                        onChange={setName}
+                        placeholder={t.namePlaceholder}
+                        required
+                      />
+                      <Field
+                        label={t.phone}
+                        value={phone}
+                        onChange={setPhone}
+                        placeholder="+49 …"
+                        keyboardType="phone-pad"
+                        required
+                      />
+                    </>
+                  )}
                   <Field
-                    label={t.name}
-                    value={name}
-                    onChange={setName}
-                    placeholder={t.namePlaceholder}
-                    required
+                    label={t.receiptEmail}
+                    value={email}
+                    onChange={setEmail}
+                    placeholder="name@example.com"
+                    keyboardType="email-address"
+                    hint={t.receiptEmailHint}
                   />
-                  <Field
-                    label={t.phone}
-                    value={phone}
-                    onChange={setPhone}
-                    placeholder="+49 …"
-                    keyboardType="phone-pad"
-                    required
-                  />
-                </>
-              )}
-              <Field
-                label={t.receiptEmail}
-                value={email}
-                onChange={setEmail}
-                placeholder="name@example.com"
-                keyboardType="email-address"
-                hint={t.receiptEmailHint}
-              />
-              {orderType === "delivery" && !addressFieldsOpen ? (
-                /* The address the app already knows, as a card. One tap on
+                  {orderType === "delivery" && !addressFieldsOpen ? (
+                    /* The address the app already knows, as a card. One tap on
                    "Change" turns it back into the fields — a returning
                    guest should not have to read past four inputs they
                    filled in weeks ago. */
-                <View style={styles.addressCard}>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={styles.addressLabel}>{t.addressTitle}</Text>
-                    <Text style={styles.addressLine}>{street.trim()}</Text>
-                    <Text style={styles.addressLine}>
-                      {[zip.trim(), area?.locality].filter(Boolean).join(" ")}
-                    </Text>
-                    {note.trim() ? (
-                      <Text style={styles.addressNote} numberOfLines={2}>
-                        {note.trim()}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Pressable
-                    onPress={() => setEditingAddress(true)}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${t.addressChange} — ${t.addressTitle}`}
-                  >
-                    <Text style={styles.addressChange}>{t.addressChange}</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-              {orderType === "delivery" && addressFieldsOpen ? (
-                <>
-                  <Field
-                    label={t.street}
-                    value={street}
-                    onChange={(v) => {
-                      setAddressTouched(true);
-                      setStreet(v);
-                    }}
-                    placeholder="Bahnhofstraße 15"
-                    required
-                  />
-                  {areas.length > 0 ? (
-                    /* Fixed delivery-area list: the guest PICKS a saved ZIP
+                    <View style={styles.addressCard}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.addressLabel}>{t.addressTitle}</Text>
+                        <Text style={styles.addressLine}>{street.trim()}</Text>
+                        <Text style={styles.addressLine}>
+                          {[zip.trim(), area?.locality].filter(Boolean).join(" ")}
+                        </Text>
+                        {note.trim() ? (
+                          <Text style={styles.addressNote} numberOfLines={2}>
+                            {note.trim()}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Pressable
+                        onPress={() => setEditingAddress(true)}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t.addressChange} — ${t.addressTitle}`}
+                      >
+                        <Text style={styles.addressChange}>{t.addressChange}</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  {orderType === "delivery" && addressFieldsOpen ? (
+                    <>
+                      <Field
+                        label={t.street}
+                        value={street}
+                        onChange={(v) => {
+                          setAddressTouched(true);
+                          setStreet(v);
+                        }}
+                        placeholder="Bahnhofstraße 15"
+                        required
+                      />
+                      {areas.length > 0 ? (
+                        /* Fixed delivery-area list: the guest PICKS a saved ZIP
                        from a dropdown — free typing would only earn an
                        outside_delivery_area rejection from the server. The
                        locality field beside it fills itself from the pick. */
-                    <View style={{ flexDirection: "row", gap: 8 }}>
-                      <View style={{ gap: 4, width: 132 }}>
-                        <FieldLabel label={t.zipLabel} required style={styles.fieldLabel} />
-                        <Pressable style={styles.dropdown} onPress={() => setZipOpen(true)}>
-                          <Text style={styles.dropdownValue}>{zip || "—"}</Text>
-                          <Text style={styles.dropdownChevron}>▾</Text>
-                        </Pressable>
-                      </View>
-                      <View style={{ gap: 4, flex: 1 }}>
-                        <Text style={styles.fieldLabel}>{t.locality}</Text>
-                        <View style={[styles.dropdown, { justifyContent: "flex-start" }]}>
-                          <Text
-                            style={[
-                              styles.dropdownValue,
-                              !area?.locality && { color: colors.inkSoft },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {area?.locality || "—"}
-                          </Text>
-                        </View>
-                      </View>
-                      <Modal
-                        visible={zipOpen}
-                        transparent
-                        animationType="fade"
-                        onRequestClose={() => setZipOpen(false)}
-                      >
-                        <Pressable style={styles.modalBackdrop} onPress={() => setZipOpen(false)}>
-                          <View style={styles.modalSheet}>
-                            <Text style={styles.modalTitle}>{t.zipLabel}</Text>
-                            <ScrollView style={{ maxHeight: 380 }}>
-                              {areas.map((a) => {
-                                const selected = zip === a.zip;
-                                return (
-                                  <Pressable
-                                    key={a.zip}
-                                    onPress={() => {
-                                      setAddressTouched(true);
-                                      setZip(a.zip);
-                                      setZipOpen(false);
-                                    }}
-                                    style={[
-                                      styles.modalOption,
-                                      selected && styles.modalOptionActive,
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.modalOptionText,
-                                        selected && {
-                                          color: colors.red,
-                                          ...fonts.bodyHeavy,
-                                        },
-                                      ]}
-                                    >
-                                      {a.zip}
-                                      {a.locality ? ` · ${a.locality}` : ""}
-                                    </Text>
-                                    {selected ? <Text style={{ color: colors.red }}>✓</Text> : null}
-                                  </Pressable>
-                                );
-                              })}
-                            </ScrollView>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <View style={{ gap: 4, width: 132 }}>
+                            <FieldLabel label={t.zipLabel} required style={styles.fieldLabel} />
+                            <Pressable style={styles.dropdown} onPress={() => setZipOpen(true)}>
+                              <Text style={styles.dropdownValue}>{zip || "—"}</Text>
+                              <Text style={styles.dropdownChevron}>▾</Text>
+                            </Pressable>
                           </View>
-                        </Pressable>
-                      </Modal>
-                    </View>
-                  ) : (
-                    <Field
-                      label={t.zipLabel}
-                      value={zip}
-                      onChange={(v) => {
-                        setAddressTouched(true);
-                        setZip(v);
-                      }}
-                      placeholder="56068"
-                      keyboardType="number-pad"
-                      required
-                    />
-                  )}
-                  <Field
-                    label={t.noteOptional}
-                    value={note}
-                    onChange={(v) => {
-                      setAddressTouched(true);
-                      setNote(v);
-                    }}
-                    placeholder={t.notePlaceholder}
-                  />
+                          <View style={{ gap: 4, flex: 1 }}>
+                            <Text style={styles.fieldLabel}>{t.locality}</Text>
+                            <View style={[styles.dropdown, { justifyContent: "flex-start" }]}>
+                              <Text
+                                style={[
+                                  styles.dropdownValue,
+                                  !area?.locality && { color: colors.inkSoft },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {area?.locality || "—"}
+                              </Text>
+                            </View>
+                          </View>
+                          <Modal
+                            visible={zipOpen}
+                            transparent
+                            animationType="fade"
+                            onRequestClose={() => setZipOpen(false)}
+                          >
+                            <Pressable
+                              style={styles.modalBackdrop}
+                              onPress={() => setZipOpen(false)}
+                            >
+                              <View style={styles.modalSheet}>
+                                <Text style={styles.modalTitle}>{t.zipLabel}</Text>
+                                <ScrollView style={{ maxHeight: 380 }}>
+                                  {areas.map((a) => {
+                                    const selected = zip === a.zip;
+                                    return (
+                                      <Pressable
+                                        key={a.zip}
+                                        onPress={() => {
+                                          setAddressTouched(true);
+                                          setZip(a.zip);
+                                          setZipOpen(false);
+                                        }}
+                                        style={[
+                                          styles.modalOption,
+                                          selected && styles.modalOptionActive,
+                                        ]}
+                                      >
+                                        <Text
+                                          style={[
+                                            styles.modalOptionText,
+                                            selected && {
+                                              color: colors.red,
+                                              ...fonts.bodyHeavy,
+                                            },
+                                          ]}
+                                        >
+                                          {a.zip}
+                                          {a.locality ? ` · ${a.locality}` : ""}
+                                        </Text>
+                                        {selected ? (
+                                          <Text style={{ color: colors.red }}>✓</Text>
+                                        ) : null}
+                                      </Pressable>
+                                    );
+                                  })}
+                                </ScrollView>
+                              </View>
+                            </Pressable>
+                          </Modal>
+                        </View>
+                      ) : (
+                        <Field
+                          label={t.zipLabel}
+                          value={zip}
+                          onChange={(v) => {
+                            setAddressTouched(true);
+                            setZip(v);
+                          }}
+                          placeholder="56068"
+                          keyboardType="number-pad"
+                          required
+                        />
+                      )}
+                      <Field
+                        label={t.noteOptional}
+                        value={note}
+                        onChange={(v) => {
+                          setAddressTouched(true);
+                          setNote(v);
+                        }}
+                        placeholder={t.notePlaceholder}
+                      />
+                    </>
+                  ) : null}
                 </>
-              ) : null}
+              )}
 
               <View style={styles.totalBox}>
                 <Row label={t.subtotal} value={money(cart.totalCents, menu.venue.currency)} />
@@ -1560,6 +1586,18 @@ function Row({
 }
 
 const styles = StyleSheet.create({
+  chooseType: {
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: colors.red,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    textAlign: "center",
+    color: colors.ink,
+    ...fonts.bodyBold,
+    fontSize: 14,
+  },
   empty: { alignItems: "center", gap: 6, paddingVertical: 60 },
   // The in-flight checkout: one cream card, the same hairline and radius as
   // the totals box it stands in for, with the reassurance in gold.

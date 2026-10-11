@@ -300,14 +300,16 @@ describe("kitchen copy", () => {
     items: [{ name: "Pakoras", quantity: 2, priceCents: 490, note: "extra scharf" }],
   });
 
-  it("follows the staff ticket on its own page with the number and dishes only", () => {
+  it("follows the staff ticket on its own page with the number, order type and dishes only", () => {
     const html = renderTicketHtml(takeaway, VENUE);
     const kitchen = html.slice(html.indexOf('<section class="kitchen">'));
     expect(kitchen).toContain("K&Uuml;CHENBON");
     expect(kitchen).toContain("#42");
     expect(kitchen).toContain('2x</span> <span class="nm">Pakoras');
     expect(kitchen).toContain("extra scharf");
-    for (const hidden of ["Zahoor", "+4916", "€", "BEZAHLT", "ABHOLUNG"]) {
+    // The order type is on the kitchen copy too (owner, 2026-10-11).
+    expect(kitchen).toContain("ABHOLUNG");
+    for (const hidden of ["Zahoor", "+4916", "€", "BEZAHLT"]) {
       expect(kitchen).not.toContain(hidden);
     }
     expect(html).toContain("break-before: page");

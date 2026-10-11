@@ -288,6 +288,7 @@ export default async function OrdersPage({
               id: o.id,
               orderNumber: o.orderNumber,
               paymentStatus: o.paymentStatus,
+              awaitingAccept: Boolean(orderEta(o, etaConfig)?.adjustableUntil),
             }))}
           />
         </div>

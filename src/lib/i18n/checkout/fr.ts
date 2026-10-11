@@ -22,6 +22,8 @@ const fr: CheckoutCopy = {
   addItems: "Ajouter des plats",
 
   orderTypeGroup: "Type de commande",
+
+  chooseOrderType: "Veuillez choisir : sur place, à emporter ou livraison.",
   dineIn: "Sur place",
   takeaway: "À emporter",
   delivery: "Livraison",
