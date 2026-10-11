@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/client-ip";
-import { dispatchOrder } from "@/lib/dispatch-service";
+import { deliverOrder, dispatchOrder } from "@/lib/dispatch-service";
 import { verifyDispatchToken } from "@/lib/dispatch-token";
 import { checkRateLimit, type RateLimitConfig } from "@/lib/rate-limit";
 
@@ -56,4 +56,29 @@ export async function dispatchAction(form: FormData): Promise<void> {
   // Back to the same page in its "on the way" state, which is what
   // carries the route link and the auto-forward to Maps.
   redirect(`/dispatch/${orderId}?t=${encodeURIComponent(token)}&sent=1`);
+}
+
+/** The driver's second button: handed over, the order is done. Same
+ *  checks as the dispatch (rate limit, token re-verified). */
+export async function deliveredAction(form: FormData): Promise<void> {
+  const orderId = String(form.get("orderId") ?? "");
+  const token = String(form.get("token") ?? "");
+
+  const head = await headers();
+  const rl = await checkRateLimit(
+    DISPATCH_IP,
+    clientIp(new Request("http://local/", { headers: head })),
+  );
+  if (!rl.ok) redirect(`/dispatch/${orderId}?t=${encodeURIComponent(token)}&e=busy`);
+
+  const verified = verifyDispatchToken(token);
+  if (!verified || verified.orderId !== orderId) {
+    redirect(`/dispatch/${orderId}?t=${encodeURIComponent(token)}&e=invalid`);
+  }
+
+  const result = await deliverOrder(verified.tenantId, orderId);
+  if (!result.ok) {
+    redirect(`/dispatch/${orderId}?t=${encodeURIComponent(token)}&e=${result.error}`);
+  }
+  redirect(`/dispatch/${orderId}?t=${encodeURIComponent(token)}`);
 }

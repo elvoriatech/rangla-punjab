@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getDispatchOrder } from "@/lib/dispatch-service";
 import { verifyDispatchToken } from "@/lib/dispatch-token";
-import { dispatchAction } from "./actions";
+import { deliveredAction, dispatchAction } from "./actions";
 
 /**
  * The page a driver lands on after scanning a delivery ticket's QR.
@@ -122,7 +122,9 @@ export default async function DispatchPage({
         </form>
       ) : null}
 
-      {out ? (
+      {order?.status === "done" ? (
+        <p className="text-center text-lg font-medium">Zugestellt ✓ — delivered. Thank you!</p>
+      ) : out ? (
         <div className="text-center">
           <p className="text-lg font-medium">On the way — the guest has been told.</p>
           {order?.directionsUrl ? (
@@ -135,6 +137,18 @@ export default async function DispatchPage({
               </a>
             </>
           ) : null}
+          {/* The handover: one more big tap and the order is done
+              (owner, 2026-10-11). */}
+          <form action={deliveredAction} className="mt-4">
+            <input type="hidden" name="orderId" value={orderId} />
+            <input type="hidden" name="token" value={t} />
+            <button
+              type="submit"
+              className="w-full bg-green-800 px-6 py-6 text-lg font-medium uppercase tracking-[0.14em] text-white hover:bg-green-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              Zugestellt / Delivered ✓
+            </button>
+          </form>
         </div>
       ) : null}
     </main>

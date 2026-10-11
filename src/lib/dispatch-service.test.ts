@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { signupUser } from "./auth-service";
 import { prisma } from "./db";
-import { dispatchOrder, dispatchUrl, getDispatchOrder } from "./dispatch-service";
+import { deliverOrder, dispatchOrder, dispatchUrl, getDispatchOrder } from "./dispatch-service";
 import { signDispatchToken, verifyDispatchToken } from "./dispatch-token";
 import { signReceiptToken } from "./receipt-token";
 import { asTenant } from "./tenant";
@@ -183,6 +183,23 @@ describe("dispatchOrder", () => {
     const result = await dispatchOrder(fx.tenantId, fx.orderId, "dispatch-qr");
     expect(result.ok).toBe(true);
     expect((await statusOf(fx.tenantId, fx.orderId))?.status).toBe("out_for_delivery");
+  });
+
+  it("the driver marks it delivered after the handover; a second tap is a no-op", async () => {
+    const fx = await fixture({ status: "ready" });
+    expect((await dispatchOrder(fx.tenantId, fx.orderId, "dispatch-qr")).ok).toBe(true);
+    const first = await deliverOrder(fx.tenantId, fx.orderId);
+    expect(first).toMatchObject({ ok: true, already: false, status: "done" });
+    expect((await statusOf(fx.tenantId, fx.orderId))?.status).toBe("done");
+    expect(await deliverOrder(fx.tenantId, fx.orderId)).toMatchObject({ ok: true, already: true });
+  });
+
+  it("refuses to mark a cancelled order delivered", async () => {
+    const fx = await fixture({ status: "cancelled" });
+    expect(await deliverOrder(fx.tenantId, fx.orderId)).toEqual({
+      ok: false,
+      error: "wrong_state",
+    });
   });
 
   it("refuses a cancelled order", async () => {

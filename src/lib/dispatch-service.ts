@@ -189,6 +189,48 @@ export async function dispatchOrder(
   return outcome;
 }
 
+/**
+ * The driver handed the food over (owner, 2026-10-11: "when the driver
+ * hands over the food he can change the order status"). From the same QR
+ * page, a second button: the order goes to `done`. Idempotent like the
+ * dispatch — a second tap, or an order already done, is `already: true`.
+ * An order the driver never marked "on the way" can be delivered straight
+ * from placed / preparing / ready too; cancelled stays refused.
+ */
+export async function deliverOrder(tenantId: string, orderId: string): Promise<DispatchResult> {
+  const outcome = await asTenant(tenantId, async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        orderSeries: true,
+        status: true,
+        orderType: true,
+        customerName: true,
+        deliveryAddress: true,
+      },
+    });
+    if (!order) return { ok: false as const, error: "not_found" as const };
+    if (order.orderType !== "delivery")
+      return { ok: false as const, error: "not_delivery" as const };
+    if (order.status === "done") return view(order, true, "done");
+    if (!canTransition(order.status, "done", order.orderType)) {
+      return { ok: false as const, error: "wrong_state" as const };
+    }
+    const updated = await tx.order.updateMany({
+      where: { id: orderId, status: order.status },
+      data: {
+        status: "done",
+        ...(order.status === "out_for_delivery" ? {} : { outForDeliveryAt: new Date() }),
+      },
+    });
+    return view(order, updated.count === 0, "done");
+  });
+  if (outcome.ok && !outcome.already) log.info("order.delivered", { tenantId, orderId });
+  return outcome;
+}
+
 /** The scan's destination once the order has moved: the same Maps route
  *  the QR used to point at directly. */
 export function dispatchUrl(orderId: string, tenantId: string): string {

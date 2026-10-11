@@ -277,6 +277,11 @@ export function BoardScreen({
    *  rest of it — the board is a list to scan, not a wall to scroll. Nothing
    *  is persisted: closing the app gives the quiet default back. */
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set<string>());
+  /** Orders already folded up after their accept, so a card the staff
+   *  open again by hand stays open. */
+  const collapsedOnceRef = useRef<Set<string>>(new Set());
+  /** Open cards seen still waiting for their accept. */
+  const awaitingRef = useRef<Set<string>>(new Set());
   /** The complaint thread the counter opened from a card's pill. The
    *  board only knows an order HAS one, so the id is looked up on tap. */
   const [issueId, setIssueId] = useState<string | null>(null);
@@ -650,6 +655,32 @@ export function BoardScreen({
   }, [orders, printTick]);
 
   /**
+   * An order auto-accepted when its window ran out folds up too, exactly
+   * once — the same as one accepted by hand.
+   */
+  useEffect(() => {
+    const fold: string[] = [];
+    for (const order of orders) {
+      if (!expandedIds.has(order.id) || collapsedOnceRef.current.has(order.id)) continue;
+      if (!order.eta) continue;
+      const decided =
+        order.eta.adjustableUntil == null ||
+        new Date(order.eta.adjustableUntil).getTime() <= Date.now();
+      // Only a card that was open WHILE it waited for an answer folds: an
+      // accepted order the staff open by hand later stays open.
+      if (!decided) awaitingRef.current.add(order.id);
+      else if (awaitingRef.current.has(order.id)) fold.push(order.id);
+    }
+    if (fold.length === 0) return;
+    for (const id of fold) collapsedOnceRef.current.add(id);
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of fold) next.delete(id);
+      return next;
+    });
+  }, [orders, expandedIds, printTick]);
+
+  /**
    * Flipping the switch on does NOT print what is already there. The
    * open board at that moment is work in progress, not news, so it is
    * baselined — recorded as printed without printing — and only what
@@ -789,6 +820,15 @@ export function BoardScreen({
       const updated = res.data;
       if (updated) setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
       else void load("full");
+      // Accepted: fold the card up (owner, 2026-10-11) — it opened itself
+      // to be read and answered; now it is just work in progress.
+      collapsedOnceRef.current.add(order.id);
+      setExpandedIds((prev) => {
+        if (!prev.has(order.id)) return prev;
+        const next = new Set(prev);
+        next.delete(order.id);
+        return next;
+      });
       return;
     }
     if (res.error === "unauthorized") {
