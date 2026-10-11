@@ -172,6 +172,12 @@ export function RedeemGiftCardScreen({
                 <Ionicons name="information-circle-outline" size={18} color={colors.gold} />
                 <Text style={styles.notice}>{t.redeemGiftCardNoScanner}</Text>
               </View>
+              {/* Points are not redeemed here (owner, 2026-10-11: points stay
+                  online-only) — said so the counter does not go looking. */}
+              <View style={styles.noticeRow}>
+                <Ionicons name="star-outline" size={18} color={colors.inkSoft} />
+                <Text style={styles.pointsNote}>{t.redeemPointsOnlineNote}</Text>
+              </View>
 
               <TextInput
                 value={code}
@@ -275,6 +281,7 @@ const styles = StyleSheet.create({
   lead: { color: colors.inkSoft, ...fonts.body, fontSize: 13.5, lineHeight: 19 },
   noticeRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   notice: { flex: 1, color: colors.gold, ...fonts.bodySemi, fontSize: 12.5, lineHeight: 17 },
+  pointsNote: { flex: 1, color: colors.inkSoft, ...fonts.body, fontSize: 12.5, lineHeight: 17 },
   codeInput: {
     backgroundColor: colors.creamCard,
     borderWidth: 1.5,

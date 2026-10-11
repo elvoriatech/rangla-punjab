@@ -515,6 +515,8 @@ const en = {
 
   ownerGiftCards: "Gift cards",
   ownerSales: "Daily sales",
+  redeemPointsOnlineNote:
+    "Loyalty points are not redeemed here: guests turn their points into a voucher themselves when ordering online (app or website).",
   chooseOrderType: "Please choose: dine-in, pickup or delivery.",
   remindersTitle: "Reminders",
   reminderTables: "Table bookings",
@@ -1479,6 +1481,8 @@ const de: Strings = {
 
   ownerGiftCards: "Geschenkgutscheine",
   ownerSales: "Tagesumsatz",
+  redeemPointsOnlineNote:
+    "Treuepunkte werden hier nicht eingelöst: Gäste tauschen ihre Punkte selbst beim Online-Bestellen (App oder Website) in einen Gutschein.",
   chooseOrderType: "Bitte wählen: Im Restaurant, Abholung oder Lieferung.",
   remindersTitle: "Erinnerungen",
   reminderTables: "Tischreservierungen",
@@ -2439,6 +2443,8 @@ const fr: Strings = {
 
   ownerGiftCards: "Cartes cadeaux",
   ownerSales: "Ventes du jour",
+  redeemPointsOnlineNote:
+    "Les points fidélité ne s'encaissent pas ici : les clients échangent eux-mêmes leurs points contre un bon en commandant en ligne (app ou site).",
   chooseOrderType: "Veuillez choisir : sur place, à emporter ou livraison.",
   remindersTitle: "Rappels",
   reminderTables: "Réservations de table",
@@ -3395,6 +3401,8 @@ const it: Strings = {
 
   ownerGiftCards: "Carte regalo",
   ownerSales: "Vendite del giorno",
+  redeemPointsOnlineNote:
+    "I punti fedeltà non si riscuotono qui: gli ospiti trasformano da soli i loro punti in un buono ordinando online (app o sito).",
   chooseOrderType: "Scegli: al tavolo, asporto o consegna.",
   remindersTitle: "Promemoria",
   reminderTables: "Prenotazioni tavolo",
@@ -4351,6 +4359,8 @@ const es: Strings = {
 
   ownerGiftCards: "Tarjetas regalo",
   ownerSales: "Ventas del día",
+  redeemPointsOnlineNote:
+    "Los puntos no se canjean aquí: los clientes cambian ellos mismos sus puntos por un vale al pedir online (app o web).",
   chooseOrderType: "Elige: en el local, para recoger o a domicilio.",
   remindersTitle: "Recordatorios",
   reminderTables: "Reservas de mesa",
@@ -5298,6 +5308,8 @@ const ar: Strings = {
 
   ownerGiftCards: "بطاقات الهدايا",
   ownerSales: "مبيعات اليوم",
+  redeemPointsOnlineNote:
+    "لا تُصرف نقاط الولاء هنا: يحوّل الضيوف نقاطهم إلى قسيمة بأنفسهم عند الطلب عبر الإنترنت (التطبيق أو الموقع).",
   chooseOrderType: "يرجى الاختيار: داخل المطعم أو استلام أو توصيل.",
   remindersTitle: "التذكيرات",
   reminderTables: "حجوزات الطاولات",
