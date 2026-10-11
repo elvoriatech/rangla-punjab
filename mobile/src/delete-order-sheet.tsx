@@ -17,9 +17,8 @@ import { SHEET_MAX } from "./layout";
 import { colors, fonts, radius } from "./theme";
 
 /**
- * "Delete order #12" — the dashboard's delete for a cancelled order nobody
- * paid for, from the board (owner only; the board only offers it where
- * `canDeleteOrder` says the server will accept it).
+ * "Delete order #12" — the owner's delete, from the board and from the
+ * daily sales (any order; test orders and mistakes, owner 2026-10-11).
  *
  * A sheet rather than a system alert because it needs a REASON: the order
  * number, total and reason stay in the deleted-orders log the reports

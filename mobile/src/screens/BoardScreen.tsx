@@ -22,7 +22,6 @@ import type { StaffOrder } from "../staff";
 import {
   acceptStaffOrder,
   advanceStaffOrder,
-  canDeleteOrder,
   fetchStaffIssues,
   fetchStaffOrders,
   isClosedStatus,
@@ -1226,7 +1225,7 @@ export function BoardScreen({
               >
                 {`🖨 ${t.boardPrint}`}
               </Text>
-              {isOwner && closed && canDeleteOrder(order) ? (
+              {isOwner ? (
                 <Text
                   onPress={() =>
                     setDeleting({

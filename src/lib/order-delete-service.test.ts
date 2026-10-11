@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { signupUser } from "./auth-service";
 import { prisma } from "./db";
-import { deleteCancelledOrder, listDeletedOrders, orderDeleteBlock } from "./order-delete-service";
+import { deleteOrder, listDeletedOrders } from "./order-delete-service";
 import { createStaffMember } from "./team-service";
 import { asTenant } from "./tenant";
 
@@ -11,7 +11,7 @@ import { asTenant } from "./tenant";
  * is asserted: who may, which orders, the reason, the log line that stays
  * behind, and that one restaurant can never reach another's orders or log.
  */
-describe("deleteCancelledOrder", () => {
+describe("deleteOrder", () => {
   const emails: string[] = [];
   const tenants: string[] = [];
   let ownerId: string;
@@ -105,21 +105,9 @@ describe("deleteCancelledOrder", () => {
     await prisma.user.deleteMany({ where: { email: { in: emails } } });
   });
 
-  it("names the rule: cancelled, and no money moved", () => {
-    const base = { status: "cancelled", paymentStatus: "none", giftCardDiscountCents: 0 };
-    expect(orderDeleteBlock(base)).toBeNull();
-    expect(orderDeleteBlock({ ...base, paymentStatus: "pending" })).toBeNull();
-    expect(orderDeleteBlock({ ...base, paymentStatus: "failed" })).toBeNull();
-    expect(orderDeleteBlock({ ...base, status: "done" })).toBe("not_cancelled");
-    expect(orderDeleteBlock({ ...base, status: "placed" })).toBe("not_cancelled");
-    expect(orderDeleteBlock({ ...base, paymentStatus: "paid" })).toBe("money_moved");
-    expect(orderDeleteBlock({ ...base, paymentStatus: "refunded" })).toBe("money_moved");
-    expect(orderDeleteBlock({ ...base, giftCardDiscountCents: 500 })).toBe("money_moved");
-  });
-
   it("lets the owner delete a cancelled, unpaid order and keeps the reason", async () => {
     const o = await order();
-    const res = await deleteCancelledOrder(ownerId, o.id, "  test order  ");
+    const res = await deleteOrder(ownerId, o.id, "  test order  ");
     expect(res).toEqual({ ok: true, orderNumber: o.orderNumber });
     expect(await exists(o.id)).toBe(false);
     // Its lines went with it.
@@ -138,7 +126,7 @@ describe("deleteCancelledOrder", () => {
 
   it("refuses a team member, even one with Orders ticked", async () => {
     const o = await order();
-    expect(await deleteCancelledOrder(staffId, o.id, "not mine to delete")).toEqual({
+    expect(await deleteOrder(staffId, o.id, "not mine to delete")).toEqual({
       ok: false,
       error: "forbidden",
     });
@@ -148,7 +136,7 @@ describe("deleteCancelledOrder", () => {
   it("refuses without a real reason", async () => {
     const o = await order();
     for (const reason of ["", "  ", "x"]) {
-      expect(await deleteCancelledOrder(ownerId, o.id, reason)).toEqual({
+      expect(await deleteOrder(ownerId, o.id, reason)).toEqual({
         ok: false,
         error: "reason_required",
       });
@@ -156,28 +144,29 @@ describe("deleteCancelledOrder", () => {
     expect(await exists(o.id)).toBe(true);
   });
 
-  it("refuses orders that are not cancelled, or on which money moved", async () => {
+  it("lets the owner delete any order — open, done, paid — and logs each one", async () => {
     const open = await order({ status: "placed" });
     const done = await order({ status: "done" });
-    const paid = await order({ paymentStatus: "paid" });
+    const paid = await order({ status: "done", paymentStatus: "paid" });
     const gift = await order({ giftCardDiscountCents: 500 });
-    expect((await deleteCancelledOrder(ownerId, open.id, "reason")).ok).toBe(false);
-    expect(await deleteCancelledOrder(ownerId, done.id, "reason")).toEqual({
-      ok: false,
-      error: "not_cancelled",
-    });
-    for (const o of [paid, gift]) {
-      expect(await deleteCancelledOrder(ownerId, o.id, "reason")).toEqual({
-        ok: false,
-        error: "money_moved",
+    for (const o of [open, done, paid, gift]) {
+      expect(await deleteOrder(ownerId, o.id, "entered in the till")).toEqual({
+        ok: true,
+        orderNumber: o.orderNumber,
       });
+      expect(await exists(o.id)).toBe(false);
     }
-    for (const o of [open, done, paid, gift]) expect(await exists(o.id)).toBe(true);
+    const log = await listDeletedOrders(ownerId, venueId, {
+      from: new Date(Date.now() - 60_000),
+      to: new Date(Date.now() + 60_000),
+    });
+    for (const o of [open, done, paid, gift])
+      expect(log.find((l) => l.orderNumber === o.orderNumber)?.reason).toBe("entered in the till");
   });
 
   it("cannot reach another restaurant's order, nor read its log", async () => {
     const o = await order();
-    expect(await deleteCancelledOrder(otherOwnerId, o.id, "not my restaurant")).toEqual({
+    expect(await deleteOrder(otherOwnerId, o.id, "not my restaurant")).toEqual({
       ok: false,
       error: "not_found",
     });

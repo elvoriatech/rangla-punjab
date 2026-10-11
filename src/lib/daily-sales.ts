@@ -1,4 +1,3 @@
-import { orderDeleteBlock } from "./order-delete-service";
 import { orderLabel } from "./order-label";
 import {
   countsAsRevenue,
@@ -32,7 +31,7 @@ export interface DailySalesOrder {
   customerName: string | null;
   tableNumber: string | null;
   countsAsRevenue: boolean;
-  /** The owner may delete it: a cancelled order nobody paid for. */
+  /** The owner may delete it (every order; the deletion is logged). */
   deletable: boolean;
 }
 
@@ -127,7 +126,6 @@ export async function getDailySales(
         totalCents: true,
         customerName: true,
         tableNumber: true,
-        giftCardDiscountCents: true,
       },
     });
 
@@ -143,7 +141,7 @@ export async function getDailySales(
       customerName: o.customerName,
       tableNumber: o.tableNumber,
       countsAsRevenue: countsAsRevenue(o.paymentStatus, o.status),
-      deletable: orderDeleteBlock(o) === null,
+      deletable: true,
     }));
 
     const revenue = all.filter((o) => o.countsAsRevenue);

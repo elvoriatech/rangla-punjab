@@ -6,45 +6,27 @@ import { asUser } from "./tenant";
 const log = createLogger();
 
 /**
- * Deleting an order (owner, 2026-10-01).
+ * Deleting an order — owner only.
  *
- * Orders are the books, so almost none of them can go. The one kind that
- * can: an order that was CANCELLED and on which NO MONEY MOVED — a test
- * order, a mis-tap, a no-show. It generated no revenue and no refund, so
- * removing it changes no total anywhere. Everything else stays.
+ * Until 2026-10-11 only a cancelled order on which no money moved could go.
+ * The owner then asked to delete ANY order (owner, 2026-10-11: "we are
+ * connected to our Kasse, add deletion of orders for the owner"): the
+ * restaurant's certified till is its book of record, this system feeds it.
  *
- * The order row and its lines are really deleted (one source of truth:
- * it disappears from the dashboard, the kitchen, the app and the
- * reports at once). What remains is a `deleted_orders` line — number,
- * date, amount, who, and the reason the owner had to type.
+ * What does not go away is the trail. The order row and its lines are
+ * deleted (gone from the dashboard, kitchen, app and reports at once), but
+ * a `deleted_orders` line is written first — number and series, type,
+ * payment status, amount, when it was placed, who deleted it and the
+ * reason the owner had to type — and that log has no delete of its own.
+ * Order numbers are never reused (`nextOrderNumber` counts the log too).
  */
 
 export const DELETE_REASON_MIN = 3;
 export const DELETE_REASON_MAX = 300;
 
-export type DeleteOrderError =
-  "forbidden" | "not_found" | "not_cancelled" | "money_moved" | "reason_required";
+export type DeleteOrderError = "forbidden" | "not_found" | "reason_required";
 
-/**
- * May this order be deleted at all? Pure, so the page can decide whether
- * to draw the button with the same rule the service enforces.
- *
- * "Money moved" is any payment that was taken (`paid`), given back
- * (`refunded`), or a gift card spent on it: each of those has a
- * counterpart in a statement that this row explains.
- */
-export function orderDeleteBlock(order: {
-  status: string;
-  paymentStatus: string;
-  giftCardDiscountCents: number;
-}): "not_cancelled" | "money_moved" | null {
-  if (order.status !== "cancelled") return "not_cancelled";
-  if (order.paymentStatus === "paid" || order.paymentStatus === "refunded") return "money_moved";
-  if (order.giftCardDiscountCents > 0) return "money_moved";
-  return null;
-}
-
-export async function deleteCancelledOrder(
+export async function deleteOrder(
   userId: string,
   orderId: string,
   reasonRaw: string,
@@ -70,15 +52,12 @@ export async function deleteCancelledOrder(
         orderType: true,
         status: true,
         paymentStatus: true,
-        giftCardDiscountCents: true,
         totalCents: true,
         currency: true,
         createdAt: true,
       },
     });
     if (!order) return { ok: false as const, error: "not_found" as const };
-    const block = orderDeleteBlock(order);
-    if (block) return { ok: false as const, error: block };
 
     await tx.deletedOrder.create({
       data: {

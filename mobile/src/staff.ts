@@ -699,24 +699,12 @@ export async function setStaffCateringStatus(
 }
 
 /* ------------------------------------------------------------------ *
- * Deleting a cancelled order (owner only). Same rule as the dashboard:
- * cancelled, and no money moved — see `canDeleteOrder`.
+ * Deleting an order (owner only, any order — owner, 2026-10-11). The
+ * number, amount and reason stay in the deletion log on the server.
  * ------------------------------------------------------------------ */
 
 /** Fewest characters of reason the server accepts. */
 export const DELETE_REASON_MIN = 3;
-
-/** Mirrors the server's `orderDeleteBlock`, so the board only offers the
- *  delete where the server will accept it. The owner check is separate. */
-export function canDeleteOrder(order: {
-  status: string;
-  paymentStatus: string;
-  giftCardDiscountCents: number;
-}): boolean {
-  if (order.status !== "cancelled" && order.status !== "canceled") return false;
-  if (order.paymentStatus === "paid" || order.paymentStatus === "refunded") return false;
-  return order.giftCardDiscountCents <= 0;
-}
 
 export async function deleteStaffOrder(
   token: string,

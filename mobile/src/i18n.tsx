@@ -766,7 +766,7 @@ const en = {
   boardDelete: "Delete",
   boardDeleteTitle: "Delete order #{number}",
   boardDeleteHint:
-    "Only cancelled orders nobody paid for. The number, total and reason stay in the reports.",
+    "Removes the order everywhere — for test orders and mistakes. The number, amount and reason stay in the deletion log.",
   boardDeleteReason: "Reason",
   boardDeleteReasonPlaceholder: "Test order",
   boardDeleteConfirm: "Delete for good",
@@ -1728,7 +1728,7 @@ const de: Strings = {
   boardDelete: "Löschen",
   boardDeleteTitle: "Bestellung #{number} löschen",
   boardDeleteHint:
-    "Nur stornierte, unbezahlte Bestellungen. Nummer, Betrag und Grund bleiben in den Berichten.",
+    "Entfernt die Bestellung überall – für Testbestellungen und Fehler. Nummer, Betrag und Grund bleiben im Löschprotokoll.",
   boardDeleteReason: "Grund",
   boardDeleteReasonPlaceholder: "Testbestellung",
   boardDeleteConfirm: "Endgültig löschen",
@@ -2684,7 +2684,7 @@ const fr: Strings = {
   boardDelete: "Supprimer",
   boardDeleteTitle: "Supprimer la commande n° {number}",
   boardDeleteHint:
-    "Uniquement les commandes annulées et non payées. Numéro, montant et motif restent dans les rapports.",
+    "Supprime la commande partout – pour les commandes de test et les erreurs. Le numéro, le montant et le motif restent dans le journal des suppressions.",
   boardDeleteReason: "Motif",
   boardDeleteReasonPlaceholder: "Commande test",
   boardDeleteConfirm: "Supprimer définitivement",
@@ -3637,7 +3637,7 @@ const it: Strings = {
   boardDelete: "Elimina",
   boardDeleteTitle: "Elimina ordine n. {number}",
   boardDeleteHint:
-    "Solo ordini annullati e non pagati. Numero, importo e motivo restano nei report.",
+    "Rimuove l'ordine ovunque – per ordini di prova ed errori. Numero, importo e motivo restano nel registro delle eliminazioni.",
   boardDeleteReason: "Motivo",
   boardDeleteReasonPlaceholder: "Ordine di prova",
   boardDeleteConfirm: "Elimina definitivamente",
@@ -4588,7 +4588,7 @@ const es: Strings = {
   boardDelete: "Eliminar",
   boardDeleteTitle: "Eliminar pedido n.º {number}",
   boardDeleteHint:
-    "Solo pedidos cancelados y sin pagar. El número, el importe y el motivo quedan en los informes.",
+    "Elimina el pedido en todas partes – para pedidos de prueba y errores. El número, el importe y el motivo quedan en el registro de eliminaciones.",
   boardDeleteReason: "Motivo",
   boardDeleteReasonPlaceholder: "Pedido de prueba",
   boardDeleteConfirm: "Eliminar definitivamente",
@@ -5526,7 +5526,8 @@ const ar: Strings = {
   staffCatAnyTime: "الوقت غير محدد",
   boardDelete: "حذف",
   boardDeleteTitle: "حذف الطلب رقم {number}",
-  boardDeleteHint: "فقط الطلبات الملغاة غير المدفوعة. يبقى الرقم والمبلغ والسبب في التقارير.",
+  boardDeleteHint:
+    "يحذف الطلب من كل مكان – لطلبات الاختبار والأخطاء. يبقى الرقم والمبلغ والسبب في سجل الحذف.",
   boardDeleteReason: "السبب",
   boardDeleteReasonPlaceholder: "طلب تجريبي",
   boardDeleteConfirm: "حذف نهائي",

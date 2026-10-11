@@ -136,7 +136,7 @@ describe("/api/v1/staff/sales", () => {
       onlineCents: 7500,
     });
     expect(body.orders!.map((o) => o.orderLabel)).toEqual(["B-2", "O-2", "O-1", "B-1"]);
-    expect(body.orders!.map((o) => o.deletable)).toEqual([true, false, false, false]);
+    expect(body.orders!.map((o) => o.deletable)).toEqual([true, true, true, true]);
   });
 
   it("filters the list by payment type; the day's totals stay whole", async () => {

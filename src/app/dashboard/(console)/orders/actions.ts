@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { deleteCancelledOrder } from "@/lib/order-delete-service";
+import { deleteOrder } from "@/lib/order-delete-service";
 import { acceptOrderWithEta, advanceOrderStatus, markOrderDone } from "@/lib/order-service";
 import { replyToIssue, resolveIssue } from "@/lib/issue-service";
 import { can, getAccess, requirePermission } from "@/lib/team-access";
@@ -63,8 +63,8 @@ export async function resolveIssueAction(form: FormData): Promise<void> {
 }
 
 /**
- * Delete a cancelled order on which no money moved — owner only, with a
- * written reason that is kept in the deletion log. Every rule is enforced
+ * Delete an order — owner only, with a written reason that is kept in
+ * the deletion log. Every rule is enforced
  * in the service; this only carries the form and reports the outcome.
  */
 export async function deleteOrderAction(form: FormData): Promise<void> {
@@ -72,7 +72,7 @@ export async function deleteOrderAction(form: FormData): Promise<void> {
 
   const orderId = String(form.get("orderId") ?? "");
   const reason = String(form.get("reason") ?? "");
-  const result = await deleteCancelledOrder(userId, orderId, reason);
+  const result = await deleteOrder(userId, orderId, reason);
   revalidatePath("/dashboard/orders", "page");
   revalidatePath("/dashboard/reports", "page");
   revalidatePath("/kitchen", "page");

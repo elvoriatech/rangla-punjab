@@ -26,7 +26,7 @@ import { AutoPrint } from "./auto-print";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SubmitButton } from "@/components/submit-button";
 import { can, getAccess, requirePermission } from "@/lib/team-access";
-import { DELETE_REASON_MAX, DELETE_REASON_MIN, orderDeleteBlock } from "@/lib/order-delete-service";
+import { DELETE_REASON_MAX, DELETE_REASON_MIN } from "@/lib/order-delete-service";
 import { FlashMessage } from "@/components/flash-message";
 
 /**
@@ -171,8 +171,6 @@ const ROW_ICON =
 const DELETE_ERRORS: Record<string, string> = {
   forbidden: "Only the owner can delete orders.",
   not_found: "That order no longer exists.",
-  not_cancelled: "Only cancelled orders can be deleted. Cancel it first.",
-  money_moved: "This order was paid or refunded, so it stays in the books and cannot be deleted.",
   reason_required: "Please give a reason for deleting the order.",
 };
 
@@ -627,13 +625,12 @@ export default async function OrdersPage({
                   >
                     <Printer className="h-4 w-4" aria-hidden />
                   </a>
-                  {/* Owner only, and only where the books allow it: a
-                      cancelled order on which no money moved. */}
-                  {isOwner && orderDeleteBlock(order) === null ? (
+                  {/* Owner only; every deletion is logged with its reason. */}
+                  {isOwner ? (
                     <form action={deleteOrderAction} className="inline">
                       <input type="hidden" name="orderId" value={order.id} />
                       <ConfirmSubmit
-                        message={`Delete cancelled order #${orderLabel(order)}? It is removed everywhere and cannot be brought back.`}
+                        message={`Delete order #${orderLabel(order)}? It is removed everywhere and cannot be brought back. Number, amount and reason stay in the deletion log.`}
                         reason={{
                           name: "reason",
                           label: "Why is it being deleted?",

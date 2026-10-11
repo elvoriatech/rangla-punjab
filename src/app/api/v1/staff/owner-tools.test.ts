@@ -216,18 +216,9 @@ describe("staff owner tools", () => {
       return placed.value.orderId;
     }
 
-    it("refuses an order that is not cancelled, and a missing reason", async () => {
+    it("deletes any order for the owner, but never without a reason", async () => {
+      // A live (not cancelled) order: the owner may delete it too.
       const id = await order();
-      const live = await DELETE_ORDER(
-        request(`/api/v1/staff/orders/${id}/delete`, ownerToken, { reason: "Testbestellung" }),
-        params(id),
-      );
-      expect(live.status).toBe(409);
-      expect((await json(live)).error).toBe("not_cancelled");
-
-      await asTenant(tenantId, (tx) =>
-        tx.order.update({ where: { id }, data: { status: "cancelled" } }),
-      );
       const noReason = await DELETE_ORDER(
         request(`/api/v1/staff/orders/${id}/delete`, ownerToken, { reason: " " }),
         params(id),
