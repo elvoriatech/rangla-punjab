@@ -31,7 +31,19 @@ import {
 import { BrandHeader } from "../components";
 import { IssueSheet } from "../issue-sheet";
 import { DeleteOrderSheet } from "../delete-order-sheet";
-import { RequestCard, RequestsBubble, RequestsSheet, useRequests } from "../requests";
+import { RequestCard, RequestsBubble, RequestsSheet, requestDay, useRequests } from "../requests";
+import {
+  CATERING_LEADS,
+  DEFAULT_REMINDERS,
+  TABLE_LEADS,
+  dueReminders,
+  getDoneReminders,
+  getReminderSettings,
+  saveDoneReminders,
+  setReminderSettings,
+  type Reminder,
+  type ReminderSettings,
+} from "../reminders";
 import { BtPrinterSheet } from "../bt-printer-sheet";
 import { btPrintingAvailable } from "../../modules/bt-printer";
 import type { PrintOutcome } from "../print";
@@ -202,6 +214,43 @@ export function BoardScreen({
   } | null>(null);
   /** Table and catering requests ride on the board too (owner, 2026-10-07). */
   const requests = useRequests(refreshKey);
+
+  /**
+   * Reminders before a booked table / a catering event (owner, 2026-10-11):
+   * the bell once, and a popup until someone taps it away. Checked on every
+   * request poll and once a minute in between (`reminders.ts`).
+   */
+  const [reminderSettings, setReminderSettingsState] =
+    useState<ReminderSettings>(DEFAULT_REMINDERS);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const doneRemindersRef = useRef<Record<string, number> | null>(null);
+  useEffect(() => {
+    void getReminderSettings().then(setReminderSettingsState);
+    void getDoneReminders().then((d) => {
+      doneRemindersRef.current = d;
+    });
+  }, []);
+  const [reminderTick, setReminderTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setReminderTick((n) => n + 1), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    const done = doneRemindersRef.current;
+    if (!done) return;
+    const now = Date.now();
+    const due = dueReminders(requests.tables, requests.catering, reminderSettings, done, now);
+    if (due.length === 0) return;
+    for (const r of due) done[r.key] = now;
+    void saveDoneReminders(done, now);
+    setReminders((list) => [...list, ...due.filter((r) => !list.some((x) => x.key === r.key))]);
+    chimeRef.current?.play();
+    // `chimeRef` is a ref; the tick re-runs this between polls.
+  }, [requests.tables, requests.catering, reminderSettings, reminderTick]);
+  const pickReminder = useCallback((next: ReminderSettings): void => {
+    setReminderSettingsState(next);
+    void setReminderSettings(next);
+  }, []);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const showRequests = staffCan("reservations") || staffCan("catering");
   // The screen is held on for the whole restaurant session by
@@ -1317,6 +1366,61 @@ export function BoardScreen({
         // board rather than patching one order in place.
         onChanged={() => void load("full")}
       />
+      {/* The reminder popup: stays until someone taps "Got it". */}
+      <Modal
+        visible={reminders.length > 0}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReminders([])}
+      >
+        <View style={styles.reminderBackdrop}>
+          <View style={styles.reminderCard} accessibilityViewIsModal>
+            <View style={styles.reminderHead}>
+              <Ionicons name="alarm-outline" size={26} color={colors.red} />
+              <Text style={styles.reminderTitle}>{t.reminderPopupTitle}</Text>
+            </View>
+            {reminders.map((r) => {
+              const mins = Math.max(0, Math.round((r.startsAt - Date.now()) / 60_000));
+              return (
+                <View key={r.key} style={styles.reminderRow}>
+                  <Ionicons
+                    name={r.kind === "table" ? "restaurant-outline" : "wine-outline"}
+                    size={20}
+                    color={colors.ink}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.reminderLine}>
+                      {r.kind === "table"
+                        ? fill(t.reminderTableLine, {
+                            guests: String(r.item.guests),
+                            time: r.item.time,
+                            name: r.item.name,
+                          })
+                        : fill(t.reminderCateringLine, {
+                            guests: String(r.item.guests),
+                            day: `${requestDay(r.item.date, lang, t)}${r.item.time ? ` · ${r.item.time}` : ""}`,
+                            name: r.item.name,
+                          })}
+                    </Text>
+                    {r.kind === "table" ? (
+                      <Text style={styles.reminderWhen}>
+                        {fill(t.reminderInMin, { n: String(mins) })}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+            <Pressable
+              onPress={() => setReminders([])}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.reminderOk, pressed && { opacity: 0.8 }]}
+            >
+              <Text style={styles.reminderOkText}>{t.reminderOk}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       {/* Sound + auto-print + Bluetooth printer, on their own screen. */}
       <Modal
         visible={settingsOpen}
@@ -1463,6 +1567,60 @@ export function BoardScreen({
                     </Pressable>
                   </View>
                 ) : null}
+                <View style={[styles.soundBox, styles.switchRowNext, { paddingTop: 10 }]}>
+                  <Text style={styles.switchLabel}>{t.remindersTitle}</Text>
+                  <Text style={styles.soundLabel}>{t.reminderTables}</Text>
+                  <View style={styles.chipRow}>
+                    {TABLE_LEADS.map((m) => {
+                      const on = reminderSettings.tableMinutes === m;
+                      const label =
+                        m === 0
+                          ? t.reminderOff
+                          : m < 60
+                            ? fill(t.reminderMin, { n: String(m) })
+                            : fill(t.reminderHr, { n: String(m / 60) });
+                      return (
+                        <Pressable
+                          key={m}
+                          onPress={() => pickReminder({ ...reminderSettings, tableMinutes: m })}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: on }}
+                          style={[styles.soundChip, on && styles.soundChipOn]}
+                        >
+                          <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.soundLabel}>{t.reminderCatering}</Text>
+                  <View style={styles.chipRow}>
+                    {CATERING_LEADS.map((d) => {
+                      const on = reminderSettings.cateringDays === d;
+                      const label =
+                        d === 0
+                          ? t.reminderOff
+                          : d === 1
+                            ? t.reminderDay
+                            : fill(t.reminderDays, { n: String(d) });
+                      return (
+                        <Pressable
+                          key={d}
+                          onPress={() => pickReminder({ ...reminderSettings, cateringDays: d })}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: on }}
+                          style={[styles.soundChip, on && styles.soundChipOn]}
+                        >
+                          <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.switchHint}>{t.reminderHint}</Text>
+                </View>
               </View>
             </ScrollView>
           </Pressable>
@@ -1607,6 +1765,45 @@ function EtaAccept({
 }
 
 const styles = StyleSheet.create({
+  reminderBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(20,10,5,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  reminderCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: colors.cream,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: colors.red,
+    padding: 18,
+    gap: 12,
+  },
+  reminderHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  reminderTitle: { color: colors.ink, ...fonts.display, fontSize: 24 },
+  reminderRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    backgroundColor: colors.creamCard,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 12,
+  },
+  reminderLine: { color: colors.ink, ...fonts.bodyBold, fontSize: 15, lineHeight: 20 },
+  reminderWhen: { color: colors.red, ...fonts.bodyBold, fontSize: 13, marginTop: 2 },
+  reminderOk: {
+    minHeight: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reminderOkText: { color: colors.onRed, ...fonts.bodyBold, fontSize: 16 },
   /** The accept control: a tinted panel between the card's header and
    *  its fold, the − / + as solid red 48 pt squares. */
   eta: {

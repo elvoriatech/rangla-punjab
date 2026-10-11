@@ -67,6 +67,9 @@ export function useRequests(refreshKey: number): {
   /** Ids seen as pending for the first time on the latest read — the
    *  board rings for these like for a new order. Empty on the first read. */
   arrivals: string[];
+  /** The raw lists, for the board's reminders (`reminders.ts`). */
+  tables: StaffReservation[];
+  catering: StaffCatering[];
 } {
   const { staffToken, staffCan, clearStaff } = useAuth();
   const canTables = staffCan("reservations");
@@ -163,7 +166,7 @@ export function useRequests(refreshKey: number): {
     [staffToken, busyId, clearStaff, load],
   );
 
-  return { upcoming, pending, answer, busyId, arrivals };
+  return { upcoming, pending, answer, busyId, arrivals, tables, catering };
 }
 
 /** "Heute · Di., 7. Okt." / "Morgen · …" / "Do., 9. Okt." */
