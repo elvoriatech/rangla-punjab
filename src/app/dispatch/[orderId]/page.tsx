@@ -38,7 +38,7 @@ const ERRORS: Record<string, string> = {
   invalid: "This link is no longer valid. Ask the kitchen to reprint the ticket.",
   not_found: "We can't find that order any more.",
   not_delivery: "That order isn't a delivery — nothing to dispatch.",
-  wrong_state: "The kitchen hasn't marked this order ready yet.",
+  wrong_state: "This order was cancelled or is already finished.",
   busy: "Too many taps at once. Give it a moment and try again.",
 };
 

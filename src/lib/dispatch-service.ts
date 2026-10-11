@@ -153,18 +153,14 @@ export async function dispatchOrder(
     if (order.status === "out_for_delivery" || order.status === "done") {
       return { ...view(order, true, order.status), moved: false as const };
     }
-    // NARROWER than the general status graph, deliberately.
-    //
-    // `canTransition` allows skipping ahead, so it would happily take an
-    // order straight from `placed` to "out for delivery" — correct for a
-    // human on the board who can see the pass, wrong for a QR. A driver
-    // scanning a ticket for food the kitchen has not started has almost
-    // certainly picked up the wrong ticket, and silently marking that
-    // order delivered-in-progress tells the guest a lie we cannot
-    // retract. Only the two states where the food plausibly exists
-    // qualify; `canTransition` is still consulted so cancelled and
-    // terminal orders are refused by the one graph that owns that rule.
-    const dispatchable = order.status === "ready" || order.status === "preparing";
+    // Any live delivery order goes out on the driver's scan (owner,
+    // 2026-10-11: "when the driver scans it should simply put it out for
+    // delivery" — the kitchen often never taps "ready"). The QR is only on
+    // a ticket, and a ticket prints only once the order was accepted, so
+    // the food is on its way to the door. `canTransition` still refuses
+    // cancelled and finished orders.
+    const dispatchable =
+      order.status === "placed" || order.status === "preparing" || order.status === "ready";
     if (!dispatchable || !canTransition(order.status, "out_for_delivery", order.orderType)) {
       return { ok: false as const, error: "wrong_state" as const };
     }

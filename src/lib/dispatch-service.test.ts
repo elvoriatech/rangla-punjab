@@ -178,11 +178,11 @@ describe("dispatchOrder", () => {
     expect((await statusOf(fx.tenantId, fx.orderId))?.status).toBe("out_for_delivery");
   });
 
-  it("refuses an order the kitchen has not finished", async () => {
+  it("sends an order out even when the kitchen never marked it ready", async () => {
     const fx = await fixture({ status: "placed" });
     const result = await dispatchOrder(fx.tenantId, fx.orderId, "dispatch-qr");
-    expect(result).toEqual({ ok: false, error: "wrong_state" });
-    expect((await statusOf(fx.tenantId, fx.orderId))?.status).toBe("placed");
+    expect(result.ok).toBe(true);
+    expect((await statusOf(fx.tenantId, fx.orderId))?.status).toBe("out_for_delivery");
   });
 
   it("refuses a cancelled order", async () => {
