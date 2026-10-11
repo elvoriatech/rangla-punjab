@@ -151,6 +151,28 @@ function paidVia(order: TicketOrder): string {
   return label === "Card" ? "Karte" : label;
 }
 
+/**
+ * "Abholung ca. 18:45 Uhr" / "Lieferung ca. 19:10 Uhr" — the time the
+ * restaurant promised (accepted, or the default once the accept window ran
+ * out), printed on BOTH the guest's ticket and the kitchen copy (owner,
+ * 2026-10-11). Null for dine-in, for a scheduled order (its own "Geplant
+ * für" line says when) and when there is no promise yet.
+ */
+export function ticketReadyLine(
+  order: Pick<TicketOrder, "orderType" | "requestedFor">,
+  readyAt: Date | null | undefined,
+  timeZone = DEFAULT_TZ,
+): string | null {
+  if (!readyAt || order.requestedFor) return null;
+  if (order.orderType !== "takeaway" && order.orderType !== "delivery") return null;
+  const hhmm = new Intl.DateTimeFormat("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  }).format(readyAt);
+  return `${order.orderType === "delivery" ? "Lieferung" : "Abholung"} ca. ${hhmm} Uhr`;
+}
+
 export function typeBanner(order: TicketOrder): string {
   if (order.orderType === "delivery") return "LIEFERUNG";
   if (order.orderType === "takeaway") return "ABHOLUNG";
@@ -215,6 +237,8 @@ export function renderTicketHtml(
     logoDataUri?: string | null;
     /** Print the kitchen's copy after the staff ticket (default yes). */
     kitchenCopy?: boolean;
+    /** The promised pickup/delivery time (see `ticketReadyLine`). */
+    readyAt?: Date | null;
   } = {},
 ): string {
   const locale = opts.locale || DEFAULT_LOCALE;
@@ -234,6 +258,8 @@ export function renderTicketHtml(
   const money = (cents: number): string => formatPrice(cents, order.currency, locale);
 
   const rows: string[] = [];
+  const readyLine = ticketReadyLine(order, opts.readyAt, timeZone);
+  if (readyLine) rows.push(infoRow("clock", "ZEIT", readyLine, true));
   if (order.requestedFor) {
     rows.push(
       infoRow("clock", "ZEIT", `Geplant für ${clock.format(order.requestedFor)} Uhr`, true),
@@ -409,6 +435,7 @@ ${
 <p class="kitchen-title">K&Uuml;CHENBON</p>
 <p class="rule">${RULE}</p>
 <div class="head kitchen-head"><span>#${String(order.orderNumber)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
+${readyLine || order.requestedFor ? `<p class="kitchen-head" style="font-weight:700;margin-top:4px">${esc(readyLine ?? `Geplant für ${clock.format(order.requestedFor!)} Uhr`)}</p>` : ""}
 <p class="rule">${RULE}</p>
 <ul class="kitchen-items">${kitchenItems}</ul>
 <p class="rule">${RULE}</p>

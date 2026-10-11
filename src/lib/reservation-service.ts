@@ -321,3 +321,20 @@ export async function setReservationStatus(
     return { ok: true };
   });
 }
+
+/**
+ * Remove a reservation (owner only — the route checks; owner, 2026-10-11).
+ * Soft delete: it leaves every list, the guest's own included, but the row
+ * stays for the record.
+ */
+export async function deleteReservation(userId: string, id: string): Promise<{ ok: boolean }> {
+  return asUser(userId, async (tx) => {
+    const existing = await tx.reservation.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) return { ok: false };
+    await tx.reservation.update({ where: { id }, data: { deletedAt: new Date() } });
+    return { ok: true };
+  });
+}

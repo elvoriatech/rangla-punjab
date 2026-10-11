@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   RefreshControl,
@@ -12,7 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth";
 import type { StaffCatering } from "../staff";
-import { fetchStaffCatering, setStaffCateringStatus } from "../staff";
+import { fetchStaffCatering, setStaffCateringStatus, deleteStaffCatering } from "../staff";
 import { BrandHeader } from "../components";
 import { localeTag, useI18n } from "../i18n";
 import { useLayout } from "../layout";
@@ -44,7 +45,9 @@ export function CateringOwnerScreen({
   onOpenOwnerMenu?: () => void;
 }): React.ReactElement {
   const { t, lang } = useI18n();
-  const { staffToken, clearStaff } = useAuth();
+  const { staffToken, clearStaff, staffCan } = useAuth();
+  /** Only the owner removes an entry (owner, 2026-10-11). */
+  const canDelete = staffCan("owner");
   const layout = useLayout();
   const [rows, setRows] = useState<StaffCatering[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -101,6 +104,36 @@ export function CateringOwnerScreen({
       else setFailed(true);
     },
     [staffToken, busyId, clearStaff, load, onChanged],
+  );
+
+  const remove = useCallback(
+    (id: string, label: string): void => {
+      if (!staffToken) return;
+      Alert.alert(
+        t.staffDeleteTitle,
+        label,
+        [
+          { text: t.signInCancel, style: "cancel" },
+          {
+            text: t.boardDelete,
+            style: "destructive",
+            onPress: () => {
+              void deleteStaffCatering(staffToken, id).then((res) => {
+                if (res.ok) {
+                  setRows((list) => list.filter((r) => r.id !== id));
+                  onChanged?.();
+                  return;
+                }
+                if (res.error === "unauthorized") clearStaff();
+                else setFailed(true);
+              });
+            },
+          },
+        ],
+        { cancelable: true },
+      );
+    },
+    [staffToken, clearStaff, onChanged, t],
   );
 
   const statusLabel: Record<string, string> = {
@@ -162,6 +195,17 @@ export function CateringOwnerScreen({
                           {statusLabel[r.status] ?? r.status}
                         </Text>
                       </View>
+                      {canDelete ? (
+                        <Pressable
+                          onPress={() => remove(r.id, `${r.name} · ${r.date}`)}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${t.boardDelete} ${r.name}`}
+                          style={({ pressed }) => [{ padding: 2 }, pressed && { opacity: 0.5 }]}
+                        >
+                          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                        </Pressable>
+                      ) : null}
                     </View>
 
                     <Text style={styles.name}>{r.name}</Text>

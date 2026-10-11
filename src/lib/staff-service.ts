@@ -108,6 +108,12 @@ export async function staffMayCancel(userId: string): Promise<boolean> {
   return can(await getAccess(userId), "cancel");
 }
 
+/** The venue's ordering settings, for callers outside this module that need
+ *  the expected-time defaults (the printed tickets). */
+export async function getOrderingConfigForUser(userId: string): Promise<OrderingConfig> {
+  return boardConfig(userId);
+}
+
 /** The venue's ordering settings the board needs: the expected-time
  *  defaults. One RLS-scoped read. */
 async function boardConfig(userId: string): Promise<OrderingConfig> {

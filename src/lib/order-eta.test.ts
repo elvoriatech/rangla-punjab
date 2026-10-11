@@ -24,7 +24,7 @@ describe("orderEta — the promised time of an order", () => {
       minutes: 50,
       accepted: false,
       expectedAt: at(50 * 60),
-      adjustableUntil: at(30),
+      adjustableUntil: at(40),
     });
     expect(orderEta({ ...base, orderType: "takeaway" }, undefined, at(5))?.minutes).toBe(20);
   });
@@ -37,8 +37,8 @@ describe("orderEta — the promised time of an order", () => {
   });
 
   it("is adjustable only inside the window, and only while untouched", () => {
-    expect(orderEta(base, undefined, at(29))?.adjustableUntil).toEqual(at(30));
-    expect(orderEta(base, undefined, at(30))?.adjustableUntil).toBeNull();
+    expect(orderEta(base, undefined, at(39))?.adjustableUntil).toEqual(at(40));
+    expect(orderEta(base, undefined, at(40))?.adjustableUntil).toBeNull();
     // Moved on by the kitchen screen's plain button: no longer adjustable.
     expect(
       orderEta({ ...base, status: "preparing" }, undefined, at(5))?.adjustableUntil,
@@ -57,7 +57,7 @@ describe("orderEta — the promised time of an order", () => {
   it("counts an online order from when it was paid", () => {
     const paid = { ...base, paidAt: at(120) };
     const eta = orderEta(paid, undefined, at(125));
-    expect(eta?.adjustableUntil).toEqual(at(150));
+    expect(eta?.adjustableUntil).toEqual(at(160));
     expect(eta?.expectedAt).toEqual(at(120 + 50 * 60));
   });
 
@@ -69,7 +69,7 @@ describe("orderEta — the promised time of an order", () => {
   it("shows the guest the time only once it can no longer move", () => {
     const order = { ...base, paymentStatus: "none" };
     expect(guestExpectedAt(order, undefined, at(10))).toBeNull(); // window still open
-    expect(guestExpectedAt(order, undefined, at(31))).toEqual(at(50 * 60));
+    expect(guestExpectedAt(order, undefined, at(41))).toEqual(at(50 * 60));
     expect(
       guestExpectedAt({ ...order, etaMinutes: 40, status: "preparing" }, undefined, at(10)),
     ).toEqual(at(40 * 60));
@@ -80,8 +80,8 @@ describe("orderEta — the promised time of an order", () => {
   });
 
   it("gives a late tap a few seconds of grace, no more", () => {
-    expect(withinAcceptWindow(base, undefined, at(33))).toBe(true);
-    expect(withinAcceptWindow(base, undefined, at(36))).toBe(false);
+    expect(withinAcceptWindow(base, undefined, at(43))).toBe(true);
+    expect(withinAcceptWindow(base, undefined, at(46))).toBe(false);
   });
 
   it("snaps minutes to the stepper's grid and settings to their ranges", () => {
@@ -99,7 +99,7 @@ describe("orderEta — the promised time of an order", () => {
     expect(parseOrderingConfig({})).toMatchObject({
       etaDeliveryMinutes: 50,
       etaPickupMinutes: 20,
-      etaAcceptSeconds: 30,
+      etaAcceptSeconds: 40,
     });
   });
 });

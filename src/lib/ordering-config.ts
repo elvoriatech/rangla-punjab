@@ -148,7 +148,7 @@ export function clampEtaMinutes(raw: unknown, fallback: number): number {
 
 /** How long the restaurant has to set the time on a new order, in
  *  seconds. The owner's setting; 30 unless changed. */
-export const DEFAULT_ETA_ACCEPT_SECONDS = 30;
+export const DEFAULT_ETA_ACCEPT_SECONDS = 40;
 export const ETA_ACCEPT_MIN_SECONDS = 10;
 export const ETA_ACCEPT_MAX_SECONDS = 300;
 

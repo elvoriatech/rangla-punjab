@@ -3,6 +3,7 @@ import {
   paymentBanner,
   paymentFooter,
   ticketAddressLine,
+  ticketReadyLine,
   ticketVenueName,
   typeBanner,
   type TicketOrder,
@@ -211,6 +212,8 @@ export function renderTicketEscPos(
     /** The dispatch link for a delivery's driver QR (same as the HTML ticket). */
     navQrData?: string | null;
     kitchenCopy?: boolean;
+    /** The promised pickup/delivery time, printed on both copies. */
+    readyAt?: Date | null;
   } = {},
 ): Uint8Array {
   const width = opts.paper === 58 ? 32 : 48;
@@ -242,11 +245,11 @@ export function renderTicketEscPos(
     .lines(wrap(typeBanner(order), width))
     .bold(false);
 
-  if (order.requestedFor) {
-    t.bold(true)
-      .lines(wrap(`Geplant für ${clock.format(order.requestedFor)} Uhr`, width))
-      .bold(false);
-  }
+  const readyLine = ticketReadyLine(order, opts.readyAt, timeZone);
+  const whenLine =
+    readyLine ??
+    (order.requestedFor ? `Geplant für ${clock.format(order.requestedFor)} Uhr` : null);
+  if (whenLine) t.bold(true).lines(wrap(whenLine, width)).bold(false);
   if (order.orderType === "dine_in" && order.tableNumber)
     t.bold(true).line(`Tisch ${order.tableNumber}`).bold(false);
   if (order.customerName) t.lines(wrap(`Name: ${order.customerName}`, width));
@@ -288,7 +291,9 @@ export function renderTicketEscPos(
 
   if (opts.kitchenCopy !== false) {
     t.align("center").bold(true).size(2).line("KÜCHENBON").size(1).bold(false).align("left");
-    t.rule().size(2).bold(true).line(number).size(1).bold(false).line(when).rule();
+    t.rule().size(2).bold(true).line(number).size(1).bold(false).line(when);
+    if (whenLine) t.bold(true).lines(wrap(whenLine, width)).bold(false);
+    t.rule();
     t.size(2);
     for (const item of order.items) {
       t.lines(wrap(`${item.quantity}x ${item.name}`, Math.floor(width / 2)));

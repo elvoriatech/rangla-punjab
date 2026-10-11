@@ -8,6 +8,8 @@ import { renderTicketHtml, ticketAddressLine } from "@/lib/ticket-html";
 import { ticketLogoDataUri } from "@/lib/ticket-logo";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { getVenueForUser } from "@/lib/venue-service";
+import { orderEta } from "@/lib/order-eta";
+import { getOrderingConfigForUser } from "@/lib/staff-service";
 
 /**
  * GET /api/v1/staff/orders/{id}/ticket → the 80 mm kitchen ticket, as a
@@ -49,6 +51,9 @@ export async function GET(
   // the destination — it just lives on the other side of that redirect
   // now (see `dispatch-service.ts`).
   const addressLine = ticketAddressLine(order);
+  // The promised time — accepted, or the default once the window ran out.
+  const readyAt =
+    orderEta(order, await getOrderingConfigForUser(gate.staff.userId))?.expectedAt ?? null;
 
   // `?format=escpos` — the same ticket as raw receipt-printer bytes
   // (base64 in JSON) for the app's Bluetooth printer, which prints with
@@ -58,7 +63,11 @@ export async function GET(
     const bytes = renderTicketEscPos(
       order,
       { name: venue.value.name },
-      { paper, navQrData: addressLine ? dispatchUrl(order.id, gate.staff.tenantId) : null },
+      {
+        paper,
+        readyAt,
+        navQrData: addressLine ? dispatchUrl(order.id, gate.staff.tenantId) : null,
+      },
     );
     return withCors(
       NextResponse.json(
@@ -73,7 +82,11 @@ export async function GET(
     : null;
 
   const logoDataUri = await ticketLogoDataUri(venue.value.branding.logoKey);
-  const html = renderTicketHtml(order, { name: venue.value.name }, { navQrSvg, logoDataUri });
+  const html = renderTicketHtml(
+    order,
+    { name: venue.value.name },
+    { navQrSvg, logoDataUri, readyAt },
+  );
   return withCors(
     new NextResponse(html, {
       status: 200,

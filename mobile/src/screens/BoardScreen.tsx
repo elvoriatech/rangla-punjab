@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Alert,
   AppState,
   Linking,
@@ -258,7 +259,9 @@ export function BoardScreen({
   }, [canBt]);
   /** The tone/volume pickers are folded into one summary line until
    *  tapped, so they don't push the orders down the screen. */
-  const [soundOpen, setSoundOpen] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(true);
+  /** The ⚙ settings screen (sound, auto-print, Bluetooth printer). */
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const soundRef = useRef(true);
   soundRef.current = sound;
   /** Printing talks back in one line above the board rather than on a
@@ -348,8 +351,11 @@ export function BoardScreen({
 
       if (arrived.length > 0) {
         // Same detection that lights the card gold and buzzes the phone
-        // drives the printer: one ticket per order, the moment it lands.
-        if (autoPrintRef.current) autoPrintRunRef.current(arrived);
+        // queues the printer — but the ticket only comes out once the order
+        // is ACCEPTED (a time tapped, or the accept window ran out), so it
+        // carries the promised time (owner, 2026-10-11). See the effect
+        // that drains `pendingPrintRef` below.
+        if (autoPrintRef.current) for (const id of arrived) pendingPrintRef.current.add(id);
         // One short buzz, not a ringtone: the kitchen is a quiet room.
         Vibration.vibrate(250);
         // ONE chime per poll, however many orders it carried: four
@@ -551,6 +557,44 @@ export function BoardScreen({
     [staffToken, sayPrint],
   );
   autoPrintRunRef.current = (ids) => void runAutoPrint(ids);
+
+  /**
+   * Orders that arrived with auto-print on and are waiting to be accepted.
+   * Printed (and dropped from here) as soon as each is accepted — by the
+   * accept button or by its window running out — or right away when the
+   * order has no accept step at all (dine-in). A closed order just leaves.
+   */
+  const pendingPrintRef = useRef<Set<string>>(new Set());
+  const [printTick, setPrintTick] = useState(0);
+  useEffect(() => {
+    // The accept window can run out between two polls; look again every
+    // few seconds while something is waiting.
+    const timer = setInterval(() => {
+      if (pendingPrintRef.current.size > 0) setPrintTick((n) => n + 1);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    const pending = pendingPrintRef.current;
+    if (pending.size === 0) return;
+    const ready: string[] = [];
+    for (const order of orders) {
+      if (!pending.has(order.id)) continue;
+      if (isClosedStatus(order.status)) {
+        pending.delete(order.id);
+        continue;
+      }
+      const decided =
+        !order.eta ||
+        order.eta.adjustableUntil == null ||
+        new Date(order.eta.adjustableUntil).getTime() <= Date.now();
+      if (decided) {
+        pending.delete(order.id);
+        ready.push(order.id);
+      }
+    }
+    if (ready.length > 0 && autoPrintRef.current) autoPrintRunRef.current(ready);
+  }, [orders, printTick]);
 
   /**
    * Flipping the switch on does NOT print what is already there. The
@@ -761,9 +805,11 @@ export function BoardScreen({
   const payShort = t.payShort as { paid: string; unpaid: string };
   const issueStatusLabels = t.issueStatusLabels as Record<string, string>;
 
+  // Newest on top (owner, 2026-10-11) — the order that just came in is the
+  // one the counter has to look at, without scrolling past the earlier ones.
   const open = orders
     .filter((o) => !isClosedStatus(o.status))
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const doneToday = orders
     .filter((o) => isClosedStatus(o.status) && isToday(o.updatedAt || o.createdAt))
     .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt));
@@ -1195,132 +1241,24 @@ export function BoardScreen({
         {offline ? <Text style={styles.offline}>{t.boardReconnecting}</Text> : null}
         {toast ? <Text style={styles.toast}>{toast}</Text> : null}
 
-        {/* The service switches sit above the board, not inside the
-            owner menu: how a new order announces itself — on paper, out
-            loud, or neither — is a decision the pass makes during
-            service and has to be able to see the state of at a glance. */}
-        <View style={styles.switchCard}>
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>{t.boardAutoPrint}</Text>
-            <Switch
-              value={autoPrint}
-              onValueChange={toggleAutoPrint}
-              accessibilityLabel={t.boardAutoPrint}
-              trackColor={{ false: colors.line, true: colors.red }}
-              thumbColor={colors.cream}
-            />
-          </View>
-          {autoPrint ? <Text style={styles.switchHint}>{t.boardAutoPrintHint}</Text> : null}
-          {canBt ? (
-            <Pressable
-              onPress={() => setBtSheet(true)}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.soundSummary, pressed && { opacity: 0.6 }]}
-            >
-              <Ionicons
-                name="bluetooth"
-                size={16}
-                color={btPrinter ? colors.red : colors.inkSoft}
-              />
-              <Text style={styles.soundSummaryText}>
-                {t.btPrinter}:{" "}
-                {btPrinter ? `${btPrinter.name} · ${btPrinter.paper} mm` : t.btPrinterNone}
-              </Text>
-              <Text style={styles.soundChange}>
-                {btPrinter ? t.staffResChange : t.btPrinterChoose}
-              </Text>
-            </Pressable>
-          ) : null}
-          {autoPrint && Platform.OS === "android" && !btPrinter ? (
-            <Text style={[styles.switchHint, { color: colors.danger }]}>
-              {t.boardAutoPrintDialogHint}
-            </Text>
-          ) : null}
-          <View style={[styles.switchRow, styles.switchRowNext]}>
-            <Text style={styles.switchLabel}>{t.boardSound}</Text>
-            <Switch
-              value={sound}
-              onValueChange={toggleSound}
-              accessibilityLabel={t.boardSound}
-              trackColor={{ false: colors.line, true: colors.red }}
-              thumbColor={colors.cream}
-            />
-          </View>
-          {sound && !soundOpen ? (
-            <Pressable
-              onPress={() => setSoundOpen(true)}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.soundSummary, pressed && { opacity: 0.6 }]}
-            >
-              <Ionicons name="volume-high-outline" size={16} color={colors.inkSoft} />
-              <Text style={styles.soundSummaryText}>
-                {t.boardSoundTone}: {(t.boardSoundNames as Record<string, string>)[soundChoice]} ·{" "}
-                {Math.round(volume * 100)}%
-              </Text>
-              <Text style={styles.soundChange}>{t.staffResChange}</Text>
-            </Pressable>
-          ) : null}
-          {sound && soundOpen ? (
-            <View style={styles.soundBox}>
-              <Text style={styles.soundLabel}>{t.boardSoundTone}</Text>
-              <View style={styles.chipRow}>
-                {ORDER_SOUNDS.map((choice) => {
-                  const on = choice === soundChoice;
-                  return (
-                    <Pressable
-                      key={choice}
-                      onPress={() => pickSound(choice)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
-                      style={[styles.soundChip, on && styles.soundChipOn]}
-                    >
-                      <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
-                        {(t.boardSoundNames as Record<string, string>)[choice] ?? choice}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Text style={styles.soundLabel}>{t.boardSoundVolume}</Text>
-              <View style={styles.chipRow}>
-                {ORDER_VOLUMES.map((v) => {
-                  const on = Math.abs(v - volume) < 0.01;
-                  return (
-                    <Pressable
-                      key={v}
-                      onPress={() => pickVolume(v)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
-                      style={[styles.soundChip, on && styles.soundChipOn]}
-                    >
-                      <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
-                        {Math.round(v * 100)}%
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-                <Pressable
-                  onPress={() => chimeRef.current?.play()}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.boardSoundTest}
-                  style={({ pressed }) => [styles.testChip, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons name="volume-high" size={16} color={colors.onRed} />
-                  <Text style={styles.testChipText}>{t.boardSoundTest}</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.switchHint}>{t.boardSoundHint}</Text>
-              <Pressable
-                onPress={() => setSoundOpen(false)}
-                accessibilityRole="button"
-                hitSlop={8}
-                style={{ alignSelf: "flex-end" }}
-              >
-                <Text style={styles.soundChange}>{t.close}</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
+        {/* One slim line instead of the settings card (owner, 2026-10-11): the
+            board is for orders; sound and printing live behind the ⚙. */}
+        <Pressable
+          onPress={() => setSettingsOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t.boardSettingsTitle}
+          style={({ pressed }) => [styles.settingsLine, pressed && { opacity: 0.6 }]}
+        >
+          <Ionicons name="settings-outline" size={17} color={colors.red} />
+          <Text style={styles.settingsLineText} numberOfLines={1}>
+            {t.boardSettingsTitle} ·{" "}
+            {sound
+              ? `${(t.boardSoundNames as Record<string, string>)[soundChoice]} ${Math.round(volume * 100)}%`
+              : t.boardSoundOff}{" "}
+            · {autoPrint ? t.boardAutoPrintOn : t.boardAutoPrintOff}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.inkSoft} />
+        </Pressable>
 
         {/* Unanswered table and catering requests sit where new orders
             land, above them; once answered they leave the board and live
@@ -1377,6 +1315,157 @@ export function BoardScreen({
         // board rather than patching one order in place.
         onChanged={() => void load("full")}
       />
+      {/* Sound + auto-print + Bluetooth printer, on their own screen. */}
+      <Modal
+        visible={settingsOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSettingsOpen(false)}
+      >
+        <Pressable
+          style={styles.settingsBackdrop}
+          onPress={() => setSettingsOpen(false)}
+          accessibilityLabel={t.close}
+        >
+          <Pressable style={styles.settingsSheet} onPress={() => {}}>
+            <View style={styles.settingsHeader}>
+              <Text style={styles.settingsTitle}>{t.boardSettingsTitle}</Text>
+              <Pressable
+                onPress={() => setSettingsOpen(false)}
+                hitSlop={10}
+                accessibilityLabel={t.close}
+              >
+                <Text style={styles.settingsClose}>×</Text>
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+              <View style={styles.switchCard}>
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>{t.boardAutoPrint}</Text>
+                  <Switch
+                    value={autoPrint}
+                    onValueChange={toggleAutoPrint}
+                    accessibilityLabel={t.boardAutoPrint}
+                    trackColor={{ false: colors.line, true: colors.red }}
+                    thumbColor={colors.cream}
+                  />
+                </View>
+                {autoPrint ? <Text style={styles.switchHint}>{t.boardAutoPrintHint}</Text> : null}
+                {canBt ? (
+                  <Pressable
+                    onPress={() => setBtSheet(true)}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.soundSummary, pressed && { opacity: 0.6 }]}
+                  >
+                    <Ionicons
+                      name="bluetooth"
+                      size={16}
+                      color={btPrinter ? colors.red : colors.inkSoft}
+                    />
+                    <Text style={styles.soundSummaryText}>
+                      {t.btPrinter}:{" "}
+                      {btPrinter ? `${btPrinter.name} · ${btPrinter.paper} mm` : t.btPrinterNone}
+                    </Text>
+                    <Text style={styles.soundChange}>
+                      {btPrinter ? t.staffResChange : t.btPrinterChoose}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {autoPrint && Platform.OS === "android" && !btPrinter ? (
+                  <Text style={[styles.switchHint, { color: colors.danger }]}>
+                    {t.boardAutoPrintDialogHint}
+                  </Text>
+                ) : null}
+                <View style={[styles.switchRow, styles.switchRowNext]}>
+                  <Text style={styles.switchLabel}>{t.boardSound}</Text>
+                  <Switch
+                    value={sound}
+                    onValueChange={toggleSound}
+                    accessibilityLabel={t.boardSound}
+                    trackColor={{ false: colors.line, true: colors.red }}
+                    thumbColor={colors.cream}
+                  />
+                </View>
+                {sound && !soundOpen ? (
+                  <Pressable
+                    onPress={() => setSoundOpen(true)}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.soundSummary, pressed && { opacity: 0.6 }]}
+                  >
+                    <Ionicons name="volume-high-outline" size={16} color={colors.inkSoft} />
+                    <Text style={styles.soundSummaryText}>
+                      {t.boardSoundTone}:{" "}
+                      {(t.boardSoundNames as Record<string, string>)[soundChoice]} ·{" "}
+                      {Math.round(volume * 100)}%
+                    </Text>
+                    <Text style={styles.soundChange}>{t.staffResChange}</Text>
+                  </Pressable>
+                ) : null}
+                {sound && soundOpen ? (
+                  <View style={styles.soundBox}>
+                    <Text style={styles.soundLabel}>{t.boardSoundTone}</Text>
+                    <View style={styles.chipRow}>
+                      {ORDER_SOUNDS.map((choice) => {
+                        const on = choice === soundChoice;
+                        return (
+                          <Pressable
+                            key={choice}
+                            onPress={() => pickSound(choice)}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: on }}
+                            style={[styles.soundChip, on && styles.soundChipOn]}
+                          >
+                            <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
+                              {(t.boardSoundNames as Record<string, string>)[choice] ?? choice}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <Text style={styles.soundLabel}>{t.boardSoundVolume}</Text>
+                    <View style={styles.chipRow}>
+                      {ORDER_VOLUMES.map((v) => {
+                        const on = Math.abs(v - volume) < 0.01;
+                        return (
+                          <Pressable
+                            key={v}
+                            onPress={() => pickVolume(v)}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: on }}
+                            style={[styles.soundChip, on && styles.soundChipOn]}
+                          >
+                            <Text style={[styles.soundChipText, on && styles.soundChipTextOn]}>
+                              {Math.round(v * 100)}%
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                      <Pressable
+                        onPress={() => chimeRef.current?.play()}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.boardSoundTest}
+                        style={({ pressed }) => [styles.testChip, pressed && { opacity: 0.7 }]}
+                      >
+                        <Ionicons name="volume-high" size={16} color={colors.onRed} />
+                        <Text style={styles.testChipText}>{t.boardSoundTest}</Text>
+                      </Pressable>
+                    </View>
+                    <Text style={styles.switchHint}>{t.boardSoundHint}</Text>
+                    <Pressable
+                      onPress={() => setSoundOpen(false)}
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      style={{ alignSelf: "flex-end" }}
+                    >
+                      <Text style={styles.soundChange}>{t.close}</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {canBt ? (
         <BtPrinterSheet
           visible={btSheet}
@@ -1581,6 +1670,35 @@ const styles = StyleSheet.create({
    *  separates them — a hairline, not a gap, so the card stays compact
    *  enough to sit above the board rather than in front of it. */
   switchRowNext: { borderTopWidth: 1, borderTopColor: colors.line },
+  settingsLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.creamCard,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    minHeight: 44,
+  },
+  settingsLineText: { flex: 1, color: colors.ink, ...fonts.bodySemi, fontSize: 13 },
+  settingsBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(20,10,5,0.5)" },
+  settingsSheet: {
+    backgroundColor: colors.cream,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 18,
+    paddingBottom: 28,
+    gap: 10,
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
+    maxHeight: "88%",
+  },
+  settingsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  settingsTitle: { color: colors.ink, ...fonts.display, fontSize: 22, flex: 1 },
+  settingsClose: { color: colors.inkSoft, fontSize: 28, lineHeight: 30 },
   cancelIcon: {
     width: 40,
     height: 40,

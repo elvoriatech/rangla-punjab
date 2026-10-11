@@ -220,3 +220,20 @@ export async function setCateringStatus(
     return { ok: true };
   });
 }
+
+/**
+ * Remove a catering request (owner only — the route checks; owner, 2026-10-11).
+ * Soft delete: it leaves every list, the guest's own included, but the row
+ * stays for the record.
+ */
+export async function deleteCateringRequest(userId: string, id: string): Promise<{ ok: boolean }> {
+  return asUser(userId, async (tx) => {
+    const existing = await tx.cateringRequest.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) return { ok: false };
+    await tx.cateringRequest.update({ where: { id }, data: { deletedAt: new Date() } });
+    return { ok: true };
+  });
+}

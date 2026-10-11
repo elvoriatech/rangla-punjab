@@ -832,6 +832,22 @@ export function removeStaffTeamMember(token: string, memberId: string): Promise<
   return teamWrite(token, `/api/v1/staff/team/${encodeURIComponent(memberId)}`, "DELETE");
 }
 
+/** The owner removes a table reservation or catering request (soft delete). */
+async function staffDelete(token: string, path: string): Promise<StaffResult<null>> {
+  const res = await staffFetch(token, path, { method: "DELETE" });
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200) return { ok: false, error: failure(res.status) };
+  return { ok: true, data: null };
+}
+
+export function deleteStaffReservation(token: string, id: string): Promise<StaffResult<null>> {
+  return staffDelete(token, `/api/v1/staff/reservations/${encodeURIComponent(id)}`);
+}
+
+export function deleteStaffCatering(token: string, id: string): Promise<StaffResult<null>> {
+  return staffDelete(token, `/api/v1/staff/catering/${encodeURIComponent(id)}`);
+}
+
 /** Best effort: the local session is cleared whatever the server says. */
 export async function staffLogout(token: string): Promise<void> {
   await staffFetch(token, "/api/v1/staff/logout", { method: "POST" });

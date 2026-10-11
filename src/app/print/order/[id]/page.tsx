@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
+import { orderEta } from "@/lib/order-eta";
+import { getOrderingConfigForUser } from "@/lib/staff-service";
 import { formatPrice } from "@/lib/public-menu";
 import { renderQrSvg } from "@/lib/qr";
 import {
@@ -9,6 +11,7 @@ import {
   ticketAddressLine,
   ticketVenueName,
   typeBanner as ticketTypeBanner,
+  ticketReadyLine,
 } from "@/lib/ticket-html";
 import { dispatchUrl } from "@/lib/dispatch-service";
 import { ticketLogoDataUri } from "@/lib/ticket-logo";
@@ -92,7 +95,12 @@ export default async function OrderTicketPage({
   // Vector glyphs, not emoji: thermal drivers print SVG as graphics but
   // choke on colour emoji fonts. `icon` is the ASCII word kept as the
   // glyph's accessible label.
+  const readyLine = ticketReadyLine(
+    order,
+    orderEta(order, await getOrderingConfigForUser(userId))?.expectedAt ?? null,
+  );
   const infoRows: { icon: string; glyph: keyof typeof GLYPHS; text: string; bold?: boolean }[] = [
+    ...(readyLine ? [{ icon: "ZEIT", glyph: "clock" as const, text: readyLine, bold: true }] : []),
     ...(order.requestedFor
       ? [
           {
@@ -234,6 +242,11 @@ export default async function OrderTicketPage({
             <span>#{String(order.orderNumber)}</span>
             <span>{time.format(order.createdAt)}</span>
           </div>
+          {readyLine || order.requestedFor ? (
+            <p className="mt-1 text-[17px] font-bold">
+              {readyLine ?? `Geplant für ${clock.format(order.requestedFor!)} Uhr`}
+            </p>
+          ) : null}
           <p className="my-2 overflow-hidden whitespace-nowrap">
             --------------------------------------
           </p>

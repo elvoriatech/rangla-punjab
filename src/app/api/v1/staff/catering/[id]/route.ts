@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { corsPreflight, withCors } from "@/lib/cors";
-import { setCateringStatus } from "@/lib/catering-service";
+import { setCateringStatus, deleteCateringRequest } from "@/lib/catering-service";
 import { requireStaff, STAFF_NO_STORE } from "@/lib/staff-request";
 
 const bodySchema = z.object({ status: z.enum(["confirmed", "declined", "cancelled"]) });
@@ -30,6 +30,21 @@ export async function POST(
   return withCors(
     NextResponse.json({ ok: true, status: parsed.data.status }, { headers: STAFF_NO_STORE }),
   );
+}
+
+/** DELETE — the owner removes it (soft delete). Team members get 403. */
+export async function DELETE(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const gate = await requireStaff(req, "owner");
+  if (!gate.ok) return gate.response;
+  const { id } = await ctx.params;
+  const result = await deleteCateringRequest(gate.staff.userId, id);
+  if (!result.ok) {
+    return withCors(NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }));
+  }
+  return withCors(NextResponse.json({ ok: true }, { headers: STAFF_NO_STORE }));
 }
 
 export function OPTIONS(): NextResponse {
