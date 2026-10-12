@@ -1983,7 +1983,7 @@ function HeroBanner({
       <div className="absolute end-4 top-4 flex flex-col items-end gap-2 sm:end-6">
         {/* Install first, in the app's lime, so it stands out (owner,
             2026-10-11); the open/closed pill moved to the end. */}
-        <InstallAppButton labels={t.app.install} onDark lime />
+        <InstallAppButton labels={t.app.install} onDark lime storeLinks={venue.appLinks} />
         {reserve ? (
           <ReserveDialog {...reserve} locale={locale} labels={reserveLabels(locale)} />
         ) : null}

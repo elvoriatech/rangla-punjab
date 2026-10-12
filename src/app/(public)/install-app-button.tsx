@@ -20,6 +20,15 @@ type Mode = "prompt" | "ios" | "mac";
 
 const noop = (): (() => void) => () => {};
 
+/** The phone's own system, for sending it to its app store. */
+function detectStore(): "ios" | "android" | "none" {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) {
+    return "ios";
+  }
+  return /Android/.test(ua) ? "android" : "none";
+}
+
 /** Safari never fires `beforeinstallprompt`; it installs from its own menu. */
 function detectPlatform(): "installed" | "ios" | "mac" | "none" {
   const standalone =
@@ -52,12 +61,20 @@ export function InstallAppButton({
   labels,
   onDark = false,
   lime = false,
+  storeLinks = null,
 }: {
   labels: InstallLabels;
   onDark?: boolean;
   /** The app's lime sticker look — the hero's first, stand-out badge
    *  (owner, 2026-10-11). Black on lime, far past AA. */
   lime?: boolean;
+  /**
+   * The restaurant's own apps (Settings → app links; the footer badges use
+   * the same). On an iPhone the badge opens the App Store, on Android Google
+   * Play (or the direct download), instead of installing the website
+   * (owner, 2026-10-12). Elsewhere it installs the website as before.
+   */
+  storeLinks?: { ios?: string | null; android?: string | null; apk?: string | null } | null;
 }): React.ReactElement | null {
   const [canPrompt, setCanPrompt] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
@@ -82,6 +99,13 @@ export function InstallAppButton({
   // What this browser offers WITHOUT the event — read once on the client;
   // the server snapshot is "nothing", so the no-JS page stays as it was.
   const platform = useSyncExternalStore(noop, detectPlatform, () => "none" as const);
+  const store = useSyncExternalStore(noop, detectStore, () => "none" as const);
+  const storeUrl =
+    store === "ios"
+      ? (storeLinks?.ios ?? null)
+      : store === "android"
+        ? (storeLinks?.android ?? storeLinks?.apk ?? null)
+        : null;
 
   useEffect(() => {
     const onPrompt = (event: Event): void => {
@@ -119,6 +143,33 @@ export function InstallAppButton({
     return () => document.removeEventListener("keydown", onKey);
   }, [hintOpen]);
 
+  const chipClass = `inline-flex min-h-6 items-center gap-1 rounded-full ${
+    lime
+      ? "border-2 border-[#141414] bg-[linear-gradient(180deg,#E8FA4B,#A9E01C)] px-3 py-1.5 text-sm font-extrabold uppercase tracking-wide text-[#141414] shadow-[0_0_0_2px_#fff,0_4px_12px_rgba(0,0,0,0.35)] hover:brightness-105"
+      : `border px-2.5 py-1 text-xs font-medium ${
+          onDark
+            ? "border-white/40 bg-black/45 text-white backdrop-blur"
+            : "border-[var(--menu-text)]/25 text-[var(--menu-text)]/85 hover:border-[var(--menu-text)]/50"
+        }`
+  }`;
+
+  // A phone with the restaurant's own app in its store: go there. Even
+  // inside the installed website, the real app is the better one to have.
+  if (storeUrl) {
+    return (
+      <a
+        href={storeUrl}
+        target="_blank"
+        rel="noopener"
+        aria-label={labels.aria}
+        className={`${chipClass} no-underline`}
+      >
+        <DownloadIcon />
+        {labels.label}
+      </a>
+    );
+  }
+
   if (!mode) return null;
 
   const onClick = async (): Promise<void> => {
@@ -141,31 +192,9 @@ export function InstallAppButton({
         onClick={() => void onClick()}
         aria-label={labels.aria}
         aria-expanded={mode === "prompt" ? undefined : hintOpen}
-        className={`inline-flex min-h-6 items-center gap-1 rounded-full ${
-          lime
-            ? "border-2 border-[#141414] bg-[linear-gradient(180deg,#E8FA4B,#A9E01C)] px-3 py-1.5 text-sm font-extrabold uppercase tracking-wide text-[#141414] shadow-[0_0_0_2px_#fff,0_4px_12px_rgba(0,0,0,0.35)] hover:brightness-105"
-            : `border px-2.5 py-1 text-xs font-medium ${
-                onDark
-                  ? "border-white/40 bg-black/45 text-white backdrop-blur"
-                  : "border-[var(--menu-text)]/25 text-[var(--menu-text)]/85 hover:border-[var(--menu-text)]/50"
-              }`
-        }`}
+        className={chipClass}
       >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 4v11" />
-          <path d="M7 11l5 5 5-5" />
-          <path d="M5 20h14" />
-        </svg>
+        <DownloadIcon />
         {labels.label}
       </button>
       {hintOpen && mode !== "prompt" ? (
@@ -186,5 +215,25 @@ export function InstallAppButton({
         </span>
       ) : null}
     </span>
+  );
+}
+
+function DownloadIcon(): React.ReactElement {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 4v11" />
+      <path d="M7 11l5 5 5-5" />
+      <path d="M5 20h14" />
+    </svg>
   );
 }
