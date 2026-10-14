@@ -2,6 +2,7 @@ import { activePauseUntil } from "./ordering-pause";
 import { defaultEtaMinutes, etaApplies, withinAcceptWindow } from "./order-eta";
 import type { Prisma } from "@prisma/client";
 import { orderLabel } from "./order-label";
+import { recordForOrder, recordOrderEventTx, staffActor } from "./order-events";
 export { orderLabel };
 import { z } from "zod";
 import { customerProfileUpdateData, type CustomerProfilePatch } from "./customer-auth";
@@ -698,6 +699,31 @@ export async function placeOrder(
       }
     }
 
+    // The order log: exactly what came in, and what the server made of it.
+    await recordOrderEventTx(tx, {
+      tenantId: context.tenantId,
+      venueId: context.venueId,
+      orderId: order.id,
+      orderLabel: orderLabel({ orderNumber, orderSeries }),
+      kind: "order.placed",
+      actor: customerId ? `guest:${customerId}` : "guest",
+      summary: `${orderType} · ${input.intendedPayment ?? "cash"} · ${channel ?? "?"}`,
+      payload: {
+        received: raw,
+        channel,
+        customerId,
+        computed: {
+          itemsCents,
+          feeCents,
+          orderDiscountCents: orderDiscount,
+          discountCents,
+          giftCardDiscountCents,
+          totalCents,
+          requestedFor,
+        },
+      },
+    });
+
     return {
       ok: true as const,
       value: {
@@ -1058,13 +1084,26 @@ export async function getKitchenOrder(
 
 /** Kitchen ticked an order off. Idempotent — marking twice is fine. */
 export async function markOrderDone(userId: string, orderId: string): Promise<{ ok: boolean }> {
-  return asUser(userId, async (tx) => {
+  const result = await asUser(userId, async (tx) => {
+    const before = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { tenantId: true, status: true },
+    });
     const updated = await tx.order.updateMany({
       where: { id: orderId },
       data: { status: "done" },
     });
-    return { ok: updated.count > 0 };
+    return { ok: updated.count > 0, before };
   });
+  if (result.ok && result.before) {
+    void recordForOrder(result.before.tenantId, orderId, {
+      kind: "order.status",
+      actor: await staffActor(userId),
+      summary: `${result.before.status} → done`,
+      payload: { from: result.before.status, to: "done" },
+    });
+  }
+  return { ok: result.ok };
 }
 
 /**
@@ -1114,10 +1153,19 @@ export async function advanceOrderStatus(
       },
     });
     return updated.count > 0
-      ? { tenantId: order.tenantId, paymentStatus: order.paymentStatus }
+      ? { tenantId: order.tenantId, paymentStatus: order.paymentStatus, from: order.status }
       : null;
   });
   if (!moved) return { ok: false };
+
+  void staffActor(userId).then((actor) =>
+    recordForOrder(moved.tenantId, orderId, {
+      kind: to === "cancelled" ? "order.cancelled" : "order.status",
+      actor,
+      summary: `${moved.from} → ${to}`,
+      payload: { from: moved.from, to },
+    }),
+  );
 
   // "Your order is on the way" — fire-and-forget, on the same terms as
   // every other guest mail here: a dead SMTP host must never block the
@@ -1164,6 +1212,7 @@ export async function acceptOrderWithEta(
     const order = await tx.order.findFirst({
       where: { id: orderId },
       select: {
+        tenantId: true,
         status: true,
         orderType: true,
         requestedFor: true,
@@ -1187,13 +1236,19 @@ export async function acceptOrderWithEta(
       data: { etaMinutes: minutes },
     });
     if (updated.count === 0) return { ok: false as const, error: "not_applicable" as const };
-    return { ok: true as const, minutes };
+    return { ok: true as const, minutes, tenantId: order.tenantId };
   });
   if (!result.ok) return result;
+  await recordForOrder(result.tenantId, orderId, {
+    kind: "order.accepted",
+    actor: await staffActor(userId),
+    summary: `Accepted · ready in ${result.minutes} min`,
+    payload: { minutes: result.minutes },
+  });
   // The promise is stored; the move itself goes through the one function
   // every surface uses, so its side effects stay in one place.
   await advanceOrderStatus(userId, orderId, "preparing");
-  return result;
+  return { ok: true, minutes: result.minutes };
 }
 
 export interface OrderTracking {

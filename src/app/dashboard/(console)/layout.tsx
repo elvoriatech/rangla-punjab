@@ -27,6 +27,7 @@ function buildNav(base: string, openIssues: number) {
   return [
     { href: base, label: "Overview", exact: true, need: "overview" },
     { href: `${base}/orders`, label: "Orders", count: openIssues, need: "orders" },
+    { href: `${base}/order-log`, label: "Order log", need: "orders" },
     { href: `${base}/reservations`, label: "Reservations", need: "reservations" },
     { href: `${base}/catering`, label: "Catering", need: "catering" },
     { href: "/kitchen", label: "Kitchen", newTab: true, need: "kitchen" },

@@ -1,3 +1,4 @@
+import { recordForOrder } from "./order-events";
 import { asTenant, asUser } from "./tenant";
 import { getStripeProvider, stripeProviderForKey, stripeDirectChargeAvailable } from "./stripe";
 import type { StripeProvider } from "./stripe/provider";
@@ -217,6 +218,12 @@ export async function createOrderPayment(
             applicationFeeCents: 0,
           },
         });
+        void recordForOrder(tenantId, orderId, {
+          kind: "payment.started",
+          actor: "guest",
+          summary: `Stripe card page · ${checkout.ref}`,
+          payload: { provider: "stripe", ref: checkout.ref, mode: ownProvider.mode, own: true },
+        });
         log.info("payment.checkout_created", {
           orderId,
           tenantId,
@@ -261,6 +268,12 @@ export async function createOrderPayment(
       },
     });
     log.info("payment.checkout_created", { orderId, tenantId, feeCents, mode: provider.mode });
+    void recordForOrder(tenantId, orderId, {
+      kind: "payment.started",
+      actor: "guest",
+      summary: `Stripe card page · ${checkout.ref}`,
+      payload: { provider: "stripe", ref: checkout.ref, mode: provider.mode, feeCents },
+    });
     return { ok: true as const, url: checkout.url };
   });
 }
@@ -374,6 +387,12 @@ export async function createOrderPaymentIntent(
         applicationFeeCents: 0,
       },
     });
+    void recordForOrder(tenantId, orderId, {
+      kind: "payment.started",
+      actor: "guest",
+      summary: `Stripe wallet (Apple/Google Pay) · ${intent.ref}`,
+      payload: { provider: "stripe", ref: intent.ref, mode: direct.provider.mode, wallet: true },
+    });
     log.info("payment.intent_created", {
       orderId,
       tenantId,
@@ -451,7 +470,14 @@ export async function markOrderPaid(tenantId: string, orderId: string): Promise<
       // and the promised time are counted from here (`order-eta.ts`).
       data: { paymentStatus: "paid", paidAt: new Date() },
     });
-    if (updated.count > 0) log.info("payment.settled", { orderId, tenantId });
+    if (updated.count > 0) {
+      log.info("payment.settled", { orderId, tenantId });
+      void recordForOrder(tenantId, orderId, {
+        kind: "payment.paid",
+        actor: "system",
+        summary: "Payment confirmed — order is paid",
+      });
+    }
     return updated.count > 0;
   }).then(async (settled) => {
     // The receipt email for an online order goes out when the money has
@@ -629,7 +655,14 @@ export async function markOrderPaymentFailed(tenantId: string, orderId: string):
       data: { paymentStatus: "failed" },
     }),
   );
-  if (updated.count > 0) log.info("payment.failed", { orderId, tenantId });
+  if (updated.count > 0) {
+    log.info("payment.failed", { orderId, tenantId });
+    void recordForOrder(tenantId, orderId, {
+      kind: "payment.failed",
+      actor: "system",
+      summary: "Payment failed or was abandoned",
+    });
+  }
   return updated.count > 0;
 }
 
@@ -725,6 +758,11 @@ export async function cancelUnpaidOrderByGuest(
   );
   if (cancelled.count === 0) return { ok: false, error: "not_cancellable" };
   log.info("order.cancelled_by_guest", { orderId, tenantId });
+  void recordForOrder(tenantId, orderId, {
+    kind: "order.cancelled",
+    actor: "guest",
+    summary: "Cancelled by the guest before paying",
+  });
 
   // Undo whatever placing it moved (a redeemed loyalty voucher), exactly
   // as a kitchen cancel does. Idempotent; never blocks the answer.
@@ -790,6 +828,11 @@ export async function switchUnpaidOrderToCash(
   });
   if (switched.count === 0) return { ok: false, error: "not_cancellable" };
   log.info("order.switched_to_cash", { orderId, tenantId });
+  void recordForOrder(tenantId, orderId, {
+    kind: "payment.switched_to_cash",
+    actor: "guest",
+    summary: "Guest chose to pay cash instead",
+  });
 
   // Now it is a real order for the kitchen — same alerts a cash order
   // gets at placement. Fire-and-forget: a mail hiccup must not undo it.

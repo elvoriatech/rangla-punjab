@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { corsPreflight, withCors } from "@/lib/cors";
+import { recordForOrder, staffActor } from "@/lib/order-events";
 import { getKitchenOrder } from "@/lib/order-service";
 import { renderQrSvg } from "@/lib/qr";
 import { requireStaff } from "@/lib/staff-request";
@@ -37,6 +38,13 @@ export async function GET(
   if (!gate.ok) return gate.response;
 
   const { id } = await ctx.params;
+  // The order log: who printed it, when, and on what.
+  void recordForOrder(gate.staff.tenantId, id, {
+    kind: "order.printed",
+    actor: await staffActor(gate.staff.userId),
+    summary:
+      req.nextUrl.searchParams.get("format") === "escpos" ? "Printed (Bluetooth)" : "Printed",
+  });
   const [venue, order] = await Promise.all([
     getVenueForUser(gate.staff.userId),
     getKitchenOrder(gate.staff.userId, id),

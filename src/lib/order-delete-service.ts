@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { recordOrderEventTx } from "./order-events";
 import { createLogger } from "./logger";
 import { getAccess } from "./team-access";
 import { asUser } from "./tenant";
@@ -58,6 +59,21 @@ export async function deleteOrder(
       },
     });
     if (!order) return { ok: false as const, error: "not_found" as const };
+
+    // The order log keeps a full copy of what is about to disappear.
+    const snapshot = await tx.order.findFirst({ where: { id: orderId }, include: { items: true } });
+    await recordOrderEventTx(tx, {
+      tenantId: order.tenantId,
+      venueId: order.venueId,
+      orderId: order.id,
+      orderLabel: order.orderSeries
+        ? `${order.orderSeries}-${order.orderNumber}`
+        : String(order.orderNumber),
+      kind: "order.deleted",
+      actor: `restaurant:${actor?.email ?? userId}`,
+      summary: `Deleted · reason: ${reason}`,
+      payload: { reason, order: snapshot },
+    });
 
     await tx.deletedOrder.create({
       data: {

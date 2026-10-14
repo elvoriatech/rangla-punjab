@@ -307,6 +307,7 @@ model Venue {
   reservations     Reservation[]
   cateringRequests CateringRequest[]
   deletedOrders    DeletedOrder[]
+  orderEvents      OrderEvent[]
   orderIssues      OrderIssue[]
   giftCardProducts GiftCardProduct[]
   giftCardsSold    GiftCard[]
@@ -1099,6 +1100,32 @@ model DeletedOrder {
   @@index([tenantId, createdAt])
   @@index([venueId, orderNumber])
   @@map("deleted_orders")
+}
+
+/// The order log (owner, 2026-10-14): one row per thing that came in for an
+/// order or happened to it, with the raw JSON. Append-only (the app role has
+/// no UPDATE/DELETE); `orderId` has no foreign key so the log outlives a
+/// deleted order; rows older than 6 months go via purge_order_events().
+model OrderEvent {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  venueId    String   @map("venue_id")
+  orderId    String   @map("order_id")
+  /// "O-5" at the time — the order may be gone later.
+  orderLabel String?  @map("order_label")
+  /// order.placed, payment.started, stripe.webhook, status.changed, …
+  kind       String
+  /// guest | restaurant:<email> | driver | stripe | paypal | system
+  actor      String
+  summary    String?
+  payload    Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("order_events")
 }
 
 /// A catering enquiry from the app: a party, a wedding, an office lunch

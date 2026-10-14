@@ -1,3 +1,4 @@
+import { recordForOrder } from "./order-events";
 import { prisma } from "./db";
 import { asTenant } from "./tenant";
 import { createLogger } from "./logger";
@@ -172,6 +173,16 @@ export async function handlePayPalWebhook(input: {
   if (claimed.count === 0) {
     log.info("paypal.webhook.replay", { eventId: event.id, type: event.event_type });
     return { status: 200, kind: "replayed" };
+  }
+
+  // The order log: PayPal's verified message, as it arrived.
+  if (subject.kind === "order") {
+    await recordForOrder(subject.tenantId, subject.id, {
+      kind: "paypal.webhook",
+      actor: "paypal",
+      summary: event.event_type,
+      payload: event,
+    });
   }
 
   // PayPal refused the money: the order is marked `failed` (guest sees

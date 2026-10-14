@@ -1,3 +1,4 @@
+import { recordForOrder } from "./order-events";
 import { canTransition } from "./order-status";
 import { createLogger } from "./logger";
 import { uiLocale } from "./locales";
@@ -178,6 +179,12 @@ export async function dispatchOrder(
 
   if (outcome.ok && "moved" in outcome && outcome.moved) {
     log.info("order.dispatched", { tenantId, orderId, actor });
+    void recordForOrder(tenantId, orderId, {
+      kind: "order.dispatched",
+      actor: actor === "dispatch-qr" ? "driver" : "restaurant",
+      summary: "Out for delivery",
+      payload: { via: actor },
+    });
     void sendOnTheWayEmail(tenantId, orderId).catch(() => undefined);
   }
   // Strip the internal `moved` flag from what callers see.
@@ -227,7 +234,14 @@ export async function deliverOrder(tenantId: string, orderId: string): Promise<D
     });
     return view(order, updated.count === 0, "done");
   });
-  if (outcome.ok && !outcome.already) log.info("order.delivered", { tenantId, orderId });
+  if (outcome.ok && !outcome.already) {
+    log.info("order.delivered", { tenantId, orderId });
+    void recordForOrder(tenantId, orderId, {
+      kind: "order.delivered",
+      actor: "driver",
+      summary: "Delivered (driver tapped Zugestellt)",
+    });
+  }
   return outcome;
 }
 

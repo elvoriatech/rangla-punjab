@@ -24,6 +24,7 @@ import {
   Settings,
   Users,
   type LucideIcon,
+  ScrollText,
 } from "lucide-react";
 import { logoutAction, setActiveVenueAction } from "./actions";
 import type { OwnerVenue } from "@/lib/active-venue";
@@ -61,6 +62,7 @@ function buildNav(base: string, openIssues: number): RailItem[] {
       count: openIssues,
       need: "orders",
     },
+    { href: `${base}/order-log`, label: "Order log", icon: ScrollText, need: "orders" },
     {
       href: `${base}/reservations`,
       label: "Reservations",

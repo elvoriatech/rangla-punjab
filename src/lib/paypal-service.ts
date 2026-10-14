@@ -1,3 +1,4 @@
+import { recordForOrder } from "./order-events";
 import { asTenant } from "./tenant";
 import { verifyReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
@@ -73,6 +74,12 @@ export async function createPayPalOrderPayment(
       },
     });
     log.info("payment.paypal_created", { orderId, tenantId, mode: provider.mode });
+    void recordForOrder(tenantId, orderId, {
+      kind: "payment.started",
+      actor: "guest",
+      summary: `PayPal page · ${approval.ref}`,
+      payload: { provider: "paypal", ref: approval.ref, mode: provider.mode },
+    });
     return { ok: true as const, url: approval.url };
   });
 }
@@ -105,6 +112,12 @@ export async function finalizePayPalReturn(
   const capture = await payPalProviderFor(await getPayPalKeysForTenant(tenantId)).captureOrder(
     order.paymentRef,
   );
+  void recordForOrder(tenantId, orderId, {
+    kind: "paypal.capture",
+    actor: "paypal",
+    summary: capture.paid ? "PayPal capture completed" : "PayPal capture not completed",
+    payload: capture,
+  });
   if (!capture.paid) {
     log.warn("payment.paypal_capture_incomplete", { orderId, tenantId });
     return { paid: false };

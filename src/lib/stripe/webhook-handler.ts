@@ -3,6 +3,7 @@ import { asTenant } from "../tenant";
 import { logger } from "../logger";
 import type { StripeEvent } from "./provider";
 import { markOrderPaid } from "../connect-service";
+import { recordForOrder } from "../order-events";
 
 /**
  * Webhook business logic. Kept out of the route handler so tests can call
@@ -50,6 +51,18 @@ export async function handleStripeEvent(event: StripeEvent): Promise<WebhookOutc
   if (claimed.count === 0) {
     logger.info("stripe.webhook.replay", { eventId: event.id, type: event.type });
     return { status: 200, kind: "replayed" };
+  }
+
+  // The order log: Stripe's message exactly as it arrived (minus any
+  // secret, see `redactPayload`), for the order it is about.
+  const meta = (event.data.object as HasMetadata).metadata;
+  if (meta?.orderId && meta?.tenantId) {
+    await recordForOrder(meta.tenantId, meta.orderId, {
+      kind: "stripe.webhook",
+      actor: "stripe",
+      summary: event.type,
+      payload: event,
+    });
   }
 
   switch (event.type) {

@@ -214,6 +214,24 @@ describe("order-service (guest self-ordering)", () => {
     ).toBe("web");
   });
 
+  it("logs the order exactly as it came in (order log), without secrets", async () => {
+    const fx = await fixtureVenue();
+    const placed = await placeOrder(
+      fx,
+      { items: [{ itemId: fx.itemIds.naan, quantity: 1 }], customerName: "Log Test" },
+      { channel: "web" },
+    );
+    if (!placed.ok) throw new Error("placement failed");
+    const events = await asTenant(fx.tenantId, (tx) =>
+      tx.orderEvent.findMany({ where: { orderId: placed.value.orderId } }),
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ kind: "order.placed", orderLabel: placed.value.orderLabel });
+    const payload = events[0]!.payload as { received: Record<string, unknown>; channel: string };
+    expect(payload.channel).toBe("web");
+    expect(payload.received.customerName).toBe("Log Test");
+  });
+
   it("numbers cash (B-…) and online (O-…) orders in their own series", async () => {
     const fx = await fixtureVenue();
     const naan = [{ itemId: fx.itemIds.naan, quantity: 1 }];

@@ -1,5 +1,6 @@
 import { orderLabel } from "@/lib/order-label";
 import { notFound } from "next/navigation";
+import { recordOrderEvent, staffActor } from "@/lib/order-events";
 import { getKitchenOrder } from "@/lib/order-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { orderEta } from "@/lib/order-eta";
@@ -64,6 +65,16 @@ export default async function OrderTicketPage({
   const venueName = venueResult.value.name;
   const order = await getKitchenOrder(userId, id);
   if (!order) notFound();
+  // The order log: printed from the website dashboard (auto or by hand).
+  void recordOrderEvent({
+    tenantId: venueResult.value.tenantId,
+    venueId: venueResult.value.id,
+    orderId: order.id,
+    orderLabel: orderLabel(order),
+    kind: "order.printed",
+    actor: await staffActor(userId),
+    summary: auto ? "Printed (dashboard, automatic)" : "Printed (dashboard)",
+  });
 
   const time = new Intl.DateTimeFormat("de-DE", {
     dateStyle: "short",
