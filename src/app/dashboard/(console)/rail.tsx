@@ -62,7 +62,6 @@ function buildNav(base: string, openIssues: number): RailItem[] {
       count: openIssues,
       need: "orders",
     },
-    { href: `${base}/order-log`, label: "Order log", icon: ScrollText, need: "orders" },
     {
       href: `${base}/reservations`,
       label: "Reservations",
@@ -77,6 +76,7 @@ function buildNav(base: string, openIssues: number): RailItem[] {
     { href: `${base}/gift-cards`, label: "Gift cards", icon: Gift, need: "giftcards" },
     { href: `${base}/qr`, label: "QR codes", icon: QrCode, need: "qr" },
     { href: `${base}/settings`, label: "Settings", icon: Settings, need: "settings" },
+    { href: `${base}/order-log`, label: "Order log", icon: ScrollText, need: "orders" },
     { href: `${base}/billing`, label: "Payments", icon: CreditCard, need: "owner" },
     { href: `${base}/team`, label: "Team", icon: Users, need: "owner" },
   ];
