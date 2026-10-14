@@ -69,11 +69,13 @@ const KIND: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "plain
   "order.printed": { label: "Printed", tone: "plain" },
   "order.deleted": { label: "Deleted", tone: "bad" },
 };
+/** Inline colours, not utility classes: this page's one-offs must not
+ *  grow the stylesheet the public menu also loads (its CSS budget). */
 const DOT: Record<string, string> = {
-  ok: "bg-[#3f7030]",
-  warn: "bg-[#d29a1e]",
-  bad: "bg-red-800",
-  plain: "bg-ink/30",
+  ok: "#3f7030",
+  warn: "#d29a1e",
+  bad: "#991b1b",
+  plain: "#c9b8a2",
 };
 
 /** "2026-10-14" today in the restaurant's time zone. */
@@ -97,7 +99,7 @@ function statusPill(row: OrderLogRow): { text: string; cls: string } {
     return { text: "Payment failed", cls: "bg-red-900/10 text-red-900" };
   if (row.paymentStatus === "pending")
     return { text: "Payment open", cls: "bg-orange/15 text-orange-dark" };
-  if (row.status === "done") return { text: "Done", cls: "bg-[#3f7030]/15 text-[#3f7030]" };
+  if (row.status === "done") return { text: "Done", cls: "bg-ink/10 text-ink" };
   if (row.status === "cancelled") return { text: "Cancelled", cls: "bg-ink/10 text-muted" };
   return { text: row.status ?? "—", cls: "bg-ink/10 text-ink" };
 }
@@ -133,6 +135,8 @@ export default async function OrderLogPage({
 
   return (
     <main className="px-6 py-10 text-ink lg:px-10">
+      {/* The two-column split, scoped to this page (see DOT). */}
+      <style>{`@media (min-width:1024px){.order-log-grid{grid-template-columns:minmax(0,400px) minmax(0,1fr)}}`}</style>
       <p className="mb-2 text-xs uppercase tracking-[0.28em] text-gold-dark">Trace</p>
       <h1 className="font-serif text-4xl leading-tight">Order log</h1>
       <p className="mt-2 text-sm text-muted">
@@ -154,7 +158,8 @@ export default async function OrderLogPage({
           name="q"
           defaultValue={q}
           placeholder="No., name, phone, email, Stripe/PayPal reference … (searches 6 months)"
-          className="min-w-[280px] flex-1 border border-ink/20 bg-card px-3 py-2 text-sm"
+          className="flex-1 border border-ink/20 bg-card px-3 py-2 text-sm"
+          style={{ minWidth: 280 }}
         />
         <label className="sr-only" htmlFor="olday">
           Day
@@ -199,7 +204,7 @@ export default async function OrderLogPage({
         ) : null}
       </nav>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+      <div className="order-log-grid mt-6 grid gap-5">
         {/* The list */}
         <section aria-label="Orders" className="border border-ink/15 bg-card">
           {rows.length === 0 ? (
@@ -208,17 +213,19 @@ export default async function OrderLogPage({
             </p>
           ) : (
             <ul>
-              {rows.map((r) => {
+              {rows.map((r, i) => {
                 const pill = statusPill(r);
                 const on = r.orderId === selectedId;
                 return (
-                  <li key={r.orderId} className="border-t border-ink/10 first:border-t-0">
+                  <li key={r.orderId} className={i === 0 ? "" : "border-t border-ink/10"}>
                     <Link
                       href={qs({ id: r.orderId })}
                       aria-current={on ? "true" : undefined}
-                      className={`grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 no-underline hover:bg-ink/[0.03] ${
-                        on ? "bg-orange/10 shadow-[inset_3px_0_0_var(--color-orange,#c4561d)]" : ""
-                      }`}
+                      className={`grid items-center gap-3 px-4 py-3 no-underline ${on ? "bg-orange/10" : ""}`}
+                      style={{
+                        gridTemplateColumns: "3.5rem minmax(0,1fr) auto",
+                        ...(on ? { boxShadow: "inset 3px 0 0 #c4561d" } : {}),
+                      }}
                     >
                       <span className="font-semibold tabular-nums">{r.label}</span>
                       <span className="min-w-0">
@@ -279,7 +286,9 @@ export default async function OrderLogPage({
                 <Box title="Guest">
                   <p className="font-semibold">{detail.guest.name ?? "—"}</p>
                   {detail.guest.phone ? <p>{detail.guest.phone}</p> : null}
-                  {detail.guest.email ? <p className="break-all">{detail.guest.email}</p> : null}
+                  {detail.guest.email ? (
+                    <p style={{ wordBreak: "break-all" }}>{detail.guest.email}</p>
+                  ) : null}
                   {detail.guest.table ? <p>Table {detail.guest.table}</p> : null}
                 </Box>
                 <Box title="Order">
@@ -303,7 +312,7 @@ export default async function OrderLogPage({
                     {detail.row.paymentStatus ? ` · ${detail.row.paymentStatus}` : ""}
                   </p>
                   {detail.paymentRef ? (
-                    <p className="break-all text-xs">
+                    <p className="text-xs" style={{ wordBreak: "break-all" }}>
                       {detail.paymentRef}{" "}
                       {detail.paymentProvider === "stripe" ? (
                         <a
@@ -321,19 +330,32 @@ export default async function OrderLogPage({
               </div>
 
               <h3 className="mt-6 text-xs uppercase tracking-[0.28em] text-gold-dark">History</h3>
-              <ol className="mt-3 border-s-2 border-ink/15 ps-5">
+              <ol
+                className="mt-3"
+                style={{
+                  borderInlineStart: "2px solid rgba(29,20,16,.15)",
+                  paddingInlineStart: 20,
+                }}
+              >
                 {detail.events.map((e) => {
                   const k = KIND[e.kind] ?? { label: e.kind, tone: "plain" as const };
                   return (
                     <li key={e.id} className="relative py-2">
                       <span
                         aria-hidden="true"
-                        className={`absolute -start-[27px] top-3.5 h-3 w-3 rounded-full border-2 border-card ${DOT[k.tone]}`}
+                        className="absolute h-3 w-3 rounded-full"
+                        style={{
+                          insetInlineStart: -27,
+                          top: 14,
+                          background: DOT[k.tone],
+                          border: "2px solid #fffdf8",
+                        }}
                       />
                       <p className="text-sm">
                         <time
                           dateTime={e.createdAt.toISOString()}
-                          className="me-2 tabular-nums text-muted"
+                          className="tabular-nums text-muted"
+                          style={{ marginInlineEnd: 8 }}
                         >
                           {TIME.format(e.createdAt)}
                         </time>
@@ -346,7 +368,16 @@ export default async function OrderLogPage({
                           <summary className="cursor-pointer text-xs font-semibold text-orange-dark">
                             Raw data · {exact(e.createdAt)}
                           </summary>
-                          <pre className="mt-1 max-h-96 overflow-auto rounded bg-[#1f1a16] p-3 text-[11.5px] leading-snug text-[#e8dcc8]">
+                          <pre
+                            className="mt-1 rounded p-3 leading-snug"
+                            style={{
+                              maxHeight: "24rem",
+                              overflow: "auto",
+                              background: "#1f1a16",
+                              color: "#e8dcc8",
+                              fontSize: 11.5,
+                            }}
+                          >
                             {JSON.stringify(e.payload, null, 2)}
                           </pre>
                         </details>
@@ -375,7 +406,10 @@ function Box({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="border border-ink/10 bg-white/60 px-3 py-2.5 text-sm">
+    <div
+      className="border border-ink/10 px-3 py-2.5 text-sm"
+      style={{ background: "rgba(255,255,255,.6)" }}
+    >
       <p className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted">{title}</p>
       {children}
     </div>
