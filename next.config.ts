@@ -21,10 +21,15 @@ const withMDX = createMDX({
  * would cost every guest a server render.
  *
  * What the app actually loads makes a tight policy possible anyway:
- * there are no third-party scripts or SDKs at all (PayPal and Stripe are
- * server-side redirects, not embedded JS), and `next/font/google`
- * self-hosts its fonts under /_next/static at build time — so no
- * external script, font, or style origin is needed.
+ * card and PayPal checkouts are server-side redirects, and
+ * `next/font/google` self-hosts its fonts under /_next/static at build
+ * time. The ONE third-party script is Stripe.js, which the checkout
+ * loads on demand for the Apple Pay / Google Pay button
+ * (`order/wallet-button.tsx`). Stripe's documented CSP needs are added
+ * for exactly that (2026-10-14: the button had been blocked since it
+ * shipped — "Failed to load Stripe.js"): js.stripe.com for the script
+ * and its frames, hooks.stripe.com for 3-D Secure, api.stripe.com for
+ * its calls. Nothing else is opened up.
  *
  * The one loose directive is `'unsafe-inline'` for scripts, which the
  * framework's own hydration bootstrap requires without a nonce. It still
@@ -37,16 +42,16 @@ const isDev = process.env.NODE_ENV === "development";
 
 const CSP = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://js.stripe.com${isDev ? " 'unsafe-eval'" : ""}`,
   // Tailwind + the per-venue theme variables render as inline <style>.
   "style-src 'self' 'unsafe-inline'",
   // data: for the transparent-pixel placeholder, blob: for client-side
   // QR/receipt rendering.
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://*.stripe.com",
   "font-src 'self'",
-  "connect-src 'self'",
+  "connect-src 'self' https://api.stripe.com",
   // The dashboard previews the menu in a same-origin iframe.
-  "frame-src 'self'",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
   "frame-ancestors 'self'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -105,7 +110,10 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+            // payment: the Apple Pay / Google Pay button runs the Payment
+            // Request API inside Stripe's frame, which needs it granted.
+            value:
+              'camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com"), usb=()',
           },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "X-DNS-Prefetch-Control", value: "off" },
