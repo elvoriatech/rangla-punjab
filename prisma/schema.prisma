@@ -128,25 +128,27 @@ model Tenant {
   updatedAt            DateTime  @updatedAt
   deletedAt            DateTime?
 
-  memberships        Membership[]
-  venues             Venue[]
-  menus              Menu[]
-  menuVersions       MenuVersion[]
-  categories         Category[]
-  items              Item[]
-  itemVariants       ItemVariant[]
-  translations       Translation[]
-  media              Media[]
-  orders             Order[]
-  orderItems         OrderItem[]
-  customers          Customer[]
-  loyaltyLedger      LoyaltyLedger[]
-  loyaltyVouchers    LoyaltyVoucher[]
-  orderIssues        OrderIssue[]
-  orderIssueMessages OrderIssueMessage[]
-  staffDevices       StaffDevice[]
-  giftCardProducts   GiftCardProduct[]
-  giftCards          GiftCard[]
+  memberships           Membership[]
+  venues                Venue[]
+  menus                 Menu[]
+  menuVersions          MenuVersion[]
+  categories            Category[]
+  items                 Item[]
+  itemVariants          ItemVariant[]
+  translations          Translation[]
+  media                 Media[]
+  orders                Order[]
+  orderItems            OrderItem[]
+  customers             Customer[]
+  loyaltyLedger         LoyaltyLedger[]
+  loyaltyVouchers       LoyaltyVoucher[]
+  orderIssues           OrderIssue[]
+  orderIssueMessages    OrderIssueMessage[]
+  staffDevices          StaffDevice[]
+  giftCardProducts      GiftCardProduct[]
+  giftCards             GiftCard[]
+  staffNotifications    StaffNotification[]
+  staffNotificationSeen StaffNotificationSeen[]
 
   @@map("tenants")
 }
@@ -191,6 +193,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
   staffDevices            StaffDevice[]
+  staffNotificationSeen   StaffNotificationSeen[]
 
   @@map("users")
 }
@@ -1100,6 +1103,37 @@ model DeletedOrder {
   @@index([tenantId, createdAt])
   @@index([venueId, orderNumber])
   @@map("deleted_orders")
+}
+
+/// The restaurant app's bell: every staff notification, kept so the bell
+/// can count and list them. `need` = the team box that may see it.
+model StaffNotification {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  kind      String
+  need      String
+  title     String
+  body      String
+  data      Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("staff_notifications")
+}
+
+/// When each login last opened the bell — everything newer is unseen.
+model StaffNotificationSeen {
+  tenantId String   @map("tenant_id")
+  userId   String   @map("user_id")
+  seenAt   DateTime @map("seen_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, userId])
+  @@map("staff_notification_seen")
 }
 
 /// The order log (owner, 2026-10-14): one row per thing that came in for an

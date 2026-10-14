@@ -401,6 +401,8 @@ describe("/api/v1/staff/*", () => {
       pendingReservations: 1,
       openIssues: 0,
       pendingCatering: 0,
+      // The bell's number (2026-10-14): a number, whatever this run sent.
+      unreadNotifications: expect.any(Number),
     });
 
     const guestRes = await SUMMARY(request("/api/v1/staff/summary", guestToken));

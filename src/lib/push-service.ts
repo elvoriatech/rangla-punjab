@@ -30,6 +30,13 @@ const log = createLogger();
 export type PushPlatform = "ios" | "android" | "web";
 
 /** What a caller asks for. `to` is filled in per device by the fan-out. */
+/** The team box a notification is about — who may get and see it. */
+export function needOf(kind: string | undefined): "orders" | "reservations" | "catering" {
+  if (kind === "reservation") return "reservations";
+  if (kind === "catering") return "catering";
+  return "orders";
+}
+
 export interface StaffPushMessage {
   title: string;
   body: string;
@@ -113,6 +120,9 @@ export class ExpoPushProvider implements PushProvider {
             // to the default sound); Android takes it from the channel.
             sound: "new_order.wav",
             priority: "high",
+            // iOS: lets the bell through a Focus mode ("Do Not Disturb").
+            // Needs the time-sensitive entitlement in the app.
+            interruptionLevel: "time-sensitive",
             // Matches the Android channel the app creates (it carries the
             // bell); ignored on iOS.
             channelId: "orders_bell",
@@ -292,14 +302,31 @@ export async function sendStaffPush(
   message: StaffPushMessage,
 ): Promise<PushFanoutResult> {
   try {
+    const need = needOf(message.data?.kind);
+    // The bell's list: kept whether or not any phone is reachable — and
+    // its own write, so a failure there can never block the push.
+    await asTenant(tenantId, (tx) =>
+      tx.staffNotification.create({
+        data: {
+          tenantId,
+          kind: message.data?.kind ?? "other",
+          need,
+          title: message.title,
+          body: message.body,
+          data: message.data ?? undefined,
+        },
+      }),
+    ).catch((err: unknown) => log.warn("push.inbox_failed", { tenantId, err: String(err) }));
     const devices = await asTenant(tenantId, async (tx) => {
-      const owners = await tx.membership.findMany({
-        where: { role: "owner" },
+      // The owner, and every team login with the box this is about
+      // (owner, 2026-10-14: team logins get push by permission too).
+      const members = await tx.membership.findMany({
+        where: { OR: [{ role: "owner" }, { permissions: { has: need } }] },
         select: { userId: true },
       });
-      if (owners.length === 0) return [];
+      if (members.length === 0) return [];
       return tx.staffDevice.findMany({
-        where: { userId: { in: owners.map((o) => o.userId) }, disabledAt: null },
+        where: { userId: { in: members.map((o) => o.userId) }, disabledAt: null },
         select: { id: true, expoPushToken: true },
       });
     });

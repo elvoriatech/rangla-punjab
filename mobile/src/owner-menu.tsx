@@ -25,6 +25,7 @@ export function OwnerMenuSheet({
   onRedeemGiftCard,
   onGiftCards,
   onSales,
+  onOrderLog,
   onIssues,
   onReservations,
   onCatering,
@@ -48,6 +49,7 @@ export function OwnerMenuSheet({
   /** The venue's gift-card book: what was sold, redeemed, outstanding. */
   onGiftCards: () => void;
   onSales: () => void;
+  onOrderLog: () => void;
   onIssues: () => void;
   onReservations: () => void;
   onCatering: () => void;
@@ -134,6 +136,13 @@ export function OwnerMenuSheet({
           ) : null}
           {staffCan("reports") || staffCan("sales") ? (
             <Row icon="cash-outline" label={t.ownerSales} onPress={() => go(onSales)} />
+          ) : null}
+          {staffCan("orders") ? (
+            <Row
+              icon="document-text-outline"
+              label={t.orderLogTitle}
+              onPress={() => go(onOrderLog)}
+            />
           ) : null}
           {staffCan("menu") ? (
             <Row

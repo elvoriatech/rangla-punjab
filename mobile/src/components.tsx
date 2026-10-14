@@ -21,6 +21,7 @@ import { HalalMark } from "./halal-mark";
 import { CartoonTitle } from "./cartoon-title";
 import { VenueWordmark } from "./venue-wordmark";
 import { ALLERGEN_ICONS, DIET_ICONS, fill, localeTag, useI18n } from "./i18n";
+import { useBell } from "./bell";
 import { useBumpOnChange, useGiftWiggle, usePressScale, usePulse } from "./motion";
 import type { ApiItem, ApiRating } from "./api";
 import { useLayout } from "./layout";
@@ -167,6 +168,7 @@ export function BrandHeader({
   onPoints?: () => void;
 }): React.ReactElement {
   const { t } = useI18n();
+  const bell = useBell();
   /** The middle slot's measured width — what the name is fitted to. */
   const [center, setCenter] = React.useState(0);
   return (
@@ -241,18 +243,50 @@ export function BrandHeader({
             area rather than centred on it. The slot itself is always
             there — an empty one on the screens without a burger — so the
             centred title keeps symmetric gutters either way. */}
-        <View style={[styles.headerEnd, onPoints && styles.headerEndCentred]}>
+        <View
+          style={[
+            styles.headerEnd,
+            onPoints && styles.headerEndCentred,
+            bell && onMenu ? styles.headerEndWide : null,
+          ]}
+        >
           {onPoints ? <HeaderPointsPill points={points ?? null} onPress={onPoints} /> : null}
           {onMenu ? (
-            <Pressable
-              onPress={onMenu}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={t.ownerMenuOpen}
-              style={({ pressed }) => [styles.headerMenuBtn, pressed && { opacity: 0.6 }]}
-            >
-              <Ionicons name="menu" size={26} color={colors.onRed} />
-            </Pressable>
+            <View style={styles.headerEndRow}>
+              {/* The bell (owner, 2026-10-14): unseen notifications, a tap
+                  opens the list. Restaurant mode only — see bell.tsx. */}
+              {bell ? (
+                <Pressable
+                  onPress={bell.open}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={fill(t.notificationsBell, { n: String(bell.count) })}
+                  style={({ pressed }) => [styles.headerMenuBtn, pressed && { opacity: 0.6 }]}
+                >
+                  <Ionicons
+                    name={bell.count > 0 ? "notifications" : "notifications-outline"}
+                    size={24}
+                    color={colors.onRed}
+                  />
+                  {bell.count > 0 ? (
+                    <View style={styles.bellBadge}>
+                      <Text style={styles.bellBadgeText}>
+                        {bell.count > 99 ? "99+" : String(bell.count)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={onMenu}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t.ownerMenuOpen}
+                style={({ pressed }) => [styles.headerMenuBtn, pressed && { opacity: 0.6 }]}
+              >
+                <Ionicons name="menu" size={26} color={colors.onRed} />
+              </Pressable>
+            </View>
           ) : null}
           {onSettings ? (
             <Pressable
@@ -965,6 +999,24 @@ const styles = StyleSheet.create({
   /** The burger rides the TOP of the content area (owner's ask), flush
    *  with the slab's own 16 pt inset on the end side. */
   headerEnd: { width: HEADER_LOGO, justifyContent: "flex-start", alignItems: "flex-end" },
+  /** Room for the bell beside the burger. */
+  headerEndWide: { width: HEADER_SLOT * 2 },
+  headerEndRow: { flexDirection: "row", alignItems: "center" },
+  bellBadge: {
+    position: "absolute",
+    top: 4,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: "#F0FF4D",
+    borderWidth: 1.5,
+    borderColor: "#141414",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: { color: "#141414", fontSize: 10.5, fontWeight: "800" },
   /** The POINTS badge sits a little BELOW the mascot's top rather than
    *  level with it (owner, 2026-09-22): the mascot's art runs to the
    *  edges of its box and the badge is a solid white card, so matching

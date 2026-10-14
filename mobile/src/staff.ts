@@ -122,6 +122,8 @@ export interface StaffSummary {
   openIssues: number;
   /** Catering enquiries still waiting for an answer. */
   pendingCatering: number;
+  /** The number on the bell (owner, 2026-10-14). */
+  unreadNotifications: number;
 }
 
 /**
@@ -363,6 +365,7 @@ export async function fetchStaffSummary(token: string): Promise<StaffResult<Staf
       pendingReservations: num(res.body.pendingReservations),
       openIssues: num(res.body.openIssues),
       pendingCatering: num(res.body.pendingCatering),
+      unreadNotifications: num(res.body.unreadNotifications),
     },
   };
 }
@@ -2236,6 +2239,180 @@ export async function fetchStaffSales(
             };
           })
         : [],
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * The bell (owner, 2026-10-14) — the notifications this login may see.
+ * ------------------------------------------------------------------ */
+
+export interface StaffNotification {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  data: Record<string, string>;
+  createdAt: string;
+  unseen: boolean;
+}
+
+export async function fetchStaffNotifications(
+  token: string,
+): Promise<StaffResult<{ unread: number; items: StaffNotification[] }>> {
+  const res = await staffFetch(token, "/api/v1/staff/notifications");
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const items = Array.isArray(res.body.items) ? res.body.items : [];
+  return {
+    ok: true,
+    data: {
+      unread: num(res.body.unread),
+      items: items.map((raw) => {
+        const r = (raw ?? {}) as Record<string, unknown>;
+        const data = (r.data && typeof r.data === "object" ? r.data : {}) as Record<string, string>;
+        return {
+          id: str(r.id),
+          kind: str(r.kind),
+          title: str(r.title),
+          body: str(r.body),
+          data,
+          createdAt: str(r.createdAt),
+          unseen: r.unseen === true,
+        };
+      }),
+    },
+  };
+}
+
+export async function markStaffNotificationsSeen(token: string): Promise<void> {
+  await staffFetch(token, "/api/v1/staff/notifications/seen", { method: "POST", body: {} });
+}
+
+/* ------------------------------------------------------------------ *
+ * Order history (owner, 2026-10-14) — the dashboard's Order log in the
+ * app: every order with what came in and what happened, with raw JSON.
+ * ------------------------------------------------------------------ */
+
+export type OrderLogFilter = "all" | "payment_open" | "payment_failed" | "deleted";
+
+export interface StaffOrderLogRow {
+  orderId: string;
+  label: string;
+  firstAt: string;
+  guest: string | null;
+  orderType: string | null;
+  payment: string | null;
+  channel: string | null;
+  totalCents: number | null;
+  status: string | null;
+  paymentStatus: string | null;
+  deleted: boolean;
+  failed: boolean;
+}
+
+export interface StaffOrderLogEvent {
+  id: string;
+  kind: string;
+  actor: string;
+  summary: string | null;
+  payload: unknown;
+  createdAt: string;
+}
+
+export interface StaffOrderLogDetail {
+  row: StaffOrderLogRow;
+  events: StaffOrderLogEvent[];
+  guest: {
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    table: string | null;
+  };
+  items: { quantity: number; name: string; priceCents: number }[];
+  paymentRef: string | null;
+}
+
+function asLogRow(raw: unknown): StaffOrderLogRow {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    orderId: str(r.orderId),
+    label: str(r.label),
+    firstAt: str(r.firstAt),
+    guest: nullableStr(r.guest),
+    orderType: nullableStr(r.orderType),
+    payment: nullableStr(r.payment),
+    channel: nullableStr(r.channel),
+    totalCents: typeof r.totalCents === "number" ? r.totalCents : null,
+    status: nullableStr(r.status),
+    paymentStatus: nullableStr(r.paymentStatus),
+    deleted: r.deleted === true,
+    failed: r.failed === true,
+  };
+}
+
+export async function fetchStaffOrderLog(
+  token: string,
+  opts: { date: string | null; q: string; filter: OrderLogFilter },
+): Promise<StaffResult<{ date: string; orders: StaffOrderLogRow[] }>> {
+  const qs = new URLSearchParams();
+  if (opts.date) qs.set("date", opts.date);
+  if (opts.q.trim()) qs.set("q", opts.q.trim());
+  if (opts.filter !== "all") qs.set("f", opts.filter);
+  const q = qs.toString();
+  const res = await staffFetch(token, `/api/v1/staff/order-log${q ? `?${q}` : ""}`);
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  return {
+    ok: true,
+    data: {
+      date: str(res.body.date),
+      orders: Array.isArray(res.body.orders) ? res.body.orders.map(asLogRow) : [],
+    },
+  };
+}
+
+export async function fetchStaffOrderLogDetail(
+  token: string,
+  orderId: string,
+): Promise<StaffResult<StaffOrderLogDetail>> {
+  const res = await staffFetch(token, `/api/v1/staff/order-log/${encodeURIComponent(orderId)}`);
+  if (!res) return { ok: false, error: "network" };
+  if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };
+  const b = res.body;
+  const g = (b.guest ?? {}) as Record<string, unknown>;
+  return {
+    ok: true,
+    data: {
+      row: asLogRow(b.row),
+      events: Array.isArray(b.events)
+        ? b.events.map((raw) => {
+            const e = (raw ?? {}) as Record<string, unknown>;
+            return {
+              id: str(e.id),
+              kind: str(e.kind),
+              actor: str(e.actor),
+              summary: nullableStr(e.summary),
+              payload: e.payload ?? null,
+              createdAt: str(e.createdAt),
+            };
+          })
+        : [],
+      guest: {
+        name: nullableStr(g.name),
+        phone: nullableStr(g.phone),
+        email: nullableStr(g.email),
+        address: nullableStr(g.address),
+        table: nullableStr(g.table),
+      },
+      items: Array.isArray(b.items)
+        ? b.items.map((raw) => {
+            const i = (raw ?? {}) as Record<string, unknown>;
+            return { quantity: num(i.quantity), name: str(i.name), priceCents: num(i.priceCents) };
+          })
+        : [],
+      paymentRef: nullableStr(b.paymentRef),
     },
   };
 }

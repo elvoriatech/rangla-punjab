@@ -237,6 +237,14 @@ module.exports = ({ config }) => {
   // this stays absent, and the entitlement is never written.
   const ios = { ...config.ios, ...generated.ios };
   ios.infoPlist = { ...ios.infoPlist, CFBundleDisplayName: homeScreenName };
+  // Order notifications are "time-sensitive" (the server sends
+  // interruptionLevel), so the restaurant's bell gets through a Focus mode
+  // such as Do Not Disturb (owner, 2026-10-14: "the notification came but
+  // without sound").
+  ios.entitlements = {
+    ...ios.entitlements,
+    "com.apple.developer.usernotifications.time-sensitive": true,
+  };
   if (host && appleUniversalLinks) {
     ios.associatedDomains = [...(ios.associatedDomains ?? []), `applinks:${host}`];
   }

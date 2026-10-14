@@ -1,5 +1,5 @@
 import { useKeepAwake } from "expo-keep-awake";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -35,7 +35,10 @@ import { AuthProvider, useAuth } from "./src/auth";
 import { I18nProvider, toLang, useI18n, type Lang } from "./src/i18n";
 import { listStoredOrders, type StoredOrder } from "./src/orders-store";
 import type { PushTarget } from "./src/push";
-import { registerForStaffPush, usePushRouting } from "./src/push";
+import { asPushTarget, registerForStaffPush, usePushRouting } from "./src/push";
+import { BellContext } from "./src/bell";
+import { NotificationsScreen } from "./src/screens/NotificationsScreen";
+import { OrderLogScreen } from "./src/screens/OrderLogScreen";
 import { fetchStaffSummary } from "./src/staff";
 import { useBumpOnChange } from "./src/motion";
 import { openInAppBrowser, walletsFromAccepted } from "./src/payments";
@@ -116,6 +119,10 @@ type Tab =
   | "giftcardsowner"
   /** Restaurant: one day's cash and online sales. */
   | "sales"
+  /** Restaurant: the bell's list (owner, 2026-10-14). */
+  | "notifications"
+  /** Restaurant: every order's full history (owner, 2026-10-14). */
+  | "orderlog"
   /** Restaurant: "out for delivery", opened by a delivery ticket's QR. */
   | "dispatch"
   | "info";
@@ -131,6 +138,8 @@ const OWNER_ONLY: readonly Tab[] = [
   "redeemgift",
   "giftcardsowner",
   "sales",
+  "notifications",
+  "orderlog",
   "dispatch",
 ];
 
@@ -215,6 +224,8 @@ function Shell(): React.ReactElement {
   /** Complaints the restaurant still owes an answer or a verdict on —
    *  the owner menu's badge. Same 30 s loop as the board's count. */
   const [openIssues, setOpenIssues] = useState(0);
+  /** The bell's number: notifications this login has not opened yet. */
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   /** Table requests still waiting for Confirm / Decline — the owner
    *  menu's Reservations badge, on the same 30 s loop. */
   const [pendingReservations, setPendingReservations] = useState(0);
@@ -415,6 +426,7 @@ function Shell(): React.ReactElement {
     if (!staffToken) {
       setOpenOrders(0);
       setOpenIssues(0);
+      setUnreadNotifications(0);
       setPendingReservations(0);
       setPendingCatering(0);
       return;
@@ -426,6 +438,7 @@ function Shell(): React.ReactElement {
       if (res.ok) {
         setOpenOrders(res.data.openOrders);
         setOpenIssues(res.data.openIssues);
+        setUnreadNotifications(res.data.unreadNotifications);
         setPendingReservations(res.data.pendingReservations);
         setPendingCatering(res.data.pendingCatering);
       } else if (res.error === "unauthorized") clearStaff();
@@ -487,6 +500,20 @@ function Shell(): React.ReactElement {
     setSummaryTick((n) => n + 1);
   }, []);
   usePushRouting({ enabled: restaurant, onTarget: onPushTarget, onReceived: onPushReceived });
+
+  /** The bell in every restaurant header (see bell.tsx). */
+  const bell = useMemo(
+    () => (restaurant ? { count: unreadNotifications, open: () => setTab("notifications") } : null),
+    [restaurant, unreadNotifications],
+  );
+  /** A notification in the bell's list goes where its push would. */
+  const openNotification = useCallback(
+    (data: Record<string, string>) => {
+      const target = asPushTarget(data);
+      if (target) onPushTarget(target);
+    },
+    [onPushTarget],
+  );
 
   /**
    * The delivery ticket's QR — `https://<site>/dispatch/{orderId}?t=…`.
@@ -649,341 +676,359 @@ function Shell(): React.ReactElement {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      {restaurant ? <RestaurantKeepAwake /> : null}
-      {/* Remounted on every language change. Screens keep menu-derived
+    <BellContext.Provider value={bell}>
+      <View style={{ flex: 1, backgroundColor: colors.cream }}>
+        {restaurant ? <RestaurantKeepAwake /> : null}
+        {/* Remounted on every language change. Screens keep menu-derived
           snapshots of their own — the open dish sheet, a chip row, a
           scroll offset measured against the old names — and a switch is
           the one moment all of it is guaranteed wrong. */}
-      <View style={{ flex: 1 }} key={lang}>
-        {/* A switch is in flight: the dish text on screen is the language
+        <View style={{ flex: 1 }} key={lang}>
+          {/* A switch is in flight: the dish text on screen is the language
             the guest just left, so it is not shown at all. The chrome —
             header space, the tab bar below — stays put, and the panel
             speaks the NEW language. Account is the exception: it owns the
             picker, and covering it would swallow the only feedback the
             tap has (P: "Smooth: no flash of the old language"). */}
-        {!menuCurrent && tab !== "info" ? (
-          <MenuLoading error={loadError} onRetry={refresh} />
-        ) : null}
-        {menuCurrent && tab === "home" ? (
-          <HomeScreen
-            menu={menu}
-            onAdd={onAdd}
-            onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
-            onMenuChanged={refresh}
-            onOpenCategory={(id) => {
-              setCategoryId(id);
-              setTab("menu");
-            }}
-            // Same threading as a category: the Menu tab is remounted on
-            // every switch, so its initial chip is simply this id (P7-12).
-            onOpenOffers={() => {
-              setCategoryId(OFFERS_CATEGORY_ID);
-              setTab("menu");
-            }}
-            onBrowseAll={() => {
-              setCategoryId(null);
-              setTab("menu");
-            }}
-            onStartOrder={(type) => {
-              setPresetType(type);
-              setTab("menu");
-            }}
-            onOpenAccount={() => setTab("info")}
-            onOpenPoints={() => setTab("points")}
-            onOpenGiftCards={() => setTab("giftcards")}
-            onOpenCatering={() => setTab("catering")}
-            onComplain={onComplain}
-          />
-        ) : null}
-        {menuCurrent && tab === "menu" ? (
-          <MenuScreen
-            menu={menu}
-            initialCategoryId={categoryId}
-            onAdd={onAdd}
-            onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
-            onMenuChanged={refresh}
-          />
-        ) : null}
-        {menuCurrent && tab === "cart" && !restaurant ? (
-          <CartScreen menu={menu} presetType={presetType} onPlaced={onPlaced} />
-        ) : null}
-        {menuCurrent && tab === "orders" && !restaurant ? (
-          <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
-        ) : null}
-        {/* The board stays MOUNTED for the whole restaurant session and is only
+          {!menuCurrent && tab !== "info" ? (
+            <MenuLoading error={loadError} onRetry={refresh} />
+          ) : null}
+          {menuCurrent && tab === "home" ? (
+            <HomeScreen
+              menu={menu}
+              onAdd={onAdd}
+              onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
+              onMenuChanged={refresh}
+              onOpenCategory={(id) => {
+                setCategoryId(id);
+                setTab("menu");
+              }}
+              // Same threading as a category: the Menu tab is remounted on
+              // every switch, so its initial chip is simply this id (P7-12).
+              onOpenOffers={() => {
+                setCategoryId(OFFERS_CATEGORY_ID);
+                setTab("menu");
+              }}
+              onBrowseAll={() => {
+                setCategoryId(null);
+                setTab("menu");
+              }}
+              onStartOrder={(type) => {
+                setPresetType(type);
+                setTab("menu");
+              }}
+              onOpenAccount={() => setTab("info")}
+              onOpenPoints={() => setTab("points")}
+              onOpenGiftCards={() => setTab("giftcards")}
+              onOpenCatering={() => setTab("catering")}
+              onComplain={onComplain}
+            />
+          ) : null}
+          {menuCurrent && tab === "menu" ? (
+            <MenuScreen
+              menu={menu}
+              initialCategoryId={categoryId}
+              onAdd={onAdd}
+              onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
+              onMenuChanged={refresh}
+            />
+          ) : null}
+          {menuCurrent && tab === "cart" && !restaurant ? (
+            <CartScreen menu={menu} presetType={presetType} onPlaced={onPlaced} />
+          ) : null}
+          {menuCurrent && tab === "orders" && !restaurant ? (
+            <OrdersScreen refreshKey={ordersRefresh} onOpen={onOpenStored} />
+          ) : null}
+          {/* The board stays MOUNTED for the whole restaurant session and is only
             hidden behind other tabs: its poll is what rings the bell and
             auto-prints new orders, and staff on the Menu or Reservations
             tab must not silently miss them (owner, 2026-10-09). */}
-        {menuCurrent && restaurant && canBoard ? (
-          <View style={tab === "board" ? { flex: 1 } : { display: "none" }}>
-            <BoardScreen
-              refreshKey={boardRefresh}
+          {menuCurrent && restaurant && canBoard ? (
+            <View style={tab === "board" ? { flex: 1 } : { display: "none" }}>
+              <BoardScreen
+                refreshKey={boardRefresh}
+                onOpenOwnerMenu={() => setOwnerMenu(true)}
+                onOpenReservations={() => setTab("reservations")}
+                onOpenCatering={() => setTab("cateringowner")}
+              />
+            </View>
+          ) : null}
+          {menuCurrent && tab === "loyalty" && restaurant ? (
+            <LoyaltyStaffScreen
+              currency={menu.venue.currency}
+              onBack={() => setTab(restaurantHome)}
               onOpenOwnerMenu={() => setOwnerMenu(true)}
-              onOpenReservations={() => setTab("reservations")}
-              onOpenCatering={() => setTab("cateringowner")}
             />
-          </View>
-        ) : null}
-        {menuCurrent && tab === "loyalty" && restaurant ? (
-          <LoyaltyStaffScreen
-            currency={menu.venue.currency}
-            onBack={() => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "issues" && restaurant ? (
-          <IssuesScreen
-            // A push tap opens the thread it was about; reached from the
-            // owner's burger it is just the list (P7-11).
-            initialIssueId={openIssueId}
-            onBack={() => {
-              setOpenIssueId(null);
-              setTab(restaurantHome);
-            }}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "reservations" && restaurant ? (
-          <ReservationsOwnerScreen
-            refreshKey={reservationsRefresh}
-            onChanged={() => setSummaryTick((n) => n + 1)}
-            onBack={restaurantHome === "reservations" ? undefined : () => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "cateringowner" && restaurant ? (
-          <CateringOwnerScreen
-            refreshKey={cateringRefresh}
-            onChanged={() => setSummaryTick((n) => n + 1)}
-            onBack={restaurantHome === "cateringowner" ? undefined : () => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "team" && restaurant ? (
-          <TeamScreen
-            onBack={() => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "rating" && restaurant ? (
-          <RatingOwnerScreen
-            venueName={displayVenueName(menu.venue.name)}
-            // The rating rides on the menu payload — a saved (or
-            // refreshed) rating has to reach the header's stars.
-            onMenuChanged={refresh}
-            onBack={() => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "hours" && restaurant ? (
-          <HoursOwnerScreen
-            // Saved hours change `openNow`, `acceptsAsapNow` and today's
-            // slots on the public payload every other screen reads.
-            onSaved={refresh}
-            onBack={() => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "contact" && restaurant ? (
-          <ContactOwnerScreen
-            // The phone book is published with the menu.
-            onMenuChanged={refresh}
-            onBack={() => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "points" && !restaurant ? (
-          <PointsScreen
-            menu={menu}
-            onBack={() => setTab("home")}
-            onOpenAccount={() => setTab("info")}
-          />
-        ) : null}
-        {menuCurrent && tab === "giftcards" && !restaurant ? (
-          <GiftCardsScreen
-            menu={menu}
-            onBack={() => setTab("home")}
-            // Buying needs an account; the form for one lives on the
-            // Account tab, and this is the soft gate that points there.
-            onOpenAccount={() => setTab("info")}
-          />
-        ) : null}
-        {menuCurrent && tab === "catering" && !restaurant ? (
-          <CateringScreen menu={menu} onBack={() => setTab("home")} />
-        ) : null}
-        {menuCurrent && tab === "mygiftcards" && !restaurant ? (
-          <MyGiftCardsScreen
-            venueName={displayVenueName(menu.venue.name)}
-            onBack={() => setTab("info")}
-          />
-        ) : null}
-        {menuCurrent && tab === "redeemgift" && restaurant ? (
-          <RedeemGiftCardScreen
-            onBack={() => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "giftcardsowner" && restaurant ? (
-          <GiftCardsOwnerScreen
-            currency={menu.venue.currency}
-            onBack={() => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "sales" && restaurant ? (
-          <SalesScreen
-            onBack={restaurantHome === "sales" ? undefined : () => setTab(restaurantHome)}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {menuCurrent && tab === "dispatch" && restaurant && dispatchOrderId ? (
-          <DispatchScreen
-            orderId={dispatchOrderId}
-            onBack={() => {
-              setDispatchOrderId(null);
-              setTab(restaurantHome);
-            }}
-            onOpenOwnerMenu={() => setOwnerMenu(true)}
-          />
-        ) : null}
-        {tab === "info" ? (
-          <AccountScreen
-            menu={menu}
-            menuLoading={!menuCurrent && !loadError}
-            menuError={!menuCurrent && loadError}
-            onOpenOrder={(orderId, token) => setTrack({ orderId, token })}
-            onOpenGiftCards={() => setTab("mygiftcards")}
-            onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
-          />
-        ) : null}
-      </View>
+          ) : null}
+          {menuCurrent && tab === "issues" && restaurant ? (
+            <IssuesScreen
+              // A push tap opens the thread it was about; reached from the
+              // owner's burger it is just the list (P7-11).
+              initialIssueId={openIssueId}
+              onBack={() => {
+                setOpenIssueId(null);
+                setTab(restaurantHome);
+              }}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "reservations" && restaurant ? (
+            <ReservationsOwnerScreen
+              refreshKey={reservationsRefresh}
+              onChanged={() => setSummaryTick((n) => n + 1)}
+              onBack={restaurantHome === "reservations" ? undefined : () => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "cateringowner" && restaurant ? (
+            <CateringOwnerScreen
+              refreshKey={cateringRefresh}
+              onChanged={() => setSummaryTick((n) => n + 1)}
+              onBack={restaurantHome === "cateringowner" ? undefined : () => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "team" && restaurant ? (
+            <TeamScreen
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "rating" && restaurant ? (
+            <RatingOwnerScreen
+              venueName={displayVenueName(menu.venue.name)}
+              // The rating rides on the menu payload — a saved (or
+              // refreshed) rating has to reach the header's stars.
+              onMenuChanged={refresh}
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "hours" && restaurant ? (
+            <HoursOwnerScreen
+              // Saved hours change `openNow`, `acceptsAsapNow` and today's
+              // slots on the public payload every other screen reads.
+              onSaved={refresh}
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "contact" && restaurant ? (
+            <ContactOwnerScreen
+              // The phone book is published with the menu.
+              onMenuChanged={refresh}
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "points" && !restaurant ? (
+            <PointsScreen
+              menu={menu}
+              onBack={() => setTab("home")}
+              onOpenAccount={() => setTab("info")}
+            />
+          ) : null}
+          {menuCurrent && tab === "giftcards" && !restaurant ? (
+            <GiftCardsScreen
+              menu={menu}
+              onBack={() => setTab("home")}
+              // Buying needs an account; the form for one lives on the
+              // Account tab, and this is the soft gate that points there.
+              onOpenAccount={() => setTab("info")}
+            />
+          ) : null}
+          {menuCurrent && tab === "catering" && !restaurant ? (
+            <CateringScreen menu={menu} onBack={() => setTab("home")} />
+          ) : null}
+          {menuCurrent && tab === "mygiftcards" && !restaurant ? (
+            <MyGiftCardsScreen
+              venueName={displayVenueName(menu.venue.name)}
+              onBack={() => setTab("info")}
+            />
+          ) : null}
+          {menuCurrent && tab === "redeemgift" && restaurant ? (
+            <RedeemGiftCardScreen
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "giftcardsowner" && restaurant ? (
+            <GiftCardsOwnerScreen
+              currency={menu.venue.currency}
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "notifications" && restaurant ? (
+            <NotificationsScreen
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+              onOpen={openNotification}
+              onSeen={() => setSummaryTick((n) => n + 1)}
+            />
+          ) : null}
+          {menuCurrent && tab === "orderlog" && restaurant ? (
+            <OrderLogScreen
+              currency={menu.venue.currency}
+              onBack={() => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "sales" && restaurant ? (
+            <SalesScreen
+              onBack={restaurantHome === "sales" ? undefined : () => setTab(restaurantHome)}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {menuCurrent && tab === "dispatch" && restaurant && dispatchOrderId ? (
+            <DispatchScreen
+              orderId={dispatchOrderId}
+              onBack={() => {
+                setDispatchOrderId(null);
+                setTab(restaurantHome);
+              }}
+              onOpenOwnerMenu={() => setOwnerMenu(true)}
+            />
+          ) : null}
+          {tab === "info" ? (
+            <AccountScreen
+              menu={menu}
+              menuLoading={!menuCurrent && !loadError}
+              menuError={!menuCurrent && loadError}
+              onOpenOrder={(orderId, token) => setTrack({ orderId, token })}
+              onOpenGiftCards={() => setTab("mygiftcards")}
+              onOpenOwnerMenu={restaurant ? () => setOwnerMenu(true) : undefined}
+            />
+          ) : null}
+        </View>
 
-      {/* The wrapper owns the side inset so the bar's own `width: 100%`
+        {/* The wrapper owns the side inset so the bar's own `width: 100%`
           resolves inside it — a maxWidth plus a horizontal margin would
           overflow by exactly the margin on a narrow phone. */}
-      <View style={[styles.tabBarWrap, { marginBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={[styles.tabBar, wideLayout && styles.tabBarWide]}>
-          {canStartTab ? (
-            <TabButton
-              label={t.tabStart}
-              icon="home"
-              active={tab === "home"}
-              onPress={() => setTab("home")}
-            />
-          ) : null}
-          {canMenuTab ? (
-            <TabButton
-              label={t.tabMenu}
-              icon="grid"
-              // What is on offer right now — the one number on this bar that
-              // is about the menu rather than about this device (P7-12).
-              badge={offerCount > 0 ? offerCount : undefined}
-              active={tab === "menu"}
-              onPress={() => setTab("menu")}
-            />
-          ) : null}
-          {/* The middle of the bar is whichever job this device has: the
+        <View style={[styles.tabBarWrap, { marginBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.tabBar, wideLayout && styles.tabBarWide]}>
+            {canStartTab ? (
+              <TabButton
+                label={t.tabStart}
+                icon="home"
+                active={tab === "home"}
+                onPress={() => setTab("home")}
+              />
+            ) : null}
+            {canMenuTab ? (
+              <TabButton
+                label={t.tabMenu}
+                icon="grid"
+                // What is on offer right now — the one number on this bar that
+                // is about the menu rather than about this device (P7-12).
+                badge={offerCount > 0 ? offerCount : undefined}
+                active={tab === "menu"}
+                onPress={() => setTab("menu")}
+              />
+            ) : null}
+            {/* The middle of the bar is whichever job this device has: the
             guest's basket + receipts, or the restaurant's board. */}
-          {restaurant ? (
-            <>
-              {canBoard ? (
-                <TabButton
-                  label={t.tabBoard}
-                  icon="restaurant"
-                  badge={openOrders > 0 ? openOrders : undefined}
-                  active={tab === "board"}
-                  onPress={() => setTab("board")}
-                />
-              ) : null}
-              {/* Without the board, reservations and catering get their
+            {restaurant ? (
+              <>
+                {canBoard ? (
+                  <TabButton
+                    label={t.tabBoard}
+                    icon="restaurant"
+                    badge={openOrders > 0 ? openOrders : undefined}
+                    active={tab === "board"}
+                    onPress={() => setTab("board")}
+                  />
+                ) : null}
+                {/* Without the board, reservations and catering get their
                   own tabs — the board's bubble is where everyone else
                   reaches them. */}
-              {!canBoard && canTables ? (
+                {!canBoard && canTables ? (
+                  <TabButton
+                    label={t.ownerReservations}
+                    icon="calendar"
+                    badge={pendingReservations > 0 ? pendingReservations : undefined}
+                    active={tab === "reservations"}
+                    onPress={() => setTab("reservations")}
+                  />
+                ) : null}
+                {!canBoard && canCateringArea ? (
+                  <TabButton
+                    label={t.ownerCatering}
+                    icon="wine"
+                    badge={pendingCatering > 0 ? pendingCatering : undefined}
+                    active={tab === "cateringowner"}
+                    onPress={() => setTab("cateringowner")}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <>
                 <TabButton
-                  label={t.ownerReservations}
-                  icon="calendar"
-                  badge={pendingReservations > 0 ? pendingReservations : undefined}
-                  active={tab === "reservations"}
-                  onPress={() => setTab("reservations")}
+                  label={t.tabCart}
+                  icon="cart"
+                  badge={cart.count > 0 ? cart.count : undefined}
+                  active={tab === "cart"}
+                  onPress={() => setTab("cart")}
                 />
-              ) : null}
-              {!canBoard && canCateringArea ? (
                 <TabButton
-                  label={t.ownerCatering}
-                  icon="wine"
-                  badge={pendingCatering > 0 ? pendingCatering : undefined}
-                  active={tab === "cateringowner"}
-                  onPress={() => setTab("cateringowner")}
+                  label={t.tabOrders}
+                  icon="receipt"
+                  active={tab === "orders"}
+                  onPress={() => setTab("orders")}
                 />
-              ) : null}
-            </>
-          ) : (
-            <>
-              <TabButton
-                label={t.tabCart}
-                icon="cart"
-                badge={cart.count > 0 ? cart.count : undefined}
-                active={tab === "cart"}
-                onPress={() => setTab("cart")}
-              />
-              <TabButton
-                label={t.tabOrders}
-                icon="receipt"
-                active={tab === "orders"}
-                onPress={() => setTab("orders")}
-              />
-            </>
-          )}
-          <TabButton
-            label={t.tabAccount}
-            icon="person"
-            active={tab === "info"}
-            onPress={() => setTab("info")}
-          />
+              </>
+            )}
+            <TabButton
+              label={t.tabAccount}
+              icon="person"
+              active={tab === "info"}
+              onPress={() => setTab("info")}
+            />
+          </View>
         </View>
-      </View>
 
-      {/* Everything the restaurant can do that isn't a tab. Mounted only
+        {/* Everything the restaurant can do that isn't a tab. Mounted only
           in restaurant mode, so a guest device has no path to it. */}
-      {restaurant ? (
-        <OwnerMenuSheet
-          visible={ownerMenu}
-          onClose={() => setOwnerMenu(false)}
-          onBoard={() => setTab("board")}
-          onManageMenu={() => {
-            setCategoryId(null);
-            setTab("menu");
-          }}
-          onLoyalty={() => setTab("loyalty")}
-          onRedeemGiftCard={() => setTab("redeemgift")}
-          onGiftCards={() => setTab("giftcardsowner")}
-          onSales={() => setTab("sales")}
-          onIssues={() => {
-            // Reached deliberately: the list, not whatever thread a push
-            // happened to open earlier.
-            setOpenIssueId(null);
-            setTab("issues");
-          }}
-          onReservations={() => setTab("reservations")}
-          onCatering={() => setTab("cateringowner")}
-          onTeam={() => setTab("team")}
-          onRating={() => setTab("rating")}
-          onHours={() => setTab("hours")}
-          onContact={() => setTab("contact")}
-          // A sheet rather than a tab: changing a password is a single
-          // errand with nothing to come back to, and the owner's menu is
-          // where it was opened from.
-          onPassword={() => setPasswordSheet(true)}
-          openIssues={openIssues}
-          pendingReservations={pendingReservations}
-          pendingCatering={pendingCatering}
-        />
-      ) : null}
-      {restaurant ? (
-        <PasswordSheet visible={passwordSheet} onClose={() => setPasswordSheet(false)} />
-      ) : null}
-    </View>
+        {restaurant ? (
+          <OwnerMenuSheet
+            visible={ownerMenu}
+            onClose={() => setOwnerMenu(false)}
+            onBoard={() => setTab("board")}
+            onManageMenu={() => {
+              setCategoryId(null);
+              setTab("menu");
+            }}
+            onLoyalty={() => setTab("loyalty")}
+            onRedeemGiftCard={() => setTab("redeemgift")}
+            onGiftCards={() => setTab("giftcardsowner")}
+            onSales={() => setTab("sales")}
+            onOrderLog={() => setTab("orderlog")}
+            onIssues={() => {
+              // Reached deliberately: the list, not whatever thread a push
+              // happened to open earlier.
+              setOpenIssueId(null);
+              setTab("issues");
+            }}
+            onReservations={() => setTab("reservations")}
+            onCatering={() => setTab("cateringowner")}
+            onTeam={() => setTab("team")}
+            onRating={() => setTab("rating")}
+            onHours={() => setTab("hours")}
+            onContact={() => setTab("contact")}
+            // A sheet rather than a tab: changing a password is a single
+            // errand with nothing to come back to, and the owner's menu is
+            // where it was opened from.
+            onPassword={() => setPasswordSheet(true)}
+            openIssues={openIssues}
+            pendingReservations={pendingReservations}
+            pendingCatering={pendingCatering}
+          />
+        ) : null}
+        {restaurant ? (
+          <PasswordSheet visible={passwordSheet} onClose={() => setPasswordSheet(false)} />
+        ) : null}
+      </View>
+    </BellContext.Provider>
   );
 }
 
