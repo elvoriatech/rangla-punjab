@@ -266,7 +266,8 @@ export function BrandHeader({
                   <Ionicons
                     name={bell.count > 0 ? "notifications" : "notifications-outline"}
                     size={24}
-                    color={colors.onRed}
+                    // The app's gold, like the active tab icons.
+                    color={colors.goldSoft}
                   />
                   {bell.count > 0 ? (
                     <View style={styles.bellBadge}>
