@@ -1,4 +1,5 @@
 import { VenueWordmark } from "./venue-wordmark";
+import { seoProfile } from "@/lib/seo-profile";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { ComplaintLink } from "./complaint-link";
@@ -342,7 +343,12 @@ export function MenuView({
     activeCategoryId === OFFERS_CATEGORY_ID && !offersSection ? null : (activeCategoryId ?? null);
   const offersLabel = offersSection ? t.offers.tab : null;
   const jsonLd = jsonLdString(
-    buildRestaurantJsonLd(menu, { pageUrl: `${siteUrl()}/${locale}`, siteUrl: siteUrl() }),
+    buildRestaurantJsonLd(menu, {
+      pageUrl: `${siteUrl()}/${locale}`,
+      siteUrl: siteUrl(),
+      profile: seoProfile(),
+      acceptsReservations: Boolean(reserve),
+    }),
   );
   // Theme + texture come from the venue's saved appearance; the whole
   // renderer reads colors from these CSS vars, so this style attribute IS

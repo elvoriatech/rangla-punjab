@@ -1,6 +1,7 @@
 import { uploadedImageUrl } from "./menu-images";
 import { WEEKDAYS, type Weekday } from "./opening-hours";
 import type { PublicMenu } from "./public-menu";
+import type { SeoProfile } from "./seo-profile";
 
 /**
  * Build a schema.org JSON-LD envelope for a public menu. The document is a
@@ -30,6 +31,10 @@ export interface StructuredDataOptions {
   /** Absolute site origin, no trailing slash — turns storage keys into
    *  image URLs. Without it no `image` / `logo` is emitted. */
   siteUrl?: string;
+  /** Cuisine, price range and profile links (`seo-profile.ts`). */
+  profile?: SeoProfile;
+  /** Table reservations are offered on the site. */
+  acceptsReservations?: boolean;
 }
 
 const SCHEMA_DAY: Record<Weekday, string> = {
@@ -70,6 +75,20 @@ export function buildRestaurantJsonLd(
   if (venue.googlePlaceId) {
     local.hasMap = `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(venue.googlePlaceId)}`;
   }
+  // What kind of place this is, how dear, and where else it lives — the
+  // signals a "<name> Konstanz" search uses to tell the restaurant's own
+  // site from ordering portals listing it (owner, 2026-10-14).
+  const profile = options.profile;
+  if (profile?.cuisine.length) local.servesCuisine = profile.cuisine;
+  if (profile?.priceRange) local.priceRange = profile.priceRange;
+  const sameAs = [...(profile?.sameAs ?? [])];
+  if (venue.googlePlaceId) {
+    sameAs.push(
+      `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(venue.googlePlaceId)}`,
+    );
+  }
+  if (sameAs.length > 0) local.sameAs = sameAs;
+  if (options.acceptsReservations) local.acceptsReservations = true;
   return {
     "@context": "https://schema.org",
     "@type": "Restaurant",
@@ -78,6 +97,7 @@ export function buildRestaurantJsonLd(
     ...local,
     hasMenu: {
       "@type": "Menu",
+      url: options.pageUrl,
       name: `${menu.venue.name} — Menu`,
       inLanguage: menu.locale,
       hasMenuSection: menu.categories.map((cat) => ({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicMenu } from "./public-menu";
+import { seoProfile } from "./seo-profile";
 import { buildRestaurantJsonLd, jsonLdString, postalAddressNode } from "./structured-data";
 
 const fixture: PublicMenu = {
@@ -135,6 +136,31 @@ describe("Restaurant + Menu JSON-LD", () => {
     expect(s).toContain("\\u003c/script>");
     // The wrapped string is still valid JSON (escaped-unicode is JSON-legal).
     expect(() => JSON.parse(s)).not.toThrow();
+  });
+
+  it("adds cuisine, price range, profile links and reservations for search engines", () => {
+    const node = buildRestaurantJsonLd(
+      { ...fixture, venue: { ...fixture.venue, googlePlaceId: "PLACE1" } },
+      {
+        pageUrl: "https://example.com/de",
+        profile: seoProfile({}),
+        acceptsReservations: true,
+      },
+    );
+    expect(node.servesCuisine).toEqual(["Indisch", "Pakistanisch"]);
+    expect(node.priceRange).toBe("€€");
+    expect(node.sameAs).toEqual([
+      "https://www.instagram.com/ranglapunjab20232023/",
+      "https://www.google.com/maps/place/?q=place_id:PLACE1",
+    ]);
+    expect(node.acceptsReservations).toBe(true);
+    expect((node.hasMenu as { url?: string }).url).toBe("https://example.com/de");
+  });
+
+  it("lets a deploy override the profile, and drops non-https links", () => {
+    expect(
+      seoProfile({ SEO_CUISINE: "Thai", SEO_PRICE_RANGE: "€", SEO_SAME_AS: "http://x, https://y" }),
+    ).toEqual({ cuisine: ["Thai"], priceRange: "€", sameAs: ["https://y"] });
   });
 
   it("carries the local-business fields a name search matches on", () => {
