@@ -15,10 +15,14 @@ import { PrismaPg } from "@prisma/adapter-pg";
  *   - every order of the restaurant created before BEFORE, with its lines
  *     and any complaint thread (cascade);
  *   - every `deleted_orders` line of the restaurant (the log of test
- *     deletions).
+ *     deletions);
+ *   - the order log (`order_events`) from before BEFORE — it has no foreign
+ *     key, so it would otherwise outlive the deleted test orders;
+ *   - the app bell's order and complaint notifications from before BEFORE.
  *
  * Kept: menu, settings, team, customer accounts, loyalty points (their
- * order reference is cleared), reservations, catering, gift cards. Online
+ * order reference is cleared), reservations, catering, gift cards, and the
+ * bell's reservation / catering notifications. Online
  * payments stay in Stripe / PayPal: this only touches our books.
  *
  *   RESTAURANT_SLUG   default "rangla-punjab"
@@ -29,7 +33,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
  *   ./deploy/deploy.sh launchreset                              (dry run)
  *   APPLY=1 BEFORE=… ./deploy/deploy.sh launchreset
  *
- * Before writing it saves every order, line and deletion-log row to
+ * Before writing it saves every order, line, deletion-log row, order-log
+ * row and notification it deletes to
  * `launch-reset-backup-<time>.json` in the current directory.
  */
 
@@ -62,13 +67,20 @@ async function main(): Promise<void> {
         return fn(tx);
       });
 
-    const { orders, log, later } = await tenantTx(async (tx) => ({
+    const bellKinds = ["order", "issue"];
+    const { orders, log, events, bell, later } = await tenantTx(async (tx) => ({
       orders: await tx.order.findMany({
         where: { venueId: venue.id, createdAt: { lt: before } },
         orderBy: { createdAt: "asc" },
         include: { items: true },
       }),
       log: await tx.deletedOrder.findMany({ where: { venueId: venue.id } }),
+      events: await tx.orderEvent.findMany({
+        where: { venueId: venue.id, createdAt: { lt: before } },
+      }),
+      bell: await tx.staffNotification.findMany({
+        where: { kind: { in: bellKinds }, createdAt: { lt: before } },
+      }),
       later: await tx.order.count({ where: { venueId: venue.id, createdAt: { gte: before } } }),
     }));
 
@@ -88,6 +100,8 @@ async function main(): Promise<void> {
       console.log(`    payment ${key}: ${row.n} order(s), ${euro(row.cents)}`);
     }
     console.log(`  ${log.length} deletion-log row(s)`);
+    console.log(`  ${events.length} order-log row(s)`);
+    console.log(`  ${bell.length} order/complaint notification(s) in the app bell`);
     if (later > 0) {
       console.log(
         `  ! ${later} order(s) placed after the cut-off stay — numbering then continues from them`,
@@ -105,7 +119,17 @@ async function main(): Promise<void> {
     const backup = `launch-reset-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
     writeFileSync(
       backup,
-      JSON.stringify({ before: before.toISOString(), orders, deletedOrders: log }, null, 2),
+      JSON.stringify(
+        {
+          before: before.toISOString(),
+          orders,
+          deletedOrders: log,
+          orderEvents: events,
+          staffNotifications: bell,
+        },
+        null,
+        2,
+      ),
     );
 
     const ids = orders.map((o) => o.id);
@@ -120,9 +144,22 @@ async function main(): Promise<void> {
       if (cleared.count !== log.length) {
         throw new Error(`cleared ${cleared.count} of ${log.length} log rows — rolled back`);
       }
+      const evGone = await tx.orderEvent.deleteMany({
+        where: { id: { in: events.map((e) => e.id) } },
+      });
+      if (evGone.count !== events.length) {
+        throw new Error(`deleted ${evGone.count} of ${events.length} order-log rows — rolled back`);
+      }
+      const bellGone = await tx.staffNotification.deleteMany({
+        where: { id: { in: bell.map((n) => n.id) } },
+      });
+      if (bellGone.count !== bell.length) {
+        throw new Error(`deleted ${bellGone.count} of ${bell.length} notifications — rolled back`);
+      }
     });
     console.log(
-      `✓ Deleted ${orders.length} order(s) and ${log.length} log row(s). Backup: ${backup}\n` +
+      `✓ Deleted ${orders.length} order(s), ${log.length} deletion-log row(s), ` +
+        `${events.length} order-log row(s), ${bell.length} notification(s). Backup: ${backup}\n` +
         "  The next cash order is B-1, the next online order O-1.",
     );
   } finally {
