@@ -176,6 +176,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           deliveryFeeCents: access.modes.deliveryFeeCents,
           deliveryMinCents: access.modes.deliveryMinCents,
           acceptedPayments: access.modes.acceptedPayments,
+          // Cash for pickup / delivery (owner switch). False = the app must
+          // offer only card / PayPal for that type; `/api/orders` refuses
+          // a cash order there with 409 `cash_not_available`.
+          cashTakeaway: access.modes.cashTakeaway !== false,
+          cashDelivery: access.modes.cashDelivery !== false,
           // Percent off every order's food (owner setting); 0 = none. The
           // app's cart previews it exactly as /api/orders applies it.
           orderDiscountPercent: access.modes.orderDiscountPercent ?? 0,

@@ -277,6 +277,9 @@ export async function saveOrderingAction(form: FormData): Promise<void> {
     // Minutes a guest may cancel a CASH order; 0 = off, capped at 60 by
     // the schema, blank falls back to the default 10.
     cashCancelMinutes: parseInt(String(form.get("cashCancelMinutes") ?? ""), 10),
+    // Cash at pickup / to the driver; unticked = card or PayPal only.
+    cashTakeaway: form.get("cashTakeaway") === "on",
+    cashDelivery: form.get("cashDelivery") === "on",
     // The promised time for an ASAP order and how long the restaurant has
     // to change it; the schema snaps each to its range, blank → default.
     etaDeliveryMinutes: parseInt(String(form.get("etaDeliveryMinutes") ?? ""), 10),

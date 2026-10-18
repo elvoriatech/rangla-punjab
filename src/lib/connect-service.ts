@@ -775,7 +775,8 @@ export async function cancelUnpaidOrderByGuest(
  * "Pay cash at the restaurant instead": the online payment is released
  * (see `releaseOnlinePayment`) and the order becomes a plain cash order —
  * which is what sends it to the kitchen. Offered only when the restaurant
- * lists cash among its accepted payments.
+ * lists cash among its accepted payments AND takes cash for this order
+ * type (pickup / delivery can be card-or-PayPal only).
  *
  * Everything a cash order gets at placement happens now: the receipt,
  * the owner's e-mail and push alert (the kitchen's cue), exactly once.
@@ -786,14 +787,17 @@ export async function switchUnpaidOrderToCash(
   token: string,
 ): Promise<GuestCancelResult> {
   const accepts = await asTenant(tenantId, async (tx) => {
-    const order = await tx.order.findFirst({ where: { id: orderId }, select: { venueId: true } });
+    const order = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { venueId: true, orderType: true },
+    });
     if (!order) return null;
     const venue = await tx.venue.findFirst({
       where: { id: order.venueId },
       select: { ordering: true },
     });
-    const { parseOrderingConfig } = await import("./ordering-config");
-    return parseOrderingConfig(venue?.ordering).acceptedPayments.includes("cash");
+    const { venueTakesCashFor } = await import("./ordering-config");
+    return venueTakesCashFor(venue?.ordering, order.orderType);
   });
   if (accepts === null) return { ok: false, error: "not_found" };
   if (!accepts) return { ok: false, error: "cash_not_accepted" };
@@ -857,14 +861,20 @@ export async function getGuestPaymentOptions(
   return asTenant(tenantId, async (tx) => {
     const order = await tx.order.findFirst({
       where: { id: orderId },
-      select: { status: true, paymentStatus: true, paymentProvider: true, venueId: true },
+      select: {
+        status: true,
+        paymentStatus: true,
+        paymentProvider: true,
+        venueId: true,
+        orderType: true,
+      },
     });
     if (!order) return null;
     const venue = await tx.venue.findFirst({
       where: { id: order.venueId },
       select: { ordering: true },
     });
-    const { parseOrderingConfig } = await import("./ordering-config");
+    const { venueTakesCashFor } = await import("./ordering-config");
     const canExit =
       order.status === "placed" &&
       (order.paymentProvider === "stripe" || order.paymentProvider === "paypal") &&
@@ -872,7 +882,7 @@ export async function getGuestPaymentOptions(
     return {
       status: order.status,
       canExit,
-      acceptsCash: parseOrderingConfig(venue?.ordering).acceptedPayments.includes("cash"),
+      acceptsCash: venueTakesCashFor(venue?.ordering, order.orderType),
     };
   });
 }

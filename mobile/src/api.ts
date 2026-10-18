@@ -66,6 +66,10 @@ export interface ApiOrdering {
   orderDiscountPercent?: number;
   deliveryMinCents: number;
   acceptedPayments: string[];
+  /** Cash for pickup / delivery (owner switch). Absent on older servers =
+   *  accepted. */
+  cashTakeaway?: boolean;
+  cashDelivery?: boolean;
   onlinePayment: boolean;
   paypal?: boolean;
   /** Later-today "HH:MM" pickup/delivery slots inside opening hours,

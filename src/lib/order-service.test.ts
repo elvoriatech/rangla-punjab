@@ -651,6 +651,33 @@ describe("order-service (guest self-ordering)", () => {
     expect(forged).toEqual({ ok: false, error: "type_not_available" });
   });
 
+  it("refuses cash for pickup when the owner switched it off; card still goes through", async () => {
+    const fx = await fixtureVenue();
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.update({ where: { id: fx.venueId }, data: { ordering: { cashTakeaway: false } } }),
+    );
+    const pickup = {
+      orderType: "takeaway" as const,
+      customerName: "A",
+      customerPhone: "1",
+      items: [{ itemId: fx.itemIds.pakora, quantity: 1 }],
+    };
+    // Absent payment has always meant cash — refused the same way.
+    expect(await placeOrder(fx, pickup)).toEqual({ ok: false, error: "cash_not_available" });
+    expect(await placeOrder(fx, { ...pickup, intendedPayment: "cash" })).toEqual({
+      ok: false,
+      error: "cash_not_available",
+    });
+    const card = await placeOrder(fx, { ...pickup, intendedPayment: "card" });
+    expect(card.ok).toBe(true);
+    // Dine-in is not affected by the pickup switch.
+    const table = await placeOrder(fx, {
+      orderType: "dine_in",
+      items: [{ itemId: fx.itemIds.pakora, quantity: 1 }],
+    });
+    expect(table.ok).toBe(true);
+  });
+
   it("enforces delivery zone + minimum and adds the fee as a line", async () => {
     const fx = await fixtureVenue();
     await asTenant(fx.tenantId, async (tx) => {

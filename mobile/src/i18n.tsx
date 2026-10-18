@@ -298,6 +298,7 @@ const en = {
   payFailedNote: "Payment failed — please try again.",
   orderFailed: "Order failed — please try again.",
   orderingPaused: "Ordering is paused right now — please try again later.",
+  cashNotAvailable: "Cash isn't accepted for this order type — please pay by card or PayPal.",
   /* Closed right now: ASAP is off, pre-ordering for later today is not. */
   orderClosedNow: "We're closed right now — you can pre-order for later today.",
   orderClosedNoSlots: "We're closed right now, and there are no more times left today.",
@@ -1303,6 +1304,7 @@ const de: Strings = {
   payFailedNote: "Zahlung fehlgeschlagen — bitte erneut versuchen.",
   orderFailed: "Bestellung fehlgeschlagen — bitte erneut versuchen.",
   orderingPaused: "Bestellungen sind gerade pausiert — bitte versuche es später.",
+  cashNotAvailable: "Barzahlung ist hierfür nicht möglich — bitte mit Karte oder PayPal bezahlen.",
   /* Gerade geschlossen: sofort geht nicht, vorbestellen schon. */
   orderClosedNow: "Wir haben gerade geschlossen – du kannst für später heute vorbestellen.",
   orderClosedNoSlots: "Wir haben gerade geschlossen, und für heute gibt es keine Zeiten mehr.",
@@ -2301,6 +2303,8 @@ const fr: Strings = {
   payFailedNote: "Le paiement a échoué — veuillez réessayer.",
   orderFailed: "La commande a échoué — veuillez réessayer.",
   orderingPaused: "Les commandes sont suspendues — veuillez réessayer plus tard.",
+  cashNotAvailable:
+    "Le paiement en espèces n'est pas accepté ici — veuillez payer par carte ou PayPal.",
   /* Fermé en ce moment : commander tout de suite est impossible, précommander non. */
   orderClosedNow: "Nous sommes fermés — vous pouvez précommander pour plus tard aujourd'hui.",
   orderClosedNoSlots: "Nous sommes fermés et il ne reste plus de créneau aujourd'hui.",
@@ -3296,6 +3300,7 @@ const it: Strings = {
   payFailedNote: "Pagamento non riuscito — riprova.",
   orderFailed: "Ordine non riuscito — riprova.",
   orderingPaused: "Gli ordini sono sospesi al momento — riprova più tardi.",
+  cashNotAvailable: "Il contante non è accettato qui — paga con carta o PayPal.",
   /* Chiusi adesso: niente ordini immediati, ma il preordine resta. */
   orderClosedNow: "Al momento siamo chiusi: puoi preordinare per più tardi oggi.",
   orderClosedNoSlots: "Al momento siamo chiusi e per oggi non ci sono più orari disponibili.",
@@ -4290,6 +4295,7 @@ const es: Strings = {
   payFailedNote: "No se ha podido completar el pago — inténtalo de nuevo.",
   orderFailed: "No se ha podido realizar el pedido — inténtalo de nuevo.",
   orderingPaused: "Los pedidos están pausados ahora mismo — inténtalo más tarde.",
+  cashNotAvailable: "No se acepta efectivo aquí — paga con tarjeta o PayPal.",
   /* Cerrado ahora: nada inmediato, pero sí por adelantado. */
   orderClosedNow: "Ahora mismo estamos cerrados: puedes pedir por adelantado para hoy más tarde.",
   orderClosedNoSlots: "Ahora mismo estamos cerrados y hoy ya no quedan horas disponibles.",
@@ -5276,6 +5282,7 @@ const ar: Strings = {
   payFailedNote: "تعذّر إتمام الدفع — يُرجى المحاولة مرة أخرى.",
   orderFailed: "تعذّر إرسال الطلب — يُرجى المحاولة مرة أخرى.",
   orderingPaused: "الطلبات متوقفة مؤقتاً — يُرجى المحاولة لاحقاً.",
+  cashNotAvailable: "الدفع نقداً غير متاح لهذا الطلب — يُرجى الدفع بالبطاقة أو PayPal.",
   /* مغلق الآن: لا طلب فوري، لكن الطلب المسبق متاح. */
   orderClosedNow: "نحن مغلقون الآن — يمكنك الطلب المسبق لوقت لاحق اليوم.",
   orderClosedNoSlots: "نحن مغلقون الآن ولم تعد هناك أوقات متاحة اليوم.",

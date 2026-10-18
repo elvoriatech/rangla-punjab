@@ -79,7 +79,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     const status =
       result.error === "unknown_items" ||
       result.error === "not_published" ||
-      result.error === "venue_closed"
+      result.error === "venue_closed" ||
+      result.error === "cash_not_available"
         ? 409
         : 400;
     return withCors(NextResponse.json({ error: result.error }, { status }));

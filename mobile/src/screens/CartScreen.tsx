@@ -182,16 +182,27 @@ export function CartScreen({
     const list: { key: PayMethod; label: string }[] = [];
     if (menu.ordering.onlinePayment) list.push({ key: "card", label: t.methodCard });
     if (menu.ordering.paypal) list.push({ key: "paypal", label: t.methodPaypal });
+    // The owner can switch cash off for pickup / delivery (card or PayPal
+    // only): then it is never offered for that type. Absent = older
+    // server = cash as before.
+    const typeCashOff =
+      (orderType === "takeaway" && menu.ordering.cashTakeaway === false) ||
+      (orderType === "delivery" && menu.ordering.cashDelivery === false);
     const cash = (menu.ordering.acceptedPayments ?? []).includes("cash");
-    if (cash || list.length === 0) {
+    if (!typeCashOff && (cash || list.length === 0)) {
       list.push({ key: "cash", label: t.methodCash });
     }
     return list;
-  }, [menu.ordering, t]);
+  }, [menu.ordering, orderType, t]);
 
-  const [payMethod, setPayMethod] = useState<PayMethod>(() =>
+  const [pickedPay, setPayMethod] = useState<PayMethod>(() =>
     menu.ordering.onlinePayment ? "card" : menu.ordering.paypal ? "paypal" : "cash",
   );
+  // A pick the current order type no longer offers (cash, after switching
+  // to pickup) falls to the first method that is offered.
+  const payMethod: PayMethod = payOptions.some((o) => o.key === pickedPay)
+    ? pickedPay
+    : (payOptions[0]?.key ?? pickedPay);
   const payHint =
     payMethod === "card"
       ? t.payHintCard
@@ -582,6 +593,7 @@ export function CartScreen({
       setPlacing(null); // nothing was created: back to the editable cart
       const messages: Record<string, string> = {
         ordering_paused: t.orderingPaused,
+        cash_not_available: t.cashNotAvailable,
         venue_closed: t.orderVenueClosed,
         outside_delivery_area: t.outsideArea,
         below_delivery_minimum: t.belowMin,

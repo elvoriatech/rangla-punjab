@@ -131,6 +131,21 @@ const appCancelEnabledField = z.preprocess(
   z.boolean().catch(false),
 );
 
+/**
+ * Does the restaurant take CASH for pickup / delivery? (owner, 2026-10-19:
+ * "only card and PayPal for pickup and delivery".) ON by default — every
+ * venue has always taken cash. Dine-in is not switchable here: paying at
+ * the table is the one thing a restaurant can always do. Same tolerant
+ * reading as above, but a missing value means ON, not off.
+ */
+const cashSwitchField = z.preprocess(
+  (v) =>
+    typeof v === "boolean"
+      ? v
+      : v === undefined || v === null || v === "on" || v === "true" || v === 1,
+  z.boolean().catch(true),
+);
+
 /** The time a restaurant promises when it does not set one itself. */
 export const DEFAULT_ETA_DELIVERY_MINUTES = 50;
 export const DEFAULT_ETA_PICKUP_MINUTES = 20;
@@ -218,6 +233,11 @@ export const orderingConfigSchema = z.object({
   // Owner-side, read by the guest's tracker through its own route (see
   // `cash-cancel.ts`) — the public menu never needs it.
   cashCancelMinutes: cashCancelMinutesField.default(DEFAULT_CASH_CANCEL_MINUTES),
+  // Cash at pickup / cash to the driver. Off = the guest must pay online
+  // (card or PayPal) for that order type; the web cart, the app and the
+  // order API all read it from EffectiveOrdering.
+  cashTakeaway: cashSwitchField.default(true),
+  cashDelivery: cashSwitchField.default(true),
   // Shown in the public menu footer. Per-item sanitised (one unknown
   // value never nukes the list): legacy "credit" expands to
   // Visa + Mastercard, junk is dropped, absent → German-typical default.
@@ -295,6 +315,9 @@ export interface EffectiveOrdering {
   acceptedPayments: PaymentMethodId[];
   /** Percent off the food of every order; 0 or absent = none. */
   orderDiscountPercent?: number;
+  /** Cash accepted for pickup / delivery; absent = yes (older callers). */
+  cashTakeaway?: boolean;
+  cashDelivery?: boolean;
 }
 
 /** Effective capability = plan/override entitlement AND owner switch. */
@@ -312,7 +335,32 @@ export function effectiveOrdering(
     deliveryMinCents: config.deliveryMinCents,
     acceptedPayments: config.acceptedPayments,
     orderDiscountPercent: config.orderDiscountPercent,
+    cashTakeaway: config.cashTakeaway,
+    cashDelivery: config.cashDelivery,
   };
+}
+
+/**
+ * "Pay cash instead" after a failed online payment: the venue lists cash
+ * among its accepted payments AND has not switched cash off for this
+ * order type. Takes the raw stored config and order type.
+ */
+export function venueTakesCashFor(rawOrdering: unknown, orderType: string): boolean {
+  const config = parseOrderingConfig(rawOrdering);
+  if (!config.acceptedPayments.includes("cash")) return false;
+  if (orderType === "takeaway") return config.cashTakeaway;
+  if (orderType === "delivery") return config.cashDelivery;
+  return true;
+}
+
+/** May the guest pay this order type in cash? Dine-in always. */
+export function cashAllowed(
+  mode: Pick<EffectiveOrdering, "cashTakeaway" | "cashDelivery">,
+  type: OrderType,
+): boolean {
+  if (type === "takeaway") return mode.cashTakeaway !== false;
+  if (type === "delivery") return mode.cashDelivery !== false;
+  return true;
 }
 
 /** The ceiling the owner can set for the order-wide discount. */

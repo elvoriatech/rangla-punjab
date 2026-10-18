@@ -134,6 +134,9 @@ export interface DrawerModes {
   deliveryMinCents: number;
   /** Percent off the food of every order (owner setting); 0/absent = none. */
   orderDiscountPercent?: number;
+  /** Cash for pickup / delivery (owner switch); absent = accepted. */
+  cashTakeaway?: boolean;
+  cashDelivery?: boolean;
 }
 
 /** What the drawer needs to talk about points. Mirrors the `loyalty`
@@ -512,9 +515,21 @@ export function CartDrawer({
   // available; card/PayPal only when the restaurant can take them.
   // P7-13: the list only CHOOSES now, so it needs a sensible default —
   // the first rail the venue actually offers, mirroring the app.
-  const [payMethod, setPayMethod] = useState<PayMethod>(
+  const [pickedPay, setPayMethod] = useState<PayMethod>(
     onlinePayment ? "card" : paypalPayment ? "paypal" : "cash",
   );
+  // The owner may switch cash off for pickup / delivery (card or PayPal
+  // only): then it is not offered at all, and the server refuses it too.
+  // Switching the order type while "cash" is picked moves the pick to the
+  // first online rail.
+  const cashOk =
+    orderType === "takeaway"
+      ? modes.cashTakeaway !== false
+      : orderType === "delivery"
+        ? modes.cashDelivery !== false
+        : true;
+  const payMethod: PayMethod =
+    pickedPay === "cash" && !cashOk ? (onlinePayment ? "card" : "paypal") : pickedPay;
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
   const [note, setNote] = useState("");
@@ -750,6 +765,8 @@ export function CartDrawer({
   const payBlocked =
     busy ||
     typeMissing ||
+    // Cash switched off for this type and no online rail to take its place.
+    (!cashOk && !onlinePayment && !paypalPayment) ||
     paused ||
     count === 0 ||
     detailsMissing ||
@@ -1621,7 +1638,7 @@ export function CartDrawer({
                         },
                       ]
                     : []),
-                  { key: "cash" as const, label: cashLabel, marks: [] },
+                  ...(cashOk ? [{ key: "cash" as const, label: cashLabel, marks: [] }] : []),
                 ];
                 return (
                   <div className="mt-4">

@@ -28,6 +28,7 @@ import {
   effectiveOrdering,
   orderDiscountCents,
   orderTypeAllowed,
+  cashAllowed,
   clampEtaMinutes,
   parseOrderingConfig,
   type OrderType,
@@ -239,7 +240,8 @@ export type PlaceOrderResult =
         | "below_delivery_minimum"
         | "invalid_time"
         | "venue_closed"
-        | "venue_paused";
+        | "venue_paused"
+        | "cash_not_available";
     };
 
 /** "app" — the restaurant's phone app; "web" — the website. */
@@ -301,6 +303,12 @@ export async function placeOrder(
     const orderType: OrderType = input.orderType;
     if (!orderTypeAllowed(mode, orderType)) {
       return { ok: false, error: "type_not_available" as const };
+    }
+    // The owner switched cash off for pickup / delivery: those orders must
+    // be paid online. Checked before anything is claimed or written, and
+    // an absent payment counts as cash (that is what it has always meant).
+    if ((input.intendedPayment ?? "cash") === "cash" && !cashAllowed(mode, orderType)) {
+      return { ok: false, error: "cash_not_available" as const };
     }
     // The restaurant switched ordering off for now ("stop taking orders"):
     // nothing is accepted until it runs out, a planned order included.

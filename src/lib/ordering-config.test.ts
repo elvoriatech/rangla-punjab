@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  cashAllowed,
+  venueTakesCashFor,
   deliveryQuote,
   effectiveOrdering,
   orderingConfigSchema,
@@ -208,5 +210,28 @@ describe("cancel-from-the-app switch (appCancelEnabled)", () => {
     const config = parseOrderingConfig({ appCancelEnabled: true, delivery: false });
     const next = orderingConfigSchema.parse({ ...config, delivery: true });
     expect(next.appCancelEnabled).toBe(true);
+  });
+});
+
+describe("cash for pickup / delivery", () => {
+  it("is on by default, including for configs saved before the switch", () => {
+    const config = parseOrderingConfig({ delivery: true });
+    expect(config.cashTakeaway).toBe(true);
+    expect(config.cashDelivery).toBe(true);
+  });
+
+  it("switched off: refused for that type only, dine-in always takes cash", () => {
+    const config = parseOrderingConfig({ cashTakeaway: false, cashDelivery: false });
+    expect(cashAllowed(config, "takeaway")).toBe(false);
+    expect(cashAllowed(config, "delivery")).toBe(false);
+    expect(cashAllowed(config, "dine_in")).toBe(true);
+    expect(cashAllowed(parseOrderingConfig({ cashDelivery: false }), "takeaway")).toBe(true);
+  });
+
+  it("pay-cash-instead follows both the switch and the accepted list", () => {
+    const raw = { cashDelivery: false, acceptedPayments: ["cash", "visa"] };
+    expect(venueTakesCashFor(raw, "delivery")).toBe(false);
+    expect(venueTakesCashFor(raw, "takeaway")).toBe(true);
+    expect(venueTakesCashFor({ acceptedPayments: ["visa"] }, "takeaway")).toBe(false);
   });
 });
