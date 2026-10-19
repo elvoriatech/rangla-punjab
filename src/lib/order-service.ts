@@ -997,15 +997,16 @@ export async function listRecentOrders(
   const closed = [...TERMINAL_STATUSES];
   // Online orders reach the kitchen only once paid: an order still
   // awaiting (or having failed) its card / PayPal payment is not on the
-  // board, not printed and not counted (owner rule, 2026-09-21). The
-  // dashboard reads those separately via `scope: "awaiting_payment"`.
+  // board, not printed and not counted (owner rule, 2026-09-21) — and it
+  // stays out of every order list even once cancelled: only successful
+  // orders are listed, a payment the guest never completed lives in the
+  // order log alone (owner, 2026-10-19). `scope: "awaiting_payment"`
+  // still reads the open ones for anyone who asks.
   const unpaidOnline: Prisma.OrderWhereInput = { paymentStatus: { in: [...AWAITING_PAYMENT] } };
   const where: Prisma.OrderWhereInput =
     options.scope === "awaiting_payment"
       ? { ...unpaidOnline, status: { notIn: closed } }
-      : // Only OPEN unpaid-online orders are held back: once cancelled (or
-        // otherwise closed) they belong in the archive like any other.
-        { NOT: { ...unpaidOnline, status: { notIn: closed } } };
+      : { NOT: unpaidOnline };
   if (options.scope === "open") where.status = { notIn: closed };
   else if (options.scope === "closed") where.status = { in: closed };
   if (options.updatedSince) where.updatedAt = { gte: options.updatedSince };

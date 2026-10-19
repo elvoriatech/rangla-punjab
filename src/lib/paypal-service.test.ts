@@ -220,6 +220,27 @@ describe("paypal payments (fake provider, full flow)", () => {
     });
   });
 
+  it("an unpaid online order stays out of every list, even once cancelled", async () => {
+    const { listRecentOrders, advanceOrderStatus } = await import("./order-service");
+    const fx = await fixture();
+    const userId = createdUserIds[createdUserIds.length - 1]!;
+    const placed = await placeOrder(fx, {
+      orderType: "dine_in",
+      items: [{ itemId: fx.itemId, quantity: 1 }],
+      intendedPayment: "paypal",
+    });
+    if (!placed.ok) throw new Error("order failed");
+    const id = placed.value.orderId;
+    const listed = async () => (await listRecentOrders(userId, 100)).map((o) => o.id);
+    expect(await listed()).not.toContain(id);
+    expect((await advanceOrderStatus(userId, id, "cancelled")).ok).toBe(true);
+    // Cancelled but never paid: still not an order anybody should see listed.
+    expect(await listed()).not.toContain(id);
+    expect(
+      (await listRecentOrders(userId, 100, { scope: "closed" })).map((o) => o.id),
+    ).not.toContain(id);
+  });
+
   it("online orders reach the kitchen only once paid; cash goes straight there", async () => {
     const { listRecentOrders } = await import("./order-service");
     const fx = await fixture();
