@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { AppStoreBadge, GooglePlayBadge } from "../../(public)/app-badges";
-import { detectPlatform, type AppPlatform } from "@/lib/app-download";
+import { APP_DOWNLOAD_PATH, detectPlatform, type AppPlatform } from "@/lib/app-download";
+import { renderQrSvg } from "@/lib/qr";
+import { siteUrl } from "@/lib/site-url";
 import { getRestaurantAppLinks, getRestaurantIdentity } from "@/lib/restaurant";
 
 /**
@@ -44,6 +46,8 @@ const COPY = {
       "Fragt Android nach „Unbekannte Apps“, erlauben Sie es für Ihren Browser.",
     ],
     apkOr: "Oder bestellen Sie direkt online:",
+    scan: "Mit dem Handy scannen, um die App zu laden",
+    apkDesktop: "Android-App direkt herunterladen (APK)",
   },
   en: {
     title: "Our app",
@@ -65,6 +69,8 @@ const COPY = {
       "If Android asks about “unknown apps”, allow it for your browser.",
     ],
     apkOr: "Or order online right away:",
+    scan: "Scan with your phone to get the app",
+    apkDesktop: "Download the Android app directly (APK)",
   },
 } as const;
 
@@ -93,6 +99,12 @@ export default async function AppDownloadPage(): Promise<React.ReactElement> {
   // install steps beside it, never a download that starts on its own.
   const apk = platform === "android" && links.android === null ? links.apk : null;
   const soon = apk ? t.soonPlay : soonLine(platform, links.ios !== null, links.android !== null, t);
+  // On a computer there is no app to install here: a QR code takes the
+  // guest's phone to `/app`, which picks the right store for it, and the
+  // Android download is offered as a plain link too (owner, 2026-10-19).
+  const desktop = platform === "other";
+  const qrSvg = desktop ? await renderQrSvg(`${siteUrl()}${APP_DOWNLOAD_PATH}`) : null;
+  const desktopApk = desktop && links.android === null ? links.apk : null;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-cream px-6 py-12 text-center text-ink">
@@ -139,6 +151,24 @@ export default async function AppDownloadPage(): Promise<React.ReactElement> {
             ) : null}
           </ul>
         </section>
+      ) : null}
+
+      {qrSvg ? (
+        <figure className="mt-6 flex flex-col items-center">
+          <div
+            role="img"
+            aria-label={t.scan}
+            className="h-44 w-44 rounded-xl bg-white p-2 shadow-sm [&>svg]:h-full [&>svg]:w-full"
+            dangerouslySetInnerHTML={{ __html: qrSvg }}
+          />
+          <figcaption className="mt-2 text-sm text-muted">{t.scan}</figcaption>
+        </figure>
+      ) : null}
+
+      {desktopApk ? (
+        <a href={desktopApk} download className="mt-4 text-sm font-semibold text-ink underline">
+          {t.apkDesktop}
+        </a>
       ) : null}
 
       {apk ? (

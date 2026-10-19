@@ -1987,6 +1987,23 @@ function HeroBanner({
         aria-hidden="true"
         className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/30"
       />
+      {/* The banner is the app poster with store buttons drawn into it
+          (owner, 2026-10-19): the whole picture opens `/app`, which sends
+          an iPhone to the App Store, an Android phone to Google Play or
+          the download. Phones and tablets only (`lg:hidden`, owner
+          2026-10-19): on a laptop the banner stays a picture. A plain
+          link, so it works without JavaScript; the badges below sit on
+          top of it and keep their own clicks. */}
+      {venue.appLinks ? (
+        // A plain <a>: `/app` is a redirect route, not a page <Link> could
+        // prefetch.
+        // eslint-disable-next-line @next/next/no-html-link-for-pages
+        <a
+          href="/app"
+          aria-label={t.app.title}
+          className="absolute inset-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white lg:hidden"
+        />
+      ) : null}
       {/* Badge stack, top corner: open/closed, then reserve, then the
           rating, then the app jump. P7-14 — the rating pill hangs off the
           reserve button rather than the identity, which keeps the
