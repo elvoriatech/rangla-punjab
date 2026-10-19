@@ -1406,7 +1406,9 @@ function GridDishCard({
         <img
           src={src}
           srcSet={srcSet}
-          alt=""
+          // The dish name, for image search; the wrapper is aria-hidden, so
+          // screen readers still hear the name only once (from the card).
+          alt={item.name}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
@@ -1607,7 +1609,9 @@ function ListDishRow({
         <img
           src={menuImageUrl(item.photoKey, item.id, 320)}
           srcSet={menuImageSrcSet(item.photoKey, item.id, 320)}
-          alt=""
+          // The dish name, for image search; the wrapper is aria-hidden, so
+          // screen readers still hear the name only once (from the card).
+          alt={item.name}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
@@ -1804,7 +1808,9 @@ function ShowcaseDishCard({
         <img
           src={src}
           srcSet={srcSet}
-          alt=""
+          // The dish name, for image search; the wrapper is aria-hidden, so
+          // screen readers still hear the name only once (from the card).
+          alt={item.name}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
@@ -2448,7 +2454,9 @@ function DishPhoto({
       <img
         src={src}
         srcSet={srcSet}
-        alt=""
+        // The dish name, for image search; the wrapper is aria-hidden, so
+        // screen readers still hear the name only once (from the card).
+        alt={item.name}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : undefined}
         className="absolute inset-0 h-full w-full object-cover"

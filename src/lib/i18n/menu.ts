@@ -251,9 +251,12 @@ const en = {
     dishCount: (n: number): string => (n === 1 ? "1 dish" : `${n} dishes`),
   },
   metadata: {
-    title: (venue: string): string => `${venue} | Take Away Menu Online`,
-    description: (venue: string): string =>
-      `Order online from ${venue} for pickup or delivery. Full menu with prices, allergen and dietary information.`,
+    /** Search snippet. `cuisine` / `dishes` come from `seo-profile.ts`:
+     *  the cuisine and dish names people actually search for. */
+    title: (venue: string, cuisine: string): string =>
+      `${venue} | ${cuisine} – Takeaway & Delivery`,
+    description: (venue: string, cuisine: string, dishes: string): string =>
+      `${cuisine}: ${dishes} and more. Order online from ${venue} – pickup or delivery.`,
     srHeading: (venue: string): string => `${venue} menu`,
   },
 };
@@ -424,9 +427,9 @@ const de: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 Gericht" : `${n} Gerichte`),
   },
   metadata: {
-    title: (venue) => `${venue} | Take Away Menu Online`,
-    description: (venue) =>
-      `Online bestellen bei ${venue} – zum Abholen oder Liefern. Speisekarte mit Preisen, Allergenen und Ernährungshinweisen.`,
+    title: (venue, cuisine) => `${venue} | ${cuisine} – Take Away & Lieferung`,
+    description: (venue, cuisine, dishes) =>
+      `${cuisine}: ${dishes} und mehr. Online bestellen bei ${venue} – Abholung oder Lieferung.`,
     srHeading: (venue) => `Speisekarte ${venue}`,
   },
 };
@@ -597,9 +600,9 @@ const fr: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 plat" : `${n} plats`),
   },
   metadata: {
-    title: (venue) => `${venue} | Carte à emporter en ligne`,
-    description: (venue) =>
-      `Carte de ${venue}. Plats, prix, allergènes et informations sur les régimes alimentaires.`,
+    title: (venue, cuisine) => `${venue} | ${cuisine} – À emporter et livraison`,
+    description: (venue, cuisine, dishes) =>
+      `${cuisine} : ${dishes} et plus encore. Commandez en ligne chez ${venue} – à emporter ou en livraison.`,
     srHeading: (venue) => `Carte de ${venue}`,
   },
 };
@@ -767,9 +770,9 @@ const es: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 plato" : `${n} platos`),
   },
   metadata: {
-    title: (venue) => `${venue} | Carta para llevar online`,
-    description: (venue) =>
-      `Carta de ${venue}. Platos, precios, alérgenos e información dietética.`,
+    title: (venue, cuisine) => `${venue} | ${cuisine} – Para llevar y a domicilio`,
+    description: (venue, cuisine, dishes) =>
+      `${cuisine}: ${dishes} y más. Pide online en ${venue} – para recoger o a domicilio.`,
     srHeading: (venue) => `Carta de ${venue}`,
   },
 };
@@ -937,9 +940,9 @@ const it: MenuCopy = {
     dishCount: (n) => (n === 1 ? "1 piatto" : `${n} piatti`),
   },
   metadata: {
-    title: (venue) => `${venue} | Menu da asporto online`,
-    description: (venue) =>
-      `Menu di ${venue}. Piatti, prezzi, allergeni e informazioni dietetiche.`,
+    title: (venue, cuisine) => `${venue} | ${cuisine} – Asporto e consegna`,
+    description: (venue, cuisine, dishes) =>
+      `${cuisine}: ${dishes} e altro ancora. Ordina online da ${venue} – asporto o consegna.`,
     srHeading: (venue) => `Menu di ${venue}`,
   },
 };
@@ -1119,9 +1122,9 @@ const ar: MenuCopy = {
       n === 1 ? "طبق واحد" : n === 2 ? "طبقان" : n <= 10 ? `${n} أطباق` : `${n} طبقاً`,
   },
   metadata: {
-    title: (venue) => `${venue} | قائمة الطلبات الخارجية أونلاين`,
-    description: (venue) =>
-      `قائمة طعام ${venue}. الأطباق والأسعار ومعلومات مسبّبات الحساسية والأنظمة الغذائية.`,
+    title: (venue, cuisine) => `${venue} | ${cuisine} – طلبات خارجية وتوصيل`,
+    description: (venue, cuisine, dishes) =>
+      `${cuisine}: ${dishes} والمزيد. اطلب أونلاين من ${venue} – استلام أو توصيل.`,
     srHeading: (venue) => `قائمة طعام ${venue}`,
   },
 };

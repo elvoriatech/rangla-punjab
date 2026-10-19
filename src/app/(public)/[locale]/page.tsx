@@ -1,3 +1,4 @@
+import { searchCuisine, seoProfile } from "@/lib/seo-profile";
 import { cache } from "react";
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
@@ -57,8 +58,13 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const url = `${base}/${locale}`;
   // Snippet copy follows the URL's locale, same as the page body.
   const t = menuCopy(locale);
-  const title = t.metadata.title(searchTitleName(menu.venue.name));
-  const description = t.metadata.description(menu.venue.name);
+  const cuisine = searchCuisine(locale);
+  const title = t.metadata.title(searchTitleName(menu.venue.name), cuisine.short);
+  const description = t.metadata.description(
+    menu.venue.name,
+    cuisine.long,
+    seoProfile().signatureDishes.join(", "),
+  );
   return {
     title,
     description,

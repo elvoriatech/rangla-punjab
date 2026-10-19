@@ -164,8 +164,11 @@ describe("searchTitleName", () => {
     expect(searchTitleName("Rangla Punjab Restaurant · Konstanz")).toBe("Rangla Punjab Konstanz");
     expect(searchTitleName("Trattoria Roma")).toBe("Trattoria Roma");
     expect(
-      menuCopy("de").metadata.title(searchTitleName("Rangla Punjab Restaurant · Konstanz")),
-    ).toBe("Rangla Punjab Konstanz | Take Away Menu Online");
+      menuCopy("de").metadata.title(
+        searchTitleName("Rangla Punjab Restaurant · Konstanz"),
+        "Indisches Restaurant",
+      ),
+    ).toBe("Rangla Punjab Konstanz | Indisches Restaurant – Take Away & Lieferung");
   });
 });
 

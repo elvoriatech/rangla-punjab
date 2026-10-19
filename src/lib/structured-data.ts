@@ -103,7 +103,7 @@ export function buildRestaurantJsonLd(
       hasMenuSection: menu.categories.map((cat) => ({
         "@type": "MenuSection",
         name: cat.name,
-        hasMenuItem: cat.items.map((item) => menuItemNode(item, priceCurrency)),
+        hasMenuItem: cat.items.map((item) => menuItemNode(item, priceCurrency, options.siteUrl)),
       })),
     },
   };
@@ -163,6 +163,7 @@ export function openingHoursNodes(hours: PublicMenu["venue"]["hours"]): Record<s
 function menuItemNode(
   item: PublicMenu["categories"][number]["items"][number],
   priceCurrency: string,
+  siteUrl?: string,
 ): Record<string, unknown> {
   const node: Record<string, unknown> = {
     "@type": "MenuItem",
@@ -177,6 +178,9 @@ function menuItemNode(
     },
   };
   if (item.description) node.description = item.description;
+  // The dish's own photo (owner, 2026-10-19: dishes in search results).
+  // Only a real upload — the stock placeholder would show the wrong food.
+  if (siteUrl && item.photoKey) node.image = `${siteUrl}${uploadedImageUrl(item.photoKey, 640)}`;
   if (item.dietary.length > 0) {
     const diets = item.dietary
       .map((d) => DIETARY_TO_SCHEMA_URL[d])

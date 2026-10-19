@@ -157,10 +157,41 @@ describe("Restaurant + Menu JSON-LD", () => {
     expect((node.hasMenu as { url?: string }).url).toBe("https://example.com/de");
   });
 
+  it("gives a dish with its own photo an image, and none to one without", () => {
+    const withPhoto: PublicMenu = {
+      ...fixture,
+      categories: fixture.categories.map((c, i) =>
+        i === 0
+          ? {
+              ...c,
+              items: c.items.map((it, j) => (j === 0 ? { ...it, photoKey: "t/uploads/a" } : it)),
+            }
+          : c,
+      ),
+    };
+    const ld = buildRestaurantJsonLd(withPhoto, {
+      pageUrl: "https://x.test/de",
+      siteUrl: "https://x.test",
+    }) as { hasMenu: { hasMenuSection: { hasMenuItem: { image?: string }[] }[] } };
+    const items = ld.hasMenu.hasMenuSection[0]!.hasMenuItem;
+    expect(items[0]!.image).toMatch(/^https:\/\/x\.test\/img\//);
+    if (items[1]) expect(items[1].image).toBeUndefined();
+  });
+
   it("lets a deploy override the profile, and drops non-https links", () => {
     expect(
-      seoProfile({ SEO_CUISINE: "Thai", SEO_PRICE_RANGE: "€", SEO_SAME_AS: "http://x, https://y" }),
-    ).toEqual({ cuisine: ["Thai"], priceRange: "€", sameAs: ["https://y"] });
+      seoProfile({
+        SEO_CUISINE: "Thai",
+        SEO_PRICE_RANGE: "€",
+        SEO_SAME_AS: "http://x, https://y",
+        SEO_DISHES: "Pad Thai, Som Tam",
+      }),
+    ).toEqual({
+      cuisine: ["Thai"],
+      priceRange: "€",
+      sameAs: ["https://y"],
+      signatureDishes: ["Pad Thai", "Som Tam"],
+    });
   });
 
   it("carries the local-business fields a name search matches on", () => {

@@ -1,3 +1,4 @@
+import { searchCuisine, seoProfile } from "@/lib/seo-profile";
 import { cache } from "react";
 import type { Metadata, Viewport } from "next";
 import { BRAND } from "@/lib/brand";
@@ -63,8 +64,13 @@ export async function generateMetadata(): Promise<Metadata> {
   // a search engine shows, and an English one under a Spanish menu reads
   // like someone else's restaurant.
   const t = menuCopy(menu.locale);
-  const title = t.metadata.title(searchTitleName(menu.venue.name));
-  const description = t.metadata.description(menu.venue.name);
+  const cuisine = searchCuisine(menu.locale);
+  const title = t.metadata.title(searchTitleName(menu.venue.name), cuisine.short);
+  const description = t.metadata.description(
+    menu.venue.name,
+    cuisine.long,
+    seoProfile().signatureDishes.join(", "),
+  );
   return {
     title,
     description,
