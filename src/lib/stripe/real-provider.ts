@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { paymentWaitMessage, stripeCheckoutLocale } from "../payment-wait-copy";
 import type {
   StripeCheckoutSessionRef,
   StripeCustomerRef,
@@ -204,6 +205,7 @@ export class RealStripeProvider implements StripeProvider {
     successUrl: string;
     cancelUrl: string;
     payPageUrl: string;
+    locale?: string | null;
   }): Promise<OrderCheckoutRef> {
     const session = await this.stripe.checkout.sessions.create(
       {
@@ -222,6 +224,8 @@ export class RealStripeProvider implements StripeProvider {
         metadata: { orderId: input.orderId, tenantId: input.tenantId },
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
+        locale: stripeCheckoutLocale(input.locale),
+        custom_text: { submit: { message: paymentWaitMessage(input.locale) } },
       },
       { stripeAccount: input.accountId },
     );
@@ -237,6 +241,7 @@ export class RealStripeProvider implements StripeProvider {
     successUrl: string;
     cancelUrl: string;
     payPageUrl: string;
+    locale?: string | null;
   }): Promise<OrderCheckoutRef> {
     // No stripeAccount header + no application fee: this client IS the
     // restaurant's own account, so the charge settles 100% to them.
@@ -255,6 +260,10 @@ export class RealStripeProvider implements StripeProvider {
       metadata: { orderId: input.orderId, tenantId: input.tenantId },
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
+      // The guest's language, and the "don't close this window" line next
+      // to Stripe's Pay button (owner, 2026-10-19).
+      locale: stripeCheckoutLocale(input.locale),
+      custom_text: { submit: { message: paymentWaitMessage(input.locale) } },
     });
     return { ref: session.id, url: session.url ?? input.cancelUrl };
   }

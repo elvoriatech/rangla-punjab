@@ -261,7 +261,8 @@ const en = {
   methodPaypal: "PayPal",
   methodCash: "Cash",
   payHintCard: "Secure card payment via Stripe.",
-  payHintPaypal: "You'll approve the payment in PayPal and return here.",
+  payHintPaypal:
+    "You'll approve the payment in PayPal and return here. Please don't close the PayPal window until the payment is confirmed.",
   payNow: "Pay",
   openingPayment: "Opening payment…",
   simulatePayment: "Simulate payment (test)",
@@ -1268,7 +1269,8 @@ const de: Strings = {
   methodPaypal: "PayPal",
   methodCash: "Bar",
   payHintCard: "Sichere Kartenzahlung über Stripe.",
-  payHintPaypal: "Du bestätigst die Zahlung bei PayPal und kommst danach hierher zurück.",
+  payHintPaypal:
+    "Du bestätigst die Zahlung bei PayPal und kommst danach hierher zurück. Bitte schließe das PayPal-Fenster nicht, bevor die Zahlung bestätigt ist.",
   payNow: "Bezahlen",
   openingPayment: "Zahlung wird geöffnet…",
   simulatePayment: "Zahlung simulieren (Test)",
@@ -2267,7 +2269,8 @@ const fr: Strings = {
   methodPaypal: "PayPal",
   methodCash: "Espèces",
   payHintCard: "Paiement par carte sécurisé via Stripe.",
-  payHintPaypal: "Vous validez le paiement sur PayPal, puis vous revenez ici.",
+  payHintPaypal:
+    "Vous validez le paiement sur PayPal, puis vous revenez ici. Ne fermez pas la fenêtre PayPal avant la confirmation du paiement.",
   payNow: "Payer",
   openingPayment: "Ouverture du paiement…",
   simulatePayment: "Simuler le paiement (test)",
@@ -3264,7 +3267,8 @@ const it: Strings = {
   methodPaypal: "PayPal",
   methodCash: "Contanti",
   payHintCard: "Pagamento sicuro con carta tramite Stripe.",
-  payHintPaypal: "Autorizzi il pagamento su PayPal e torni qui.",
+  payHintPaypal:
+    "Autorizzi il pagamento su PayPal e torni qui. Non chiudere la finestra di PayPal finché il pagamento non è confermato.",
   payNow: "Paga",
   openingPayment: "Apertura del pagamento…",
   simulatePayment: "Simula il pagamento (test)",
@@ -4259,7 +4263,8 @@ const es: Strings = {
   methodPaypal: "PayPal",
   methodCash: "Efectivo",
   payHintCard: "Pago seguro con tarjeta a través de Stripe.",
-  payHintPaypal: "Aprobarás el pago en PayPal y volverás aquí.",
+  payHintPaypal:
+    "Aprobarás el pago en PayPal y volverás aquí. No cierres la ventana de PayPal hasta que se confirme el pago.",
   payNow: "Pagar",
   openingPayment: "Abriendo el pago…",
   simulatePayment: "Simular pago (prueba)",
@@ -5249,7 +5254,8 @@ const ar: Strings = {
   methodPaypal: "باي بال",
   methodCash: "نقداً",
   payHintCard: "دفع آمن بالبطاقة عبر Stripe.",
-  payHintPaypal: "ستؤكّد الدفع في باي بال ثم تعود إلى هنا.",
+  payHintPaypal:
+    "ستؤكّد الدفع في باي بال ثم تعود إلى هنا. يُرجى عدم إغلاق نافذة باي بال حتى يتم تأكيد الدفع.",
   payNow: "ادفع",
   openingPayment: "جارٍ فتح صفحة الدفع…",
   simulatePayment: "محاكاة الدفع (اختبار)",

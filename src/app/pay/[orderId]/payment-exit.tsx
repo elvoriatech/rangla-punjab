@@ -8,6 +8,8 @@ export interface PaymentExitLabels {
   title: string;
   body: string;
   tryCard: string;
+  /** Under "try card again": the guest is about to leave for Stripe. */
+  keepWindowOpen: string;
   payCash: string;
   cancel: string;
   cancelConfirm: string;
@@ -125,6 +127,16 @@ export function PaymentExit({
               >
                 {busy === "card" ? labels.working : labels.tryCard}
               </button>
+            ) : null}
+            {cardAvailable ? (
+              <p
+                role="status"
+                className={
+                  "text-center text-xs " + (busy === "card" ? "font-semibold" : "text-muted")
+                }
+              >
+                {labels.keepWindowOpen}
+              </p>
             ) : null}
             {acceptsCash ? (
               <button

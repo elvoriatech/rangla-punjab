@@ -1090,6 +1090,19 @@ export function CartDrawer({
                   {payStarting ? t.openingPaypal : t.payWithPaypal}
                 </button>
               ) : null}
+              {hasPaymentCta ? (
+                <p
+                  role="status"
+                  className={
+                    "text-center text-xs " +
+                    (payStarting
+                      ? "font-semibold text-[var(--menu-surface-text,var(--menu-text))]"
+                      : "text-[var(--menu-surface-text-soft,var(--menu-text-soft))]")
+                  }
+                >
+                  {payStarting ? t.payKeepWindowOpen : t.payRedirectNote}
+                </p>
+              ) : null}
               {/* One dominant fill, then a wash, then text links. This stack
                   used to be four solid fills plus an outline, so nothing led
                   and the PDF download shouted as loudly as paying. Track is
@@ -1767,6 +1780,22 @@ export function CartDrawer({
                           : t.opening
                         : `${payMethod === "cash" ? t.placeOrder : t.pay} · ${money(total)}`}
                     </button>
+                    {/* Card / PayPal leave this page for the provider's: say
+                        so up front, and louder while it opens, so nobody
+                        closes the tab mid-payment (owner, 2026-10-19). */}
+                    {payMethod !== "cash" ? (
+                      <p
+                        role="status"
+                        className={
+                          "mt-2 text-center text-xs " +
+                          (busy
+                            ? "font-semibold text-[var(--menu-surface-text,var(--menu-text))]"
+                            : "text-[var(--menu-surface-text-soft,var(--menu-text-soft))]")
+                        }
+                      >
+                        {busy ? t.payKeepWindowOpen : t.payRedirectNote}
+                      </p>
+                    ) : null}
                   </div>
                 );
               })()}

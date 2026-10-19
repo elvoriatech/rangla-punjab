@@ -91,6 +91,10 @@ const fr: CheckoutCopy = {
   payOnline: (amount) => `Payer en ligne · ${amount}`,
   openingPayment: "Ouverture du paiement…",
   openingPaypal: "Ouverture de PayPal…",
+  payRedirectNote:
+    "Vous allez être redirigé vers une page de paiement sécurisée. Veuillez ne pas fermer cette fenêtre avant l'affichage de la confirmation de commande.",
+  payKeepWindowOpen:
+    "Ouverture de la page de paiement sécurisée. Veuillez ne pas fermer cette fenêtre.",
   payWithPaypal: "Payer avec PayPal",
   trackOrder: "Suivre votre commande",
   downloadReceipt: "Télécharger le reçu (PDF)",

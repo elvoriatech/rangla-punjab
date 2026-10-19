@@ -175,6 +175,7 @@ export async function createOrderPayment(
           totalCents: true,
           currency: true,
           paymentStatus: true,
+          locale: true,
           venue: { select: { name: true, slug: true } },
         },
       }),
@@ -208,6 +209,7 @@ export async function createOrderPayment(
           // is offered try again / pay cash / cancel.
           cancelUrl: `${payPage}&status=cancelled`,
           payPageUrl: payPage,
+          locale: order.locale,
         });
         await tx.order.update({
           where: { id: order.id },
@@ -257,6 +259,7 @@ export async function createOrderPayment(
       // is offered try again / pay cash / cancel.
       cancelUrl: `${payPage}&status=cancelled`,
       payPageUrl: payPage,
+      locale: order.locale,
     });
     await tx.order.update({
       where: { id: order.id },

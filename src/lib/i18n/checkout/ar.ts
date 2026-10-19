@@ -92,6 +92,9 @@ const ar: CheckoutCopy = {
   payOnline: (amount) => `الدفع عبر الإنترنت · ${amount}`,
   openingPayment: "جارٍ فتح صفحة الدفع…",
   openingPaypal: "جارٍ فتح PayPal…",
+  payRedirectNote:
+    "سيتم تحويلك إلى صفحة دفع آمنة. يُرجى عدم إغلاق هذه النافذة حتى يظهر تأكيد طلبك.",
+  payKeepWindowOpen: "جارٍ فتح صفحة الدفع الآمنة. يُرجى عدم إغلاق هذه النافذة.",
   payWithPaypal: "الدفع عبر PayPal",
   trackOrder: "تتبّع طلبك",
   downloadReceipt: "تنزيل الإيصال (PDF)",

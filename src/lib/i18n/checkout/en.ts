@@ -124,6 +124,11 @@ const en = {
   payOnline: (amount: string) => `Pay online · ${amount}`,
   openingPayment: "Opening payment…",
   openingPaypal: "Opening PayPal…",
+  /** Under the pay button and while the payment page opens: closing the
+   *  tab mid-payment can leave the order unpaid (owner, 2026-10-19). */
+  payRedirectNote:
+    "You'll be taken to a secure payment page. Please don't close this window until you see your order confirmation.",
+  payKeepWindowOpen: "Opening the secure payment page. Please don't close this window.",
   payWithPaypal: "Pay with PayPal",
   trackOrder: "Track your order",
   downloadReceipt: "Download receipt (PDF)",

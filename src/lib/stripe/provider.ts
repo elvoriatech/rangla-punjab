@@ -134,6 +134,9 @@ export interface StripeProvider {
     /** Local fake-pay page; the fake provider sends the guest here, the
      *  real provider ignores it (Stripe hosts the payment page). */
     payPageUrl: string;
+    /** The guest's language: Stripe's page and its "don't close this
+     *  window" line follow it. Absent = Stripe's own guess. */
+    locale?: string | null;
   }): Promise<OrderCheckoutRef>;
 
   /** Checkout for one order on THIS provider's own account — no connected
@@ -148,6 +151,9 @@ export interface StripeProvider {
     successUrl: string;
     cancelUrl: string;
     payPageUrl: string;
+    /** The guest's language: Stripe's page and its "don't close this
+     *  window" line follow it. Absent = Stripe's own guess. */
+    locale?: string | null;
   }): Promise<OrderCheckoutRef>;
 
   /** The native-payment-sheet sibling of `createDirectCheckout`: a bare

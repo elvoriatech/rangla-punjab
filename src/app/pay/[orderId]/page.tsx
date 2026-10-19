@@ -211,6 +211,7 @@ export default async function PayPage({
                 title: t.exitTitle,
                 body: t.exitBody,
                 tryCard: t.exitTryCard,
+                keepWindowOpen: t.exitKeepWindowOpen,
                 payCash: t.exitPayCash,
                 cancel: t.exitCancel,
                 cancelConfirm: t.exitCancelConfirm,

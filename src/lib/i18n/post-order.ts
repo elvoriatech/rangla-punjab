@@ -75,6 +75,8 @@ const en = {
   exitBody:
     "Your order has not been paid, so the kitchen has not received it yet. What would you like to do?",
   exitTryCard: "Try card payment again",
+  exitKeepWindowOpen:
+    "You'll be taken to the secure payment page. Please don't close this window until the payment is confirmed.",
   exitPayCash: "Pay cash at the restaurant",
   exitCancel: "Cancel order",
   exitCancelConfirm: "Cancel this order? It hasn't been paid and nothing will be charged.",
@@ -288,6 +290,8 @@ const de: PostOrderCopy = {
   exitBody:
     "Deine Bestellung ist nicht bezahlt, daher hat die Küche sie noch nicht erhalten. Was möchtest du tun?",
   exitTryCard: "Kartenzahlung erneut versuchen",
+  exitKeepWindowOpen:
+    "Sie werden zur sicheren Zahlungsseite weitergeleitet. Bitte schließen Sie dieses Fenster nicht, bis die Zahlung bestätigt ist.",
   exitPayCash: "Bar im Restaurant bezahlen",
   exitCancel: "Bestellung stornieren",
   exitCancelConfirm:
@@ -485,6 +489,8 @@ const fr: PostOrderCopy = {
   exitBody:
     "Votre commande n’est pas payée, la cuisine ne l’a donc pas encore reçue. Que souhaitez-vous faire ?",
   exitTryCard: "Réessayer le paiement par carte",
+  exitKeepWindowOpen:
+    "Vous allez être redirigé vers la page de paiement sécurisée. Veuillez ne pas fermer cette fenêtre avant la confirmation du paiement.",
   exitPayCash: "Payer en espèces au restaurant",
   exitCancel: "Annuler la commande",
   exitCancelConfirm: "Annuler cette commande ? Elle n’est pas payée et rien ne sera débité.",
@@ -674,6 +680,8 @@ const es: PostOrderCopy = {
   exitBody:
     "Tu pedido no está pagado, así que la cocina aún no lo ha recibido. ¿Qué quieres hacer?",
   exitTryCard: "Reintentar el pago con tarjeta",
+  exitKeepWindowOpen:
+    "Te llevaremos a la página de pago segura. No cierres esta ventana hasta que se confirme el pago.",
   exitPayCash: "Pagar en efectivo en el restaurante",
   exitCancel: "Cancelar pedido",
   exitCancelConfirm: "¿Cancelar este pedido? No está pagado y no se cobrará nada.",
@@ -860,6 +868,8 @@ const it: PostOrderCopy = {
   exitBody:
     "Il tuo ordine non è pagato, quindi la cucina non l'ha ancora ricevuto. Cosa vuoi fare?",
   exitTryCard: "Riprova il pagamento con carta",
+  exitKeepWindowOpen:
+    "Verrai indirizzato alla pagina di pagamento sicura. Non chiudere questa finestra finché il pagamento non è confermato.",
   exitPayCash: "Paga in contanti al ristorante",
   exitCancel: "Annulla ordine",
   exitCancelConfirm: "Annullare questo ordine? Non è pagato e non verrà addebitato nulla.",
@@ -1045,6 +1055,8 @@ const ar: PostOrderCopy = {
   exitTitle: "لم يكتمل الدفع",
   exitBody: "طلبك غير مدفوع، لذلك لم يستلمه المطبخ بعد. ماذا تريد أن تفعل؟",
   exitTryCard: "إعادة محاولة الدفع بالبطاقة",
+  exitKeepWindowOpen:
+    "سيتم تحويلك إلى صفحة الدفع الآمنة. يُرجى عدم إغلاق هذه النافذة حتى يتم تأكيد الدفع.",
   exitPayCash: "الدفع نقدًا في المطعم",
   exitCancel: "إلغاء الطلب",
   exitCancelConfirm: "هل تريد إلغاء هذا الطلب؟ لم يُدفع ولن يُخصم أي مبلغ.",
