@@ -233,5 +233,12 @@ describe("cash for pickup / delivery", () => {
     expect(venueTakesCashFor(raw, "delivery")).toBe(false);
     expect(venueTakesCashFor(raw, "takeaway")).toBe(true);
     expect(venueTakesCashFor({ acceptedPayments: ["visa"] }, "takeaway")).toBe(false);
+    // Signed-in app guest keeps cash; the same guest on the web does not.
+    expect(venueTakesCashFor(raw, "delivery", { customerId: "c1", orderChannel: "app" })).toBe(
+      true,
+    );
+    expect(venueTakesCashFor(raw, "delivery", { customerId: "c1", orderChannel: "web" })).toBe(
+      false,
+    );
   });
 });

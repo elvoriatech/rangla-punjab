@@ -307,7 +307,15 @@ export async function placeOrder(
     // The owner switched cash off for pickup / delivery: those orders must
     // be paid online. Checked before anything is claimed or written, and
     // an absent payment counts as cash (that is what it has always meant).
-    if ((input.intendedPayment ?? "cash") === "cash" && !cashAllowed(mode, orderType)) {
+    // EXCEPT a signed-in guest in the app (owner, 2026-10-19): a known
+    // customer may still pay cash; the website and anonymous app guests
+    // may not.
+    const knownAppCustomer = opts?.channel === "app" && Boolean(opts?.customerId);
+    if (
+      (input.intendedPayment ?? "cash") === "cash" &&
+      !knownAppCustomer &&
+      !cashAllowed(mode, orderType)
+    ) {
       return { ok: false, error: "cash_not_available" as const };
     }
     // The restaurant switched ordering off for now ("stop taking orders"):

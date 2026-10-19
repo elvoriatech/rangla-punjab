@@ -183,17 +183,19 @@ export function CartScreen({
     if (menu.ordering.onlinePayment) list.push({ key: "card", label: t.methodCard });
     if (menu.ordering.paypal) list.push({ key: "paypal", label: t.methodPaypal });
     // The owner can switch cash off for pickup / delivery (card or PayPal
-    // only): then it is never offered for that type. Absent = older
-    // server = cash as before.
+    // only): then it is not offered for that type — unless the guest is
+    // signed in, who may still pay cash (owner, 2026-10-19; the server makes
+    // the same exception). Absent = older server = cash as before.
     const typeCashOff =
-      (orderType === "takeaway" && menu.ordering.cashTakeaway === false) ||
-      (orderType === "delivery" && menu.ordering.cashDelivery === false);
+      !auth.token &&
+      ((orderType === "takeaway" && menu.ordering.cashTakeaway === false) ||
+        (orderType === "delivery" && menu.ordering.cashDelivery === false));
     const cash = (menu.ordering.acceptedPayments ?? []).includes("cash");
     if (!typeCashOff && (cash || list.length === 0)) {
       list.push({ key: "cash", label: t.methodCash });
     }
     return list;
-  }, [menu.ordering, orderType, t]);
+  }, [menu.ordering, orderType, auth.token, t]);
 
   const [pickedPay, setPayMethod] = useState<PayMethod>(() =>
     menu.ordering.onlinePayment ? "card" : menu.ordering.paypal ? "paypal" : "cash",

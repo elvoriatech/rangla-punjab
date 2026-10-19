@@ -1587,8 +1587,9 @@ export default async function SettingsPage({
             <p className="clear-both pt-1 text-xs text-muted">
               Untick to accept only <strong>card and PayPal</strong> for that order type — guests no
               longer see &ldquo;Pay at pickup&rdquo; or &ldquo;Cash to driver&rdquo; on the website
-              or in the app. Dine-in guests can always pay at the table. Only switch cash off while
-              card or PayPal payments are set up, or guests cannot order that way.
+              or in the app. Guests signed in to the app can still choose cash. Dine-in guests can
+              always pay at the table. Only switch cash off while card or PayPal payments are set
+              up, or guests cannot order that way.
             </p>
             <div className="mt-3 flex flex-col gap-2 text-sm sm:flex-row sm:gap-6">
               <label className="flex items-center gap-2">

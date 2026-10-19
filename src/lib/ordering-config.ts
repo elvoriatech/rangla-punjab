@@ -345,9 +345,16 @@ export function effectiveOrdering(
  * among its accepted payments AND has not switched cash off for this
  * order type. Takes the raw stored config and order type.
  */
-export function venueTakesCashFor(rawOrdering: unknown, orderType: string): boolean {
+export function venueTakesCashFor(
+  rawOrdering: unknown,
+  orderType: string,
+  placedBy?: { customerId: string | null; orderChannel: string | null },
+): boolean {
   const config = parseOrderingConfig(rawOrdering);
   if (!config.acceptedPayments.includes("cash")) return false;
+  // A signed-in guest who ordered in the app keeps cash even where the
+  // pickup / delivery switch is off — the same exception placeOrder makes.
+  if (placedBy?.customerId && placedBy.orderChannel === "app") return true;
   if (orderType === "takeaway") return config.cashTakeaway;
   if (orderType === "delivery") return config.cashDelivery;
   return true;

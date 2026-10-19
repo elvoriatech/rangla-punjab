@@ -1063,6 +1063,34 @@ describe("order-service (guest self-ordering)", () => {
     });
   }
 
+  it("cash switched off: a signed-in guest in the app may still pay cash, nobody else", async () => {
+    const fx = await loyaltyFixture();
+    await asTenant(fx.tenantId, (tx) =>
+      tx.venue.update({ where: { id: fx.venueId }, data: { ordering: { cashTakeaway: false } } }),
+    );
+    const pickup = {
+      orderType: "takeaway" as const,
+      customerName: "A",
+      customerPhone: "1",
+      intendedPayment: "cash" as const,
+      items: [{ itemId: fx.itemId, quantity: 1 }],
+    };
+    const appSignedIn = await placeOrder(fx, pickup, {
+      customerId: fx.customerId,
+      channel: "app",
+    });
+    expect(appSignedIn.ok).toBe(true);
+    // Same customer on the website, and an anonymous app guest: refused.
+    expect(await placeOrder(fx, pickup, { customerId: fx.customerId, channel: "web" })).toEqual({
+      ok: false,
+      error: "cash_not_available",
+    });
+    expect(await placeOrder(fx, pickup, { customerId: null, channel: "app" })).toEqual({
+      ok: false,
+      error: "cash_not_available",
+    });
+  });
+
   it("cancels an open order and gives the redeemed voucher back", async () => {
     const fx = await loyaltyFixture();
     const place = async (redeemVoucher = false): Promise<string> => {

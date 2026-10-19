@@ -789,7 +789,7 @@ export async function switchUnpaidOrderToCash(
   const accepts = await asTenant(tenantId, async (tx) => {
     const order = await tx.order.findFirst({
       where: { id: orderId },
-      select: { venueId: true, orderType: true },
+      select: { venueId: true, orderType: true, customerId: true, orderChannel: true },
     });
     if (!order) return null;
     const venue = await tx.venue.findFirst({
@@ -797,7 +797,7 @@ export async function switchUnpaidOrderToCash(
       select: { ordering: true },
     });
     const { venueTakesCashFor } = await import("./ordering-config");
-    return venueTakesCashFor(venue?.ordering, order.orderType);
+    return venueTakesCashFor(venue?.ordering, order.orderType, order);
   });
   if (accepts === null) return { ok: false, error: "not_found" };
   if (!accepts) return { ok: false, error: "cash_not_accepted" };
@@ -867,6 +867,8 @@ export async function getGuestPaymentOptions(
         paymentProvider: true,
         venueId: true,
         orderType: true,
+        customerId: true,
+        orderChannel: true,
       },
     });
     if (!order) return null;
@@ -882,7 +884,7 @@ export async function getGuestPaymentOptions(
     return {
       status: order.status,
       canExit,
-      acceptsCash: venueTakesCashFor(venue?.ordering, order.orderType),
+      acceptsCash: venueTakesCashFor(venue?.ordering, order.orderType, order),
     };
   });
 }
