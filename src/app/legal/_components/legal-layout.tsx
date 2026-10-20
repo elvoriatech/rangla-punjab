@@ -13,6 +13,9 @@ import Link from "next/link";
  */
 
 const LEGAL_ROUTES: { href: string; label: string }[] = [
+  // Not a legal text, but the restaurant's own page lives in this list too
+  // (owner, 2026-10-20) — the guest finds it beside the Impressum.
+  { href: "/ueber-uns", label: "Über uns" },
   { href: "/legal/terms", label: "Terms of Service" },
   { href: "/legal/privacy", label: "Privacy Policy" },
   { href: "/legal/dpa", label: "Data Processing Agreement" },
@@ -24,11 +27,15 @@ export function LegalLayout({
   title,
   lastUpdated,
   currentPath,
+  reviewBanner = true,
   children,
 }: {
   title: string;
-  lastUpdated: string;
+  /** Omitted on a page built from live settings (Über uns). */
+  lastUpdated?: string;
   currentPath: string;
+  /** The "AI-drafted for counsel review" note — legal drafts only. */
+  reviewBanner?: boolean;
   children: React.ReactNode;
 }): React.ReactElement {
   return (
@@ -59,15 +66,17 @@ export function LegalLayout({
       </nav>
 
       <article className="max-w-3xl">
-        <aside
-          role="note"
-          className="mb-8 border-l-4 border-amber-500 bg-amber-100 p-4 text-sm text-amber-900"
-        >
-          <strong className="block font-semibold">TODO: legal review</strong>
-          This page has been <strong>AI-drafted for counsel review</strong> — it is a working draft,
-          not legally binding. Counsel edits the file in place and removes this banner (task
-          P1-22c-ii) before we invite the first paying tenant.
-        </aside>
+        {reviewBanner ? (
+          <aside
+            role="note"
+            className="mb-8 border-l-4 border-amber-500 bg-amber-100 p-4 text-sm text-amber-900"
+          >
+            <strong className="block font-semibold">TODO: legal review</strong>
+            This page has been <strong>AI-drafted for counsel review</strong> — it is a working
+            draft, not legally binding. Counsel edits the file in place and removes this banner
+            (task P1-22c-ii) before we invite the first paying tenant.
+          </aside>
+        ) : null}
 
         <h1 className="font-serif text-4xl leading-tight">{title}</h1>
 
@@ -75,9 +84,11 @@ export function LegalLayout({
           {children}
         </div>
 
-        <footer className="mt-16 border-t border-brand-green/20 pt-6 text-xs text-brand-green/60">
-          Last updated: {lastUpdated}
-        </footer>
+        {lastUpdated ? (
+          <footer className="mt-16 border-t border-brand-green/20 pt-6 text-xs text-brand-green/60">
+            Last updated: {lastUpdated}
+          </footer>
+        ) : null}
       </article>
     </main>
   );

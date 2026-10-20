@@ -27,6 +27,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const venues = await listPublicVenues();
   const entries: MetadataRoute.Sitemap = [
     { url: `${base}/`, changeFrequency: "monthly", priority: 0.5 },
+    // The restaurant's About page (owner, 2026-10-20).
+    { url: `${base}/ueber-uns`, changeFrequency: "monthly", priority: 0.6 },
   ];
   for (const v of venues) {
     for (const locale of v.enabledLocales) {

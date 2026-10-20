@@ -2,8 +2,9 @@ import type { MenuCopy } from "@/lib/i18n/menu";
 import type { DeliveryArea } from "@/lib/ordering-config";
 
 /**
- * "About us" — a short block above the footer saying who the restaurant
- * is, where, and how to order (owner, 2026-10-19). It exists for local
+ * "About us" — who the restaurant is, where, and how to order (owner,
+ * 2026-10-19). Shown on its own page, `/ueber-uns`, linked from the menu
+ * footer and the legal list (owner, 2026-10-20: not on the menu). For local
  * search: a search engine matches "indisches Restaurant Konstanz" against
  * sentences on the page, and the menu alone is a list of dish names.
  *
@@ -55,6 +56,7 @@ export function AboutSection({
   delivery,
   deliveryAreas,
   reservations,
+  asPage = false,
 }: {
   t: MenuCopy;
   venueName: string;
@@ -66,6 +68,9 @@ export function AboutSection({
   delivery: boolean;
   deliveryAreas: readonly DeliveryArea[];
   reservations: boolean;
+  /** On its own page (`/ueber-uns`): the page carries the heading and the
+   *  colours, so only the sentences are rendered. */
+  asPage?: boolean;
 }): React.ReactElement {
   const { name, cityFromName } = splitVenueName(venueName);
   const city =
@@ -89,6 +94,22 @@ export function AboutSection({
         .join(", ")
     : null;
 
+  const sentences = (
+    <>
+      <p>{t.about.intro(name, cuisine, city, dishes.join(", "))}</p>
+      {orderLine || places ? (
+        <p>
+          {orderLine}
+          {orderLine && places ? " " : null}
+          {places ? t.about.deliversTo(places) : null}
+        </p>
+      ) : null}
+      {reservations ? <p>{t.about.reserve}</p> : null}
+      {address ? <p>{t.about.address(address)}</p> : null}
+    </>
+  );
+  if (asPage) return sentences;
+
   return (
     <section
       aria-label={t.about.aria}
@@ -98,16 +119,7 @@ export function AboutSection({
         {t.about.heading(name, city)}
       </h2>
       <div className="mt-4 space-y-2 text-sm leading-relaxed text-[var(--menu-text)]/85 sm:text-base">
-        <p>{t.about.intro(name, cuisine, city, dishes.join(", "))}</p>
-        {orderLine || places ? (
-          <p>
-            {orderLine}
-            {orderLine && places ? " " : null}
-            {places ? t.about.deliversTo(places) : null}
-          </p>
-        ) : null}
-        {reservations ? <p>{t.about.reserve}</p> : null}
-        {address ? <p>{t.about.address(address)}</p> : null}
+        {sentences}
       </div>
     </section>
   );
