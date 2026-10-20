@@ -602,6 +602,20 @@ export function MenuView({
                     key={cat.id}
                     data-category-id={cat.id}
                     hidden={activeCat ? cat.id !== activeCat : undefined}
+                    // Sections below the first two are laid out only when
+                    // they near the screen: ~250 dish cards made a phone
+                    // spend ~0.7 s on layout before the first paint. The
+                    // placeholder height is a rough guess from the dish
+                    // count (so the scrollbar does not jump); `auto` then
+                    // remembers the real height once a section has rendered.
+                    style={
+                      catIndex >= 2
+                        ? {
+                            contentVisibility: "auto",
+                            containIntrinsicSize: `auto ${160 + cat.items.length * 150}px`,
+                          }
+                        : undefined
+                    }
                   >
                     <Section
                       cat={cat}
@@ -1996,6 +2010,9 @@ function HeroBanner({
         srcSet={bannerSrcSet(venue.branding.bannerKey!)}
         sizes="100vw"
         alt=""
+        // The page's largest paint on every device: fetch it first, ahead
+        // of the dish photos (mobile LCP was 5.8 s, owner 2026-10-20).
+        fetchPriority="high"
         className="absolute inset-0 h-full w-full object-cover object-center"
       />
       <div
