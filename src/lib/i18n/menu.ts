@@ -250,6 +250,21 @@ const en = {
     categoriesAria: "Categories with photos",
     dishCount: (n: number): string => (n === 1 ? "1 dish" : `${n} dishes`),
   },
+  /** "About us" block above the footer (owner, 2026-10-19: local search).
+   *  Every sentence is built from the venue's own settings — nothing here
+   *  states a fact the owner did not enter. */
+  about: {
+    aria: "About us",
+    heading: (name: string, city: string | null): string => (city ? `${name} in ${city}` : name),
+    intro: (name: string, cuisine: string, city: string | null, dishes: string): string =>
+      `${name} serves ${cuisine}${city ? ` in ${city}` : ""}. On the menu: ${dishes} and much more.`,
+    orderBoth: "Order online for pickup, or have it delivered to your door.",
+    orderPickup: "Order online and pick your food up from us.",
+    orderDelivery: "Order online and have it delivered to your door.",
+    deliversTo: (places: string): string => `We deliver to ${places}.`,
+    reserve: "Want to eat with us? Reserve a table online.",
+    address: (address: string): string => `Find us at ${address}.`,
+  },
   metadata: {
     /** Search snippet. `cuisine` / `dishes` come from `seo-profile.ts`:
      *  the cuisine and dish names people actually search for. */
@@ -426,6 +441,18 @@ const de: MenuCopy = {
     categoriesAria: "Kategorien mit Bild",
     dishCount: (n) => (n === 1 ? "1 Gericht" : `${n} Gerichte`),
   },
+  about: {
+    aria: "Über uns",
+    heading: (name, city) => (city ? `${name} in ${city}` : name),
+    intro: (name, cuisine, city, dishes) =>
+      `${name} bietet ${cuisine}${city ? ` in ${city}` : ""}. Auf der Speisekarte: ${dishes} und vieles mehr.`,
+    orderBoth: "Bestellen Sie online – zum Abholen oder mit Lieferung zu Ihnen nach Hause.",
+    orderPickup: "Bestellen Sie online und holen Sie Ihr Essen bei uns ab.",
+    orderDelivery: "Bestellen Sie online und lassen Sie sich Ihr Essen nach Hause liefern.",
+    deliversTo: (places) => `Wir liefern nach ${places}.`,
+    reserve: "Sie möchten bei uns essen? Reservieren Sie online einen Tisch.",
+    address: (address) => `Sie finden uns hier: ${address}.`,
+  },
   metadata: {
     title: (venue, cuisine) => `${venue} | ${cuisine} – Take Away & Lieferung`,
     description: (venue, cuisine, dishes) =>
@@ -599,6 +626,18 @@ const fr: MenuCopy = {
     categoriesAria: "Catégories en images",
     dishCount: (n) => (n === 1 ? "1 plat" : `${n} plats`),
   },
+  about: {
+    aria: "À propos",
+    heading: (name, city) => (city ? `${name} à ${city}` : name),
+    intro: (name, cuisine, city, dishes) =>
+      `${name} propose ${cuisine}${city ? ` à ${city}` : ""}. Au menu : ${dishes} et bien plus encore.`,
+    orderBoth: "Commandez en ligne, à emporter ou en livraison à domicile.",
+    orderPickup: "Commandez en ligne et venez chercher votre repas chez nous.",
+    orderDelivery: "Commandez en ligne et faites-vous livrer à domicile.",
+    deliversTo: (places) => `Nous livrons à ${places}.`,
+    reserve: "Envie de manger chez nous ? Réservez une table en ligne.",
+    address: (address) => `Retrouvez-nous : ${address}.`,
+  },
   metadata: {
     title: (venue, cuisine) => `${venue} | ${cuisine} – À emporter et livraison`,
     description: (venue, cuisine, dishes) =>
@@ -769,6 +808,18 @@ const es: MenuCopy = {
     categoriesAria: "Categorías con foto",
     dishCount: (n) => (n === 1 ? "1 plato" : `${n} platos`),
   },
+  about: {
+    aria: "Sobre nosotros",
+    heading: (name, city) => (city ? `${name} en ${city}` : name),
+    intro: (name, cuisine, city, dishes) =>
+      `${name} ofrece ${cuisine}${city ? ` en ${city}` : ""}. En la carta: ${dishes} y mucho más.`,
+    orderBoth: "Pide online para recoger o a domicilio.",
+    orderPickup: "Pide online y recoge tu comida en nuestro local.",
+    orderDelivery: "Pide online y te lo llevamos a casa.",
+    deliversTo: (places) => `Repartimos en ${places}.`,
+    reserve: "¿Quieres comer con nosotros? Reserva una mesa online.",
+    address: (address) => `Estamos en ${address}.`,
+  },
   metadata: {
     title: (venue, cuisine) => `${venue} | ${cuisine} – Para llevar y a domicilio`,
     description: (venue, cuisine, dishes) =>
@@ -938,6 +989,18 @@ const it: MenuCopy = {
     categoriesHeading: "Le nostre categorie",
     categoriesAria: "Categorie con foto",
     dishCount: (n) => (n === 1 ? "1 piatto" : `${n} piatti`),
+  },
+  about: {
+    aria: "Chi siamo",
+    heading: (name, city) => (city ? `${name} a ${city}` : name),
+    intro: (name, cuisine, city, dishes) =>
+      `${name} propone ${cuisine}${city ? ` a ${city}` : ""}. Nel menu: ${dishes} e molto altro.`,
+    orderBoth: "Ordina online, da asporto o con consegna a domicilio.",
+    orderPickup: "Ordina online e ritira il tuo cibo da noi.",
+    orderDelivery: "Ordina online e ricevilo a casa.",
+    deliversTo: (places) => `Consegniamo a ${places}.`,
+    reserve: "Vuoi mangiare da noi? Prenota un tavolo online.",
+    address: (address) => `Ci trovi qui: ${address}.`,
   },
   metadata: {
     title: (venue, cuisine) => `${venue} | ${cuisine} – Asporto e consegna`,
@@ -1120,6 +1183,18 @@ const ar: MenuCopy = {
     categoriesAria: "الأقسام بالصور",
     dishCount: (n) =>
       n === 1 ? "طبق واحد" : n === 2 ? "طبقان" : n <= 10 ? `${n} أطباق` : `${n} طبقاً`,
+  },
+  about: {
+    aria: "من نحن",
+    heading: (name, city) => (city ? `${name} في ${city}` : name),
+    intro: (name, cuisine, city, dishes) =>
+      `يقدّم ${name} ${cuisine}${city ? ` في ${city}` : ""}. في القائمة: ${dishes} وغيرها الكثير.`,
+    orderBoth: "اطلب أونلاين للاستلام أو مع التوصيل إلى منزلك.",
+    orderPickup: "اطلب أونلاين واستلم طعامك من مطعمنا.",
+    orderDelivery: "اطلب أونلاين وسنوصله إلى منزلك.",
+    deliversTo: (places) => `نوصّل إلى ${places}.`,
+    reserve: "ترغب في تناول الطعام عندنا؟ احجز طاولة أونلاين.",
+    address: (address) => `تجدنا هنا: ${address}.`,
   },
   metadata: {
     title: (venue, cuisine) => `${venue} | ${cuisine} – طلبات خارجية وتوصيل`,

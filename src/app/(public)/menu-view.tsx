@@ -1,5 +1,6 @@
 import { VenueWordmark } from "./venue-wordmark";
-import { seoProfile } from "@/lib/seo-profile";
+import { searchCuisine, seoProfile } from "@/lib/seo-profile";
+import { AboutSection } from "./about-section";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { ComplaintLink } from "./complaint-link";
@@ -621,6 +622,20 @@ export function MenuView({
           </div>
         </div>
       </main>
+      {/* Who and where, in sentences — for local search (owner, 2026-10-19). */}
+      {!menu.isPreview ? (
+        <AboutSection
+          t={t}
+          venueName={menu.venue.name}
+          postalAddress={menu.venue.postalAddress ?? null}
+          cuisine={searchCuisine(locale).phrase}
+          dishes={seoProfile().signatureDishes}
+          takeaway={modes.takeaway}
+          delivery={modes.delivery}
+          deliveryAreas={modes.deliveryAreas}
+          reservations={Boolean(reserve)}
+        />
+      ) : null}
       <footer className="border-t border-[var(--menu-surface-text,var(--menu-text))]/10 bg-[var(--menu-surface)] text-[var(--menu-surface-text,var(--menu-text))]">
         {/* TWO rows, not three columns: the owner asked for a footer no
             taller than two or three lines on a desktop, and the column

@@ -54,15 +54,41 @@ export function seoProfile(env: Record<string, string | undefined> = process.env
  * for the title ("Indisches Restaurant") and a long one for the
  * description. This deployment's restaurant; another one edits here.
  */
-const SEARCH_CUISINE: Record<string, { short: string; long: string }> = {
-  de: { short: "Indisches Restaurant", long: "Indische und pakistanische Küche" },
-  en: { short: "Indian Restaurant", long: "Indian and Pakistani food" },
-  fr: { short: "Restaurant indien", long: "Cuisine indienne et pakistanaise" },
-  es: { short: "Restaurante indio", long: "Cocina india y pakistaní" },
-  it: { short: "Ristorante indiano", long: "Cucina indiana e pakistana" },
-  ar: { short: "مطعم هندي", long: "مأكولات هندية وباكستانية" },
+const SEARCH_CUISINE: Record<string, { short: string; long: string; phrase: string }> = {
+  de: {
+    short: "Indisches Restaurant",
+    long: "Indische und pakistanische Küche",
+    phrase: "indische und pakistanische Küche",
+  },
+  en: {
+    short: "Indian Restaurant",
+    long: "Indian and Pakistani food",
+    phrase: "Indian and Pakistani food",
+  },
+  fr: {
+    short: "Restaurant indien",
+    long: "Cuisine indienne et pakistanaise",
+    phrase: "une cuisine indienne et pakistanaise",
+  },
+  es: {
+    short: "Restaurante indio",
+    long: "Cocina india y pakistaní",
+    phrase: "cocina india y pakistaní",
+  },
+  it: {
+    short: "Ristorante indiano",
+    long: "Cucina indiana e pakistana",
+    phrase: "cucina indiana e pakistana",
+  },
+  ar: {
+    short: "مطعم هندي",
+    long: "مأكولات هندية وباكستانية",
+    phrase: "مأكولات هندية وباكستانية",
+  },
 };
 
-export function searchCuisine(locale: string): { short: string; long: string } {
+/** `phrase` reads mid-sentence ("… bietet indische und pakistanische
+ *  Küche"), for the About block. */
+export function searchCuisine(locale: string): { short: string; long: string; phrase: string } {
   return SEARCH_CUISINE[locale] ?? SEARCH_CUISINE.en!;
 }
