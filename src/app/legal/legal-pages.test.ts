@@ -11,7 +11,7 @@ import { SUBPROCESSORS } from "@/content/legal/subprocessors";
  * by the smoke curl to the running dev server, noted in the commit).
  */
 
-const LEGAL_FILES = ["terms", "privacy", "dpa", "impressum", "accessibility"] as const;
+const LEGAL_FILES = ["terms", "privacy", "impressum", "accessibility"] as const;
 
 async function readLegalMdx(name: string): Promise<string> {
   const file = path.join(process.cwd(), "src/content/legal", `${name}.mdx`);
@@ -37,10 +37,21 @@ describe("legal MDX content files", () => {
     expect(src).toMatch(/^## /m);
   });
 
-  it.each(LEGAL_FILES)("%s.mdx retains the release marker until counsel signs", async (name) => {
+  it.each(LEGAL_FILES)("%s.mdx is signed off — no review marker left", async (name) => {
+    // The owner filled in and approved the restaurant's texts (2026-10-20).
     const src = await readLegalMdx(name);
-    expect(src).toContain("TODO: legal review");
+    expect(src).not.toContain("TODO: legal review");
+    expect(src).not.toContain("[TODO");
   });
+
+  it.each(["impressum", "privacy", "terms"] as const)(
+    "%s.mdx names the restaurant and its owner",
+    async (name) => {
+      const src = await readLegalMdx(name);
+      expect(src).toContain("Rangla Punjab Restaurant");
+      expect(src).toContain("Sabir Hayat Khan");
+    },
+  );
 
   it.each(LEGAL_FILES)("%s.mdx has at least 4 `##` headings", async (name) => {
     const src = await readLegalMdx(name);
@@ -61,28 +72,19 @@ describe("legal MDX content files", () => {
     expect(body.length).toBeGreaterThanOrEqual(800);
   });
 
-  it("the TODO review banner lives on the shared LegalLayout (single source)", async () => {
+  it("the shared LegalLayout no longer carries the draft banner", async () => {
     const layout = await readFile(
       path.join(process.cwd(), "src/app/legal/_components/legal-layout.tsx"),
       "utf8",
     );
-    expect(layout).toContain("TODO: legal review");
-    expect(layout).toMatch(/role="note"/);
+    expect(layout).not.toContain("AI-drafted for counsel review");
+    expect(layout).not.toMatch(/role="note"/);
   });
 
-  it("the LegalLayout banner mentions the copy is AI-drafted for counsel review", async () => {
-    const layout = await readFile(
-      path.join(process.cwd(), "src/app/legal/_components/legal-layout.tsx"),
-      "utf8",
-    );
-    expect(layout).toContain("AI-drafted for counsel review");
-  });
-
-  it("checkLegalReady() stays dirty until counsel removes the marker", async () => {
+  it("checkLegalReady() is clean now the owner signed off", async () => {
     const { checkLegalReady } = await import("../../../scripts/check-legal-ready");
     const result = await checkLegalReady();
-    expect(result.clean).toBe(false);
-    expect(result.offenders.length).toBe(LEGAL_FILES.length);
+    expect(result.clean).toBe(true);
     expect(result.scanned.length).toBe(LEGAL_FILES.length);
   });
 });

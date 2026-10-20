@@ -5,14 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkLegalReady, MARKER } from "./check-legal-ready";
 
 describe("checkLegalReady", () => {
-  it("exits dirty against the real placeholders — every mdx file carries the marker", async () => {
-    // Against the current repo state we expect *every* legal MDX file to
-    // carry the marker (placeholders shipped with P1-22a).
+  it("is clean against the real legal pages — the owner signed them off (2026-10-20)", async () => {
     const result = await checkLegalReady();
-    expect(result.clean).toBe(false);
-    expect(result.offenders.length).toBe(result.scanned.length);
-    // Sanity: exactly the five pages P1-22a set up.
-    expect(result.scanned.length).toBe(5);
+    expect(result.clean).toBe(true);
+    expect(result.offenders).toEqual([]);
+    // Impressum, Datenschutz, AGB, Barrierefreiheit (the SaaS DPA is gone).
+    expect(result.scanned.length).toBe(4);
     expect(result.scanned.every((p) => p.endsWith(".mdx"))).toBe(true);
   });
 

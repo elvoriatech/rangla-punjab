@@ -56,11 +56,7 @@ export default async function AboutPage(): Promise<React.ReactElement> {
   const t = menuCopy("de");
   const { name, cityFromName } = splitVenueName(menu.venue.name);
   return (
-    <LegalLayout
-      title={t.about.heading(name, cityFromName)}
-      currentPath="/ueber-uns"
-      reviewBanner={false}
-    >
+    <LegalLayout title={t.about.heading(name, cityFromName)} currentPath="/ueber-uns">
       <AboutSection
         asPage
         t={t}
