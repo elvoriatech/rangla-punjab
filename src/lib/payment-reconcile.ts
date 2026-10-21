@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { asTenant } from "./tenant";
 import { createLogger } from "./logger";
 
 const log = createLogger();
@@ -25,38 +26,74 @@ export interface ReconcileTarget {
  * made in time is captured, a lapsed one released, money already taken is
  * recorded (and, if the order cannot take it, kept as `resolution =
  * needed` for a refund). Runs every RECONCILE_INTERVAL_MS from
- * instrumentation.ts and at every boot, so downtime is caught up on start.
+ * payment-reconciler-timer.ts and at every boot, so downtime is caught up.
  *
- * Listing crosses tenants, so it uses the reconciler's READ-ONLY policy
- * (`app.payment_reconciler`, see the 20261021130000 migration); every
- * write then happens inside the attempt's own tenant scope.
+ * Single-restaurant build (architect review, 2026-10-21): the reconciler
+ * works for THE restaurant only — resolved the way the public menu does
+ * (RESTAURANT_SLUG → resolve_public_venue) — and entirely inside its
+ * tenant scope. No cross-tenant reads.
  */
+
+/** The one restaurant's tenant, or null (logged) when it cannot be found. */
+export async function resolveRestaurantTenantId(): Promise<string | null> {
+  try {
+    const { getRestaurantSlug } = await import("./restaurant");
+    const slug = await getRestaurantSlug();
+    const rows = await prisma.$queryRaw<{ venue_id: string; tenant_id: string }[]>`
+      SELECT * FROM resolve_public_venue(${slug})
+    `;
+    const tenantId = rows[0]?.tenant_id ?? null;
+    if (!tenantId) log.warn("payment.reconcile_no_restaurant", { slug });
+    return tenantId;
+  } catch (err) {
+    log.warn("payment.reconcile_no_restaurant", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+/** The restaurant's attempts still open (last 8 days) or "capturing". */
 export async function listReconcileTargets(
+  tenantId: string,
   maxRows = 50,
   now = Date.now(),
 ): Promise<ReconcileTarget[]> {
   const since = new Date(now - RECONCILE_LOOKBACK_MS);
-  const rows = await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.payment_reconciler', 'on', true)`;
-    return tx.paymentAttempt.findMany({
+  const rows = await asTenant(tenantId, (tx) =>
+    tx.paymentAttempt.findMany({
       where: {
         OR: [{ status: "open", createdAt: { gte: since } }, { status: "capturing" }],
       },
       orderBy: { createdAt: "asc" },
       take: maxRows,
-      select: { tenantId: true, provider: true, ref: true, orderId: true },
-    });
-  });
-  return rows.filter(
-    (r): r is ReconcileTarget => r.provider === "stripe" || r.provider === "paypal",
+      select: { provider: true, ref: true, orderId: true },
+    }),
   );
+  return rows
+    .filter((r) => r.provider === "stripe" || r.provider === "paypal")
+    .map((r) => ({
+      tenantId,
+      provider: r.provider as "stripe" | "paypal",
+      ref: r.ref,
+      orderId: r.orderId,
+    }));
 }
 
-/** Process one batch. Each target on its own: one failure never stops the rest. */
+/**
+ * Process one batch for the restaurant (or the given targets). Each target
+ * on its own: one failure never stops the rest. When the restaurant cannot
+ * be resolved, the run is skipped and logged — it never throws.
+ */
 export async function reconcilePayments(
   targets?: ReconcileTarget[],
 ): Promise<{ looked: number; settled: number; failed: number }> {
-  const list = targets ?? (await listReconcileTargets());
+  let list = targets;
+  if (!list) {
+    const tenantId = await resolveRestaurantTenantId();
+    if (!tenantId) return { looked: 0, settled: 0, failed: 0 };
+    list = await listReconcileTargets(tenantId);
+  }
   let settled = 0;
   let failed = 0;
   for (const t of list) {

@@ -15,7 +15,11 @@ import { getStripeProvider } from "./stripe";
 import type { FakeStripeProvider } from "./stripe/fake-provider";
 import { handleStripeEvent } from "./stripe/webhook-handler";
 import { processWebhookOnce } from "./webhook-claims";
-import { listReconcileTargets, reconcilePayments } from "./payment-reconcile";
+import {
+  listReconcileTargets,
+  reconcilePayments,
+  resolveRestaurantTenantId,
+} from "./payment-reconcile";
 import { settleConfirmedPayment } from "./payment-settlement";
 import { getPayPalProvider } from "./paypal";
 
@@ -147,8 +151,7 @@ describe("payment safety (fake providers)", () => {
     );
 
   /** The reconciler's work list, limited to this test's tenant. */
-  const targetsFor = async (fx: Fx) =>
-    (await listReconcileTargets(500)).filter((t) => t.tenantId === fx.tenantId);
+  const targetsFor = async (fx: Fx) => listReconcileTargets(fx.tenantId, 500);
 
   const paypalFake = () =>
     getPayPalProvider() as unknown as {
@@ -399,24 +402,51 @@ describe("payment safety (fake providers)", () => {
     expect(results.map((r) => r.kind).sort()).toEqual(["capturing", "settled"]);
   });
 
-  it("the reconciler can list attempts across tenants as a NON-superuser (production role)", async () => {
+  it("single restaurant: the reconciler finds THE restaurant by RESTAURANT_SLUG and settles its payments", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    const venue = await asTenant(fx.tenantId, (tx) =>
+      tx.venue.findFirstOrThrow({ where: { id: fx.venueId }, select: { slug: true } }),
+    );
+    vi.stubEnv("RESTAURANT_SLUG", venue.slug);
+    try {
+      expect(await resolveRestaurantTenantId()).toBe(fx.tenantId);
+      const run = await reconcilePayments();
+      expect(run.settled).toBeGreaterThanOrEqual(1);
+      expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("single restaurant: an unknown RESTAURANT_SLUG skips the run without throwing", async () => {
+    vi.stubEnv("RESTAURANT_SLUG", `no-such-${randomUUID().slice(0, 8)}`);
+    try {
+      expect(await resolveRestaurantTenantId()).toBeNull();
+      expect(await reconcilePayments()).toEqual({ looked: 0, settled: 0, failed: 0 });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("as the production role (not a superuser) the restaurant sees only its own attempts", async () => {
+    const fx = await fixture();
+    const other = await fixture();
+    const a = await order(fx);
+    const refA = await startCard(fx, a.orderId, a.token);
+    const b = await order(other);
+    const refB = await startCard(other, b.orderId, b.token);
     const seen = await prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe("SET LOCAL ROLE elvoria_app");
-      const without = await tx.paymentAttempt.count({ where: { ref } });
-      await tx.$executeRaw`SELECT set_config('app.payment_reconciler', 'on', true)`;
-      const withPolicy = await tx.paymentAttempt.count({ where: { ref } });
-      // Read-only: the reconciler policy never allows a write.
-      const wrote = await tx.paymentAttempt.updateMany({
-        where: { ref },
-        data: { status: "failed" },
-      });
-      return { without, withPolicy, wrote: wrote.count };
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${fx.tenantId}, true)`;
+      return {
+        own: await tx.paymentAttempt.count({ where: { ref: refA } }),
+        other: await tx.paymentAttempt.count({ where: { ref: refB } }),
+      };
     });
-    expect(seen).toEqual({ without: 0, withPolicy: 1, wrote: 0 });
-    expect(orderId).toBeTruthy();
+    expect(seen).toEqual({ own: 1, other: 0 });
   });
 
   // ------------------------------------------------------ expired sessions

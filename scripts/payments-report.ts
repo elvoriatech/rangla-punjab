@@ -33,9 +33,16 @@ async function main(): Promise<void> {
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
   });
   try {
-    // Reading across tenants uses the reconciler's read-only policy.
+    // Single-restaurant build: THE restaurant, resolved like the public
+    // menu, and everything read inside its tenant scope.
+    const slug = process.env.RESTAURANT_SLUG ?? "rangla-punjab";
+    const venues = await prisma.$queryRaw<{ venue_id: string; tenant_id: string }[]>`
+      SELECT * FROM resolve_public_venue(${slug})
+    `;
+    const tenantId = venues[0]?.tenant_id;
+    if (!tenantId) throw new Error(`no restaurant with slug "${slug}"`);
     const rows = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT set_config('app.payment_reconciler', 'on', true)`;
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
       return tx.paymentAttempt.findMany({
         where: {
           OR: [
@@ -58,7 +65,7 @@ async function main(): Promise<void> {
       const note = (process.env.NOTE ?? "").trim();
       if (note.length < 3) throw new Error('NOTE="…" is required (what was done)');
       await prisma.$transaction(async (tx) => {
-        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${row.tenantId}, true)`;
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
         await tx.paymentAttempt.update({
           where: { id: row.id },
           data: {
