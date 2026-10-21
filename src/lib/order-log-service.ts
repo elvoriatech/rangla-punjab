@@ -22,6 +22,21 @@ export function parseOrderLogFilter(raw: string | undefined): OrderLogFilter {
     : "all";
 }
 
+const RAIL_WORD: Record<string, string> = { card: "Card", paypal: "PayPal", cash: "Cash" };
+
+/**
+ * What the order was actually paid with, not only what the guest picked at
+ * checkout: O-6 was chosen as "card" and the log said "Card" while its
+ * payment then ran on PayPal. Same rail → the plain key ("card"); a switch
+ * → "PayPal (chose Card)".
+ */
+function paymentLabel(provider: unknown, intended: string | null): string {
+  const actual = provider === "stripe" ? "card" : provider === "paypal" ? "paypal" : null;
+  const chosen = intended ?? "cash";
+  if (!actual || actual === chosen) return chosen;
+  return `${RAIL_WORD[actual] ?? actual} (chose ${RAIL_WORD[chosen] ?? chosen})`;
+}
+
 export interface OrderLogRow {
   orderId: string;
   label: string;
@@ -122,6 +137,7 @@ export async function listOrderLog(
           id: true,
           status: true,
           paymentStatus: true,
+          paymentProvider: true,
           totalCents: true,
           customerName: true,
           tableNumber: true,
@@ -149,7 +165,7 @@ export async function listOrderLog(
           str(rec.customerName) ??
           (order?.tableNumber ? `Table ${order.tableNumber}` : str(rec.tableNumber)),
         orderType: str(rec.orderType),
-        payment: str(rec.intendedPayment) ?? "cash",
+        payment: paymentLabel(order?.paymentProvider, str(rec.intendedPayment)),
         channel: str(asRecord(placed?.payload).channel),
         totalCents:
           order?.totalCents ??
@@ -209,7 +225,7 @@ export async function getOrderLog(userId: string, orderId: string): Promise<Orde
         lastAt: events[events.length - 1]!.createdAt,
         guest: str(src.customerName) ?? str(rec.customerName),
         orderType: str(src.orderType) ?? str(rec.orderType),
-        payment: str(rec.intendedPayment) ?? "cash",
+        payment: paymentLabel(src.paymentProvider, str(rec.intendedPayment)),
         channel: str(asRecord(placed?.payload).channel),
         totalCents:
           order?.totalCents ??

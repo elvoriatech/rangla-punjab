@@ -2,7 +2,7 @@ import { prisma } from "../db";
 import { asTenant } from "../tenant";
 import { logger } from "../logger";
 import type { StripeEvent } from "./provider";
-import { markOrderPaid } from "../connect-service";
+import { settleStripeOrderPayment } from "../connect-service";
 import { recordForOrder } from "../order-events";
 
 /**
@@ -66,8 +66,24 @@ export async function handleStripeEvent(event: StripeEvent): Promise<WebhookOutc
   }
 
   switch (event.type) {
-    case "checkout.session.completed":
+    case "checkout.session.completed": {
+      // "Completed" means the guest finished the checkout page, not that the
+      // money arrived: with a delayed method (SEPA debit, bank transfer …)
+      // the session completes UNPAID and may still fail. Settle only when
+      // Stripe says paid; the delayed outcome comes as async_payment_*.
+      const paymentStatus = (event.data.object as { payment_status?: string }).payment_status;
+      if (paymentStatus !== undefined && paymentStatus !== "paid") {
+        logger.info("stripe.checkout.unpaid", { eventId: event.id, paymentStatus });
+        return { status: 200, kind: "processed" };
+      }
       await handleCheckoutCompleted(event);
+      return { status: 200, kind: "processed" };
+    }
+    case "checkout.session.async_payment_succeeded":
+      await handleCheckoutCompleted(event);
+      return { status: 200, kind: "processed" };
+    case "checkout.session.async_payment_failed":
+      await failCurrentAttempt(event);
       return { status: 200, kind: "processed" };
     case "payment_intent.succeeded":
       // Native app payment sheet (P-app): the guest confirmed a bare
@@ -75,28 +91,42 @@ export async function handleStripeEvent(event: StripeEvent): Promise<WebhookOutc
       // orderId/tenantId metadata is identical, so settlement is too.
       await handleOrderSettlement(event, event.data.object as HasMetadata);
       return { status: 200, kind: "processed" };
-    case "payment_intent.payment_failed": {
-      // `pending → failed`: the guest is shown "Payment failed" with try
-      // again / pay cash / cancel, and the order stays off the kitchen.
-      // A later retry that succeeds still settles it (markOrderPaid takes
-      // `failed` too).
-      const meta = (event.data.object as HasMetadata).metadata;
-      logger.info("stripe.order.payment_failed", {
-        eventId: event.id,
-        orderId: meta?.orderId ?? null,
-      });
-      if (meta?.orderId && meta?.tenantId) {
-        const { markOrderPaymentFailed } = await import("../connect-service");
-        await markOrderPaymentFailed(meta.tenantId, meta.orderId);
-      }
+    case "payment_intent.payment_failed":
+      await failCurrentAttempt(event);
       return { status: 200, kind: "processed" };
-    }
     case "account.updated":
       await handleAccountUpdated(event);
       return { status: 200, kind: "processed" };
     default:
       logger.info("stripe.webhook.ignored", { eventId: event.id, type: event.type });
       return { status: 200, kind: "ignored" };
+  }
+}
+
+/**
+ * `pending → failed`: the guest is shown "Payment failed" with try again /
+ * pay cash / cancel, and the order stays off the kitchen. A later retry
+ * that succeeds still settles it (markOrderPaid takes `failed` too). Used
+ * for a declined card (payment_intent.payment_failed) and a delayed method
+ * that failed after checkout (checkout.session.async_payment_failed).
+ */
+async function failCurrentAttempt(event: StripeEvent): Promise<void> {
+  const meta = (event.data.object as HasMetadata).metadata;
+  logger.info("stripe.order.payment_failed", {
+    eventId: event.id,
+    orderId: meta?.orderId ?? null,
+  });
+  if (!meta?.orderId || !meta?.tenantId) return;
+  // Only the order's CURRENT attempt may fail it: a decline on an older
+  // card attempt must not flip a newer pending payment.
+  const ref = refOf(event.data.object as HasMetadata);
+  const orderId = meta.orderId;
+  const current = await asTenant(meta.tenantId, (tx) =>
+    tx.order.findFirst({ where: { id: orderId }, select: { paymentRef: true } }),
+  );
+  if (current && (ref === null || !current.paymentRef || current.paymentRef === ref)) {
+    const { markOrderPaymentFailed } = await import("../connect-service");
+    await markOrderPaymentFailed(meta.tenantId, orderId);
   }
 }
 
@@ -142,8 +172,11 @@ async function handleOrderSettlement(event: StripeEvent, object: HasMetadata): P
     logger.warn("stripe.order.missing_tenant", { eventId: event.id, orderId });
     return;
   }
-  const settled = await markOrderPaid(orderTenantId, orderId);
-  logger.info("stripe.order.paid", { eventId: event.id, orderId, settled });
+  // Checked against the order's current payment: an old card tab paid
+  // after a switch, a second payment, or money for a cancelled / deleted
+  // order are each handled safely (see settleStripeOrderPayment).
+  const outcome = await settleStripeOrderPayment(orderTenantId, orderId, refOf(object));
+  logger.info("stripe.order.paid", { eventId: event.id, orderId, outcome });
 }
 
 /** The provider's own id for the settled object, recorded on the card as

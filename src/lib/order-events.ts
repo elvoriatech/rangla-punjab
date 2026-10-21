@@ -25,6 +25,10 @@ export type OrderEventKind =
   | "payment.failed"
   | "payment.method"
   | "payment.switched_to_cash"
+  | "payment.late"
+  | "payment.too_late"
+  | "payment.superseded_paid"
+  | "payment.needs_refund"
   | "stripe.webhook"
   | "paypal.webhook"
   | "paypal.capture"
@@ -131,21 +135,41 @@ export async function recordForOrder(
         where: { id: orderId },
         select: { venueId: true, orderNumber: true, orderSeries: true },
       });
-      if (!order) return;
+      // A deleted order is gone from `orders` but not from its log: what
+      // still happens to it (a late payment, a refund alert) is appended to
+      // the same history, under the label it had.
+      const ref = order
+        ? {
+            venueId: order.venueId,
+            orderLabel: order.orderSeries
+              ? `${order.orderSeries}-${order.orderNumber}`
+              : String(order.orderNumber),
+          }
+        : await tx.orderEvent.findFirst({
+            where: { orderId },
+            orderBy: { createdAt: "desc" },
+            select: { venueId: true, orderLabel: true },
+          });
+      if (!ref) return;
       await tx.orderEvent.create({
-        data: data({
-          ...ev,
-          tenantId,
-          orderId,
-          venueId: order.venueId,
-          orderLabel: order.orderSeries
-            ? `${order.orderSeries}-${order.orderNumber}`
-            : String(order.orderNumber),
-        }),
+        data: data({ ...ev, tenantId, orderId, venueId: ref.venueId, orderLabel: ref.orderLabel }),
       });
     });
   } catch (err) {
     log.warn("order_event.failed", { kind: ev.kind, orderId, err: String(err) });
+  }
+}
+
+/** Did this order ever exist here? True for a deleted order too — its
+ *  log outlives it. */
+export async function hasOrderHistory(tenantId: string, orderId: string): Promise<boolean> {
+  try {
+    const row = await asTenant(tenantId, (tx) =>
+      tx.orderEvent.findFirst({ where: { orderId }, select: { id: true } }),
+    );
+    return row !== null;
+  } catch {
+    return false;
   }
 }
 

@@ -40,9 +40,14 @@ export function PayPalButton({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ token, ...(appReturnUrl ? { app: appReturnUrl } : {}) }),
             });
-            const body = (await res.json()) as { url?: string };
+            const body = (await res.json()) as { url?: string; error?: string };
             if (res.ok && body.url) {
               location.href = body.url;
+              return;
+            }
+            // The card page opened earlier turned out to be paid: show it.
+            if (body.error === "already_paid") {
+              location.reload();
               return;
             }
             setState("error");

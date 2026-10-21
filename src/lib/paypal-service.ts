@@ -4,14 +4,22 @@ import { verifyReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
 import { payPalOnFor, payPalProviderFor } from "./paypal";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
-import { markOrderPaid } from "./connect-service";
+import {
+  LATE_PAYMENT_MS,
+  markOrderPaid,
+  markOrderPaymentFailed,
+  releaseSupersededStripePayment,
+} from "./connect-service";
 import { createLogger } from "./logger";
 
 const log = createLogger();
 
 export type PayPalPayResult =
   | { ok: true; url: string }
-  | { ok: false; error: "invalid_token" | "not_found" | "already_paid" | "not_available" };
+  | {
+      ok: false;
+      error: "invalid_token" | "not_found" | "already_paid" | "not_available" | "processing";
+    };
 
 /**
  * Start a PayPal payment for one order — the PayPal sibling of
@@ -35,6 +43,10 @@ export async function createPayPalOrderPayment(
   const keys = await getPayPalKeysForTenant(tenantId);
   // PayPal switched off in Billing: no new PayPal payment may start.
   if (!payPalOnFor(keys)) return { ok: false, error: "not_available" };
+  // A card page opened earlier must not stay payable next to PayPal.
+  const released = await releaseSupersededStripePayment(tenantId, orderId);
+  if (released === "paid") return { ok: false, error: "already_paid" };
+  if (released === "processing") return { ok: false, error: "processing" };
   const provider = payPalProviderFor(keys);
   return asTenant(tenantId, async (tx) => {
     const order = await tx.order.findFirst({
@@ -96,7 +108,13 @@ export async function finalizePayPalReturn(
   const order = await asTenant(tenantId, (tx) =>
     tx.order.findFirst({
       where: { id: orderId },
-      select: { status: true, paymentStatus: true, paymentRef: true, paymentProvider: true },
+      select: {
+        status: true,
+        paymentStatus: true,
+        paymentRef: true,
+        paymentProvider: true,
+        createdAt: true,
+      },
     }),
   );
   if (!order || order.paymentProvider !== "paypal" || !order.paymentRef) return { paid: false };
@@ -106,6 +124,20 @@ export async function finalizePayPalReturn(
   // keeps a cancelled order from being charged.
   if (order.status === "cancelled") {
     log.info("payment.paypal_capture_skipped_cancelled", { orderId, tenantId });
+    return { paid: false };
+  }
+  // An approval coming back hours later (an old tab reopened, a webhook
+  // retried for days) is NOT captured: PayPal only moves money at capture,
+  // so refusing here means the guest is never charged for an order the
+  // restaurant stopped expecting. The order is marked failed instead.
+  if (Date.now() - order.createdAt.getTime() > LATE_PAYMENT_MS) {
+    log.warn("payment.paypal_capture_too_late", { orderId, tenantId });
+    void recordForOrder(tenantId, orderId, {
+      kind: "payment.too_late",
+      actor: "system",
+      summary: `PayPal approval came back too late — not captured, the guest was not charged · ${order.paymentRef}`,
+    });
+    await markOrderPaymentFailed(tenantId, orderId);
     return { paid: false };
   }
 

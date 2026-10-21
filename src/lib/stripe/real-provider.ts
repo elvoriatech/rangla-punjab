@@ -301,6 +301,25 @@ export class RealStripeProvider implements StripeProvider {
 
   async retrievePaymentIntent(ref: string): Promise<PaymentIntentState | null> {
     try {
+      if (ref.startsWith("cs_")) {
+        // A web order's ref is its Checkout Session, not an intent: read
+        // the session so verify / reconcile / the payment switch can see a
+        // card payment the webhook never delivered (order O-6, 2026-10-19).
+        const session = await this.stripe.checkout.sessions.retrieve(ref);
+        const status =
+          session.payment_status === "paid"
+            ? "succeeded"
+            : session.status === "expired"
+              ? "canceled"
+              : session.status === "complete"
+                ? "processing"
+                : "requires_payment_method";
+        return {
+          status,
+          amountCents: session.amount_total ?? 0,
+          currency: (session.currency ?? "").toUpperCase(),
+        };
+      }
       const pi = await this.stripe.paymentIntents.retrieve(ref);
       return { status: pi.status, amountCents: pi.amount, currency: pi.currency.toUpperCase() };
     } catch {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { decryptSecret } from "@/lib/secrets";
 import { getStripeProvider, sharedStripeConfigured, stripeProviderForKey } from "@/lib/stripe";
-import { markOrderPaid } from "@/lib/connect-service";
+import { handleStripeEvent } from "@/lib/stripe/webhook-handler";
 import { captureException } from "@/lib/observability";
 
 /**
@@ -44,31 +44,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    // `checkout.session.completed` is the hosted-checkout (web) settlement;
-    // `payment_intent.succeeded` is the same order paid through the mobile
-    // app's native payment sheet. Both objects carry the orderId/tenantId
-    // metadata we stamped at creation, so they settle identically.
-    if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
-      const object = event.data.object as { metadata?: Record<string, string | null> };
-      const orderId = object.metadata?.orderId;
-      const tenantId =
-        object.metadata?.tenantId ??
-        tenant?.id ??
-        (await prisma.tenant.findFirst({ select: { id: true } }))?.id;
-      if (orderId && tenantId) await markOrderPaid(tenantId, orderId);
-    }
-    // A declined card: `pending → failed`, so the guest sees "Payment
-    // failed" (retry / pay cash / cancel). A later success still settles.
-    if (event.type === "payment_intent.payment_failed") {
-      const object = event.data.object as { metadata?: Record<string, string | null> };
-      const orderId = object.metadata?.orderId;
-      const tenantId = object.metadata?.tenantId ?? tenant?.id;
-      if (orderId && tenantId) {
-        const { markOrderPaymentFailed } = await import("@/lib/connect-service");
-        await markOrderPaymentFailed(tenantId, orderId);
-      }
-    }
-    return NextResponse.json({ received: true }, { status: 200 });
+    // Same dispatcher as /api/stripe/webhook: each event id is handled
+    // once (a retry or a manual "Resend" of a handled event is a no-op),
+    // every settlement is checked against the order's current payment, a
+    // deleted order never comes back, and gift cards activate here too.
+    const outcome = await handleStripeEvent(event);
+    return NextResponse.json({ received: true, kind: outcome.kind }, { status: outcome.status });
   } catch (err) {
     captureException(err, { eventId: event.id, eventType: event.type });
     return NextResponse.json({ error: "internal" }, { status: 500 });

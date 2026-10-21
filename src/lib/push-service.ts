@@ -443,6 +443,48 @@ export async function sendGuestCancelPush(tenantId: string, orderId: string): Pr
 }
 
 /**
+ * "Check payment on #O-6 — …". A payment that needs a human: money arrived
+ * hours after the order, or on an order that was already paid or called
+ * off (owner, 2026-10-21, after O-6 surfaced a day late). The text says
+ * what to check; refunds stay the owner's decision.
+ */
+export async function sendPaymentAlertPush(
+  tenantId: string,
+  orderId: string,
+  problem: string,
+): Promise<void> {
+  try {
+    const found = await asTenant(tenantId, async (tx) => {
+      const order = await tx.order.findFirst({
+        where: { id: orderId },
+        select: { orderNumber: true, orderSeries: true, totalCents: true, currency: true },
+      });
+      if (order) {
+        return {
+          label: orderLabel(order),
+          total: ` · ${formatTotal(order.totalCents, order.currency)}`,
+        };
+      }
+      // Deleted: the order log still knows its number.
+      const logged = await tx.orderEvent.findFirst({
+        where: { orderId },
+        orderBy: { createdAt: "desc" },
+        select: { orderLabel: true },
+      });
+      return logged ? { label: logged.orderLabel ?? "?", total: "" } : null;
+    });
+    if (!found) return;
+    await sendStaffPush(tenantId, {
+      title: `Check payment on #${found.label}`,
+      body: `${problem}${found.total}`,
+      data: { kind: "order", orderId },
+    });
+  } catch (err) {
+    captureException(err, { tenantId, orderId, where: "push-service" });
+  }
+}
+
+/**
  * "Problem reported on #12". Fired wherever the complaint email is — on the
  * first guest message and on every follow-up, because "they replied and are
  * still waiting" is as urgent as the original.

@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { recordOrderEventTx } from "./order-events";
+import { recordForOrder, recordOrderEventTx } from "./order-events";
 import { createLogger } from "./logger";
 import { getAccess } from "./team-access";
 import { asUser } from "./tenant";
@@ -39,7 +39,15 @@ export async function deleteOrder(
 
   const actor = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
 
-  return asUser(userId, async (tx) => {
+  // Stop any card page still open on it first, so a deleted order can
+  // never take money afterwards. Not settled even if it went through:
+  // deleting must not put the order on the board on its way out.
+  const { releaseSupersededStripePayment } = await import("./connect-service");
+  const released = await releaseSupersededStripePayment(access.tenantId, orderId, {
+    settle: false,
+  });
+
+  const result = await asUser(userId, async (tx) => {
     // RLS scopes this to the owner's own restaurant: another tenant's
     // order id is simply not found.
     const order = await tx.order.findFirst({
@@ -93,9 +101,25 @@ export async function deleteOrder(
     // Lines and any complaint thread cascade; loyalty ledger lines keep
     // their history with the order reference cleared (SET NULL).
     await tx.order.delete({ where: { id: order.id } });
+    // Its bell entries go too: a deleted order must not keep surfacing.
+    await tx.staffNotification.deleteMany({
+      where: { data: { path: ["orderId"], equals: order.id } },
+    });
     log.info("order.deleted", { orderId: order.id, orderNumber: order.orderNumber, userId });
     return { ok: true as const, orderNumber: order.orderNumber };
   });
+
+  if (result.ok && released !== "clear") {
+    void recordForOrder(access.tenantId, orderId, {
+      kind: "payment.needs_refund",
+      actor: "system",
+      summary:
+        released === "paid"
+          ? "The card payment had already gone through when the order was deleted — refund in Stripe"
+          : "The card payment was still processing when the order was deleted — check Stripe",
+    });
+  }
+  return result;
 }
 
 export interface DeletedOrderRow {
