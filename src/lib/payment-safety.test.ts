@@ -730,7 +730,7 @@ describe("payment safety (fake providers)", () => {
     expect((await read(fx, orderId))?.paymentStatus).toBe("pending");
   });
 
-  it("a reserved payment naming a ref we never issued is released, not taken", async () => {
+  it("a reserved payment naming a ref we never issued is left alone — neither taken nor cancelled", async () => {
     const fx = await fixture();
     const { orderId } = await order(fx);
     const f = await fake();
@@ -750,6 +750,35 @@ describe("payment safety (fake providers)", () => {
       source: "webhook",
     });
     expect(done.kind).toBe("unknown_attempt");
-    expect(await stripeState(stray.ref)).toBe("canceled");
+    // Not cancelled: it may be ours under another id (see the next test).
+    expect(await stripeState(stray.ref)).toBe("requires_capture");
+  });
+
+  it("production 2026-10-21: an intent event arriving BEFORE the session event never cancels the guest's payment", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const sessionRef = await startCard(fx, orderId, token); // the attempt's ref
+    const f = await fake();
+    f.settleOrderCheckout(sessionRef); // guest pays: reserved
+    // Stripe also tells us about the session's PaymentIntent, under ITS id,
+    // carrying the order id — that id matches no attempt.
+    const intent = await f.createDirectPaymentIntent({
+      orderId,
+      tenantId: fx.tenantId,
+      amountCents: 1690,
+      currency: "EUR",
+      label: "x",
+    });
+    f.settleOrderCheckout(intent.ref);
+    await handleStripeEvent({
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.amount_capturable_updated",
+      data: { object: { id: intent.ref, metadata: { orderId, tenantId: fx.tenantId } } },
+    });
+    expect(await stripeState(intent.ref)).toBe("requires_capture"); // NOT cancelled
+    // …then the session event arrives and captures the guest's payment.
+    await handleStripeEvent(checkoutCompleted(fx, orderId, sessionRef));
+    expect(await stripeState(sessionRef)).toBe("succeeded");
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
   });
 });

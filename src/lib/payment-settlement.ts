@@ -334,8 +334,12 @@ async function planTx(tx: Prisma.TransactionClient, c: PaymentConfirmation): Pro
 
   if (!attempt) {
     log.warn("payment.unknown_attempt", { provider: c.provider, ref: c.ref, stage: c.stage });
+    // A reservation we cannot match is NEVER cancelled: it may be ours
+    // under another id (a Checkout Session's intent — cancelling it broke
+    // every web card payment on 2026-10-21). Left alone, it is captured
+    // through its own attempt, or Stripe releases it unclaimed after 7 days.
     if (c.stage === "authorized") {
-      return { kind: "release", attemptId: null, orderId: null, reason: "unknown_attempt" };
+      return { kind: "done", outcome: { kind: "unknown_attempt" } };
     }
     // Money taken under a ref we never issued: kept as its own attempt (at
     // the amount reported) when the order is known here, so it is caught.

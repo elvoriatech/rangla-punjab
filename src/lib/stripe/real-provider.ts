@@ -265,10 +265,13 @@ export class RealStripeProvider implements StripeProvider {
       // server captures it after checking the order is still wanted, unpaid
       // and within the 45-minute window (payment-settlement.ts). Otherwise
       // the reservation is released and the guest is never charged.
-      payment_intent_data: {
-        capture_method: "manual",
-        metadata: { orderId: input.orderId, tenantId: input.tenantId },
-      },
+      // NO orderId metadata on the intent (production bug, 2026-10-21):
+      // the order's payment is the SESSION (cs_…); intent events carrying
+      // the order id were processed under the pi_… ref, which matches no
+      // attempt, and that path released — cancelled — the guest's payment
+      // a moment before the session event captured it. Session events are
+      // the web flow's only trigger.
+      payment_intent_data: { capture_method: "manual" },
       // Payable for 30 minutes, not Stripe's default 24 hours.
       expires_at: checkoutExpiresAtSeconds(),
       success_url: input.successUrl,
