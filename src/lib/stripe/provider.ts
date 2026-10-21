@@ -222,4 +222,6 @@ export interface PaymentIntentState {
   amountCents: number;
   /** ISO code, upper-case. */
   currency: string;
+  /** When the guest authorized (the charge was created), if Stripe says. */
+  authorizedAt?: Date | null;
 }

@@ -2,11 +2,11 @@ import { recordForOrder } from "./order-events";
 import { asTenant } from "./tenant";
 import { createLogger } from "./logger";
 import type { PayPalWebhookHeaders } from "./paypal";
-import { parsePayPalCustomId, payPalProviderFor, payPalValueToCents } from "./paypal";
+import { parsePayPalCustomId, payPalProviderFor } from "./paypal";
 import { env } from "./env";
-import { finalizePayPalReturn } from "./paypal-service";
+import { processPayPalOrderPayment } from "./paypal-service";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
-import { closeAttempt, settleConfirmedPayment } from "./payment-settlement";
+import { closeAttempt } from "./payment-settlement";
 import { processWebhookOnce } from "./webhook-claims";
 import { finalizeGiftCardPayPalReturn, giftCardIdFromPayPalRef } from "./gift-card-payment";
 
@@ -203,29 +203,18 @@ export async function handlePayPalWebhook(input: {
       await closeAttempt(subject.tenantId, "paypal", ref!, "failed");
       return "processed" as const;
     }
-    if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
-      // Money taken. Normally by our own capture (the attempt is already
-      // settled → no-op); otherwise it is checked and recorded like any
-      // payment taken without us.
-      const amount = event.resource?.amount;
-      await settleConfirmedPayment({
-        tenantId: subject.tenantId,
-        provider: "paypal",
-        ref: ref!,
+    if (SETTLING_EVENTS.has(event.event_type)) {
+      // Approved or captured: whatever the message says, ask PayPal for the
+      // order now and act on that (capture only if every check passes).
+      const done = await processPayPalOrderPayment(subject.tenantId, ref!, {
         orderId: subject.id,
-        stage: "captured",
-        amountCents: payPalValueToCents(amount?.value),
-        currency: amount?.currency_code ?? null,
         source: "webhook",
       });
-      return "processed" as const;
-    }
-    if (SETTLING_EVENTS.has(event.event_type)) {
-      // Approved: capture now if (and only if) every check passes.
-      const done = await finalizePayPalReturn(subject.tenantId, subject.id);
-      if (!done.paid) {
-        log.info("paypal.webhook.not_captured", { eventId: event.id, orderId: subject.id });
-      }
+      log.info("paypal.webhook.order", {
+        eventId: event.id,
+        orderId: subject.id,
+        outcome: done.kind,
+      });
       return "processed" as const;
     }
     log.info("paypal.webhook.ignored", { eventId: event.id, type: event.event_type });

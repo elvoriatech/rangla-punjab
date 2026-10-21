@@ -14,8 +14,10 @@ import { deleteOrder } from "./order-delete-service";
 import { getStripeProvider } from "./stripe";
 import type { FakeStripeProvider } from "./stripe/fake-provider";
 import { handleStripeEvent } from "./stripe/webhook-handler";
-import { AUTO_ACCEPT_WINDOW_MS } from "./payment-windows";
 import { processWebhookOnce } from "./webhook-claims";
+import { listReconcileTargets, reconcilePayments } from "./payment-reconcile";
+import { settleConfirmedPayment } from "./payment-settlement";
+import { getPayPalProvider } from "./paypal";
 
 /**
  * Order O-6 (2026-10-19): the guest opened the card page, switched to
@@ -130,14 +132,29 @@ describe("payment safety (fake providers)", () => {
   const stripeState = async (ref: string) =>
     (await (await fake()).retrievePaymentIntent(ref))?.status;
 
-  /** Move an attempt's start back past the 45-minute window. */
-  const backdateAttempt = (fx: Fx, ref: string) =>
+  const setAttemptStart = (fx: Fx, ref: string, at: Date) =>
+    asTenant(fx.tenantId, (tx) =>
+      tx.paymentAttempt.updateMany({ where: { ref }, data: { createdAt: at } }),
+    );
+
+  /** Leave an attempt as a crashed run would: "capturing", started long ago. */
+  const markCapturing = (fx: Fx, ref: string, at = new Date(Date.now() - 10 * 60 * 1000)) =>
     asTenant(fx.tenantId, (tx) =>
       tx.paymentAttempt.updateMany({
         where: { ref },
-        data: { createdAt: new Date(Date.now() - AUTO_ACCEPT_WINDOW_MS - 60_000) },
+        data: { status: "capturing", captureStartedAt: at },
       }),
     );
+
+  /** The reconciler's work list, limited to this test's tenant. */
+  const targetsFor = async (fx: Fx) =>
+    (await listReconcileTargets(500)).filter((t) => t.tenantId === fx.tenantId);
+
+  const paypalFake = () =>
+    getPayPalProvider() as unknown as {
+      setApprovedAt(ref: string, at: Date): void;
+      markCapturedAtPayPal(ref: string): void;
+    };
 
   const events = (fx: Fx, orderId: string) =>
     asTenant(fx.tenantId, (tx) =>
@@ -236,14 +253,34 @@ describe("payment safety (fake providers)", () => {
     expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
   });
 
-  it("webhooks down past the window: the sweep releases the money — not charged, order failed", async () => {
+  it("server down for hours: a payment AUTHORIZED in time is still captured and settled", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     const ref = await startCard(fx, orderId, token);
-    (await fake()).settleOrderCheckout(ref);
-    await backdateAttempt(fx, ref);
+    const f = await fake();
+    f.settleOrderCheckout(ref);
+    // The attempt started 3 h ago and the guest authorized 10 min in; our
+    // server only gets to it now.
+    const started = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    await setAttemptStart(fx, ref, started);
+    f.setAuthorizedAt(ref, new Date(started.getTime() + 10 * 60 * 1000));
 
-    expect(await reconcilePendingPayments(fx.userId)).toBe(0);
+    expect(await reconcilePayments(await targetsFor(fx))).toMatchObject({ settled: 1 });
+    expect(await stripeState(ref)).toBe("succeeded");
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+  });
+
+  it("a payment AUTHORIZED after the 45-minute window is released — not charged, order failed", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    const f = await fake();
+    f.settleOrderCheckout(ref);
+    const started = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await setAttemptStart(fx, ref, started);
+    f.setAuthorizedAt(ref, new Date(started.getTime() + 50 * 60 * 1000));
+
+    expect(await reconcilePayments(await targetsFor(fx))).toMatchObject({ settled: 0 });
     expect(await stripeState(ref)).toBe("canceled"); // reservation released
     expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
     expect(await events(fx, orderId)).toContain("payment.not_captured");
@@ -251,26 +288,35 @@ describe("payment safety (fake providers)", () => {
 
   // ----------------------------------------------------------- late (O-6)
 
-  it("O-6 replay: a Stripe retry days later, then a manual resend — never charged, never on the board", async () => {
+  it("O-6 replay: paid in time, webhook failing for a day, then a manual resend — captured once", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     const ref = await startCard(fx, orderId, token);
-    (await fake()).settleOrderCheckout(ref);
-    await backdateAttempt(fx, ref);
+    const f = await fake();
+    f.settleOrderCheckout(ref);
+    const started = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await setAttemptStart(fx, ref, started);
+    f.setAuthorizedAt(ref, new Date(started.getTime() + 4 * 60 * 1000));
 
     const event = checkoutCompleted(fx, orderId, ref);
     expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
     expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "replayed" });
-    expect(await stripeState(ref)).toBe("canceled");
-    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
+    const another = checkoutCompleted(fx, orderId, ref); // a second delivery id
+    expect((await handleStripeEvent(another)).status).toBe(200);
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+    const kinds = await events(fx, orderId);
+    expect(kinds.filter((k) => k === "payment.paid")).toHaveLength(1);
   });
 
-  it("a late payment that was already TAKEN (pre-change page) is recorded for refund, order untouched", async () => {
+  it("money TAKEN on an old card page authorized late is recorded for refund, order untouched", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     const ref = await startCard(fx, orderId, token);
-    (await fake()).chargeImmediately(ref);
-    await backdateAttempt(fx, ref);
+    const f = await fake();
+    f.chargeImmediately(ref);
+    const started = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    await setAttemptStart(fx, ref, started);
+    f.setAuthorizedAt(ref, new Date(started.getTime() + 5 * 60 * 60 * 1000));
 
     const done = await processStripeOrderPayment(fx.tenantId, ref, { orderId, source: "webhook" });
     expect(done).toMatchObject({ kind: "needs_resolution", reason: "late" });
@@ -280,6 +326,97 @@ describe("payment safety (fake providers)", () => {
       resolutionReason: "late",
     });
     expect(await events(fx, orderId)).toContain("payment.needs_resolution");
+  });
+
+  // ----------------------------------------- durable capture / crash recovery
+
+  it("crash after the capture, before our write: the reconciler records the taken money", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    const f = await fake();
+    f.settleOrderCheckout(ref);
+    await f.capturePayment(ref); // Stripe took it…
+    await markCapturing(fx, ref); // …our process died after step 1
+
+    expect(await reconcilePayments(await targetsFor(fx))).toMatchObject({ settled: 1 });
+    expect(await attemptOf(fx, ref)).toMatchObject({ status: "succeeded", settled: true });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+  });
+
+  it("crash before the capture call: the reconciler captures and settles", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref); // reserved, never captured
+    await markCapturing(fx, ref);
+
+    expect(await reconcilePayments(await targetsFor(fx))).toMatchObject({ settled: 1 });
+    expect(await stripeState(ref)).toBe("succeeded");
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+  });
+
+  it("a fresh 'capturing' attempt is left to the run doing it (no second capture)", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    await markCapturing(fx, ref, new Date());
+    const done = await processStripeOrderPayment(fx.tenantId, ref, { orderId, source: "webhook" });
+    expect(done.kind).toBe("capturing");
+    expect(await stripeState(ref)).toBe("requires_capture");
+  });
+
+  it("two paths settling the same payment at once capture it exactly once", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    const f = await fake();
+    f.settleOrderCheckout(ref);
+    let captures = 0;
+    const confirmation = {
+      tenantId: fx.tenantId,
+      provider: "stripe" as const,
+      ref,
+      orderId,
+      stage: "authorized" as const,
+      amountCents: (await read(fx, orderId))!.totalCents,
+      currency: "EUR",
+      authorizedAt: new Date(),
+      capture: async () => {
+        captures += 1;
+        await new Promise((r) => setTimeout(r, 150));
+        return f.capturePayment(ref);
+      },
+      release: () => f.cancelPayment(ref),
+      source: "webhook" as const,
+    };
+    const results = await Promise.all([
+      settleConfirmedPayment(confirmation),
+      settleConfirmedPayment(confirmation),
+    ]);
+    expect(captures).toBe(1);
+    expect(results.map((r) => r.kind).sort()).toEqual(["capturing", "settled"]);
+  });
+
+  it("the reconciler can list attempts across tenants as a NON-superuser (production role)", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    const seen = await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL ROLE elvoria_app");
+      const without = await tx.paymentAttempt.count({ where: { ref } });
+      await tx.$executeRaw`SELECT set_config('app.payment_reconciler', 'on', true)`;
+      const withPolicy = await tx.paymentAttempt.count({ where: { ref } });
+      // Read-only: the reconciler policy never allows a write.
+      const wrote = await tx.paymentAttempt.updateMany({
+        where: { ref },
+        data: { status: "failed" },
+      });
+      return { without, withPolicy, wrote: wrote.count };
+    });
+    expect(seen).toEqual({ without: 0, withPolicy: 1, wrote: 0 });
+    expect(orderId).toBeTruthy();
   });
 
   // ------------------------------------------------------ expired sessions
@@ -416,15 +553,39 @@ describe("payment safety (fake providers)", () => {
     expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
   });
 
-  it("PayPal: an approval coming back after the window is not captured — order failed", async () => {
+  it("PayPal: an approval made after the window is not captured — order failed", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     await createPayPalOrderPayment(fx.tenantId, orderId, token);
     const ref = (await read(fx, orderId))!.paymentRef!;
-    await backdateAttempt(fx, ref);
+    const started = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await setAttemptStart(fx, ref, started);
+    paypalFake().setApprovedAt(ref, new Date(started.getTime() + 50 * 60 * 1000));
     expect(await finalizePayPalReturn(fx.tenantId, orderId)).toEqual({ paid: false });
     expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
     expect(await events(fx, orderId)).not.toContain("paypal.capture");
+  });
+
+  it("PayPal: approved in time but processed hours later (downtime) is captured", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    await createPayPalOrderPayment(fx.tenantId, orderId, token);
+    const ref = (await read(fx, orderId))!.paymentRef!;
+    const started = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    await setAttemptStart(fx, ref, started);
+    paypalFake().setApprovedAt(ref, new Date(started.getTime() + 5 * 60 * 1000));
+    expect(await reconcilePayments(await targetsFor(fx))).toMatchObject({ settled: 1 });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+  });
+
+  it("PayPal: captured at PayPal but our write failed — the reconciler records it", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    await createPayPalOrderPayment(fx.tenantId, orderId, token);
+    const ref = (await read(fx, orderId))!.paymentRef!;
+    paypalFake().markCapturedAtPayPal(ref);
+    expect(await reconcilePayments(await targetsFor(fx))).toMatchObject({ settled: 1 });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
   });
 
   it("money on an earlier card page of an unpaid order settles it as card; PayPal never captured on top", async () => {

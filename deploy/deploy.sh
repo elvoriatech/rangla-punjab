@@ -218,6 +218,20 @@ case "${1:-}" in
     APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
       pnpm exec tsx scripts/launch-reset.ts
     ;;
+  stripecheck)
+    # Which payment methods guests see with authorize-only order payments:
+    # creates one 1,00 € manual-capture Checkout Session, prints its methods,
+    # expires it at once. Nothing is payable or charged.
+    DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+      pnpm exec tsx scripts/stripe-capture-check.ts
+    ;;
+  payments)
+    # Payments that need a person (money taken but not accepted), plus
+    # captures not yet recorded. RESOLVE=<id> NOTE="…" marks one handled.
+    DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+    APP_DATABASE_URL="postgresql://${DB_OWNER_USER:-resto_user}:${DB_OWNER_PASSWORD}@${DB_HOST}:5432/${DB_NAME:-resto_database}?schema=public" \
+      pnpm exec tsx scripts/payments-report.ts
+    ;;
   release)
     "$0" build
     "$0" migrate
@@ -226,6 +240,6 @@ case "${1:-}" in
     echo "Released. Now run the smoke test — docs/DEPLOY.md §9."
     ;;
   *)
-    echo "usage: $0 {build|migrate|up|seed|owner|dishes|dietary|slider|drinks|wines|testorders|launchreset|release}"; exit 1
+    echo "usage: $0 {build|migrate|up|seed|owner|dishes|dietary|slider|drinks|wines|testorders|launchreset|payments|stripecheck|release}"; exit 1
     ;;
 esac

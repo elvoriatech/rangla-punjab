@@ -4,8 +4,15 @@ import { verifyReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
 import { payPalOnFor, payPalProviderFor } from "./paypal";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
-import { releaseSupersededStripePayment } from "./connect-service";
-import { createPaymentAttemptTx, settleConfirmedPayment } from "./payment-settlement";
+import { isStaleCapture, releaseSupersededStripePayment } from "./connect-service";
+import {
+  closeAttempt,
+  createPaymentAttemptTx,
+  findAttempt,
+  finishCapture,
+  settleConfirmedPayment,
+  type SettleOutcome,
+} from "./payment-settlement";
 import { orderLabel } from "./order-label";
 import { createLogger } from "./logger";
 
@@ -106,13 +113,8 @@ export async function createPayPalOrderPayment(
 
 /**
  * The return leg: PayPal sent the guest back after approval (or PayPal's
- * webhook says the guest approved) — capture and settle. The approval is
- * a reservation: under the order's payment lock the same checks as for a
- * card run first (right order and amount, order still wanted and unpaid,
- * within the 45-minute window), and only then is the money captured. If a
- * check fails nothing is captured, so the guest is never charged. A card
- * payment that settled the order meanwhile moved it off PayPal, so this
- * can never capture on top of it. Idempotent end to end.
+ * webhook says the guest approved) — capture and settle, if the order is
+ * still on this PayPal payment. Idempotent end to end.
  */
 export async function finalizePayPalReturn(
   tenantId: string,
@@ -126,44 +128,105 @@ export async function finalizePayPalReturn(
   );
   if (!order || order.paymentProvider !== "paypal" || !order.paymentRef) return { paid: false };
   if (order.paymentStatus === "paid") return { paid: true };
-  const ref = order.paymentRef;
-  const attempt = await asTenant(tenantId, (tx) =>
-    tx.paymentAttempt.findUnique({
-      where: { provider_ref: { provider: "paypal", ref } },
-      select: { amountCents: true, currency: true },
-    }),
-  );
-  const provider = payPalProviderFor(await getPayPalKeysForTenant(tenantId));
-  const outcome = await settleConfirmedPayment({
-    tenantId,
-    provider: "paypal",
-    ref,
+  const outcome = await processPayPalOrderPayment(tenantId, order.paymentRef, {
     orderId,
-    stage: "authorized",
-    // The approval is for the amount we created the PayPal order with —
-    // PayPal does not let it change; the capture's amount is checked too.
-    amountCents: attempt?.amountCents ?? null,
-    currency: attempt?.currency ?? null,
-    capture: async () => {
-      const capture = await provider.captureOrder(ref);
-      void recordForOrder(tenantId, orderId, {
-        kind: "paypal.capture",
-        actor: "paypal",
-        summary: capture.paid ? "PayPal capture completed" : "PayPal capture not completed",
-        payload: capture,
-      });
-      return {
-        captured: capture.paid,
-        amountCents: capture.amountCents,
-        currency: capture.currency,
-      };
-    },
-    // An approval that is never captured simply lapses at PayPal.
-    release: async () => true,
     source: "capture",
   });
   log.info("payment.paypal_finalized", { orderId, tenantId, outcome: outcome.kind });
   return {
     paid: outcome.kind === "settled" || (outcome.kind === "already_processed" && outcome.paid),
   };
+}
+
+export type PayPalProcessResult =
+  SettleOutcome | { kind: "not_ready"; status: string } | { kind: "unreadable" };
+
+/**
+ * Look at a PayPal order AS PAYPAL SEES IT NOW and act — the PayPal sibling
+ * of processStripeOrderPayment, used by the return leg, the webhook and the
+ * reconciler. APPROVED = the guest approved, nothing moved yet: the same
+ * checks as for a card run (right order and amount, order still wanted and
+ * unpaid, approved within the 45-minute window), and only then is it
+ * captured; otherwise it is left to lapse, so the guest is never charged.
+ * COMPLETED = captured (e.g. our write failed after a capture): recorded.
+ */
+export async function processPayPalOrderPayment(
+  tenantId: string,
+  ref: string,
+  opts: { orderId?: string | null; source: "webhook" | "reconcile" | "capture" },
+): Promise<PayPalProcessResult> {
+  const provider = payPalProviderFor(await getPayPalKeysForTenant(tenantId));
+  const state = await provider.getOrderState(ref);
+  if (!state) return { kind: "unreadable" };
+  const attempt = await findAttempt(tenantId, "paypal", ref);
+  const orderId = attempt?.orderId ?? opts.orderId ?? null;
+
+  const capture = async () => {
+    const taken = await provider.captureOrder(ref);
+    if (orderId) {
+      void recordForOrder(tenantId, orderId, {
+        kind: "paypal.capture",
+        actor: "paypal",
+        summary: taken.paid ? "PayPal capture completed" : "PayPal capture not completed",
+        payload: taken,
+      });
+    }
+    return { captured: taken.paid, amountCents: taken.amountCents, currency: taken.currency };
+  };
+
+  // Left "capturing" by a crash (or still running elsewhere): once stale,
+  // finish it with what PayPal reports now.
+  if (attempt?.status === "capturing") {
+    if (!isStaleCapture(attempt.captureStartedAt)) {
+      return { kind: "capturing", orderId: attempt.orderId };
+    }
+    const taken =
+      state.status === "COMPLETED"
+        ? {
+            captured: state.capture.paid,
+            amountCents: state.capture.amountCents,
+            currency: state.capture.currency,
+          }
+        : state.status === "APPROVED"
+          ? await capture()
+          : { captured: false, amountCents: 0, currency: "" };
+    return finishCapture(
+      { tenantId, provider: "paypal", ref, source: opts.source },
+      attempt.id,
+      attempt.orderId,
+      taken,
+    );
+  }
+
+  const base = {
+    tenantId,
+    provider: "paypal" as const,
+    ref,
+    orderId,
+    authorizedAt: state.approvedAt,
+    source: opts.source,
+  };
+  if (state.status === "COMPLETED") {
+    return settleConfirmedPayment({
+      ...base,
+      stage: "captured",
+      amountCents: state.capture.paid ? state.capture.amountCents : null,
+      currency: state.capture.paid ? state.capture.currency : null,
+    });
+  }
+  if (state.status === "APPROVED") {
+    return settleConfirmedPayment({
+      ...base,
+      stage: "authorized",
+      // We created the PayPal order with the attempt's amount and PayPal
+      // does not let it change; the capture's own amount is checked again.
+      amountCents: attempt?.amountCents ?? null,
+      currency: attempt?.currency ?? null,
+      capture,
+      // An approval that is never captured simply lapses at PayPal.
+      release: async () => true,
+    });
+  }
+  if (state.status === "VOIDED") await closeAttempt(tenantId, "paypal", ref, "cancelled");
+  return { kind: "not_ready", status: state.status };
 }

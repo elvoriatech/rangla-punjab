@@ -1188,7 +1188,9 @@ model PaymentAttempt {
   ref              String
   amountCents      Int       @map("amount_cents")
   currency         String
-  /// open | succeeded | failed | expired | cancelled
+  /// open | capturing | succeeded | failed | expired | cancelled.
+  /// "capturing" is committed BEFORE the provider is asked to take the
+  /// money; the reconciler finishes any row left in it by a crash.
   status           String    @default("open")
   /// True for the one attempt that settled the order.
   settled          Boolean   @default(false)
@@ -1202,6 +1204,10 @@ model PaymentAttempt {
   resolvedBy       String?   @map("resolved_by")
   resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(3)
   succeededAt      DateTime? @map("succeeded_at") @db.Timestamptz(3)
+  /// When the guest authorized (card reserved / PayPal approved), as the
+  /// provider reports it — the 45-minute rule is judged on this.
+  authorizedAt     DateTime? @map("authorized_at") @db.Timestamptz(3)
+  captureStartedAt DateTime? @map("capture_started_at") @db.Timestamptz(3)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 

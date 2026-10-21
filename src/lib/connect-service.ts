@@ -12,6 +12,8 @@ import { orderLabel } from "./order-label";
 import {
   closeAttempt,
   createPaymentAttemptTx,
+  findAttempt,
+  finishCapture,
   settleConfirmedPayment,
   type PaymentConfirmation,
   type SettleOutcome,
@@ -604,6 +606,26 @@ export async function processStripeOrderPayment(
   const provider = await tenantStripeProvider(tenantId);
   const state = await provider.retrievePaymentIntent(ref);
   if (!state) return { kind: "unreadable" };
+
+  // An attempt left "capturing" (a crash between the capture call and our
+  // write, or a capture still running elsewhere): once it is stale, finish
+  // it with what Stripe reports now — taken → record it; still reserved →
+  // capture again (idempotent at Stripe); anything else → nothing taken.
+  const attempt = await findAttempt(tenantId, "stripe", ref);
+  if (attempt?.status === "capturing") {
+    if (!isStaleCapture(attempt.captureStartedAt)) {
+      return { kind: "capturing", orderId: attempt.orderId };
+    }
+    const c = { tenantId, provider: "stripe" as const, ref, source: opts.source };
+    const taken =
+      state.status === "succeeded"
+        ? { captured: true, amountCents: state.amountCents, currency: state.currency }
+        : state.status === "requires_capture"
+          ? await provider.capturePayment(ref)
+          : { captured: false, amountCents: 0, currency: "" };
+    return finishCapture(c, attempt.id, attempt.orderId, taken);
+  }
+
   const base = {
     tenantId,
     provider: "stripe" as const,
@@ -611,6 +633,7 @@ export async function processStripeOrderPayment(
     orderId: opts.orderId ?? null,
     amountCents: state.amountCents,
     currency: state.currency,
+    authorizedAt: state.authorizedAt ?? null,
     source: opts.source,
   };
   if (state.status === "requires_capture") {
@@ -628,6 +651,15 @@ export async function processStripeOrderPayment(
     await closeAttempt(tenantId, "stripe", ref, "expired");
   }
   return { kind: "not_ready", status: state.status };
+}
+
+/** How long a "capturing" attempt may sit before the reconciler assumes
+ *  the run that started it died and finishes it. A real capture takes
+ *  seconds. */
+export const STALE_CAPTURE_MS = 2 * 60 * 1000;
+
+export function isStaleCapture(startedAt: Date | null, now = Date.now()): boolean {
+  return !startedAt || now - startedAt.getTime() > STALE_CAPTURE_MS;
 }
 
 /**
@@ -724,39 +756,36 @@ export async function verifyOrderPayment(
   return { ok: true, paid, status: paid ? "succeeded" : done.kind };
 }
 
-/** How far back the dashboard sweep looks. Past the 45-minute window a
- *  reserved payment is released rather than captured — the sweep keeps
- *  reconciling so nothing stays reserved or unexplained. */
-const RECONCILE_LOOKBACK_MS = 48 * 60 * 60 * 1000;
-
 /**
- * Owner-side sweep, run when the dashboard's Orders page loads: every
- * recent Stripe attempt still open is looked up at Stripe and processed
- * exactly like a webhook would (capture, release, expire). Bounded —
- * recent, capped — it is a page load, not a batch job. Returns how many
- * orders it settled.
+ * Owner-side sweep, run when the dashboard's Orders page loads — the same
+ * work as the background reconciler (payment-reconcile.ts), limited to the
+ * owner's own restaurant: every open or "capturing" Stripe / PayPal
+ * attempt of the last 8 days is looked up at the provider and processed.
+ * Returns how many orders it settled.
  */
 export async function reconcilePendingPayments(userId: string): Promise<number> {
+  const { RECONCILE_LOOKBACK_MS, reconcilePayments } = await import("./payment-reconcile");
   const since = new Date(Date.now() - RECONCILE_LOOKBACK_MS);
-  const found = await asUser(userId, async (tx) => {
+  const targets = await asUser(userId, async (tx) => {
     const tenant = await tx.tenant.findFirstOrThrow({ select: { id: true } });
-    const open = await tx.paymentAttempt.findMany({
-      where: { provider: "stripe", status: "open", createdAt: { gte: since } },
+    const rows = await tx.paymentAttempt.findMany({
+      where: {
+        OR: [{ status: "open", createdAt: { gte: since } }, { status: "capturing" }],
+      },
       orderBy: { createdAt: "desc" },
       take: 20,
-      select: { ref: true, orderId: true },
+      select: { provider: true, ref: true, orderId: true },
     });
-    return { tenantId: tenant.id, open };
+    return rows
+      .filter((r) => r.provider === "stripe" || r.provider === "paypal")
+      .map((r) => ({
+        tenantId: tenant.id,
+        provider: r.provider as "stripe" | "paypal",
+        ref: r.ref,
+        orderId: r.orderId,
+      }));
   });
-  let settled = 0;
-  for (const a of found.open) {
-    const done = await processStripeOrderPayment(found.tenantId, a.ref, {
-      orderId: a.orderId,
-      source: "reconcile",
-    }).catch(() => null);
-    if (done?.kind === "settled") settled += 1;
-  }
-  if (settled > 0) log.info("payment.reconciled", { tenantId: found.tenantId, settled });
+  const { settled } = await reconcilePayments(targets);
   return settled;
 }
 

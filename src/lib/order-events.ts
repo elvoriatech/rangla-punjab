@@ -29,6 +29,7 @@ export type OrderEventKind =
   | "payment.superseded_paid"
   | "payment.not_captured"
   | "payment.needs_resolution"
+  | "payment.resolved"
   | "stripe.webhook"
   | "paypal.webhook"
   | "paypal.capture"

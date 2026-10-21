@@ -28,7 +28,46 @@ export async function register(): Promise<void> {
       process.on("SIGTERM", () => void otel.shutdown());
     }
     startPartitionMaintenance();
+    startPaymentReconciler();
   }
+}
+
+/**
+ * The payment safety net (owner, 2026-10-21): every few minutes, and once at
+ * boot so downtime is caught up immediately, open and "capturing" payment
+ * attempts are looked up at Stripe / PayPal and finished — captured if the
+ * guest authorized in time, released otherwise, recorded if money moved.
+ * Same in-process timer pattern as partition maintenance: one app
+ * container, no queue or host cron to forget. A run never overlaps the
+ * previous one, and a failure only warns.
+ */
+function startPaymentReconciler(): void {
+  if (process.env.PAYMENT_RECONCILER === "0") {
+    logger.info("payments.reconciler_disabled");
+    return;
+  }
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
+  let running = false;
+  const run = async (): Promise<void> => {
+    if (running) return;
+    running = true;
+    try {
+      const { reconcilePayments } = await import("./src/lib/payment-reconcile");
+      await reconcilePayments();
+    } catch (err) {
+      logger.warn("payments.reconcile_run_failed", {
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    } finally {
+      running = false;
+    }
+  };
+
+  void run();
+  void import("./src/lib/payment-reconcile").then(({ RECONCILE_INTERVAL_MS }) => {
+    setInterval(() => void run(), RECONCILE_INTERVAL_MS).unref();
+  });
 }
 
 /** Once a day; `aheadMonths` (3) is the real safety margin. */

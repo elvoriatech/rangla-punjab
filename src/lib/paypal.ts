@@ -34,6 +34,11 @@ export interface PayPalProvider {
   /** Capture an approved order. Idempotent: already-captured counts as
    *  paid. Reports what was actually taken (0 / "" when not paid). */
   captureOrder(ref: string): Promise<PayPalCapture>;
+  /** The order as PayPal holds it now: CREATED (guest not done), APPROVED
+   *  (guest approved — money not moved), COMPLETED (captured), VOIDED…;
+   *  with when the guest approved and what was captured. Null when PayPal
+   *  does not know it on this account. */
+  getOrderState(ref: string): Promise<PayPalOrderState | null>;
   /**
    * Is this webhook delivery genuinely from PayPal, for the endpoint
    * registered as `webhookId`? PayPal has no shared HMAC secret — the
@@ -41,6 +46,12 @@ export interface PayPalProvider {
    * checks an HMAC keyed on the webhook id so tests can sign payloads.
    */
   verifyWebhookSignature(input: PayPalWebhookVerifyInput): Promise<boolean>;
+}
+
+export interface PayPalOrderState {
+  status: string;
+  approvedAt: Date | null;
+  capture: PayPalCapture;
 }
 
 export interface PayPalCapture {
@@ -80,7 +91,10 @@ export interface PayPalWebhookHeaders {
 
 class FakePayPalProvider implements PayPalProvider {
   mode = "fake" as const;
-  private created = new Map<string, { amountCents: number; currency: string }>();
+  private created = new Map<
+    string,
+    { amountCents: number; currency: string; approvedAt: Date; captured: boolean }
+  >();
 
   async createOrderApproval(input: {
     orderId: string;
@@ -90,9 +104,12 @@ class FakePayPalProvider implements PayPalProvider {
   }): Promise<PayPalApproval> {
     // One PayPal order per attempt, as with the real API.
     const ref = `pp_fake_${input.orderId}_${randomUUID().slice(0, 8)}`;
+    // The fake bounces straight to the return leg: approved at once.
     this.created.set(ref, {
       amountCents: input.amountCents,
       currency: input.currency.toUpperCase(),
+      approvedAt: new Date(),
+      captured: false,
     });
     const sep = input.returnUrl.includes("?") ? "&" : "?";
     return { url: `${input.returnUrl}${sep}ppfake=1`, ref };
@@ -102,10 +119,37 @@ class FakePayPalProvider implements PayPalProvider {
     // Refs the fake never issued fail, like a bogus capture would. Refs from
     // another process (dev server restart) still capture, at no known amount.
     const known = this.created.get(ref);
-    if (known) return { paid: true, ...known };
+    if (known) {
+      known.captured = true;
+      return { paid: true, amountCents: known.amountCents, currency: known.currency };
+    }
     return ref.startsWith("pp_fake_")
       ? { paid: true, amountCents: 0, currency: "" }
       : { paid: false, amountCents: 0, currency: "" };
+  }
+
+  async getOrderState(ref: string): Promise<PayPalOrderState | null> {
+    const known = this.created.get(ref);
+    if (!known) return null;
+    return {
+      status: known.captured ? "COMPLETED" : "APPROVED",
+      approvedAt: known.approvedAt,
+      capture: known.captured
+        ? { paid: true, amountCents: known.amountCents, currency: known.currency }
+        : { paid: false, amountCents: 0, currency: "" },
+    };
+  }
+
+  /** Test hook: when the guest approved. */
+  setApprovedAt(ref: string, at: Date): void {
+    const known = this.created.get(ref);
+    if (known) known.approvedAt = at;
+  }
+
+  /** Test hook: captured at PayPal, as if our own write had then failed. */
+  markCapturedAtPayPal(ref: string): void {
+    const known = this.created.get(ref);
+    if (known) known.captured = true;
   }
 
   async verifyWebhookSignature(input: PayPalWebhookVerifyInput): Promise<boolean> {
@@ -233,12 +277,33 @@ class RealPayPalProvider implements PayPalProvider {
 
   /** The order as PayPal holds it now — used when it was captured before. */
   private async fetchOrder(ref: string): Promise<PayPalCapture> {
-    const token = await this.accessToken();
-    const res = await fetch(`${this.base}/v2/checkout/orders/${encodeURIComponent(ref)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return { paid: false, amountCents: 0, currency: "" };
-    return readCapture(await res.json());
+    return (
+      (await this.getOrderState(ref))?.capture ?? { paid: false, amountCents: 0, currency: "" }
+    );
+  }
+
+  async getOrderState(ref: string): Promise<PayPalOrderState | null> {
+    try {
+      const token = await this.accessToken();
+      const res = await fetch(`${this.base}/v2/checkout/orders/${encodeURIComponent(ref)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { status?: string; update_time?: string };
+      const status = body.status ?? "UNKNOWN";
+      return {
+        status,
+        // PayPal stamps update_time when the payer approves (and again at
+        // capture); for an APPROVED order it is the approval.
+        approvedAt:
+          (status === "APPROVED" || status === "COMPLETED") && body.update_time
+            ? new Date(body.update_time)
+            : null,
+        capture: readCapture(body),
+      };
+    } catch {
+      return null;
+    }
   }
 
   async verifyWebhookSignature(input: PayPalWebhookVerifyInput): Promise<boolean> {

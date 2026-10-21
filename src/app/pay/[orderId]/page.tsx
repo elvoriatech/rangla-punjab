@@ -9,7 +9,7 @@ import { PayButton } from "./pay-button";
 import { AutoReceipt } from "./auto-receipt";
 import { PayPalButton } from "./paypal-button";
 import { PaymentExit } from "./payment-exit";
-import { getGuestPaymentOptions } from "@/lib/connect-service";
+import { getGuestPaymentOptions, verifyOrderPayment } from "@/lib/connect-service";
 import { getPublicVenueAccess } from "@/lib/order-service";
 import { VAT_RATE_LABEL, vatFromGross } from "@/lib/vat";
 import { postOrderCopy } from "@/lib/i18n/post-order";
@@ -47,6 +47,13 @@ export default async function PayPage({
   const verified = verifyReceiptToken(token);
   if (!verified || verified.orderId !== orderId) notFound();
 
+  // Back from Stripe's page: the card is only reserved there. Confirm with
+  // Stripe now — the server captures if every check passes — instead of
+  // waiting for the webhook, so the guest sees the real state at once (and
+  // a webhook outage changes nothing). Same path as the webhook; idempotent.
+  if (statusParam === "success" && token) {
+    await verifyOrderPayment(verified.tenantId, orderId, token).catch(() => null);
+  }
   const order = await getOrderForReceipt(verified.tenantId, orderId);
   if (!order) notFound();
 

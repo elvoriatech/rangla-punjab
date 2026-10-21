@@ -47,6 +47,7 @@ export class FakeStripeProvider implements StripeProvider {
       authorized?: boolean;
       expired?: boolean;
       capturedCents?: number;
+      authorizedAt?: Date;
       currency?: string;
       /** What `paymentMethodOf` reports once paid; tests set it via
        *  `setPaymentMethod`. Defaults to a plain card. */
@@ -260,7 +261,14 @@ export class FakeStripeProvider implements StripeProvider {
             : "requires_payment_method",
       amountCents: c.amountCents,
       currency: c.currency ?? "EUR",
+      authorizedAt: c.authorizedAt ?? null,
     };
+  }
+
+  /** Test hook: when the guest authorized (default: when it happened). */
+  setAuthorizedAt(ref: string, at: Date): void {
+    const c = this.orderCheckouts.get(ref);
+    if (c) c.authorizedAt = at;
   }
 
   async capturePayment(ref: string): Promise<CaptureResult> {
@@ -290,7 +298,10 @@ export class FakeStripeProvider implements StripeProvider {
   /** Test hook: a payment taken at once (an old automatic-capture page). */
   chargeImmediately(ref: string): void {
     const c = this.orderCheckouts.get(ref);
-    if (c) c.paid = true;
+    if (c) {
+      c.paid = true;
+      c.authorizedAt ??= new Date();
+    }
   }
 
   async paymentMethodOf(ref: string): Promise<string | null> {
@@ -324,6 +335,7 @@ export class FakeStripeProvider implements StripeProvider {
   ): { orderId: string; tenantId: string; giftCardId?: string } | null {
     const c = this.orderCheckouts.get(ref);
     if (!c || c.paid || c.authorized || c.expired) return null;
+    c.authorizedAt = new Date();
     if (c.giftCardId) c.paid = true;
     else c.authorized = true;
     // `giftCardId` is only spread in when set, so the order case keeps

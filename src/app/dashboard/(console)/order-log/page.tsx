@@ -62,6 +62,7 @@ const KIND: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "plain
   "payment.superseded_paid": { label: "Paid on an earlier payment page", tone: "warn" },
   "payment.not_captured": { label: "Not charged — reservation released", tone: "warn" },
   "payment.needs_resolution": { label: "Needs action — money received", tone: "bad" },
+  "payment.resolved": { label: "Payment handled", tone: "ok" },
   "stripe.webhook": { label: "Stripe message", tone: "plain" },
   "paypal.webhook": { label: "PayPal message", tone: "plain" },
   "paypal.capture": { label: "PayPal capture", tone: "plain" },

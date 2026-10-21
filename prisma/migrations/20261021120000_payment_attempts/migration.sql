@@ -75,7 +75,10 @@ SELECT 'pa_' || md5(o."id" || o."payment_ref"), o."tenant_id", o."venue_id", o."
             WHEN o."payment_status" = 'failed' THEN 'failed' ELSE 'open' END,
        o."payment_status" = 'paid',
        CASE WHEN o."payment_status" = 'paid' THEN o."paid_at" END,
-       o."createdAt", CURRENT_TIMESTAMP
+       -- When the order was last changed — for an unpaid order, when its
+       -- payment was started — so the 45-minute rule is not tighter than it
+       -- should be for an order that waited before being paid.
+       o."updatedAt", CURRENT_TIMESTAMP
 FROM "orders" o
 WHERE o."payment_ref" IS NOT NULL
   AND o."payment_provider" IN ('stripe', 'paypal')

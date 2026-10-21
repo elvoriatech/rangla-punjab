@@ -322,7 +322,7 @@ export class RealStripeProvider implements StripeProvider {
         // the session (and its intent) so verify / reconcile / the payment
         // switch see what the webhook may never have delivered (O-6).
         const session = await this.stripe.checkout.sessions.retrieve(ref, {
-          expand: ["payment_intent"],
+          expand: ["payment_intent.latest_charge"],
         });
         const pi = typeof session.payment_intent === "object" ? session.payment_intent : null;
         const status =
@@ -340,17 +340,24 @@ export class RealStripeProvider implements StripeProvider {
           amountCents:
             pi?.status === "requires_capture" ? pi.amount_capturable : (session.amount_total ?? 0),
           currency: (session.currency ?? "").toUpperCase(),
+          authorizedAt: authorizedAtOf(pi),
         };
       }
-      const pi = await this.stripe.paymentIntents.retrieve(ref);
+      const pi = await this.stripe.paymentIntents.retrieve(ref, { expand: ["latest_charge"] });
       if (pi.status === "requires_capture") {
         return {
           status: pi.status,
           amountCents: pi.amount_capturable,
           currency: pi.currency.toUpperCase(),
+          authorizedAt: authorizedAtOf(pi),
         };
       }
-      return { status: pi.status, amountCents: pi.amount, currency: pi.currency.toUpperCase() };
+      return {
+        status: pi.status,
+        amountCents: pi.amount,
+        currency: pi.currency.toUpperCase(),
+        authorizedAt: authorizedAtOf(pi),
+      };
     } catch {
       // Unknown id on this account (or the wrong account's key): the caller
       // treats it as "cannot confirm", never as paid.
@@ -438,4 +445,15 @@ export class RealStripeProvider implements StripeProvider {
       return false;
     }
   }
+}
+
+/**
+ * When the guest authorized: the creation time of the intent's charge
+ * (Stripe creates it when the card is reserved). Null when there is none
+ * yet or it was not expanded.
+ */
+function authorizedAtOf(pi: Stripe.PaymentIntent | null): Date | null {
+  const charge = pi?.latest_charge;
+  if (!charge || typeof charge === "string") return null;
+  return new Date(charge.created * 1000);
 }
