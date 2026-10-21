@@ -56,33 +56,57 @@ CREATE TRIGGER payment_attempts_immutable
   BEFORE UPDATE ON "payment_attempts"
   FOR EACH ROW EXECUTE FUNCTION payment_attempts_immutable();
 
+
+-- Existing online orders get their current attempt, at the amount they
+-- carry now, so payments already under way are validated too.
+--
+-- Production migrates as the (non-superuser) table owner, and `orders` is
+-- FORCE ROW LEVEL SECURITY with no app.current_tenant_id set here — the
+-- read would be a silent no-op (and an insert into an RLS table refused,
+-- which is what failed the first deploy of this migration). So, as in
+-- 20260919190000: the backfill runs BEFORE payment_attempts gets RLS, and
+-- FORCE is lifted on `orders` for this one statement and restored to
+-- exactly what it was. The policies themselves are never touched.
+DO $$
+DECLARE
+  orders_forced boolean;
+BEGIN
+  SELECT relforcerowsecurity INTO orders_forced FROM pg_class WHERE oid = '"orders"'::regclass;
+  IF orders_forced THEN
+    EXECUTE 'ALTER TABLE "orders" NO FORCE ROW LEVEL SECURITY';
+  END IF;
+
+  INSERT INTO "payment_attempts"
+    ("id", "tenant_id", "venue_id", "order_id", "order_label", "provider", "ref",
+     "amount_cents", "currency", "status", "settled", "succeeded_at", "created_at", "updated_at")
+  SELECT 'pa_' || md5(o."id" || o."payment_ref"), o."tenant_id", o."venue_id", o."id",
+         CASE WHEN o."order_series" IS NULL THEN o."order_number"::text
+              ELSE o."order_series" || '-' || o."order_number" END,
+         o."payment_provider", o."payment_ref", o."total_cents", o."currency",
+         CASE WHEN o."payment_status" = 'paid' THEN 'succeeded'
+              WHEN o."payment_status" = 'failed' THEN 'failed' ELSE 'open' END,
+         o."payment_status" = 'paid',
+         CASE WHEN o."payment_status" = 'paid' THEN o."paid_at" END,
+         -- When the order was last changed — for an unpaid order, when its
+         -- payment was started — so the 45-minute rule is not tighter than it
+         -- should be for an order that waited before being paid.
+         o."updatedAt", CURRENT_TIMESTAMP
+  FROM "orders" o
+  WHERE o."payment_ref" IS NOT NULL
+    AND o."payment_provider" IN ('stripe', 'paypal')
+  ON CONFLICT ("provider", "ref") DO NOTHING;
+
+  IF orders_forced THEN
+    EXECUTE 'ALTER TABLE "orders" FORCE ROW LEVEL SECURITY';
+  END IF;
+END
+$$;
+
 ALTER TABLE "payment_attempts" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "payment_attempts" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "payment_attempts"
   USING (tenant_id = current_setting('app.current_tenant_id', true))
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
-
--- Existing online orders get their current attempt, at the amount they
--- carry now, so payments already under way are validated too.
-INSERT INTO "payment_attempts"
-  ("id", "tenant_id", "venue_id", "order_id", "order_label", "provider", "ref",
-   "amount_cents", "currency", "status", "settled", "succeeded_at", "created_at", "updated_at")
-SELECT 'pa_' || md5(o."id" || o."payment_ref"), o."tenant_id", o."venue_id", o."id",
-       CASE WHEN o."order_series" IS NULL THEN o."order_number"::text
-            ELSE o."order_series" || '-' || o."order_number" END,
-       o."payment_provider", o."payment_ref", o."total_cents", o."currency",
-       CASE WHEN o."payment_status" = 'paid' THEN 'succeeded'
-            WHEN o."payment_status" = 'failed' THEN 'failed' ELSE 'open' END,
-       o."payment_status" = 'paid',
-       CASE WHEN o."payment_status" = 'paid' THEN o."paid_at" END,
-       -- When the order was last changed — for an unpaid order, when its
-       -- payment was started — so the 45-minute rule is not tighter than it
-       -- should be for an order that waited before being paid.
-       o."updatedAt", CURRENT_TIMESTAMP
-FROM "orders" o
-WHERE o."payment_ref" IS NOT NULL
-  AND o."payment_provider" IN ('stripe', 'paypal')
-ON CONFLICT ("provider", "ref") DO NOTHING;
 
 -- Webhook claims: a delivery is "processing" until it commits; a failed
 -- one deletes its claim so the provider's retry runs again.
