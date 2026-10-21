@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { env } from "../env";
 import { getPlatformStripeKeys } from "../operator-settings";
 import { FakeStripeProvider } from "./fake-provider";
+import { stripeKeyUsableHere } from "../live-key-guard";
 import type { StripeProvider } from "./provider";
 
 export type { StripeProvider, StripeEvent } from "./provider";
@@ -48,7 +49,7 @@ function fingerprint(k: ResolvedKeys): string {
 }
 
 async function build(k: ResolvedKeys): Promise<StripeProvider> {
-  if (k.secret && k.webhook) {
+  if (k.secret && k.webhook && stripeKeyUsableHere(k.secret)) {
     // Dynamic import so the `stripe` SDK doesn't reach every code path.
     const { RealStripeProvider } = await import("./real-provider");
     return new RealStripeProvider(k.secret, k.webhook, k.connectWebhook ?? undefined);
@@ -85,7 +86,7 @@ export async function stripeProviderForKey(
   secret: string,
   webhook?: string | null,
 ): Promise<StripeProvider> {
-  if (secret.startsWith("sk_")) {
+  if (secret.startsWith("sk_") && stripeKeyUsableHere(secret)) {
     const { RealStripeProvider } = await import("./real-provider");
     return new RealStripeProvider(secret, webhook ?? "", webhook ?? undefined);
   }

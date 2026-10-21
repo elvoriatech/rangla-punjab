@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { env } from "./env";
 import { createLogger } from "./logger";
+import { payPalEnvUsableHere } from "./live-key-guard";
 
 const log = createLogger();
 
@@ -382,7 +383,7 @@ let cached: PayPalProvider | null = null;
 export function getPayPalProvider(): PayPalProvider {
   if (cached) return cached;
   cached =
-    env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET
+    env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET && payPalEnvUsableHere(env.PAYPAL_ENV)
       ? new RealPayPalProvider(env.PAYPAL_CLIENT_ID, env.PAYPAL_CLIENT_SECRET, env.PAYPAL_ENV)
       : new FakePayPalProvider();
   if (cached.mode === "fake" && env.NODE_ENV === "production") {
@@ -408,7 +409,7 @@ export function payPalProviderFor(credentials: {
   env: "sandbox" | "live";
   enabled: boolean;
 }): PayPalProvider {
-  if (credentials.clientId && credentials.secret) {
+  if (credentials.clientId && credentials.secret && payPalEnvUsableHere(credentials.env)) {
     return new RealPayPalProvider(credentials.clientId, credentials.secret, credentials.env);
   }
   return getPayPalProvider();
