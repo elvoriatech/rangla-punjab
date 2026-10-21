@@ -7,7 +7,7 @@ import { listRecentOrders, placeOrder } from "./order-service";
 import {
   createOrderPayment,
   getConnectStatus,
-  markOrderPaid,
+  processStripeOrderPayment,
   recordPaymentMethod,
   refreshConnectStatus,
   startConnectOnboarding,
@@ -143,7 +143,7 @@ describe("connect payments (fake provider, full flow)", () => {
       computePlatformFeeCents(2980, DEFAULT_OPERATOR_SETTINGS),
     ); // 149 cents
 
-    // 4. The provider settles (webhook analogue) → paid, idempotently.
+    // 4. The guest pays on the page (webhook analogue) → paid, idempotently.
     const provider = (await getStripeProvider()) as unknown as {
       settleOrderCheckout(ref: string): { orderId: string } | null;
     };
@@ -154,8 +154,15 @@ describe("connect payments (fake provider, full flow)", () => {
       pending.paymentRef!,
       "apple_pay",
     );
-    expect(await markOrderPaid(fx.tenantId, placed.value.orderId)).toBe(true);
-    expect(await markOrderPaid(fx.tenantId, placed.value.orderId)).toBe(false); // idempotent
+    // The card is only reserved; the server captures it after its checks.
+    const opts = { orderId: placed.value.orderId, source: "webhook" as const };
+    expect((await processStripeOrderPayment(fx.tenantId, pending.paymentRef!, opts)).kind).toBe(
+      "settled",
+    );
+    // A retry / resend changes nothing.
+    expect((await processStripeOrderPayment(fx.tenantId, pending.paymentRef!, opts)).kind).toBe(
+      "already_processed",
+    );
 
     const paid = await asTenant(fx.tenantId, (tx) =>
       tx.order.findFirstOrThrow({

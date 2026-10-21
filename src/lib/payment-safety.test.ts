@@ -5,27 +5,32 @@ import { signupUser } from "./auth-service";
 import { asTenant } from "./tenant";
 import { placeOrder } from "./order-service";
 import {
-  LATE_PAYMENT_MS,
   createOrderPayment,
-  markOrderPaid,
-  settleStripeOrderPayment,
+  processStripeOrderPayment,
+  reconcilePendingPayments,
 } from "./connect-service";
 import { createPayPalOrderPayment, finalizePayPalReturn } from "./paypal-service";
 import { deleteOrder } from "./order-delete-service";
 import { getStripeProvider } from "./stripe";
+import type { FakeStripeProvider } from "./stripe/fake-provider";
 import { handleStripeEvent } from "./stripe/webhook-handler";
+import { AUTO_ACCEPT_WINDOW_MS } from "./payment-windows";
+import { processWebhookOnce } from "./webhook-claims";
 
 /**
  * Order O-6 (2026-10-19): the guest opened the card page, switched to
- * PayPal, then paid the OLD card page anyway; the webhook failed, and
- * Stripe's retry plus a manual resend put the order on the board twice, a
- * day late. Each scenario below is one way that flow could mislead.
+ * PayPal, then paid the OLD card page anyway; the webhook failed, and a
+ * Stripe retry plus a manual resend put the order on the board twice, a day
+ * late. The rules since (owner, 2026-10-21): money is reserved, checked and
+ * only then captured; anything that fails a check is released, so the
+ * guest is never charged and the order stays failed.
  */
 describe("payment safety (fake providers)", () => {
   const createdUserIds: string[] = [];
   const createdTenantIds: string[] = [];
 
   afterEach(async () => {
+    vi.useRealTimers();
     for (const tid of createdTenantIds) {
       await asTenant(tid, (tx) => tx.membership.deleteMany({}));
       await asTenant(tid, (tx) => tx.tenant.deleteMany({}));
@@ -37,13 +42,7 @@ describe("payment safety (fake providers)", () => {
     createdTenantIds.length = 0;
   });
 
-  async function fixture(): Promise<{
-    userId: string;
-    tenantId: string;
-    venueId: string;
-    publishedVersionId: string;
-    itemId: string;
-  }> {
+  async function fixture() {
     const s = await signupUser({
       email: `safe-${randomUUID()}@ex.com`,
       password: "S3cureP4ssPhrase!",
@@ -53,7 +52,7 @@ describe("payment safety (fake providers)", () => {
     createdUserIds.push(s.userId);
     createdTenantIds.push(s.tenantId);
     return asTenant(s.tenantId, async (tx) => {
-      // Card and PayPal both switched on; no own keys → the fake providers.
+      // Card and PayPal both on; no own keys → the fake providers.
       await tx.tenant.updateMany({ data: { stripeOwnEnabled: true, paypalOwnEnabled: true } });
       const venue = await tx.venue.create({
         data: {
@@ -114,136 +113,364 @@ describe("payment safety (fake providers)", () => {
     return { orderId: placed.value.orderId, token: placed.value.receiptToken };
   }
 
+  const fake = async () => (await getStripeProvider()) as unknown as FakeStripeProvider;
+
   async function startCard(fx: Fx, orderId: string, token: string): Promise<string> {
     const pay = await createOrderPayment(fx.tenantId, orderId, token);
     if (!pay.ok) throw new Error(`card start refused: ${pay.error}`);
-    const row = await read(fx, orderId);
-    return row!.paymentRef!;
+    return (await read(fx, orderId))!.paymentRef!;
   }
 
-  function read(fx: Fx, orderId: string) {
-    return asTenant(fx.tenantId, (tx) => tx.order.findFirst({ where: { id: orderId } }));
-  }
+  const read = (fx: Fx, orderId: string) =>
+    asTenant(fx.tenantId, (tx) => tx.order.findFirst({ where: { id: orderId } }));
 
-  async function fakeStripe() {
-    return (await getStripeProvider()) as unknown as {
-      retrievePaymentIntent(ref: string): Promise<{ status: string } | null>;
-      settleOrderCheckout(ref: string): { orderId: string } | null;
+  const attemptOf = (fx: Fx, ref: string) =>
+    asTenant(fx.tenantId, (tx) => tx.paymentAttempt.findFirst({ where: { ref } }));
+
+  const stripeState = async (ref: string) =>
+    (await (await fake()).retrievePaymentIntent(ref))?.status;
+
+  /** Move an attempt's start back past the 45-minute window. */
+  const backdateAttempt = (fx: Fx, ref: string) =>
+    asTenant(fx.tenantId, (tx) =>
+      tx.paymentAttempt.updateMany({
+        where: { ref },
+        data: { createdAt: new Date(Date.now() - AUTO_ACCEPT_WINDOW_MS - 60_000) },
+      }),
+    );
+
+  const events = (fx: Fx, orderId: string) =>
+    asTenant(fx.tenantId, (tx) =>
+      tx.orderEvent.findMany({ where: { orderId }, select: { kind: true } }),
+    ).then((rows) => rows.map((r) => r.kind));
+
+  function checkoutCompleted(fx: Fx, orderId: string, ref: string, id = `evt_${randomUUID()}`) {
+    return {
+      id,
+      type: "checkout.session.completed",
+      data: {
+        object: { id: ref, payment_status: "unpaid", metadata: { orderId, tenantId: fx.tenantId } },
+      },
     };
   }
 
-  /** Order-log rows are written fire-and-forget: wait for one to land. */
-  async function eventKinds(fx: Fx, orderId: string, kind: string): Promise<void> {
-    await vi.waitFor(
-      async () => {
-        const rows = await asTenant(fx.tenantId, (tx) =>
-          tx.orderEvent.findMany({ where: { orderId, kind }, select: { id: true } }),
-        );
-        expect(rows.length).toBeGreaterThan(0);
-      },
-      { timeout: 3000, interval: 50 },
-    );
-  }
+  // ---------------------------------------------------------------- basics
 
-  async function backdate(fx: Fx, orderId: string): Promise<void> {
+  it("a card payment is only reserved until the server captures it, then the order is paid", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    expect(await stripeState(ref)).toBe("requires_capture");
+    expect((await read(fx, orderId))?.paymentStatus).toBe("pending");
+
+    await handleStripeEvent(checkoutCompleted(fx, orderId, ref));
+    expect(await stripeState(ref)).toBe("succeeded");
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+    expect(await attemptOf(fx, ref)).toMatchObject({ status: "succeeded", settled: true });
+  });
+
+  it("the attempt's amount can never be changed (database trigger)", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    await expect(
+      asTenant(fx.tenantId, (tx) =>
+        tx.paymentAttempt.updateMany({ where: { ref }, data: { amountCents: 1 } }),
+      ),
+    ).rejects.toThrow(/immutable/);
+  });
+
+  // ---------------------------------------------------- duplicate webhooks
+
+  it("duplicate webhooks: the same event twice, and a second event for the same payment, capture once", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+
+    const event = checkoutCompleted(fx, orderId, ref);
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "replayed" }); // resend
+    const other = {
+      id: `evt_${randomUUID()}`,
+      type: "payment_intent.succeeded",
+      data: { object: { id: ref, metadata: { orderId, tenantId: fx.tenantId } } },
+    };
+    expect((await handleStripeEvent(other)).status).toBe(200);
+    const kinds = await events(fx, orderId);
+    expect(kinds.filter((k) => k === "payment.paid")).toHaveLength(1);
+  });
+
+  // ------------------------------------------------------- server downtime
+
+  it("failed processing stays retryable: the claim is released and the retry runs", async () => {
+    const id = `evt_${randomUUID()}`;
+    await expect(
+      processWebhookOnce(id, "stripe", () => Promise.reject(new Error("db down"))),
+    ).rejects.toThrow("db down");
+    expect(await prisma.webhookEvent.findUnique({ where: { id } })).toBeNull();
+    expect(await processWebhookOnce(id, "stripe", async () => "ok")).toBe("ok");
+    expect(await processWebhookOnce(id, "stripe", async () => "again")).toBe("replayed");
+    await prisma.webhookEvent.deleteMany({ where: { id } });
+  });
+
+  it("a delivery racing an in-flight one is told to retry; a crashed claim is taken over", async () => {
+    const id = `evt_${randomUUID()}`;
+    await prisma.webhookEvent.create({ data: { id, provider: "stripe", status: "processing" } });
+    expect(await processWebhookOnce(id, "stripe", async () => "ok")).toBe("busy");
+    await prisma.webhookEvent.update({
+      where: { id },
+      data: { claimedAt: new Date(Date.now() - 10 * 60 * 1000) },
+    });
+    expect(await processWebhookOnce(id, "stripe", async () => "ok")).toBe("ok");
+    await prisma.webhookEvent.deleteMany({ where: { id } });
+  });
+
+  it("webhooks down: the dashboard sweep captures a payment still inside the window", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref); // paid, but no webhook arrives
+    expect(await reconcilePendingPayments(fx.userId)).toBe(1);
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+  });
+
+  it("webhooks down past the window: the sweep releases the money — not charged, order failed", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    await backdateAttempt(fx, ref);
+
+    expect(await reconcilePendingPayments(fx.userId)).toBe(0);
+    expect(await stripeState(ref)).toBe("canceled"); // reservation released
+    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
+    expect(await events(fx, orderId)).toContain("payment.not_captured");
+  });
+
+  // ----------------------------------------------------------- late (O-6)
+
+  it("O-6 replay: a Stripe retry days later, then a manual resend — never charged, never on the board", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    await backdateAttempt(fx, ref);
+
+    const event = checkoutCompleted(fx, orderId, ref);
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "replayed" });
+    expect(await stripeState(ref)).toBe("canceled");
+    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
+  });
+
+  it("a late payment that was already TAKEN (pre-change page) is recorded for refund, order untouched", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).chargeImmediately(ref);
+    await backdateAttempt(fx, ref);
+
+    const done = await processStripeOrderPayment(fx.tenantId, ref, { orderId, source: "webhook" });
+    expect(done).toMatchObject({ kind: "needs_resolution", reason: "late" });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("pending");
+    expect(await attemptOf(fx, ref)).toMatchObject({
+      resolution: "needed",
+      resolutionReason: "late",
+    });
+    expect(await events(fx, orderId)).toContain("payment.needs_resolution");
+  });
+
+  // ------------------------------------------------------ expired sessions
+
+  it("an expired card page closes its attempt and fails the order — nothing charged", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).expireOrderCheckout(ref);
+    await reconcilePendingPayments(fx.userId);
+    expect(await attemptOf(fx, ref)).toMatchObject({ status: "expired" });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
+  });
+
+  it("checkout.session.expired from Stripe does the same", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    await handleStripeEvent({
+      id: `evt_${randomUUID()}`,
+      type: "checkout.session.expired",
+      data: { object: { id: ref, metadata: { orderId, tenantId: fx.tenantId } } },
+    });
+    expect(await attemptOf(fx, ref)).toMatchObject({ status: "expired" });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
+  });
+
+  // ------------------------------------------------ changed order amounts
+
+  it("an order total changed after the guest reserved the money is not charged", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
     await asTenant(fx.tenantId, (tx) =>
-      tx.order.update({
-        where: { id: orderId },
-        data: { createdAt: new Date(Date.now() - LATE_PAYMENT_MS - 60_000) },
-      }),
+      tx.order.update({ where: { id: orderId }, data: { totalCents: 1000 } }),
     );
-  }
-
-  it("switching from the card page to PayPal closes the card page", async () => {
-    const fx = await fixture();
-    const { orderId, token } = await order(fx);
-    const cardRef = await startCard(fx, orderId, token);
-
-    const pp = await createPayPalOrderPayment(fx.tenantId, orderId, token);
-    expect(pp.ok).toBe(true);
-    // The old card page can no longer take money.
-    expect(await (await fakeStripe()).retrievePaymentIntent(cardRef)).toBeNull();
-    expect((await read(fx, orderId))?.paymentProvider).toBe("paypal");
+    const done = await processStripeOrderPayment(fx.tenantId, ref, { orderId, source: "webhook" });
+    expect(done).toMatchObject({ kind: "declined", reason: "order_amount_changed" });
+    expect(await stripeState(ref)).toBe("canceled");
+    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
   });
 
-  it("a card retry closes the previous card page", async () => {
+  it("a capture that takes another amount than asked is flagged, not sent to the kitchen", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
-    const first = await startCard(fx, orderId, token);
-    const second = await startCard(fx, orderId, token);
-    expect(second).not.toBe(first);
-    expect(await (await fakeStripe()).retrievePaymentIntent(first)).toBeNull();
+    const ref = await startCard(fx, orderId, token);
+    const f = await fake();
+    f.settleOrderCheckout(ref);
+    f.setCapturedAmount(ref, 999);
+    const done = await processStripeOrderPayment(fx.tenantId, ref, { orderId, source: "webhook" });
+    expect(done).toMatchObject({ kind: "needs_resolution", reason: "amount_mismatch" });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("pending");
   });
 
-  it("if the old card page was already paid, switching settles it instead of starting PayPal", async () => {
+  // -------------------------------------------------- switching / double
+
+  it("switching card → PayPal closes the open card page", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
-    const cardRef = await startCard(fx, orderId, token);
-    (await fakeStripe()).settleOrderCheckout(cardRef);
-
-    const pp = await createPayPalOrderPayment(fx.tenantId, orderId, token);
-    expect(pp).toEqual({ ok: false, error: "already_paid" });
-    const row = await read(fx, orderId);
-    expect(row?.paymentStatus).toBe("paid");
-    expect(row?.paymentProvider).toBe("stripe");
-    expect(row?.paymentRef).toBe(cardRef);
+    const ref = await startCard(fx, orderId, token);
+    expect((await createPayPalOrderPayment(fx.tenantId, orderId, token)).ok).toBe(true);
+    expect(await stripeState(ref)).toBe("canceled");
+    expect(await attemptOf(fx, ref)).toMatchObject({ status: "cancelled" });
   });
 
-  it("money on an earlier card page of an unpaid order settles it as card — and PayPal is never captured on top", async () => {
+  it("if the old card page was reserved meanwhile, switching captures it and refuses PayPal", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    expect(await createPayPalOrderPayment(fx.tenantId, orderId, token)).toEqual({
+      ok: false,
+      error: "already_paid",
+    });
+    expect(await read(fx, orderId)).toMatchObject({ paymentStatus: "paid", paymentRef: ref });
+  });
+
+  it("concurrent Stripe and PayPal captures for one order: exactly one is taken", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     await createPayPalOrderPayment(fx.tenantId, orderId, token);
+    const order0 = await read(fx, orderId);
+    // A card attempt for the same order reserved in parallel (e.g. the app
+    // sheet on another device), bypassing the switch.
+    const f = await fake();
+    const card = await f.createDirectCheckout({
+      orderId,
+      tenantId: fx.tenantId,
+      amountCents: order0!.totalCents,
+      currency: "EUR",
+      label: "x",
+      successUrl: "http://x",
+      cancelUrl: "http://x",
+      payPageUrl: "http://x",
+    });
+    await asTenant(fx.tenantId, (tx) =>
+      tx.paymentAttempt.create({
+        data: {
+          tenantId: fx.tenantId,
+          venueId: fx.venueId,
+          orderId,
+          orderLabel: "x",
+          provider: "stripe",
+          ref: card.ref,
+          amountCents: order0!.totalCents,
+          currency: "EUR",
+        },
+      }),
+    );
+    f.settleOrderCheckout(card.ref);
 
-    const outcome = await settleStripeOrderPayment(fx.tenantId, orderId, "cs_earlier_page");
-    expect(outcome).toBe("superseded_settled");
-    const row = await read(fx, orderId);
-    expect(row?.paymentStatus).toBe("paid");
-    expect(row?.paymentProvider).toBe("stripe");
-    expect(row?.paymentRef).toBe("cs_earlier_page");
-    await eventKinds(fx, orderId, "payment.superseded_paid");
-
-    // The PayPal approval coming back now must not charge the guest again.
-    expect((await finalizePayPalReturn(fx.tenantId, orderId)).paid).toBe(false);
+    const [pp, st] = await Promise.all([
+      finalizePayPalReturn(fx.tenantId, orderId),
+      processStripeOrderPayment(fx.tenantId, card.ref, { orderId, source: "webhook" }),
+    ]);
+    const settledAttempts = await asTenant(fx.tenantId, (tx) =>
+      tx.paymentAttempt.count({ where: { orderId, settled: true } }),
+    );
+    expect(settledAttempts).toBe(1);
+    const cardTaken = (await stripeState(card.ref)) === "succeeded";
+    expect(Number(pp.paid) + Number(cardTaken)).toBe(1);
+    expect(st.kind === "settled" || st.kind === "declined").toBe(true);
   });
 
-  it("the same payment delivered again (retry or manual resend) changes nothing", async () => {
+  // ----------------------------------------------------------- PayPal
+
+  it("PayPal: approval captured within the window settles; a replayed return is a no-op", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    await createPayPalOrderPayment(fx.tenantId, orderId, token);
+    expect(await finalizePayPalReturn(fx.tenantId, orderId)).toEqual({ paid: true });
+    expect(await finalizePayPalReturn(fx.tenantId, orderId)).toEqual({ paid: true });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
+  });
+
+  it("PayPal: an approval coming back after the window is not captured — order failed", async () => {
+    const fx = await fixture();
+    const { orderId, token } = await order(fx);
+    await createPayPalOrderPayment(fx.tenantId, orderId, token);
+    const ref = (await read(fx, orderId))!.paymentRef!;
+    await backdateAttempt(fx, ref);
+    expect(await finalizePayPalReturn(fx.tenantId, orderId)).toEqual({ paid: false });
+    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
+    expect(await events(fx, orderId)).not.toContain("paypal.capture");
+  });
+
+  it("money on an earlier card page of an unpaid order settles it as card; PayPal never captured on top", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     const cardRef = await startCard(fx, orderId, token);
-    expect(await settleStripeOrderPayment(fx.tenantId, orderId, cardRef)).toBe("settled");
-    expect(await settleStripeOrderPayment(fx.tenantId, orderId, cardRef)).toBe("already_paid");
+    // Guest moves to PayPal without the switch seeing the card (e.g. the
+    // card is reserved a moment after) — simulated by reserving now.
+    await createPayPalOrderPayment(fx.tenantId, orderId, token);
+    const f = await fake();
+    // The switch cancelled the card page; a fresh reservation on it is
+    // impossible, so prove the guard from the PayPal side instead:
+    expect(await stripeState(cardRef)).toBe("canceled");
+    expect(f.settleOrderCheckout(cardRef)).toBeNull();
+    expect(await finalizePayPalReturn(fx.tenantId, orderId)).toEqual({ paid: true });
   });
 
-  it("a second, different payment on a paid order is flagged for refund, not applied", async () => {
+  // ---------------------------------------------- cancelled / deleted
+
+  it("a cancelled order's reserved card payment is released, the order keeps its state", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
-    const cardRef = await startCard(fx, orderId, token);
-    await settleStripeOrderPayment(fx.tenantId, orderId, cardRef);
-
-    expect(await settleStripeOrderPayment(fx.tenantId, orderId, "cs_other")).toBe("needs_refund");
-    expect((await read(fx, orderId))?.paymentRef).toBe(cardRef);
-    await eventKinds(fx, orderId, "payment.needs_refund");
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    await asTenant(fx.tenantId, (tx) =>
+      tx.order.update({ where: { id: orderId }, data: { status: "cancelled" } }),
+    );
+    const done = await processStripeOrderPayment(fx.tenantId, ref, { orderId, source: "webhook" });
+    expect(done).toMatchObject({ kind: "declined", reason: "order_cancelled" });
+    expect(await stripeState(ref)).toBe("canceled");
+    expect(await read(fx, orderId)).toMatchObject({
+      status: "cancelled",
+      paymentStatus: "pending",
+    });
   });
 
-  it("a deleted order never comes back — money for it is flagged in its kept history", async () => {
+  it("deleting releases the reservation; a late webhook never brings the order back", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
-    const cardRef = await startCard(fx, orderId, token);
-    const del = await deleteOrder(fx.userId, orderId, "Testing / fake order");
-    expect(del.ok).toBe(true);
-    // Deleting closed the card page …
-    expect(await (await fakeStripe()).retrievePaymentIntent(cardRef)).toBeNull();
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).settleOrderCheckout(ref);
+    expect((await deleteOrder(fx.userId, orderId, "Testing / fake order")).ok).toBe(true);
+    expect(await stripeState(ref)).toBe("canceled");
 
-    // … and even a delivered payment event (Stripe retry, manual resend)
-    // finds nothing to settle: the order stays gone.
-    const event = {
-      id: `evt_${randomUUID()}`,
-      type: "checkout.session.completed",
-      data: { object: { id: cardRef, metadata: { orderId, tenantId: fx.tenantId } } },
-    };
-    expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+    expect((await handleStripeEvent(checkoutCompleted(fx, orderId, ref))).status).toBe(200);
     expect(await read(fx, orderId)).toBeNull();
-    await eventKinds(fx, orderId, "payment.needs_refund");
   });
 
   it("deleting removes the order's bell notifications", async () => {
@@ -268,111 +495,70 @@ describe("payment safety (fake providers)", () => {
     expect(left).toBe(0);
   });
 
-  it("a payment confirmed hours after the order leaves it untouched and off the board", async () => {
+  // ------------------------------------------------ delayed methods / misc
+
+  it("a checkout finished unpaid with nothing reserved (delayed method) waits; its failure fails the order", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
-    await startCard(fx, orderId, token);
-    await backdate(fx, orderId);
-    expect(await markOrderPaid(fx.tenantId, orderId)).toBe(false);
+    const ref = await startCard(fx, orderId, token);
+    await handleStripeEvent(checkoutCompleted(fx, orderId, ref));
     expect((await read(fx, orderId))?.paymentStatus).toBe("pending");
-    await eventKinds(fx, orderId, "payment.late");
-  });
-
-  it("O-6 replay: a Stripe retry days later, then a manual resend, never touch the order", async () => {
-    const fx = await fixture();
-    const { orderId, token } = await order(fx);
-    const cardRef = await startCard(fx, orderId, token);
-    await createPayPalOrderPayment(fx.tenantId, orderId, token);
-    await backdate(fx, orderId);
-    const before = await read(fx, orderId);
-
-    const event = {
-      id: `evt_${randomUUID()}`,
-      type: "checkout.session.completed",
-      data: {
-        object: {
-          id: cardRef,
-          payment_status: "paid",
-          metadata: { orderId, tenantId: fx.tenantId },
-        },
-      },
-    };
-    expect((await handleStripeEvent(event)).status).toBe(200); // Stripe stops retrying
-    expect((await handleStripeEvent(event)).kind).toBe("replayed"); // the manual resend
-    const after = await read(fx, orderId);
-    expect(after?.paymentStatus).toBe(before?.paymentStatus);
-    expect(after?.paymentProvider).toBe(before?.paymentProvider);
-    expect(after?.paymentRef).toBe(before?.paymentRef);
-    await eventKinds(fx, orderId, "payment.late");
-  });
-
-  it("a checkout finished UNPAID (delayed method) does not settle; its later failure fails the order", async () => {
-    const fx = await fixture();
-    const { orderId, token } = await order(fx);
-    const cardRef = await startCard(fx, orderId, token);
-    const completed = {
-      id: `evt_${randomUUID()}`,
-      type: "checkout.session.completed",
-      data: {
-        object: {
-          id: cardRef,
-          payment_status: "unpaid",
-          metadata: { orderId, tenantId: fx.tenantId },
-        },
-      },
-    };
-    await handleStripeEvent(completed);
-    expect((await read(fx, orderId))?.paymentStatus).toBe("pending");
-
-    const failed = {
+    await handleStripeEvent({
       id: `evt_${randomUUID()}`,
       type: "checkout.session.async_payment_failed",
-      data: { object: { id: cardRef, metadata: { orderId, tenantId: fx.tenantId } } },
-    };
-    await handleStripeEvent(failed);
+      data: { object: { id: ref, metadata: { orderId, tenantId: fx.tenantId } } },
+    });
+    expect(await attemptOf(fx, ref)).toMatchObject({ status: "failed" });
     expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
   });
 
-  it("a delayed method that later succeeds settles the order", async () => {
+  it("a delayed method that succeeds in time settles the order", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
-    const cardRef = await startCard(fx, orderId, token);
-    const succeeded = {
+    const ref = await startCard(fx, orderId, token);
+    (await fake()).chargeImmediately(ref); // Stripe reports it paid
+    await handleStripeEvent({
       id: `evt_${randomUUID()}`,
       type: "checkout.session.async_payment_succeeded",
       data: {
-        object: {
-          id: cardRef,
-          payment_status: "paid",
-          metadata: { orderId, tenantId: fx.tenantId },
-        },
+        object: { id: ref, payment_status: "paid", metadata: { orderId, tenantId: fx.tenantId } },
       },
-    };
-    await handleStripeEvent(succeeded);
+    });
     expect((await read(fx, orderId))?.paymentStatus).toBe("paid");
-  });
-
-  it("a PayPal approval coming back hours later is not captured", async () => {
-    const fx = await fixture();
-    const { orderId, token } = await order(fx);
-    await createPayPalOrderPayment(fx.tenantId, orderId, token);
-    await backdate(fx, orderId);
-
-    expect((await finalizePayPalReturn(fx.tenantId, orderId)).paid).toBe(false);
-    expect((await read(fx, orderId))?.paymentStatus).toBe("failed");
-    await eventKinds(fx, orderId, "payment.too_late");
   });
 
   it("a decline on an older card attempt does not fail the guest's current payment", async () => {
     const fx = await fixture();
     const { orderId, token } = await order(fx);
     await createPayPalOrderPayment(fx.tenantId, orderId, token);
-    const event = {
+    await handleStripeEvent({
       id: `evt_${randomUUID()}`,
       type: "payment_intent.payment_failed",
       data: { object: { id: "pi_older_attempt", metadata: { orderId, tenantId: fx.tenantId } } },
-    };
-    await handleStripeEvent(event);
+    });
     expect((await read(fx, orderId))?.paymentStatus).toBe("pending");
+  });
+
+  it("a reserved payment naming a ref we never issued is released, not taken", async () => {
+    const fx = await fixture();
+    const { orderId } = await order(fx);
+    const f = await fake();
+    const stray = await f.createDirectCheckout({
+      orderId,
+      tenantId: fx.tenantId,
+      amountCents: 1690,
+      currency: "EUR",
+      label: "x",
+      successUrl: "http://x",
+      cancelUrl: "http://x",
+      payPageUrl: "http://x",
+    });
+    f.settleOrderCheckout(stray.ref);
+    const done = await processStripeOrderPayment(fx.tenantId, stray.ref, {
+      orderId,
+      source: "webhook",
+    });
+    expect(done.kind).toBe("unknown_attempt");
+    expect(await stripeState(stray.ref)).toBe("canceled");
   });
 });

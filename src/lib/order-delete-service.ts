@@ -39,10 +39,17 @@ export async function deleteOrder(
 
   const actor = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
 
-  // Stop any card page still open on it first, so a deleted order can
-  // never take money afterwards. Not settled even if it went through:
-  // deleting must not put the order on the board on its way out.
+  // Stop any card payment still open on it first: an open page is expired
+  // and a reserved (authorized) amount released, so a deleted order can
+  // never take money afterwards. Never captured on the way out.
   const { releaseSupersededStripePayment } = await import("./connect-service");
+  const refBefore = await asUser(userId, async (tx) => {
+    const o = await tx.order.findFirst({
+      where: { id: orderId },
+      select: { paymentRef: true, paymentProvider: true },
+    });
+    return o?.paymentProvider === "stripe" ? o.paymentRef : null;
+  });
   const released = await releaseSupersededStripePayment(access.tenantId, orderId, {
     settle: false,
   });
@@ -109,14 +116,18 @@ export async function deleteOrder(
     return { ok: true as const, orderNumber: order.orderNumber };
   });
 
-  if (result.ok && released !== "clear") {
+  if (result.ok && released === "paid" && refBefore) {
+    // Money already taken (a card page from before authorize-only): the
+    // order is gone, so the settlement records it against the deleted order
+    // as needing a refund.
+    const { processStripeOrderPayment } = await import("./connect-service");
+    await processStripeOrderPayment(access.tenantId, refBefore, { orderId, source: "delete" });
+  }
+  if (result.ok && released === "processing") {
     void recordForOrder(access.tenantId, orderId, {
-      kind: "payment.needs_refund",
+      kind: "payment.needs_resolution",
       actor: "system",
-      summary:
-        released === "paid"
-          ? "The card payment had already gone through when the order was deleted — refund in Stripe"
-          : "The card payment was still processing when the order was deleted — check Stripe",
+      summary: "The card payment was still processing when the order was deleted — check Stripe",
     });
   }
   return result;

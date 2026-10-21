@@ -8,6 +8,14 @@ import { decryptSecret } from "./secrets";
 import { siteUrl } from "./site-url";
 import { verifyReceiptToken } from "./receipt-token";
 import { createLogger } from "./logger";
+import { orderLabel } from "./order-label";
+import {
+  closeAttempt,
+  createPaymentAttemptTx,
+  settleConfirmedPayment,
+  type PaymentConfirmation,
+  type SettleOutcome,
+} from "./payment-settlement";
 
 const log = createLogger();
 
@@ -176,6 +184,7 @@ export async function createOrderPayment(
         where: { id: orderId },
         select: {
           id: true,
+          venueId: true,
           orderNumber: true,
           orderSeries: true,
           totalCents: true,
@@ -226,6 +235,16 @@ export async function createOrderPayment(
             applicationFeeCents: 0,
           },
         });
+        await createPaymentAttemptTx(tx, {
+          tenantId,
+          venueId: order.venueId,
+          orderId: order.id,
+          orderLabel: orderLabel(order),
+          provider: "stripe",
+          ref: checkout.ref,
+          amountCents: order.totalCents,
+          currency: order.currency,
+        });
         void recordForOrder(tenantId, orderId, {
           kind: "payment.started",
           actor: "guest",
@@ -275,6 +294,16 @@ export async function createOrderPayment(
         paymentProvider: "stripe",
         applicationFeeCents: feeCents,
       },
+    });
+    await createPaymentAttemptTx(tx, {
+      tenantId,
+      venueId: order.venueId,
+      orderId: order.id,
+      orderLabel: orderLabel(order),
+      provider: "stripe",
+      ref: checkout.ref,
+      amountCents: order.totalCents,
+      currency: order.currency,
     });
     log.info("payment.checkout_created", { orderId, tenantId, feeCents, mode: provider.mode });
     void recordForOrder(tenantId, orderId, {
@@ -356,6 +385,7 @@ export async function createOrderPaymentIntent(
         where: { id: orderId },
         select: {
           id: true,
+          venueId: true,
           orderNumber: true,
           orderSeries: true,
           totalCents: true,
@@ -398,6 +428,16 @@ export async function createOrderPaymentIntent(
         paymentProvider: "stripe",
         applicationFeeCents: 0,
       },
+    });
+    await createPaymentAttemptTx(tx, {
+      tenantId,
+      venueId: order.venueId,
+      orderId: order.id,
+      orderLabel: orderLabel(order),
+      provider: "stripe",
+      ref: intent.ref,
+      amountCents: order.totalCents,
+      currency: order.currency,
     });
     void recordForOrder(tenantId, orderId, {
       kind: "payment.started",
@@ -471,293 +511,176 @@ export async function recordPaymentMethod(
 }
 
 /**
- * A payment confirmed this long after the order was placed is "too late":
- * the order is NOT settled and never reaches the board. Order O-6
- * (2026-10-19) was paid on a card page whose webhook failed; Stripe kept
- * retrying for days and each retry (and a manual resend) put it on the
- * board again (owner, 2026-10-21: "it should be invalid so it won't again
- * call the same hook or saved order status"). The money stays recorded in
- * the order's history and the owner is pushed to call the guest or refund.
+ * Mark an order paid WITHOUT the payment checks — for the local fake pay
+ * button only (a fake provider is refused in production) and for tests.
+ * Real payments settle through `settleConfirmedPayment`
+ * (payment-settlement.ts), which captures only after every check passes.
+ * Idempotent: paying a paid order is a no-op.
  */
-export const LATE_PAYMENT_MS = 2 * 60 * 60 * 1000;
-
-/** Settle an order — called by the webhook (real) or the fake confirm
- *  endpoint. Idempotent: paying a paid order is a no-op. Refuses (returns
- *  false, order untouched) when the confirmation comes too late. */
 export async function markOrderPaid(tenantId: string, orderId: string): Promise<boolean> {
-  return asTenant(tenantId, async (tx) => {
-    const now = new Date();
-    const row = await tx.order.findFirst({
-      where: { id: orderId },
-      select: { createdAt: true, paymentStatus: true },
-    });
-    if (!row) return { settled: false, lateHours: 0 };
-    const unpaid = row.paymentStatus === "pending" || row.paymentStatus === "failed";
-    const lateMs = now.getTime() - row.createdAt.getTime();
-    if (unpaid && lateMs > LATE_PAYMENT_MS) {
-      // Recorded and pushed ONCE per order: Stripe retries, a manual resend
-      // or the guest's pay page polling must not alert the owner again.
-      const already = await tx.orderEvent.findFirst({
-        where: { orderId, kind: "payment.late" },
-        select: { id: true },
-      });
-      return { settled: false, lateHours: already ? 0 : lateMs / 3_600_000 };
-    }
+  const settled = await asTenant(tenantId, async (tx) => {
     const updated = await tx.order.updateMany({
-      // `failed` too: a guest whose first card was declined may pay with
-      // another, and that success must settle the order like any other.
       where: { id: orderId, paymentStatus: { in: ["pending", "failed"] } },
       // `paidAt` is when the order reaches the board: the accept window
       // and the promised time are counted from here (`order-eta.ts`).
-      data: { paymentStatus: "paid", paidAt: now },
+      data: { paymentStatus: "paid", paidAt: new Date() },
     });
-    if (updated.count === 0) return { settled: false, lateHours: 0 };
+    return updated.count > 0;
+  });
+  if (settled) {
     log.info("payment.settled", { orderId, tenantId });
     void recordForOrder(tenantId, orderId, {
       kind: "payment.paid",
       actor: "system",
       summary: "Payment confirmed — order is paid",
     });
-    return { settled: true, lateHours: 0 };
-  }).then(async ({ settled, lateHours }) => {
-    if (lateHours > 0) {
-      const hours = Math.max(2, Math.round(lateHours));
-      log.warn("payment.late", { orderId, tenantId, hours });
-      void recordForOrder(tenantId, orderId, {
-        kind: "payment.late",
-        actor: "system",
-        summary: `Payment confirmed ${String(hours)} h after the order — too late, NOT sent to the kitchen. Call the guest or refund.`,
-      });
-      const { sendPaymentAlertPush } = await import("./push-service");
-      void sendPaymentAlertPush(
-        tenantId,
-        orderId,
-        `Payment came ${String(hours)} h late — not sent to the kitchen. Call the guest or refund`,
-      );
-    }
-    // The receipt email for an online order goes out when the money has
-    // actually moved — never from the placement step. Fire-and-forget:
-    // a mail failure must not turn a successful webhook into a 500.
-    // Dynamic import keeps order-service ↔ connect-service acyclic.
-    if (settled) {
-      const { sendReceiptEmailForOrder } = await import("./receipt-email");
-      void sendReceiptEmailForOrder(tenantId, orderId);
-      const { sendNewOrderNotification } = await import("./order-notification");
-      void sendNewOrderNotification(tenantId, orderId);
-      // The owner's phone hears about an online order on the same rule as
-      // their inbox: when the money has actually moved (P7-11).
-      const { sendNewOrderPush } = await import("./push-service");
-      void sendNewOrderPush(tenantId, orderId);
-      // Loyalty points are earned when the money actually moves. Same
-      // fire-and-forget posture as the mails above, and idempotent at the
-      // database, so the webhook / /pay/verify / dashboard-reconcile race
-      // credits the order exactly once.
-      const { creditOrderIfEligible } = await import("./loyalty-service");
-      void creditOrderIfEligible(tenantId, orderId).catch(() => undefined);
-      // Which kind of card it was (Apple Pay / Google Pay / plain card), for
-      // the dashboard and the ticket. Best effort: an order without it
-      // simply says "Card", as every order did before.
-      void recordPaymentMethod(tenantId, orderId).catch(() => undefined);
-    }
-    return settled;
-  });
+    await runOrderPaidEffects(tenantId, orderId);
+  }
+  return settled;
+}
+
+/**
+ * What follows an order becoming paid, run AFTER the settlement committed.
+ * Fire-and-forget: a mail or push failure must never undo a payment.
+ */
+export async function runOrderPaidEffects(tenantId: string, orderId: string): Promise<void> {
+  // The receipt email for an online order goes out when the money has
+  // actually moved — never from the placement step. Dynamic imports keep
+  // order-service ↔ connect-service acyclic.
+  const { sendReceiptEmailForOrder } = await import("./receipt-email");
+  void sendReceiptEmailForOrder(tenantId, orderId);
+  const { sendNewOrderNotification } = await import("./order-notification");
+  void sendNewOrderNotification(tenantId, orderId);
+  // The owner's phone hears about an online order on the same rule as
+  // their inbox: when the money has actually moved (P7-11).
+  const { sendNewOrderPush } = await import("./push-service");
+  void sendNewOrderPush(tenantId, orderId);
+  // Loyalty points are earned when the money actually moves; idempotent at
+  // the database, so racing paths credit the order exactly once.
+  const { creditOrderIfEligible } = await import("./loyalty-service");
+  void creditOrderIfEligible(tenantId, orderId).catch(() => undefined);
+  // Which kind of card it was (Apple Pay / Google Pay / plain card), for
+  // the dashboard and the ticket. Best effort.
+  void recordPaymentMethod(tenantId, orderId).catch(() => undefined);
 }
 
 /** The Stripe account that holds this tenant's order payments: its own
  *  saved keys, else the deployment's — chosen from the keys alone (not the
- *  Billing on/off switch), because stopping or reading a payment that
- *  already exists must work even after card payments were switched off. */
-async function stripeProviderForTenantKeys(
-  tenant: { stripeOwnSecretEnc: string | null; stripeOwnWebhookEnc: string | null },
-  shared: StripeProvider,
-): Promise<StripeProvider> {
-  const ownSecret = decryptSecret(tenant.stripeOwnSecretEnc);
+ *  Billing on/off switch), because reading, capturing or releasing a
+ *  payment that already exists must work even after cards were switched
+ *  off. */
+export async function tenantStripeProvider(tenantId: string): Promise<StripeProvider> {
+  const shared = await getStripeProvider();
+  const tenant = await asTenant(tenantId, (tx) =>
+    tx.tenant.findFirst({ select: { stripeOwnSecretEnc: true, stripeOwnWebhookEnc: true } }),
+  );
+  const ownSecret = decryptSecret(tenant?.stripeOwnSecretEnc);
   return ownSecret
-    ? stripeProviderForKey(ownSecret, decryptSecret(tenant.stripeOwnWebhookEnc))
+    ? stripeProviderForKey(ownSecret, decryptSecret(tenant?.stripeOwnWebhookEnc))
     : shared;
+}
+
+export type StripeProcessResult =
+  | SettleOutcome
+  /** Stripe is not done yet (still on the page, or a delayed method is
+   *  processing) — nothing to decide. */
+  | { kind: "not_ready"; status: string }
+  /** Stripe has no such payment on this account. */
+  | { kind: "unreadable" };
+
+/**
+ * Look at a Stripe order payment AS STRIPE SEES IT NOW and act: reserved
+ * → check and capture (or release); already taken → record against the
+ * order; expired / cancelled → close the attempt. Every Stripe path calls
+ * this — the webhook (whatever event arrived, in whatever order), the pay
+ * page's verify, the dashboard sweep and the payment switch — so an event
+ * payload is only ever a trigger, never trusted for amount or status.
+ */
+export async function processStripeOrderPayment(
+  tenantId: string,
+  ref: string,
+  opts: { orderId?: string | null; source: PaymentConfirmation["source"] },
+): Promise<StripeProcessResult> {
+  const provider = await tenantStripeProvider(tenantId);
+  const state = await provider.retrievePaymentIntent(ref);
+  if (!state) return { kind: "unreadable" };
+  const base = {
+    tenantId,
+    provider: "stripe" as const,
+    ref,
+    orderId: opts.orderId ?? null,
+    amountCents: state.amountCents,
+    currency: state.currency,
+    source: opts.source,
+  };
+  if (state.status === "requires_capture") {
+    return settleConfirmedPayment({
+      ...base,
+      stage: "authorized",
+      capture: () => provider.capturePayment(ref),
+      release: () => provider.cancelPayment(ref),
+    });
+  }
+  // "succeeded" is only reported when Stripe says the payment is PAID
+  // (a Checkout Session's payment_status, or the intent's status).
+  if (state.status === "succeeded") return settleConfirmedPayment({ ...base, stage: "captured" });
+  if (state.status === "canceled") {
+    await closeAttempt(tenantId, "stripe", ref, "expired");
+  }
+  return { kind: "not_ready", status: state.status };
 }
 
 /**
  * Before a guest starts ANOTHER payment for an unpaid order (card again,
- * PayPal, the app's sheet), deal with the Stripe payment already on it:
- * if Stripe says it succeeded, settle the order with it ("paid" — no second
- * payment may start); otherwise expire the Checkout Session / cancel the
- * PaymentIntent so the old page can no longer take money ("clear"). If
- * Stripe will not stop it (it is mid-processing) the switch is refused
- * ("processing"). Without this an old card tab stayed payable for 24 h
- * after the guest moved on (order O-6, 2026-10-19: paid on the card page
- * after switching to PayPal, and nobody noticed).
+ * PayPal, the app's sheet), settle the Stripe payment already on it: if it
+ * was authorized meanwhile it is captured now (when still acceptable) and
+ * no second payment may start ("paid"); an open page is expired and its
+ * attempt closed ("clear"). Without this, an old card tab stayed payable
+ * for 24 h after the guest moved on (order O-6, 2026-10-19).
+ *
+ * `settle: false` (deleting an order): never capture — an authorized
+ * payment is released instead, and the order is not paid on its way out.
  */
 export async function releaseSupersededStripePayment(
   tenantId: string,
   orderId: string,
-  /** false = only stop it; a payment that already went through is
-   *  reported as "paid" but NOT settled (deleting an order must never put
-   *  it on the board on its way out). */
   options: { settle?: boolean } = {},
 ): Promise<"clear" | "paid" | "processing"> {
-  const shared = await getStripeProvider();
-  const looked = await asTenant(tenantId, async (tx) => {
-    const order = await tx.order.findFirst({
+  const order = await asTenant(tenantId, (tx) =>
+    tx.order.findFirst({
       where: { id: orderId },
-      select: {
-        paymentStatus: true,
-        paymentProvider: true,
-        paymentRef: true,
-        totalCents: true,
-        currency: true,
-      },
-    });
-    if (!order) return null;
-    const tenant = await tx.tenant.findFirstOrThrow({
-      select: { stripeOwnSecretEnc: true, stripeOwnWebhookEnc: true },
-    });
-    return { order, tenant };
-  });
-  if (!looked) return "clear";
-  const { order, tenant } = looked;
+      select: { paymentStatus: true, paymentProvider: true, paymentRef: true },
+    }),
+  );
   if (
+    !order ||
     order.paymentProvider !== "stripe" ||
     !order.paymentRef ||
     (order.paymentStatus !== "pending" && order.paymentStatus !== "failed")
   ) {
     return "clear";
   }
-  const provider = await stripeProviderForTenantKeys(tenant, shared);
-  const state = await provider.retrievePaymentIntent(order.paymentRef);
+  const ref = order.paymentRef;
+  const provider = await tenantStripeProvider(tenantId);
+  const state = await provider.retrievePaymentIntent(ref);
   // Unreadable on this account (e.g. a Connect-era ref): nothing we can
-  // stop or settle from here — the webhook remains the only path.
+  // stop or settle from here.
   if (!state) return "clear";
-  if (state.status === "succeeded") {
-    const matches =
-      state.amountCents === order.totalCents &&
-      state.currency.toUpperCase() === order.currency.toUpperCase();
-    if (!matches) {
-      log.warn("payment.superseded_mismatch", { orderId, tenantId });
-      return "processing";
-    }
-    if (options.settle !== false) await markOrderPaid(tenantId, orderId);
-    return "paid";
-  }
   if (state.status === "processing") return "processing";
-  if (!(await provider.cancelPayment(order.paymentRef))) return "processing";
+  if (
+    options.settle !== false &&
+    (state.status === "requires_capture" || state.status === "succeeded")
+  ) {
+    const done = await processStripeOrderPayment(tenantId, ref, { orderId, source: "switch" });
+    if (done.kind === "settled" || (done.kind === "already_processed" && done.paid)) return "paid";
+    if (done.kind === "needs_resolution") return "processing";
+    return "clear"; // declined / released: the guest may pay again
+  }
+  if (state.status === "succeeded") return "paid"; // taken already; delete reports it
+  if (!(await provider.cancelPayment(ref))) return "processing";
+  await closeAttempt(tenantId, "stripe", ref, "cancelled");
   log.info("payment.superseded_released", { orderId, tenantId });
   return "clear";
-}
-
-export type StripeSettleOutcome =
-  "settled" | "superseded_settled" | "already_paid" | "needs_refund" | "too_late" | "unknown_order";
-
-/**
- * Stripe says money moved for this order (`ref` = the Checkout Session or
- * PaymentIntent it moved on). Settle it — but only where that is safe:
- *
- *   - the order's current Stripe payment → settle (`markOrderPaid`);
- *   - an EARLIER payment of a still-unpaid order (the guest paid an old
- *     card tab after switching) → record it, make it the order's payment,
- *     settle — the money is real, so the order is too;
- *   - a second payment on an order already paid with something else, or
- *     money on a cancelled / cash order → never touch the order; log it
- *     and push the owner to check for a refund.
- *
- * A gone (deleted) order is reported as `unknown_order` and nothing
- * happens — a later retry or a manual resend can never bring it back.
- */
-export async function settleStripeOrderPayment(
-  tenantId: string,
-  orderId: string,
-  ref: string | null,
-): Promise<StripeSettleOutcome> {
-  const order = await asTenant(tenantId, (tx) =>
-    tx.order.findFirst({
-      where: { id: orderId },
-      select: {
-        status: true,
-        paymentStatus: true,
-        paymentProvider: true,
-        paymentRef: true,
-        createdAt: true,
-      },
-    }),
-  );
-  if (!order) {
-    log.warn("stripe.order.unknown", { orderId, tenantId, ref });
-    // A DELETED order keeps its history in the order log. Money for it
-    // never brings it back — the owner is told to refund instead.
-    const { hasOrderHistory } = await import("./order-events");
-    if (await hasOrderHistory(tenantId, orderId)) {
-      void recordForOrder(tenantId, orderId, {
-        kind: "payment.needs_refund",
-        actor: "stripe",
-        summary: `A card payment arrived for a deleted order — refund in Stripe · ${ref ?? "no ref"}`,
-        payload: { ref },
-      });
-      const { sendPaymentAlertPush } = await import("./push-service");
-      void sendPaymentAlertPush(
-        tenantId,
-        orderId,
-        "Card payment for a DELETED order — refund in Stripe",
-      );
-    }
-    return "unknown_order";
-  }
-  const sameRef = ref === null || ref === order.paymentRef;
-
-  if (order.paymentStatus === "paid" && sameRef) return "already_paid";
-
-  const unpaid = order.paymentStatus === "pending" || order.paymentStatus === "failed";
-  if (!unpaid || order.status === "cancelled") {
-    const problem =
-      order.paymentStatus === "paid"
-        ? "A second card payment arrived for an order that was already paid"
-        : order.status === "cancelled"
-          ? "A card payment arrived for a cancelled order"
-          : "A card payment arrived for an order not set to card payment";
-    log.warn("payment.needs_refund", { orderId, tenantId, ref });
-    void recordForOrder(tenantId, orderId, {
-      kind: "payment.needs_refund",
-      actor: "stripe",
-      summary: `${problem} — check in Stripe and refund if needed · ${ref ?? "no ref"}`,
-      payload: { ref },
-    });
-    const { sendPaymentAlertPush } = await import("./push-service");
-    void sendPaymentAlertPush(tenantId, orderId, `${problem} — refund in Stripe if needed`);
-    return "needs_refund";
-  }
-
-  // Too late: the order is left exactly as it is (markOrderPaid records
-  // the money in its history and alerts the owner).
-  if (Date.now() - order.createdAt.getTime() > LATE_PAYMENT_MS) {
-    await markOrderPaid(tenantId, orderId);
-    return "too_late";
-  }
-
-  if (order.paymentProvider === "stripe" && sameRef) {
-    await markOrderPaid(tenantId, orderId);
-    return "settled";
-  }
-
-  // Paid on an earlier attempt (or via a ref the order no longer carries):
-  // that payment becomes the order's, so the board says "Card" and a
-  // PayPal approval still open can no longer be captured on top of it
-  // (finalizePayPalReturn only captures orders still on PayPal).
-  if (ref) {
-    await asTenant(tenantId, (tx) =>
-      tx.order.updateMany({
-        where: { id: orderId, paymentStatus: { in: ["pending", "failed"] } },
-        data: { paymentProvider: "stripe", paymentRef: ref },
-      }),
-    );
-  }
-  log.warn("payment.superseded_paid", { orderId, tenantId, ref, was: order.paymentRef });
-  void recordForOrder(tenantId, orderId, {
-    kind: "payment.superseded_paid",
-    actor: "stripe",
-    summary: `Paid on an earlier card page · ${ref ?? "no ref"} (order was on ${order.paymentProvider ?? "no payment"})`,
-    payload: { ref, previousRef: order.paymentRef, previousProvider: order.paymentProvider },
-  });
-  await markOrderPaid(tenantId, orderId);
-  return "superseded_settled";
 }
 
 export type VerifyPaymentResult =
@@ -765,14 +688,10 @@ export type VerifyPaymentResult =
   | { ok: false; error: "invalid_token" | "not_found" | "no_intent" | "not_available" };
 
 /**
- * Settle an order by asking Stripe directly, instead of waiting for the
- * webhook. The app calls this the moment its PaymentSheet reports success
- * and while it polls afterwards; a venue whose webhook endpoint is missing,
- * mis-subscribed or carrying a stale secret still gets "Paid" (and the
- * kitchen ticket) within seconds. Authoritative because the SERVER reads
- * the PaymentIntent from Stripe with the same key that minted it — the
- * client's word is never trusted, and amount + currency must match the
- * order before anything moves.
+ * The pay page / app asks "is it paid yet?" — the server asks Stripe
+ * itself (never the client's word) and settles through the same checks as
+ * the webhook, so a venue whose webhook is down still gets its paid order
+ * within seconds of the guest paying.
  */
 export async function verifyOrderPayment(
   tenantId: string,
@@ -783,112 +702,59 @@ export async function verifyOrderPayment(
   if (!verified || verified.orderId !== orderId || verified.tenantId !== tenantId) {
     return { ok: false, error: "invalid_token" };
   }
-  const shared = await getStripeProvider();
-  const looked = await asTenant(tenantId, async (tx) => {
-    const [tenant, order] = await Promise.all([
-      tx.tenant.findFirstOrThrow({
-        select: { stripeOwnEnabled: true, stripeOwnSecretEnc: true, stripeOwnWebhookEnc: true },
-      }),
-      tx.order.findFirst({
-        where: { id: orderId },
-        select: {
-          paymentStatus: true,
-          paymentRef: true,
-          paymentProvider: true,
-          totalCents: true,
-          currency: true,
-        },
-      }),
-    ]);
-    if (!order) return { kind: "not_found" as const };
-    if (order.paymentStatus === "paid") return { kind: "paid" as const };
-    if (order.paymentProvider !== "stripe" || !order.paymentRef) {
-      return { kind: "no_intent" as const };
-    }
-    const direct = await selectDirectChargeProvider(tenant, shared);
-    if (!direct) return { kind: "not_available" as const };
-    const state = await direct.provider.retrievePaymentIntent(order.paymentRef);
-    return { kind: "state" as const, state, order };
-  });
-  if (looked.kind === "not_found") return { ok: false, error: "not_found" };
-  if (looked.kind === "paid") return { ok: true, paid: true, status: "succeeded" };
-  if (looked.kind === "no_intent") return { ok: false, error: "no_intent" };
-  if (looked.kind === "not_available") return { ok: false, error: "not_available" };
-  const { state, order } = looked;
-  if (!state) return { ok: true, paid: false, status: "unknown" };
-  const matches =
-    state.status === "succeeded" &&
-    state.amountCents === order.totalCents &&
-    state.currency.toUpperCase() === order.currency.toUpperCase();
-  if (!matches) {
-    if (state.status === "succeeded") {
-      log.warn("payment.verify_mismatch", {
-        orderId,
-        tenantId,
-        intentAmount: state.amountCents,
-        orderAmount: order.totalCents,
-      });
-    }
-    return { ok: true, paid: false, status: state.status };
+  const order = await asTenant(tenantId, (tx) =>
+    tx.order.findFirst({
+      where: { id: orderId },
+      select: { paymentStatus: true, paymentRef: true, paymentProvider: true },
+    }),
+  );
+  if (!order) return { ok: false, error: "not_found" };
+  if (order.paymentStatus === "paid") return { ok: true, paid: true, status: "succeeded" };
+  if (order.paymentProvider !== "stripe" || !order.paymentRef) {
+    return { ok: false, error: "no_intent" };
   }
-  const settled = await markOrderPaid(tenantId, orderId);
-  log.info("payment.verified", { orderId, tenantId, settled });
-  return { ok: true, paid: true, status: "succeeded" };
+  const done = await processStripeOrderPayment(tenantId, order.paymentRef, {
+    orderId,
+    source: "verify",
+  });
+  if (done.kind === "unreadable") return { ok: true, paid: false, status: "unknown" };
+  if (done.kind === "not_ready") return { ok: true, paid: false, status: done.status };
+  const paid = done.kind === "settled" || (done.kind === "already_processed" && done.paid);
+  log.info("payment.verified", { orderId, tenantId, outcome: done.kind });
+  return { ok: true, paid, status: paid ? "succeeded" : done.kind };
 }
 
+/** How far back the dashboard sweep looks. Past the 45-minute window a
+ *  reserved payment is released rather than captured — the sweep keeps
+ *  reconciling so nothing stays reserved or unexplained. */
+const RECONCILE_LOOKBACK_MS = 48 * 60 * 60 * 1000;
+
 /**
- * Owner-side sweep: settle every recent Stripe order still "pending" whose
- * PaymentIntent Stripe reports as succeeded. Runs when the dashboard's
- * Orders page loads, so an owner never stares at "Card · not confirmed"
- * for a guest who did pay while the webhook was down. Bounded (recent,
- * capped) — it is a page load, not a batch job. Returns how many settled.
+ * Owner-side sweep, run when the dashboard's Orders page loads: every
+ * recent Stripe attempt still open is looked up at Stripe and processed
+ * exactly like a webhook would (capture, release, expire). Bounded —
+ * recent, capped — it is a page load, not a batch job. Returns how many
+ * orders it settled.
  */
 export async function reconcilePendingPayments(userId: string): Promise<number> {
-  const shared = await getStripeProvider();
-  // Only orders still young enough to be settled: an older one would be
-  // refused as too late anyway (markOrderPaid), so asking Stripe is moot.
-  const since = new Date(Date.now() - LATE_PAYMENT_MS);
+  const since = new Date(Date.now() - RECONCILE_LOOKBACK_MS);
   const found = await asUser(userId, async (tx) => {
-    const tenant = await tx.tenant.findFirstOrThrow({
-      select: {
-        id: true,
-        stripeOwnEnabled: true,
-        stripeOwnSecretEnc: true,
-        stripeOwnWebhookEnc: true,
-      },
-    });
-    const pending = await tx.order.findMany({
-      where: {
-        paymentStatus: "pending",
-        paymentProvider: "stripe",
-        paymentRef: { not: null },
-        createdAt: { gte: since },
-      },
+    const tenant = await tx.tenant.findFirstOrThrow({ select: { id: true } });
+    const open = await tx.paymentAttempt.findMany({
+      where: { provider: "stripe", status: "open", createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
       take: 20,
-      select: { id: true, paymentRef: true, totalCents: true, currency: true },
+      select: { ref: true, orderId: true },
     });
-    if (pending.length === 0) return null;
-    const direct = await selectDirectChargeProvider(tenant, shared);
-    if (!direct) return null;
-    const settleable: string[] = [];
-    for (const o of pending) {
-      const state = await direct.provider.retrievePaymentIntent(o.paymentRef!);
-      if (
-        state &&
-        state.status === "succeeded" &&
-        state.amountCents === o.totalCents &&
-        state.currency.toUpperCase() === o.currency.toUpperCase()
-      ) {
-        settleable.push(o.id);
-      }
-    }
-    return { tenantId: tenant.id, settleable };
+    return { tenantId: tenant.id, open };
   });
-  if (!found) return 0;
   let settled = 0;
-  for (const orderId of found.settleable) {
-    if (await markOrderPaid(found.tenantId, orderId)) settled += 1;
+  for (const a of found.open) {
+    const done = await processStripeOrderPayment(found.tenantId, a.ref, {
+      orderId: a.orderId,
+      source: "reconcile",
+    }).catch(() => null);
+    if (done?.kind === "settled") settled += 1;
   }
   if (settled > 0) log.info("payment.reconciled", { tenantId: found.tenantId, settled });
   return settled;

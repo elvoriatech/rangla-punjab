@@ -311,6 +311,7 @@ model Venue {
   cateringRequests CateringRequest[]
   deletedOrders    DeletedOrder[]
   orderEvents      OrderEvent[]
+  paymentAttempts  PaymentAttempt[]
   orderIssues      OrderIssue[]
   giftCardProducts GiftCardProduct[]
   giftCardsSold    GiftCard[]
@@ -702,6 +703,12 @@ model WebhookEvent {
   id          String   @id
   provider    String   @default("stripe")
   processedAt DateTime @default(now()) @map("processed_at")
+  /// "processing" while a delivery is being handled, "done" once it
+  /// committed. A failed delivery deletes its claim so the provider's
+  /// retry is processed again; a claim stuck in "processing" (crash) is
+  /// taken over after a few minutes. See webhook-claims.ts.
+  status      String   @default("done")
+  claimedAt   DateTime @default(now()) @map("claimed_at") @db.Timestamptz(3)
 
   @@index([processedAt])
   @@map("webhook_events")
@@ -1160,6 +1167,51 @@ model OrderEvent {
   @@index([orderId, createdAt])
   @@index([tenantId, createdAt])
   @@map("order_events")
+}
+
+/// One attempt to pay an online order: a Stripe Checkout Session or
+/// PaymentIntent, or a PayPal order. Written when the attempt starts, with
+/// the exact amount and currency the guest is asked for; those (and the
+/// ref, provider and order) can never change afterwards — a trigger
+/// refuses it. Every settlement is checked against this row (owner,
+/// 2026-10-21, after order O-6). `order_id` has no foreign key: an attempt
+/// outlives a deleted order, so money that still arrives for it is caught.
+model PaymentAttempt {
+  id               String    @id @default(cuid())
+  tenantId         String    @map("tenant_id")
+  venueId          String    @map("venue_id")
+  orderId          String    @map("order_id")
+  orderLabel       String?   @map("order_label")
+  /// stripe | paypal
+  provider         String
+  /// cs_… / pi_… (Stripe) or the PayPal order id.
+  ref              String
+  amountCents      Int       @map("amount_cents")
+  currency         String
+  /// open | succeeded | failed | expired | cancelled
+  status           String    @default("open")
+  /// True for the one attempt that settled the order.
+  settled          Boolean   @default(false)
+  /// none | needed | resolved — money moved but the order was not sent to
+  /// the kitchen automatically; the owner decides (kitchen or refund).
+  resolution       String    @default("none")
+  /// late | amount_mismatch | order_amount_changed | double_payment |
+  /// order_cancelled | order_deleted | not_online | order_mismatch
+  resolutionReason String?   @map("resolution_reason")
+  resolutionNote   String?   @map("resolution_note")
+  resolvedBy       String?   @map("resolved_by")
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(3)
+  succeededAt      DateTime? @map("succeeded_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, ref])
+  @@index([orderId])
+  @@index([tenantId, resolution])
+  @@index([tenantId, status, createdAt])
+  @@map("payment_attempts")
 }
 
 /// A catering enquiry from the app: a party, a wedding, an office lunch

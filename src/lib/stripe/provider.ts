@@ -189,10 +189,16 @@ export interface StripeProvider {
 
   /** Stop an unfinished payment so it can no longer take money: a
    *  PaymentIntent (`pi_…`) is cancelled, a hosted Checkout Session
-   *  (`cs_…`) is expired. False when Stripe refuses — typically because
-   *  the payment already succeeded or is processing; the caller must then
+   *  (`cs_…`) is expired, and an AUTHORIZED but uncaptured payment has its
+   *  reservation released. False when Stripe refuses — typically because
+   *  the money was already taken or is processing; the caller must then
    *  NOT cancel the order. True for an unknown/already-cancelled ref. */
   cancelPayment(ref: string): Promise<boolean>;
+
+  /** Take the money of an authorized order payment (manual capture). A
+   *  `cs_…` ref captures its session's PaymentIntent. Idempotent: an
+   *  already-captured payment reports `captured` again. Never throws. */
+  capturePayment(ref: string): Promise<CaptureResult>;
 
   /** How a settled payment was made: the wallet ("apple_pay",
    *  "google_pay", …) when the card came from one, else Stripe's method
@@ -201,8 +207,17 @@ export interface StripeProvider {
   paymentMethodOf(ref: string): Promise<string | null>;
 }
 
+export interface CaptureResult {
+  captured: boolean;
+  /** What was actually taken, in cents (0 when not captured). */
+  amountCents: number;
+  /** ISO code, upper-case. */
+  currency: string;
+}
+
 export interface PaymentIntentState {
-  /** Stripe's status string — "succeeded" is the only one that settles. */
+  /** Stripe's status string. "requires_capture" = the money is reserved
+   *  (authorized) and only moves when we capture; "succeeded" = taken. */
   status: string;
   amountCents: number;
   /** ISO code, upper-case. */

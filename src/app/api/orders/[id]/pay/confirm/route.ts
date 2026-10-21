@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { markOrderPaid } from "@/lib/connect-service";
+import { processStripeOrderPayment } from "@/lib/connect-service";
 import { verifyReceiptToken } from "@/lib/receipt-token";
 import { getStripeProvider } from "@/lib/stripe";
 
 /**
- * FAKE-PROVIDER ONLY: the local pay page's "Pay" button settles the
- * checkout the way Stripe's webhook would in production. With the real
+ * FAKE-PROVIDER ONLY: the local pay page's "Pay" button completes the
+ * fake checkout (the card is reserved, as with Stripe) and then settles it
+ * through the same capture-after-checks path the webhook uses. With the real
  * provider this endpoint refuses — real settlements come exclusively
  * through the signed webhook.
  */
@@ -43,6 +44,10 @@ export async function POST(
   if (!settled || settled.orderId !== id) {
     return NextResponse.json({ error: "unknown_checkout" }, { status: 404 });
   }
-  const paid = await markOrderPaid(verified.tenantId, id);
+  const done = await processStripeOrderPayment(verified.tenantId, parsed.data.ref, {
+    orderId: id,
+    source: "verify",
+  });
+  const paid = done.kind === "settled" || (done.kind === "already_processed" && done.paid);
   return NextResponse.json({ paid }, { status: paid ? 200 : 409 });
 }

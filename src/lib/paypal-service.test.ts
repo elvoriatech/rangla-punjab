@@ -118,7 +118,8 @@ describe("paypal payments (fake provider, full flow)", () => {
     );
     expect(pending.paymentStatus).toBe("pending");
     expect(pending.paymentProvider).toBe("paypal");
-    expect(pending.paymentRef).toBe(`pp_fake_${orderId}`);
+    // One PayPal order per attempt.
+    expect(pending.paymentRef?.startsWith(`pp_fake_${orderId}_`)).toBe(true);
 
     const first = await finalizePayPalReturn(fx.tenantId, orderId);
     expect(first.paid).toBe(true);

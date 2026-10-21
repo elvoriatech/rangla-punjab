@@ -113,11 +113,14 @@ describe("handlePayPalWebhook (server-to-server settlement)", () => {
       placed.value.receiptToken,
     );
     if (!started.ok) throw new Error("paypal start failed");
-    return {
-      tenantId: fx.tenantId,
-      orderId: placed.value.orderId,
-      ref: `pp_fake_${placed.value.orderId}`,
-    };
+    // One PayPal order per attempt: read the ref the attempt was given.
+    const row = await asTenant(fx.tenantId, (tx) =>
+      tx.order.findFirstOrThrow({
+        where: { id: placed.value.orderId },
+        select: { paymentRef: true },
+      }),
+    );
+    return { tenantId: fx.tenantId, orderId: placed.value.orderId, ref: row.paymentRef! };
   }
 
   type Stamped = { tenantId: string; orderId: string; ref: string };

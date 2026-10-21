@@ -5,6 +5,10 @@ import { asTenant } from "../tenant";
 import { signupUser } from "../auth-service";
 import type { StripeEvent } from "./provider";
 import { handleStripeEvent } from "./webhook-handler";
+import { getStripeProvider } from "./index";
+import type { FakeStripeProvider } from "./fake-provider";
+
+type FakeStripe = FakeStripeProvider;
 
 async function seedTenant(): Promise<{ tenantId: string; userId: string }> {
   const signup = await signupUser({
@@ -91,13 +95,17 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
     // nor a usable tenant is logged and shrugged off rather than thrown on.
   });
 
-  it("checkout.session.completed with an orderId settles the guest order (Connect payment)", async () => {
-    const { tenantId, userId } = await seedTenant();
-    createdTenantIds.push(tenantId);
-    createdUserIds.push(userId);
-
-    // Minimal venue + pending-payment order, as createOrderPayment leaves it.
-    const orderId = await asTenant(tenantId, async (tx) => {
+  /**
+   * A pending card order the way createOrderPayment leaves it: a payment
+   * page (or app intent) on the fake provider, the order pointing at it,
+   * and its payment attempt holding the amount.
+   */
+  async function pendingCardOrder(
+    tenantId: string,
+    opts: { orderNumber: number; totalCents: number; appSheet?: boolean },
+  ): Promise<{ orderId: string; ref: string; fake: FakeStripe }> {
+    const fake = (await getStripeProvider()) as unknown as FakeStripe;
+    return asTenant(tenantId, async (tx) => {
       const venue = await tx.venue.create({
         data: { tenantId, name: "Hook Venue", slug: `hook-${randomUUID().slice(0, 8)}` },
         select: { id: true },
@@ -107,127 +115,120 @@ describe("handleStripeEvent (idempotent webhook dispatcher)", () => {
           tenantId,
           venueId: venue.id,
           orderType: "dine_in",
-          orderNumber: 1,
+          orderNumber: opts.orderNumber,
           currency: "EUR",
-          totalCents: 2980,
+          totalCents: opts.totalCents,
           paymentStatus: "pending",
-          paymentRef: `cs_${randomUUID()}`,
+          paymentProvider: "stripe",
         },
         select: { id: true },
       });
-      return order.id;
-    });
-
-    const event: StripeEvent = {
-      id: `evt_${randomUUID()}`,
-      type: "checkout.session.completed",
-      data: { object: { metadata: { orderId, tenantId } } },
-    };
-    const outcome = await handleStripeEvent(event);
-    expect(outcome).toEqual({ status: 200, kind: "processed" });
-
-    const order = await asTenant(tenantId, (tx) =>
-      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
-    );
-    expect(order.paymentStatus).toBe("paid");
-  });
-
-  it("payment_intent.succeeded settles the order paid in the app's native sheet", async () => {
-    const { tenantId, userId } = await seedTenant();
-    createdTenantIds.push(tenantId);
-    createdUserIds.push(userId);
-
-    const orderId = await asTenant(tenantId, async (tx) => {
-      const venue = await tx.venue.create({
-        data: { tenantId, name: "Sheet Venue", slug: `sheet-${randomUUID().slice(0, 8)}` },
-        select: { id: true },
-      });
-      const order = await tx.order.create({
+      const input = {
+        orderId: order.id,
+        tenantId,
+        amountCents: opts.totalCents,
+        currency: "EUR",
+        label: "Hook",
+        successUrl: "http://x/s",
+        cancelUrl: "http://x/c",
+        payPageUrl: "http://x/p",
+      };
+      const { ref } = opts.appSheet
+        ? await fake.createDirectPaymentIntent(input)
+        : await fake.createDirectCheckout(input);
+      await tx.order.update({ where: { id: order.id }, data: { paymentRef: ref } });
+      await tx.paymentAttempt.create({
         data: {
           tenantId,
           venueId: venue.id,
-          orderType: "dine_in",
-          orderNumber: 2,
+          orderId: order.id,
+          orderLabel: String(opts.orderNumber),
+          provider: "stripe",
+          ref,
+          amountCents: opts.totalCents,
           currency: "EUR",
-          totalCents: 2490,
-          paymentStatus: "pending",
-          paymentRef: `pi_${randomUUID()}`,
         },
-        select: { id: true },
       });
-      return order.id;
+      return { orderId: order.id, ref, fake };
     });
+  }
 
-    // No checkout session exists for an in-app payment — the metadata on
-    // the PaymentIntent itself is the whole routing key.
+  it("checkout.session.completed: the reserved card payment is captured and the order paid", async () => {
+    const { tenantId, userId } = await seedTenant();
+    createdTenantIds.push(tenantId);
+    createdUserIds.push(userId);
+    const { orderId, ref, fake } = await pendingCardOrder(tenantId, {
+      orderNumber: 1,
+      totalCents: 2980,
+    });
+    fake.settleOrderCheckout(ref); // the guest pays: the card is reserved
+
+    // Authorize-only: Stripe reports the session as completed but UNPAID;
+    // the server captures and only then is the order paid.
     const event: StripeEvent = {
       id: `evt_${randomUUID()}`,
-      type: "payment_intent.succeeded",
-      data: { object: { id: "pi_x", amount: 2490, metadata: { orderId, tenantId } } },
+      type: "checkout.session.completed",
+      data: { object: { id: ref, payment_status: "unpaid", metadata: { orderId, tenantId } } },
     };
     expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
-
     const order = await asTenant(tenantId, (tx) =>
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
     );
     expect(order.paymentStatus).toBe("paid");
+    expect((await fake.retrievePaymentIntent(ref))?.status).toBe("succeeded");
   });
 
-  it("payment_intent.succeeded without our metadata touches nothing", async () => {
-    // Someone else's PaymentIntent on the same account (a manual charge in
-    // the Stripe Dashboard, say) must not be mistaken for one of our orders.
+  it("app sheet: an authorized PaymentIntent is captured and the order paid", async () => {
+    const { tenantId, userId } = await seedTenant();
+    createdTenantIds.push(tenantId);
+    createdUserIds.push(userId);
+    const { orderId, ref, fake } = await pendingCardOrder(tenantId, {
+      orderNumber: 2,
+      totalCents: 2490,
+      appSheet: true,
+    });
+    fake.settleOrderCheckout(ref);
     const event: StripeEvent = {
       id: `evt_${randomUUID()}`,
-      type: "payment_intent.succeeded",
-      data: { object: { id: "pi_unrelated", amount: 100 } },
+      type: "payment_intent.amount_capturable_updated",
+      data: { object: { id: ref, metadata: { orderId, tenantId } } },
     };
     expect(await handleStripeEvent(event)).toEqual({ status: 200, kind: "processed" });
+    const order = await asTenant(tenantId, (tx) =>
+      tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
+    );
+    expect(order.paymentStatus).toBe("paid");
   });
 
   it("payment_intent.payment_failed marks the order failed — and a retry that succeeds still settles it", async () => {
     const { tenantId, userId } = await seedTenant();
     createdTenantIds.push(tenantId);
     createdUserIds.push(userId);
-
-    const orderId = await asTenant(tenantId, async (tx) => {
-      const venue = await tx.venue.create({
-        data: { tenantId, name: "Decline Venue", slug: `decl-${randomUUID().slice(0, 8)}` },
-        select: { id: true },
-      });
-      const order = await tx.order.create({
-        data: {
-          tenantId,
-          venueId: venue.id,
-          orderType: "dine_in",
-          orderNumber: 3,
-          currency: "EUR",
-          totalCents: 1200,
-          paymentStatus: "pending",
-        },
-        select: { id: true },
-      });
-      return order.id;
+    const { orderId, ref, fake } = await pendingCardOrder(tenantId, {
+      orderNumber: 3,
+      totalCents: 1200,
+      appSheet: true,
     });
 
-    const event: StripeEvent = {
+    const declined: StripeEvent = {
       id: `evt_${randomUUID()}`,
       type: "payment_intent.payment_failed",
-      data: { object: { id: "pi_declined", metadata: { orderId, tenantId } } },
+      data: { object: { id: ref, metadata: { orderId, tenantId } } },
     };
-    expect((await handleStripeEvent(event)).status).toBe(200);
-
-    const order = await asTenant(tenantId, (tx) =>
+    expect((await handleStripeEvent(declined)).status).toBe(200);
+    const failed = await asTenant(tenantId, (tx) =>
       tx.order.findFirstOrThrow({ where: { id: orderId }, select: { paymentStatus: true } }),
     );
     // The guest is shown "Payment failed" (retry / pay cash / cancel) and
     // the order stays off the kitchen board.
-    expect(order.paymentStatus).toBe("failed");
+    expect(failed.paymentStatus).toBe("failed");
 
-    // Another card, this time accepted: the order settles as usual.
+    // Another card on the same sheet, this time accepted: it settles.
+    fake.settleOrderCheckout(ref);
     const retried: StripeEvent = {
       id: `evt_${randomUUID()}`,
-      type: "payment_intent.succeeded",
-      data: { object: { id: "pi_retry", metadata: { orderId, tenantId } } },
+      type: "payment_intent.amount_capturable_updated",
+      data: { object: { id: ref, metadata: { orderId, tenantId } } },
     };
     expect((await handleStripeEvent(retried)).status).toBe(200);
     const settled = await asTenant(tenantId, (tx) =>

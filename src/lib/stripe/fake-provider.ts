@@ -12,6 +12,7 @@ import type {
   OrderCheckoutRef,
   PaymentIntentRef,
   PaymentIntentState,
+  CaptureResult,
 } from "./provider";
 
 /**
@@ -42,6 +43,10 @@ export class FakeStripeProvider implements StripeProvider {
       amountCents: number;
       feeCents: number;
       paid: boolean;
+      /** Reserved (manual capture) but not taken yet. */
+      authorized?: boolean;
+      expired?: boolean;
+      capturedCents?: number;
       currency?: string;
       /** What `paymentMethodOf` reports once paid; tests set it via
        *  `setPaymentMethod`. Defaults to a plain card. */
@@ -246,10 +251,46 @@ export class FakeStripeProvider implements StripeProvider {
     const c = this.orderCheckouts.get(ref);
     if (!c) return null;
     return {
-      status: c.paid ? "succeeded" : "requires_payment_method",
+      status: c.paid
+        ? "succeeded"
+        : c.expired
+          ? "canceled"
+          : c.authorized
+            ? "requires_capture"
+            : "requires_payment_method",
       amountCents: c.amountCents,
       currency: c.currency ?? "EUR",
     };
+  }
+
+  async capturePayment(ref: string): Promise<CaptureResult> {
+    const c = this.orderCheckouts.get(ref);
+    const currency = c?.currency ?? "EUR";
+    if (c && !c.paid && c.authorized && !c.expired) c.paid = true;
+    return c?.paid
+      ? { captured: true, amountCents: c.capturedCents ?? c.amountCents, currency }
+      : { captured: false, amountCents: 0, currency };
+  }
+
+  /** Test hook: the guest's checkout page ran out (30-minute expiry). */
+  expireOrderCheckout(ref: string): void {
+    const c = this.orderCheckouts.get(ref);
+    if (c && !c.paid) {
+      c.expired = true;
+      c.authorized = false;
+    }
+  }
+
+  /** Test hook: Stripe reports a different captured amount than asked. */
+  setCapturedAmount(ref: string, cents: number): void {
+    const c = this.orderCheckouts.get(ref);
+    if (c) c.capturedCents = cents;
+  }
+
+  /** Test hook: a payment taken at once (an old automatic-capture page). */
+  chargeImmediately(ref: string): void {
+    const c = this.orderCheckouts.get(ref);
+    if (c) c.paid = true;
   }
 
   async paymentMethodOf(ref: string): Promise<string | null> {
@@ -267,17 +308,24 @@ export class FakeStripeProvider implements StripeProvider {
   async cancelPayment(ref: string): Promise<boolean> {
     const c = this.orderCheckouts.get(ref);
     if (c?.paid) return false;
-    this.orderCheckouts.delete(ref);
+    // Kept (not deleted) as cancelled, so a later look-up sees "canceled".
+    if (c) {
+      c.expired = true;
+      c.authorized = false;
+    }
     return true;
   }
 
-  /** Test/dev hook: settle a fake checkout, like Stripe's webhook would. */
+  /** Test/dev hook: the guest completes the fake checkout, like Stripe's
+   *  page would. An ORDER is then authorized (reserved, captured later by
+   *  the server); a GIFT CARD purchase is taken at once. */
   settleOrderCheckout(
     ref: string,
   ): { orderId: string; tenantId: string; giftCardId?: string } | null {
     const c = this.orderCheckouts.get(ref);
-    if (!c || c.paid) return null;
-    c.paid = true;
+    if (!c || c.paid || c.authorized || c.expired) return null;
+    if (c.giftCardId) c.paid = true;
+    else c.authorized = true;
     // `giftCardId` is only spread in when set, so the order case keeps
     // its exact historical shape and the existing assertions on it hold.
     return {

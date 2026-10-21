@@ -1,13 +1,13 @@
 import { recordForOrder } from "./order-events";
-import { prisma } from "./db";
 import { asTenant } from "./tenant";
 import { createLogger } from "./logger";
 import type { PayPalWebhookHeaders } from "./paypal";
-import { parsePayPalCustomId, payPalProviderFor } from "./paypal";
+import { parsePayPalCustomId, payPalProviderFor, payPalValueToCents } from "./paypal";
 import { env } from "./env";
 import { finalizePayPalReturn } from "./paypal-service";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
-import { markOrderPaid } from "./connect-service";
+import { closeAttempt, settleConfirmedPayment } from "./payment-settlement";
+import { processWebhookOnce } from "./webhook-claims";
 import { finalizeGiftCardPayPalReturn, giftCardIdFromPayPalRef } from "./gift-card-payment";
 
 const log = createLogger();
@@ -43,7 +43,8 @@ const log = createLogger();
 
 export type PayPalWebhookOutcome =
   | { status: 200; kind: "processed" | "replayed" | "ignored" }
-  | { status: 400; kind: "invalid" | "not_configured" | "invalid_signature" };
+  | { status: 400; kind: "invalid" | "not_configured" | "invalid_signature" }
+  | { status: 409; kind: "busy" };
 
 export interface PayPalWebhookEvent {
   id: string;
@@ -55,6 +56,7 @@ export interface PayPalWebhookEvent {
     custom_id?: string;
     purchase_units?: { reference_id?: string; custom_id?: string }[];
     supplementary_data?: { related_ids?: { order_id?: string } };
+    amount?: { value?: string; currency_code?: string };
   };
 }
 
@@ -133,13 +135,16 @@ export async function handlePayPalWebhook(input: {
               ? { kind: "gift_card" as const, id: card.id, tenantId: card.tenantId }
               : null;
           })
-        : await asTenant(stamp.tenantId, async (tx) => {
-            const order = await tx.order.findFirst({
-              where: { id: stamp.orderId, paymentRef: ref, paymentProvider: "paypal" },
-              select: { id: true, tenantId: true },
+        : // An ORDER payment is found by its attempt, not by the order's
+          // current ref: the attempt outlives a switch to card and a
+          // deletion, so money for it is still recognised.
+          await asTenant(stamp.tenantId, async (tx) => {
+            const attempt = await tx.paymentAttempt.findUnique({
+              where: { provider_ref: { provider: "paypal", ref } },
+              select: { orderId: true, tenantId: true },
             });
-            return order
-              ? { kind: "order" as const, id: order.id, tenantId: order.tenantId }
+            return attempt && attempt.orderId === stamp.orderId
+              ? { kind: "order" as const, id: attempt.orderId, tenantId: attempt.tenantId }
               : null;
           });
   if (!subject) {
@@ -166,68 +171,76 @@ export async function handlePayPalWebhook(input: {
 
   // Claim the event id only AFTER verification — an attacker must not be
   // able to pre-empt a real delivery's id with a forged one.
-  const claimed = await prisma.webhookEvent.createMany({
-    data: [{ id: event.id, provider: "paypal" }],
-    skipDuplicates: true,
+  // Retry-safe: claimed as "processing", marked "done" only after the work
+  // committed; a failure releases the claim and the route answers 500, so
+  // PayPal's retry runs it again (see webhook-claims.ts).
+  const result = await processWebhookOnce(event.id, "paypal", async () => {
+    if (subject.kind === "order") {
+      await recordForOrder(subject.tenantId, subject.id, {
+        kind: "paypal.webhook",
+        actor: "paypal",
+        summary: event.event_type,
+        payload: event,
+      });
+    }
+    if (subject.kind === "gift_card") {
+      if (SETTLING_EVENTS.has(event.event_type)) {
+        const done = await finalizeGiftCardPayPalReturn(subject.tenantId, subject.id);
+        if (!done.paid) {
+          log.warn("paypal.webhook.capture_incomplete", {
+            eventId: event.id,
+            giftCardId: subject.id,
+          });
+        }
+        return "processed" as const;
+      }
+      return "ignored" as const;
+    }
+    if (
+      event.event_type === "PAYMENT.CAPTURE.DENIED" ||
+      event.event_type === "PAYMENT.CAPTURE.DECLINED"
+    ) {
+      await closeAttempt(subject.tenantId, "paypal", ref!, "failed");
+      return "processed" as const;
+    }
+    if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+      // Money taken. Normally by our own capture (the attempt is already
+      // settled → no-op); otherwise it is checked and recorded like any
+      // payment taken without us.
+      const amount = event.resource?.amount;
+      await settleConfirmedPayment({
+        tenantId: subject.tenantId,
+        provider: "paypal",
+        ref: ref!,
+        orderId: subject.id,
+        stage: "captured",
+        amountCents: payPalValueToCents(amount?.value),
+        currency: amount?.currency_code ?? null,
+        source: "webhook",
+      });
+      return "processed" as const;
+    }
+    if (SETTLING_EVENTS.has(event.event_type)) {
+      // Approved: capture now if (and only if) every check passes.
+      const done = await finalizePayPalReturn(subject.tenantId, subject.id);
+      if (!done.paid) {
+        log.info("paypal.webhook.not_captured", { eventId: event.id, orderId: subject.id });
+      }
+      return "processed" as const;
+    }
+    log.info("paypal.webhook.ignored", { eventId: event.id, type: event.event_type });
+    return "ignored" as const;
   });
-  if (claimed.count === 0) {
+  if (result === "replayed") {
     log.info("paypal.webhook.replay", { eventId: event.id, type: event.event_type });
     return { status: 200, kind: "replayed" };
   }
-
-  // The order log: PayPal's verified message, as it arrived.
-  if (subject.kind === "order") {
-    await recordForOrder(subject.tenantId, subject.id, {
-      kind: "paypal.webhook",
-      actor: "paypal",
-      summary: event.event_type,
-      payload: event,
-    });
-  }
-
-  // PayPal refused the money: the order is marked `failed` (guest sees
-  // retry / pay cash / cancel). Gift cards need nothing — an unpaid card
-  // is never shown or counted.
-  if (
-    subject.kind === "order" &&
-    (event.event_type === "PAYMENT.CAPTURE.DENIED" ||
-      event.event_type === "PAYMENT.CAPTURE.DECLINED")
-  ) {
-    const { markOrderPaymentFailed } = await import("./connect-service");
-    await markOrderPaymentFailed(subject.tenantId, subject.id);
-    return { status: 200, kind: "processed" };
-  }
-
-  if (!SETTLING_EVENTS.has(event.event_type)) {
-    log.info("paypal.webhook.ignored", { eventId: event.id, type: event.event_type });
-    return { status: 200, kind: "ignored" };
-  }
-
-  if (subject.kind === "gift_card") {
-    // One path for both event types: PayPal's capture is idempotent, so
-    // "already captured" (CAPTURE.COMPLETED) and "approved, maybe never
-    // captured" (ORDER.APPROVED) converge on the same call, and
-    // `activateGiftCard` behind it only ever flips pending → active.
-    const result = await finalizeGiftCardPayPalReturn(subject.tenantId, subject.id);
-    if (!result.paid) {
-      log.warn("paypal.webhook.capture_incomplete", { eventId: event.id, giftCardId: subject.id });
-    }
-  } else if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
-    // PayPal already has the money; nothing to capture. Just settle.
-    await markOrderPaid(subject.tenantId, subject.id);
-  } else {
-    // Approved but possibly never captured (guest never returned). The
-    // capture is idempotent, so racing the return leg is harmless.
-    const result = await finalizePayPalReturn(subject.tenantId, subject.id);
-    if (!result.paid) {
-      log.warn("paypal.webhook.capture_incomplete", { eventId: event.id, orderId: subject.id });
-    }
-  }
+  if (result === "busy") return { status: 409, kind: "busy" };
   log.info("paypal.webhook.processed", {
     eventId: event.id,
     type: event.event_type,
     kind: subject.kind,
     subjectId: subject.id,
   });
-  return { status: 200, kind: "processed" };
+  return { status: 200, kind: result };
 }

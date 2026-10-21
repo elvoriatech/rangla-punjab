@@ -4,12 +4,9 @@ import { verifyReceiptToken } from "./receipt-token";
 import { siteUrl } from "./site-url";
 import { payPalOnFor, payPalProviderFor } from "./paypal";
 import { getPayPalKeysForTenant } from "./tenant-payment-keys";
-import {
-  LATE_PAYMENT_MS,
-  markOrderPaid,
-  markOrderPaymentFailed,
-  releaseSupersededStripePayment,
-} from "./connect-service";
+import { releaseSupersededStripePayment } from "./connect-service";
+import { createPaymentAttemptTx, settleConfirmedPayment } from "./payment-settlement";
+import { orderLabel } from "./order-label";
 import { createLogger } from "./logger";
 
 const log = createLogger();
@@ -53,6 +50,7 @@ export async function createPayPalOrderPayment(
       where: { id: orderId },
       select: {
         id: true,
+        venueId: true,
         orderNumber: true,
         orderSeries: true,
         totalCents: true,
@@ -85,6 +83,16 @@ export async function createPayPalOrderPayment(
         applicationFeeCents: 0,
       },
     });
+    await createPaymentAttemptTx(tx, {
+      tenantId,
+      venueId: order.venueId,
+      orderId: order.id,
+      orderLabel: orderLabel(order),
+      provider: "paypal",
+      ref: approval.ref,
+      amountCents: order.totalCents,
+      currency: order.currency,
+    });
     log.info("payment.paypal_created", { orderId, tenantId, mode: provider.mode });
     void recordForOrder(tenantId, orderId, {
       kind: "payment.started",
@@ -97,9 +105,14 @@ export async function createPayPalOrderPayment(
 }
 
 /**
- * The return leg: PayPal sent the guest back after approval — capture
- * and settle. Idempotent end to end: a second return finds the order
- * already paid and simply reports success.
+ * The return leg: PayPal sent the guest back after approval (or PayPal's
+ * webhook says the guest approved) — capture and settle. The approval is
+ * a reservation: under the order's payment lock the same checks as for a
+ * card run first (right order and amount, order still wanted and unpaid,
+ * within the 45-minute window), and only then is the money captured. If a
+ * check fails nothing is captured, so the guest is never charged. A card
+ * payment that settled the order meanwhile moved it off PayPal, so this
+ * can never capture on top of it. Idempotent end to end.
  */
 export async function finalizePayPalReturn(
   tenantId: string,
@@ -108,52 +121,49 @@ export async function finalizePayPalReturn(
   const order = await asTenant(tenantId, (tx) =>
     tx.order.findFirst({
       where: { id: orderId },
-      select: {
-        status: true,
-        paymentStatus: true,
-        paymentRef: true,
-        paymentProvider: true,
-        createdAt: true,
-      },
+      select: { paymentStatus: true, paymentRef: true, paymentProvider: true },
     }),
   );
   if (!order || order.paymentProvider !== "paypal" || !order.paymentRef) return { paid: false };
   if (order.paymentStatus === "paid") return { paid: true };
-  // The guest (or the kitchen) called the order off while PayPal was
-  // open. PayPal only moves money at capture, so NOT capturing is what
-  // keeps a cancelled order from being charged.
-  if (order.status === "cancelled") {
-    log.info("payment.paypal_capture_skipped_cancelled", { orderId, tenantId });
-    return { paid: false };
-  }
-  // An approval coming back hours later (an old tab reopened, a webhook
-  // retried for days) is NOT captured: PayPal only moves money at capture,
-  // so refusing here means the guest is never charged for an order the
-  // restaurant stopped expecting. The order is marked failed instead.
-  if (Date.now() - order.createdAt.getTime() > LATE_PAYMENT_MS) {
-    log.warn("payment.paypal_capture_too_late", { orderId, tenantId });
-    void recordForOrder(tenantId, orderId, {
-      kind: "payment.too_late",
-      actor: "system",
-      summary: `PayPal approval came back too late — not captured, the guest was not charged · ${order.paymentRef}`,
-    });
-    await markOrderPaymentFailed(tenantId, orderId);
-    return { paid: false };
-  }
-
-  const capture = await payPalProviderFor(await getPayPalKeysForTenant(tenantId)).captureOrder(
-    order.paymentRef,
+  const ref = order.paymentRef;
+  const attempt = await asTenant(tenantId, (tx) =>
+    tx.paymentAttempt.findUnique({
+      where: { provider_ref: { provider: "paypal", ref } },
+      select: { amountCents: true, currency: true },
+    }),
   );
-  void recordForOrder(tenantId, orderId, {
-    kind: "paypal.capture",
-    actor: "paypal",
-    summary: capture.paid ? "PayPal capture completed" : "PayPal capture not completed",
-    payload: capture,
+  const provider = payPalProviderFor(await getPayPalKeysForTenant(tenantId));
+  const outcome = await settleConfirmedPayment({
+    tenantId,
+    provider: "paypal",
+    ref,
+    orderId,
+    stage: "authorized",
+    // The approval is for the amount we created the PayPal order with —
+    // PayPal does not let it change; the capture's amount is checked too.
+    amountCents: attempt?.amountCents ?? null,
+    currency: attempt?.currency ?? null,
+    capture: async () => {
+      const capture = await provider.captureOrder(ref);
+      void recordForOrder(tenantId, orderId, {
+        kind: "paypal.capture",
+        actor: "paypal",
+        summary: capture.paid ? "PayPal capture completed" : "PayPal capture not completed",
+        payload: capture,
+      });
+      return {
+        captured: capture.paid,
+        amountCents: capture.amountCents,
+        currency: capture.currency,
+      };
+    },
+    // An approval that is never captured simply lapses at PayPal.
+    release: async () => true,
+    source: "capture",
   });
-  if (!capture.paid) {
-    log.warn("payment.paypal_capture_incomplete", { orderId, tenantId });
-    return { paid: false };
-  }
-  await markOrderPaid(tenantId, orderId);
-  return { paid: true };
+  log.info("payment.paypal_finalized", { orderId, tenantId, outcome: outcome.kind });
+  return {
+    paid: outcome.kind === "settled" || (outcome.kind === "already_processed" && outcome.paid),
+  };
 }

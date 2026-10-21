@@ -46,6 +46,60 @@ describe("tenant isolation (RLS)", () => {
   });
 
   /**
+   * Payment attempts carry the amount every settlement is checked against,
+   * and the PayPal webhook looks them up by ref alone — RLS must keep one
+   * restaurant from reading or writing another's.
+   */
+  it("scopes payment attempts to the active tenant (reads and writes)", async () => {
+    const seed = (tenantId: string, tag: string) =>
+      asTenant(tenantId, async (tx) => {
+        await tx.tenant.upsert({
+          where: { id: tenantId },
+          create: { id: tenantId, name: tag },
+          update: {},
+        });
+        const venue = await tx.venue.create({
+          data: { tenantId, name: tag, slug: `pa-${tag}-${randomUUID().slice(0, 8)}` },
+          select: { id: true },
+        });
+        const ref = `cs_${tag}_${randomUUID()}`;
+        await tx.paymentAttempt.create({
+          data: {
+            tenantId,
+            venueId: venue.id,
+            orderId: randomUUID(),
+            provider: "stripe",
+            ref,
+            amountCents: 1000,
+            currency: "EUR",
+          },
+        });
+        return { ref, venueId: venue.id };
+      });
+    const a = await seed(idA, "a");
+    const b = await seed(idB, "b");
+
+    const leak = await asTenant(idA, (tx) => tx.paymentAttempt.findMany({ where: { ref: b.ref } }));
+    expect(leak).toHaveLength(0);
+    expect(await asTenant(idA, (tx) => tx.paymentAttempt.count({ where: { ref: a.ref } }))).toBe(1);
+    await expect(
+      asTenant(idA, (tx) =>
+        tx.paymentAttempt.create({
+          data: {
+            tenantId: idB,
+            venueId: b.venueId,
+            orderId: randomUUID(),
+            provider: "stripe",
+            ref: `cs_evil_${randomUUID()}`,
+            amountCents: 1,
+            currency: "EUR",
+          },
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  /**
    * Gift cards carry money, so they get the same two proofs the venue
    * does — and they need them more: a card is a BEARER instrument keyed
    * by a globally unique code, so the lookup that matters most
