@@ -22,8 +22,8 @@
 const en = {
   /* Floating bar + sheet chrome */
   yourOrder: "Your order",
-  placedBadge: (n: string) => `Order #${n} ✓`,
-  headingPlaced: (n: string) => `Order #${n}`,
+  placedBadge: (n: string) => `Order ${n} ✓`,
+  headingPlaced: (n: string) => `Order ${n}`,
   close: "Close order panel",
 
   /* Line items */
@@ -116,7 +116,7 @@ const en = {
 
   /* Confirmation */
   placedIntro: "Your order is in — the staff sees it as",
-  placedRef: (n: string) => `order #${n}`,
+  placedRef: (n: string) => `order ${n}`,
   placedForTable: (table: string) => ` for table ${table}`,
   placedCashTail: ", payable at the restaurant. Your receipt is downloading.",
   placedEmailTail: (email: string, pending: boolean) =>

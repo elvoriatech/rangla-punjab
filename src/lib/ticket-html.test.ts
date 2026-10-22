@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { orderCode } from "./order-code";
 import {
   renderTicketHtml,
   ticketAddressLine,
@@ -18,6 +19,7 @@ import {
 function order(over: Partial<TicketOrder> = {}): TicketOrder {
   return {
     orderNumber: 42,
+    orderSeries: null,
     orderType: "dine_in",
     tableNumber: "7",
     customerName: null,
@@ -85,7 +87,7 @@ describe("renderTicketHtml", () => {
     const html = renderTicketHtml(order(), VENUE);
     expect(html).toContain("Rangla Punjab");
     expect(html).toContain("Online-Bestellung");
-    expect(html).toContain("#42");
+    expect(html).toContain(orderCode(null, 42));
     expect(html).toContain("Dal Makhani");
     expect(html).toContain("2x");
     // Line total, not unit price: 2 × €12.00.
@@ -317,7 +319,7 @@ describe("kitchen copy", () => {
     const html = renderTicketHtml(takeaway, VENUE);
     const kitchen = html.slice(html.indexOf('<section class="kitchen">'));
     expect(kitchen).toContain("K&Uuml;CHENBON");
-    expect(kitchen).toContain("#42");
+    expect(kitchen).toContain(orderCode(null, 42));
     expect(kitchen).toContain('2x</span> <span class="nm">Pakoras');
     expect(kitchen).toContain("extra scharf");
     // The order type is on the kitchen copy too (owner, 2026-10-11).

@@ -67,7 +67,7 @@ interface Thread {
   status: string;
   messages: ThreadMessage[];
   /** Staff mode only: enough of the order to know whose complaint it is. */
-  order?: { number: number; name: string | null } | null;
+  order?: { number: string; name: string | null } | null;
 }
 
 function toThread(issue: ApiIssue): Thread {
@@ -78,7 +78,7 @@ function staffToThread(issue: StaffIssue): Thread {
   return {
     status: issue.status,
     messages: issue.messages,
-    order: { number: issue.orderNumber, name: issue.customerName },
+    order: { number: issue.orderLabel, name: issue.customerName },
   };
 }
 
@@ -384,7 +384,7 @@ export function IssueSheet({
                 <Text style={styles.title}>{title}</Text>
                 {thread?.order ? (
                   <Text style={styles.subtitle} numberOfLines={1}>
-                    {t.orderNo} #{String(thread.order.number)}
+                    {t.orderNo} {thread.order.number}
                     {thread.order.name ? ` · ${thread.order.name}` : ""}
                   </Text>
                 ) : null}

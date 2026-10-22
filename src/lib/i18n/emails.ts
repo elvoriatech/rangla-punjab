@@ -28,8 +28,8 @@ const receiptEn = {
   featAuthentic: "Authentic recipes",
   featHospitality: "Warm hospitality",
   tagline: "Good food brings people together",
-  subject: (n: string, venue: string) => `Your order #${n} at ${venue}`,
-  heading: (n: string) => `Order #${n}`,
+  subject: (n: string, venue: string) => `Your order ${n} at ${venue}`,
+  heading: (n: string) => `Order ${n}`,
   thanks: "Thank you for your order!",
   table: "Table",
   pickup: "Pickup",
@@ -278,8 +278,8 @@ export const receiptCopy = (locale?: string | null): ReceiptCopy => RECEIPT_COPY
 /* ------------------------------------------------------------------ */
 
 const newOrderEn = {
-  subject: (n: string, where: string, total: string) => `New order #${n} · ${where} · ${total}`,
-  heading: (n: string) => `New order #${n}`,
+  subject: (n: string, where: string, total: string) => `New order ${n} · ${where} · ${total}`,
+  heading: (n: string) => `New order ${n}`,
   dineIn: "Dine-in",
   table: (t: string) => `Table ${t}`,
   noTable: "no table number",
@@ -482,9 +482,9 @@ export const newOrderCopy = (locale?: string | null): NewOrderCopy =>
  * person reading it is the one who cooked the food.
  */
 const newIssueEn = {
-  subject: (n: string) => `Problem reported on order #${n}`,
+  subject: (n: string) => `Problem reported on order ${n}`,
   eyebrow: "Guest complaint",
-  heading: (n: string) => `A problem with order #${n}`,
+  heading: (n: string) => `A problem with order ${n}`,
   lead: "A guest says something went wrong with their order. They are waiting to hear back.",
   pill: "Needs an answer",
   guest: "Guest",
@@ -1044,10 +1044,10 @@ export const giftCardRedeemedCopy = (locale?: string | null): GiftCardRedeemedCo
  * receipt and kitchen-ticket namespaces above do.
  */
 const onTheWayEn = {
-  subject: (orderNumber: string) => `Your order #${orderNumber} is on the way`,
+  subject: (orderNumber: string) => `Your order ${orderNumber} is on the way`,
   eyebrow: "On the way",
   heading: "Your food is on its way 🛵",
-  lead: (orderNumber: string) => `Order #${orderNumber} just left our kitchen.`,
+  lead: (orderNumber: string) => `Order ${orderNumber} just left our kitchen.`,
   greeting: (name: string) => `Hi ${name},`,
   addressLabel: "Delivering to",
   patience:

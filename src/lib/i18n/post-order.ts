@@ -15,7 +15,7 @@ import { uiLocale } from "@/lib/locales";
 const en = {
   /* Tracker */
   trackTitle: "Track your order",
-  orderHeading: (n: string) => `Order #${n}`,
+  orderHeading: (n: string) => `Order ${n}`,
   expectedDelivery: (time: string) => `Expected delivery around ${time}`,
   expectedPickup: (time: string) => `Ready for pickup around ${time}`,
   tableSuffix: (table: string) => ` · Table ${table}`,

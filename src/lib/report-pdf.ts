@@ -270,7 +270,7 @@ export async function renderReportPdf(
       // A table that runs onto a new page repeats its column titles.
       if (ctx.page !== before) columns();
       row(ctx, [
-        { text: `#${orderLabel(o)}`, x: MARGIN },
+        { text: orderLabel(o), x: MARGIN },
         { text: when.format(o.placedAt), x: MARGIN + 44 },
         { text: TYPE_LABELS[o.orderType] ?? o.orderType, x: MARGIN + 140 },
         {

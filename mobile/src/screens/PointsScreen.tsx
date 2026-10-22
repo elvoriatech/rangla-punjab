@@ -109,12 +109,12 @@ export function PointsScreen({
       const spent = fill(t.rewardsRedeemed, { value: entryValue(e) });
       return e.orderNumber === null
         ? spent
-        : `${spent} · ${t.rewardsOrder} #${orderNo(e.orderNumber)}`;
+        : `${spent} · ${t.rewardsOrder} ${e.orderLabel ?? orderNo(e.orderNumber)}`;
     }
     if (e.reason === "order") {
       return e.orderNumber === null
         ? t.rewardsOrder
-        : `${t.rewardsOrder} #${orderNo(e.orderNumber)}`;
+        : `${t.rewardsOrder} ${e.orderLabel ?? orderNo(e.orderNumber)}`;
     }
     return t.rewardsAdjust;
   };

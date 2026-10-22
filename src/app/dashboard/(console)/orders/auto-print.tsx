@@ -13,7 +13,7 @@ export interface PrintableOrder {
   id: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   /** none = cash, pending = online payment started, paid = settled. */
   paymentStatus: string;
   /** Still inside its accept window, untouched: no ticket yet. */

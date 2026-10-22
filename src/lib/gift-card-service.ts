@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { orderLabel } from "./order-label";
 import { formatGiftCardCode, generateGiftCardCode, normalizeGiftCardCode } from "./gift-card-code";
 import {
   giftCardChargeCents,
@@ -247,7 +248,7 @@ export type GiftCardStatus = "pending_payment" | "active" | "redeemed" | "expire
 /** How a redeemed card was spent — the two are mutually exclusive. */
 export type GiftCardRedemption =
   | { kind: "counter"; at: string; staffName: string | null; note: string | null }
-  | { kind: "order"; at: string; orderNumber: number | null }
+  | { kind: "order"; at: string; orderNumber: number | null; orderLabel: string | null }
   | null;
 
 export interface GiftCardView {
@@ -300,7 +301,7 @@ export function giftCardShareUrl(code: string, tenantId: string): string {
 function cardView(
   row: CardRow,
   tenantId: string,
-  extra?: { staffName?: string | null; orderNumber?: number | null },
+  extra?: { staffName?: string | null; orderNumber?: number | null; orderLabel?: string | null },
 ): GiftCardView {
   const redemption: GiftCardRedemption = row.redeemedAt
     ? row.redeemedOrderId
@@ -308,6 +309,7 @@ function cardView(
           kind: "order",
           at: row.redeemedAt.toISOString(),
           orderNumber: extra?.orderNumber ?? null,
+          orderLabel: extra?.orderLabel ?? null,
         }
       : {
           kind: "counter",
@@ -579,7 +581,7 @@ async function decorate(
   const orders = orderIds.length
     ? await tx.order.findMany({
         where: { id: { in: orderIds } },
-        select: { id: true, orderNumber: true },
+        select: { id: true, orderNumber: true, orderSeries: true },
       })
     : [];
   // `users` is not a tenant table (staff reach a tenant through
@@ -590,11 +592,13 @@ async function decorate(
     : [];
 
   const orderNumbers = new Map(orders.map((o) => [o.id, o.orderNumber]));
+  const orderLabels = new Map(orders.map((o) => [o.id, orderLabel(o)]));
   const staffNames = new Map(users.map((u) => [u.id, u.email]));
 
   return rows.map((row) =>
     cardView(row, tenantId, {
       orderNumber: row.redeemedOrderId ? (orderNumbers.get(row.redeemedOrderId) ?? null) : null,
+      orderLabel: row.redeemedOrderId ? (orderLabels.get(row.redeemedOrderId) ?? null) : null,
       staffName: row.redeemedByUserId ? (staffNames.get(row.redeemedByUserId) ?? null) : null,
     }),
   );

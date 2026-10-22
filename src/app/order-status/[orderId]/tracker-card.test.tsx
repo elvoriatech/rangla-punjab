@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { orderCode } from "@/lib/order-code";
 import { renderToStaticMarkup } from "react-dom/server";
 import { OrderTrackerCard, type TrackerOrder } from "./tracker-card";
 import { POST_ORDER_COPY } from "@/lib/i18n/post-order";
@@ -12,6 +13,7 @@ import { UI_LOCALES, type UiLocale } from "@/lib/locales";
  */
 const order: TrackerOrder = {
   orderNumber: 7,
+  orderSeries: null,
   status: "preparing",
   orderType: "takeaway",
   paymentStatus: "none",
@@ -60,7 +62,7 @@ describe("order tracker", () => {
   it("renders Spanish only — no German or English leaking through", () => {
     const html = render(order, "es");
     expect(html).toContain("Seguimiento del pedido");
-    expect(html).toContain("Pedido n.º 7");
+    expect(html).toContain(`Pedido n.º ${orderCode(null, 7)}`);
     expect(html).toContain("En preparación");
     expect(html).toContain("Listo para recoger");
     expect(html).toContain("Pago en el restaurante");
@@ -73,7 +75,7 @@ describe("order tracker", () => {
   it("renders Italian only", () => {
     const html = render(order, "it");
     expect(html).toContain("Segui il tuo ordine");
-    expect(html).toContain("Ordine n. 7");
+    expect(html).toContain(`Ordine n. ${orderCode(null, 7)}`);
     expect(html).toContain("In preparazione");
     expect(html).toContain("Pronto per il ritiro");
     expect(html).not.toContain("Zubereitung");

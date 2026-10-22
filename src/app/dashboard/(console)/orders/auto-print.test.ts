@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { isReadyToPrint, pickOrdersToPrint } from "./auto-print";
 
 describe("kitchen auto-print selection", () => {
-  const cash = { id: "a", orderNumber: 1, paymentStatus: "none" };
-  const pendingCard = { id: "b", orderNumber: 2, paymentStatus: "pending" };
-  const paidPaypal = { id: "c", orderNumber: 3, paymentStatus: "paid" };
+  const cash = { id: "a", orderSeries: null, orderNumber: 1, paymentStatus: "none" };
+  const pendingCard = { id: "b", orderSeries: null, orderNumber: 2, paymentStatus: "pending" };
+  const paidPaypal = { id: "c", orderSeries: null, orderNumber: 3, paymentStatus: "paid" };
 
   it("prints cash at once and settled online orders, never a pending online one", () => {
     expect(isReadyToPrint(cash)).toBe(true);

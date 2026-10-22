@@ -28,7 +28,7 @@ export type GiftCardStatus =
  */
 export type GiftCardRedemption =
   | { kind: "counter"; at: string; staffName: string | null; note: string | null }
-  | { kind: "order"; at: string; orderNumber: number | null }
+  | { kind: "order"; at: string; orderNumber: number | null; orderLabel?: string | null }
   | null;
 
 export interface GiftCardProduct {
@@ -170,6 +170,7 @@ function asRedemption(raw: unknown): GiftCardRedemption {
       kind: "order",
       at,
       orderNumber: typeof r.orderNumber === "number" ? r.orderNumber : null,
+      orderLabel: typeof r.orderLabel === "string" ? r.orderLabel : null,
     };
   }
   // Anything else is the counter shape: a card that was handed over is

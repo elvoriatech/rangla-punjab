@@ -1,4 +1,5 @@
 import { parseOrderingConfig } from "./ordering-config";
+import { orderCode } from "./order-code";
 import { activePauseUntil, setOrderingPause } from "./ordering-pause";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
@@ -240,8 +241,14 @@ describe("order-service (guest self-ordering)", () => {
     const cash2 = await placeOrder(fx, { items: naan });
     const paypal = await placeOrder(fx, { items: naan, intendedPayment: "paypal" });
     if (!cash1.ok || !card1.ok || !cash2.ok || !paypal.ok) throw new Error("placement failed");
-    expect([cash1, cash2].map((r) => r.value.orderLabel)).toEqual(["B-1", "B-2"]);
-    expect([card1, paypal].map((r) => r.value.orderLabel)).toEqual(["O-1", "O-2"]);
+    expect([cash1, cash2].map((r) => r.value.orderLabel)).toEqual([
+      orderCode("B", 1),
+      orderCode("B", 2),
+    ]);
+    expect([card1, paypal].map((r) => r.value.orderLabel)).toEqual([
+      orderCode("O", 1),
+      orderCode("O", 2),
+    ]);
   });
 
   it("keeps an optional receipt email (lower-cased) and rejects a malformed one", async () => {

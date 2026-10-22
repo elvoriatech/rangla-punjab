@@ -403,7 +403,7 @@ export function TrackScreen({
                   : t.orderConfirmed}
             </Text>
             <Text style={styles.orderNo}>
-              {t.orderNo} #{orderLabelOf(tracking)}
+              {t.orderNo} {orderLabelOf(tracking)}
             </Text>
             {tracking.tableNumber ? (
               <Text style={styles.meta}>

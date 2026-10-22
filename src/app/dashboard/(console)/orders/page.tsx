@@ -239,10 +239,10 @@ export default async function OrdersPage({
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-12 text-ink lg:px-10">
       <AutoRefresh seconds={10} />
-      {deletedParam && /^\d+$/.test(deletedParam) ? (
+      {deletedParam && /^RP-[2-9A-HJKMNP-Z]{5,7}$/.test(deletedParam) ? (
         <FlashMessage
           kind="success"
-          text={`Order #${deletedParam} deleted. The reason is kept under Reports → Deleted orders.`}
+          text={`Order ${deletedParam} deleted. The reason is kept under Reports → Deleted orders.`}
         />
       ) : null}
       {deleteError ? (
@@ -286,6 +286,7 @@ export default async function OrdersPage({
             open={open.map((o) => ({
               id: o.id,
               orderNumber: o.orderNumber,
+              orderSeries: o.orderSeries ?? null,
               paymentStatus: o.paymentStatus,
               awaitingAccept: Boolean(orderEta(o, etaConfig)?.adjustableUntil),
             }))}
@@ -359,12 +360,12 @@ export default async function OrdersPage({
                         <input type="hidden" name="orderId" value={order.id} />
                         <input type="hidden" name="to" value="cancelled" />
                         <ConfirmSubmit
-                          message={`Cancel order #${orderLabel(order)}? The guest is told it was called off, and this cannot be undone.`}
+                          message={`Cancel order ${orderLabel(order)}? The guest is told it was called off, and this cannot be undone.`}
                           pendingLabel="…"
                           confirmLabel="Yes, cancel order"
                           cancelLabel="Keep order"
                           title="Cancel order"
-                          ariaLabel={`Cancel order #${orderLabel(order)}`}
+                          ariaLabel={`Cancel order ${orderLabel(order)}`}
                           className="inline-flex h-8 w-8 items-center justify-center self-center text-muted hover:text-[#b3261e]"
                         >
                           <CircleX className="h-4 w-4" aria-hidden />
@@ -426,7 +427,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`View order #${orderLabel(order)}`}
+                    aria-label={`View order ${orderLabel(order)}`}
                     title="View"
                     className={CARD_ICON}
                   >
@@ -436,7 +437,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}?auto=1`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`Print order #${orderLabel(order)}`}
+                    aria-label={`Print order ${orderLabel(order)}`}
                     title="Print"
                     className={CARD_ICON}
                   >
@@ -561,7 +562,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`View order #${orderLabel(order)}`}
+                    aria-label={`View order ${orderLabel(order)}`}
                     title="View"
                     className={ROW_ICON}
                   >
@@ -571,7 +572,7 @@ export default async function OrdersPage({
                     href={`/print/order/${order.id}?auto=1`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`Print order #${orderLabel(order)}`}
+                    aria-label={`Print order ${orderLabel(order)}`}
                     title="Print"
                     className={ROW_ICON}
                   >
@@ -582,7 +583,7 @@ export default async function OrdersPage({
                     <form action={deleteOrderAction} className="inline">
                       <input type="hidden" name="orderId" value={order.id} />
                       <ConfirmSubmit
-                        message={`Delete order #${orderLabel(order)}? It is removed everywhere and cannot be brought back. Number, amount and reason stay in the deletion log.`}
+                        message={`Delete order ${orderLabel(order)}? It is removed everywhere and cannot be brought back. Number, amount and reason stay in the deletion log.`}
                         reason={{
                           name: "reason",
                           label: "Why is it being deleted?",
@@ -594,7 +595,7 @@ export default async function OrdersPage({
                         confirmLabel="Delete order"
                         cancelLabel="Keep order"
                         title="Delete"
-                        ariaLabel={`Delete cancelled order #${orderLabel(order)}`}
+                        ariaLabel={`Delete cancelled order ${orderLabel(order)}`}
                         className={`${ROW_ICON} hover:border-[#b3261e]/50 hover:text-[#b3261e]`}
                       >
                         <Trash2 className="h-4 w-4" aria-hidden />

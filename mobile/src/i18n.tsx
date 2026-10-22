@@ -443,7 +443,7 @@ const en = {
   ordersRewardOff: "−{value} reward",
   ordersRewardOffPoints: "−{value} reward · {points} points",
   rewardPointsSpent: "{points} points",
-  rewardsUsedOn: "Used on order #{number}",
+  rewardsUsedOn: "Used on order {number}",
   rewardsRedeemed: "{value} reward used",
 
   /* Gift cards */
@@ -513,7 +513,7 @@ const en = {
   giftCardTimelineBought: "Bought",
   giftCardTimelineShared: "Link opened",
   giftCardTimelineRedeemedCounter: "Redeemed at the restaurant",
-  giftCardTimelineRedeemedOrder: "Redeemed on order #{number}",
+  giftCardTimelineRedeemedOrder: "Redeemed on order {number}",
 
   ownerGiftCards: "Gift cards",
   ownerSales: "Daily sales",
@@ -805,7 +805,7 @@ const en = {
   staffCatEmpty: "No catering requests.",
   staffCatAnyTime: "Time open",
   boardDelete: "Delete",
-  boardDeleteTitle: "Delete order #{number}",
+  boardDeleteTitle: "Delete order {number}",
   boardDeleteHint:
     "Removes the order everywhere — for test orders and mistakes. The number, amount and reason stay in the deletion log.",
   boardDeleteReason: "Reason",
@@ -1449,7 +1449,7 @@ const de: Strings = {
   ordersRewardOff: "−{value} Belohnung",
   ordersRewardOffPoints: "−{value} Belohnung · {points} Punkte",
   rewardPointsSpent: "{points} Punkte",
-  rewardsUsedOn: "Eingelöst bei Bestellung #{number}",
+  rewardsUsedOn: "Eingelöst bei Bestellung {number}",
   rewardsRedeemed: "Belohnung über {value} eingelöst",
 
   /* Geschenkgutscheine */
@@ -1517,7 +1517,7 @@ const de: Strings = {
   giftCardTimelineBought: "Gekauft",
   giftCardTimelineShared: "Link geöffnet",
   giftCardTimelineRedeemedCounter: "Im Restaurant eingelöst",
-  giftCardTimelineRedeemedOrder: "Bei Bestellung #{number} eingelöst",
+  giftCardTimelineRedeemedOrder: "Bei Bestellung {number} eingelöst",
 
   ownerGiftCards: "Geschenkgutscheine",
   ownerSales: "Tagesumsatz",
@@ -1810,7 +1810,7 @@ const de: Strings = {
   staffCatEmpty: "Keine Catering-Anfragen.",
   staffCatAnyTime: "Uhrzeit offen",
   boardDelete: "Löschen",
-  boardDeleteTitle: "Bestellung #{number} löschen",
+  boardDeleteTitle: "Bestellung {number} löschen",
   boardDeleteHint:
     "Entfernt die Bestellung überall – für Testbestellungen und Fehler. Nummer, Betrag und Grund bleiben im Löschprotokoll.",
   boardDeleteReason: "Grund",
@@ -2451,7 +2451,7 @@ const fr: Strings = {
   ordersRewardOff: "−{value} récompense",
   ordersRewardOffPoints: "−{value} récompense · {points} points",
   rewardPointsSpent: "{points} points",
-  rewardsUsedOn: "Utilisée sur la commande #{number}",
+  rewardsUsedOn: "Utilisée sur la commande {number}",
   rewardsRedeemed: "Récompense de {value} utilisée",
 
   /* Cartes cadeaux */
@@ -2518,7 +2518,7 @@ const fr: Strings = {
   giftCardTimelineBought: "Achetée",
   giftCardTimelineShared: "Lien ouvert",
   giftCardTimelineRedeemedCounter: "Utilisée au restaurant",
-  giftCardTimelineRedeemedOrder: "Utilisée sur la commande #{number}",
+  giftCardTimelineRedeemedOrder: "Utilisée sur la commande {number}",
 
   ownerGiftCards: "Cartes cadeaux",
   ownerSales: "Ventes du jour",
@@ -3447,7 +3447,7 @@ const it: Strings = {
   ordersRewardOff: "−{value} premio",
   ordersRewardOffPoints: "−{value} premio · {points} punti",
   rewardPointsSpent: "{points} punti",
-  rewardsUsedOn: "Usato per l'ordine #{number}",
+  rewardsUsedOn: "Usato per l'ordine {number}",
   rewardsRedeemed: "Premio da {value} usato",
 
   /* Carte regalo */
@@ -3514,7 +3514,7 @@ const it: Strings = {
   giftCardTimelineBought: "Acquistata",
   giftCardTimelineShared: "Link aperto",
   giftCardTimelineRedeemedCounter: "Riscattata al ristorante",
-  giftCardTimelineRedeemedOrder: "Riscattata per l'ordine #{number}",
+  giftCardTimelineRedeemedOrder: "Riscattata per l'ordine {number}",
 
   ownerGiftCards: "Carte regalo",
   ownerSales: "Vendite del giorno",
@@ -4443,7 +4443,7 @@ const es: Strings = {
   ordersRewardOff: "−{value} de recompensa",
   ordersRewardOffPoints: "−{value} de recompensa · {points} puntos",
   rewardPointsSpent: "{points} puntos",
-  rewardsUsedOn: "Usada en el pedido #{number}",
+  rewardsUsedOn: "Usada en el pedido {number}",
   rewardsRedeemed: "Recompensa de {value} usada",
 
   /* Tarjetas regalo */
@@ -4510,7 +4510,7 @@ const es: Strings = {
   giftCardTimelineBought: "Comprada",
   giftCardTimelineShared: "Enlace abierto",
   giftCardTimelineRedeemedCounter: "Canjeada en el restaurante",
-  giftCardTimelineRedeemedOrder: "Canjeada en el pedido #{number}",
+  giftCardTimelineRedeemedOrder: "Canjeada en el pedido {number}",
 
   ownerGiftCards: "Tarjetas regalo",
   ownerSales: "Ventas del día",
@@ -5430,7 +5430,7 @@ const ar: Strings = {
   ordersRewardOff: "−{value} مكافأة",
   ordersRewardOffPoints: "−{value} مكافأة · {points} نقطة",
   rewardPointsSpent: "{points} نقطة",
-  rewardsUsedOn: "استُخدمت في الطلب #{number}",
+  rewardsUsedOn: "استُخدمت في الطلب {number}",
   rewardsRedeemed: "استُخدمت مكافأة بقيمة {value}",
 
   /* بطاقات الهدايا */
@@ -5497,7 +5497,7 @@ const ar: Strings = {
   giftCardTimelineBought: "تم الشراء",
   giftCardTimelineShared: "فُتح الرابط",
   giftCardTimelineRedeemedCounter: "استُخدمت في المطعم",
-  giftCardTimelineRedeemedOrder: "استُخدمت في الطلب #{number}",
+  giftCardTimelineRedeemedOrder: "استُخدمت في الطلب {number}",
 
   ownerGiftCards: "بطاقات الهدايا",
   ownerSales: "مبيعات اليوم",

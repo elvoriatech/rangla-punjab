@@ -1,4 +1,5 @@
 import { recordForOrder } from "./order-events";
+import { orderLabel } from "./order-label";
 import { canTransition } from "./order-status";
 import { createLogger } from "./logger";
 import { uiLocale } from "./locales";
@@ -45,7 +46,9 @@ export type DispatchResult =
       already: boolean;
       orderNumber: number;
       /** "B" (cash) / "O" (online); null on older orders. */
-      orderSeries?: string | null;
+      orderSeries: string | null;
+      /** The public order code ("RP-K7M3Q") — what the driver sees. */
+      orderLabel: string;
       customerName: string | null;
       addressLine: string | null;
       directionsUrl: string | null;
@@ -57,7 +60,7 @@ interface DispatchOrderRow {
   id: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   status: string;
   orderType: string;
   customerName: string | null;
@@ -86,6 +89,8 @@ function view(order: DispatchOrderRow, already: boolean, status: string): Dispat
     ok: true,
     already,
     orderNumber: order.orderNumber,
+    orderSeries: order.orderSeries ?? null,
+    orderLabel: orderLabel(order),
     customerName: order.customerName,
     addressLine,
     directionsUrl: addressLine ? ticketDirectionsUrl(addressLine) : null,

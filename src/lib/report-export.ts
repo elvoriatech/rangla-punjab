@@ -1,4 +1,4 @@
-import { orderLabel } from "./order-label";
+import { internalOrderNumber, orderLabel } from "./order-label";
 import type { VenueReport } from "./report-service";
 
 /**
@@ -29,6 +29,9 @@ const HEADERS = [
   "Net",
   "VAT 19%",
   "Total",
+  // The internal number (B-12 / O-7) for reconciliation — appended so the
+  // existing column positions stay put. "Order Number" is the public code.
+  "Internal Number",
 ] as const;
 
 export function reportToCsv(report: VenueReport): string {
@@ -46,6 +49,7 @@ export function reportToCsv(report: VenueReport): string {
         amount(o.netCents),
         amount(o.vatCents),
         amount(o.totalCents),
+        internalOrderNumber(o),
       ]
         .map(csvCell)
         .join(","),

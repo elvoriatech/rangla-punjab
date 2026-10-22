@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { orderLabel } from "./order-label";
 import { asTenant } from "./tenant";
 import { createLogger } from "./logger";
 import { captureException } from "./observability";
@@ -55,6 +56,8 @@ export interface LoyaltyVoucherView {
    *  every non-redeemed voucher (and for a redeemed one whose order has
    *  since been deleted). */
   redeemedOrderNumber: number | null;
+  /** That order's public code ("RP-K7M3Q"). */
+  redeemedOrderLabel: string | null;
 }
 
 export interface LoyaltyHistoryEntry {
@@ -63,6 +66,8 @@ export interface LoyaltyHistoryEntry {
   reason: string;
   /** The order the movement belongs to, or null (voucher / adjustment). */
   orderNumber: number | null;
+  /** Its public code ("RP-K7M3Q") — what the app shows. */
+  orderLabel: string | null;
   /**
    * What the voucher this movement is about was WORTH, for the two reasons
    * that have one: "voucher" (the points that bought it) and "redeem" (the
@@ -431,7 +436,7 @@ export async function getLoyaltySummary(
           reason: true,
           voucherId: true,
           createdAt: true,
-          order: { select: { orderNumber: true } },
+          order: { select: { orderNumber: true, orderSeries: true } },
         },
       }),
     ]);
@@ -441,12 +446,16 @@ export async function getLoyaltySummary(
     // resolved with one extra indexed read rather than a join.
     const redeemedIds = vouchers.map((v) => v.redeemedOrderId).filter((id): id is string => !!id);
     const orderNumbers = new Map<string, number>();
+    const orderLabels = new Map<string, string>();
     if (redeemedIds.length > 0) {
       const orders = await tx.order.findMany({
         where: { id: { in: redeemedIds } },
-        select: { id: true, orderNumber: true },
+        select: { id: true, orderNumber: true, orderSeries: true },
       });
-      for (const o of orders) orderNumbers.set(o.id, o.orderNumber);
+      for (const o of orders) {
+        orderNumbers.set(o.id, o.orderNumber);
+        orderLabels.set(o.id, orderLabel(o));
+      }
     }
 
     // A history line quotes the voucher's OWN value. The vouchers a
@@ -477,13 +486,18 @@ export async function getLoyaltySummary(
       minOrderCents: config.minOrderCents,
       pointsPerOrder: config.pointsPerOrder,
       vouchers: vouchers.map((v) =>
-        voucherView(v, v.redeemedOrderId ? (orderNumbers.get(v.redeemedOrderId) ?? null) : null),
+        voucherView(
+          v,
+          v.redeemedOrderId ? (orderNumbers.get(v.redeemedOrderId) ?? null) : null,
+          v.redeemedOrderId ? (orderLabels.get(v.redeemedOrderId) ?? null) : null,
+        ),
       ),
       history: history.map((h) => ({
         id: h.id,
         delta: h.delta,
         reason: h.reason,
         orderNumber: h.order?.orderNumber ?? null,
+        orderLabel: h.order ? orderLabel(h.order) : null,
         valueCents: h.voucherId ? (voucherValues.get(h.voucherId) ?? null) : null,
         createdAt: h.createdAt.toISOString(),
       })),
@@ -513,6 +527,7 @@ function voucherView(
     expiresAt: Date;
   },
   redeemedOrderNumber: number | null = null,
+  redeemedOrderLabel: string | null = null,
 ): LoyaltyVoucherView {
   return {
     id: v.id,
@@ -520,6 +535,7 @@ function voucherView(
     status: v.status,
     expiresAt: v.expiresAt.toISOString(),
     redeemedOrderNumber,
+    redeemedOrderLabel,
   };
 }
 

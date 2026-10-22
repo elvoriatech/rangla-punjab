@@ -11,6 +11,7 @@ import type { ReceiptOrder } from "./order-service";
 const baseOrder: ReceiptOrder = {
   id: "o1",
   orderNumber: 6,
+  orderSeries: null,
   tableNumber: null,
   orderType: "takeaway",
   customerName: "Amrit",

@@ -147,7 +147,12 @@ describe("giftCardsToCsv", () => {
         report([
           card({
             status: "redeemed",
-            redemption: { kind: "order", at: "2026-03-04T18:22:00.000Z", orderNumber: 42 },
+            redemption: {
+              kind: "order",
+              at: "2026-03-04T18:22:00.000Z",
+              orderNumber: 42,
+              orderLabel: null,
+            },
           }),
         ]),
       ),

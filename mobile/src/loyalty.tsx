@@ -238,7 +238,8 @@ export function RewardSheet({
                   <Text style={styles.usedNote}>
                     🎁{" "}
                     {fill(t.rewardsUsedOn, {
-                      number: orderNo(justUsed.redeemedOrderNumber ?? 0),
+                      number:
+                        justUsed.redeemedOrderLabel ?? orderNo(justUsed.redeemedOrderNumber ?? 0),
                     })}
                   </Text>
                 ) : null}

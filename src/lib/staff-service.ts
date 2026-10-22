@@ -36,7 +36,7 @@ export interface StaffOrder {
   id: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   status: string;
   /** Every status this order may legally move to, in lifecycle order.
    *  Empty on a finished order. The client renders one button per entry
@@ -159,6 +159,7 @@ export function toStaffOrder(
     issueId: issue ? issue.id : null,
     id: order.id,
     orderNumber: order.orderNumber,
+    orderSeries: order.orderSeries ?? null,
     orderLabel: orderLabel(order),
     status: order.status,
     // The cancel permission is subtracted from the lifecycle, not added to

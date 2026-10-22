@@ -111,14 +111,18 @@ describe("POST /api/orders → owner push", () => {
       }),
     );
     expect(res.status).toBe(201);
-    const placed = (await res.json()) as { orderId: string; orderNumber: number };
+    const placed = (await res.json()) as {
+      orderId: string;
+      orderNumber: number;
+      orderLabel: string;
+    };
 
     await waitForPush();
     const sent = __fakePush().sent;
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
       to: TOKEN,
-      title: `New order #${placed.orderNumber}`,
+      title: `New order ${placed.orderLabel}`,
       data: { kind: "order", orderId: placed.orderId },
     });
     // The body is what the owner reads on the lock screen: what kind of

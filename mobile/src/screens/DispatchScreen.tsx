@@ -148,7 +148,7 @@ export function DispatchScreen({
             <View style={styles.doneBox}>
               <Ionicons name="bicycle" size={44} color={colors.positive} />
               <Text style={styles.doneTitle}>{t.dispatchOnTheWay}</Text>
-              <Text style={styles.number}>#{orderLabelOf(done)}</Text>
+              <Text style={styles.number}>{orderLabelOf(done)}</Text>
               {done.customerName ? <Text style={styles.meta}>{done.customerName}</Text> : null}
               {done.addressLine ? <Text style={styles.address}>{done.addressLine}</Text> : null}
               {/* Only when it is news: on a first scan the button above
@@ -169,7 +169,7 @@ export function DispatchScreen({
             <View style={styles.card}>
               {order ? (
                 <>
-                  <Text style={styles.number}>#{orderLabelOf(order)}</Text>
+                  <Text style={styles.number}>{orderLabelOf(order)}</Text>
                   {order.customerName ? (
                     <Text style={styles.meta}>{order.customerName}</Text>
                   ) : null}

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { orderCode } from "./order-code";
 import { renderTicketEscPos, wrap } from "./ticket-escpos";
 import type { TicketOrder } from "./ticket-html";
 
 const order: TicketOrder = {
   orderNumber: 42,
+  orderSeries: null,
   orderType: "delivery",
   tableNumber: null,
   customerName: "Jürgen Müller",
@@ -52,7 +54,7 @@ describe("ESC/POS kitchen ticket", () => {
   });
 
   it("carries the order number, the payment banner, the driver QR and two cuts (ticket + kitchen copy)", () => {
-    expect(has(out, ascii("#42"))).toBe(true);
+    expect(has(out, ascii(orderCode(null, 42)))).toBe(true);
     expect(has(out, ascii("ONLINE BEZAHLT (APPLE PAY)"))).toBe(true);
     expect(has(out, [0x1d, 0x28, 0x6b])).toBe(true);
     const cuts = out.filter((_, i) => out[i] === 0x1d && out[i + 1] === 0x56).length;

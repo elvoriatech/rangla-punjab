@@ -108,7 +108,7 @@ describe("deleteOrder", () => {
   it("lets the owner delete a cancelled, unpaid order and keeps the reason", async () => {
     const o = await order();
     const res = await deleteOrder(ownerId, o.id, "  test order  ");
-    expect(res).toEqual({ ok: true, orderNumber: o.orderNumber });
+    expect(res).toMatchObject({ ok: true, orderNumber: o.orderNumber });
     expect(await exists(o.id)).toBe(false);
     // Its lines went with it.
     expect(await asTenant(tenantId, (tx) => tx.orderItem.count({ where: { orderId: o.id } }))).toBe(
@@ -150,7 +150,7 @@ describe("deleteOrder", () => {
     const paid = await order({ status: "done", paymentStatus: "paid" });
     const gift = await order({ giftCardDiscountCents: 500 });
     for (const o of [open, done, paid, gift]) {
-      expect(await deleteOrder(ownerId, o.id, "entered in the till")).toEqual({
+      expect(await deleteOrder(ownerId, o.id, "entered in the till")).toMatchObject({
         ok: true,
         orderNumber: o.orderNumber,
       });

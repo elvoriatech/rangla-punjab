@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { orderCode } from "./order-code";
 import {
   countsAsRevenue,
   granularityFor,
@@ -112,7 +113,7 @@ describe("reportToCsv", () => {
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toContain("Order Number");
     expect(lines[1]).toBe(
-      "42,2026-08-10T11:30:00.000Z,delivery,done,paypal,paid,yes,10.00,1.90,11.90",
+      `${orderCode(null, 42)},2026-08-10T11:30:00.000Z,delivery,done,paypal,paid,yes,10.00,1.90,11.90,42`,
     );
   });
 });

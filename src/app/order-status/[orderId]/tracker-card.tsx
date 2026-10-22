@@ -20,7 +20,7 @@ import type { UiLocale } from "@/lib/locales";
 export interface TrackerOrder {
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   status: string;
   orderType: string;
   paymentStatus: string;

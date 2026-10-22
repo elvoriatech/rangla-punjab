@@ -28,8 +28,10 @@ function amount(cents: number): string {
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
 }
 
-function orderLabel(orderNumber: number | null): string {
-  return orderNumber === null ? "order" : `#${String(orderNumber)}`;
+/** The public order code when known ("RP-K7M3Q"), else the old "#12". */
+function orderRef(r: { orderNumber: number | null; orderLabel?: string | null }): string {
+  if (r.orderLabel) return r.orderLabel;
+  return r.orderNumber === null ? "order" : `#${String(r.orderNumber)}`;
 }
 
 const HEADERS = [
@@ -65,7 +67,7 @@ function cells(card: GiftCardReportRow): string[] {
     card.status,
     r?.at ?? "",
     r?.kind ?? "",
-    r === null ? "" : r.kind === "counter" ? (r.staffName ?? "") : orderLabel(r.orderNumber),
+    r === null ? "" : r.kind === "counter" ? (r.staffName ?? "") : orderRef(r),
     r !== null && r.kind === "counter" ? (r.note ?? "") : "",
     card.paidAt ?? "",
     card.expiresAt ?? "",

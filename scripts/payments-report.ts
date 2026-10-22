@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { displayOrderLabel } from "../src/lib/order-code";
 
 /**
  * Payments that need a person (owner, 2026-10-21) — no dashboard page, by
@@ -87,7 +88,7 @@ async function main(): Promise<void> {
           },
         });
       });
-      console.log(`✓ ${row.orderLabel ?? row.orderId} · ${row.ref} marked handled.`);
+      console.log(`✓ ${displayOrderLabel(row.orderLabel) ?? row.orderId} · ${row.ref} marked handled.`);
       return;
     }
 
@@ -95,7 +96,7 @@ async function main(): Promise<void> {
     const capturing = rows.filter((r) => r.status === "capturing");
     const open = rows.filter((r) => r.status === "open");
     const line = (r: (typeof rows)[number]) =>
-      `  ${r.id}  #${r.orderLabel ?? "?"}  ${r.provider.padEnd(6)} ${euro(r.amountCents, r.currency).padStart(12)}  ${r.createdAt.toISOString()}  ${r.ref}`;
+      `  ${r.id}  ${displayOrderLabel(r.orderLabel) ?? "?"}  ${r.provider.padEnd(6)} ${euro(r.amountCents, r.currency).padStart(12)}  ${r.createdAt.toISOString()}  ${r.ref}`;
 
     console.log(`NEEDS ACTION (money taken, not accepted) — ${needs.length}`);
     for (const r of needs) console.log(`${line(r)}\n      reason: ${r.resolutionReason ?? "?"}`);

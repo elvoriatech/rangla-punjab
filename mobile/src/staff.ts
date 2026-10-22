@@ -1,4 +1,5 @@
 import type { UploadPhoto } from "./api";
+import { orderLabelOf } from "./order-label";
 import { appendUploadPhoto, BASE_URL, rebaseUrl, warnUploadFailure } from "./api";
 import type { GiftCardView } from "./gift-cards";
 import { asGiftCard } from "./gift-cards";
@@ -391,6 +392,8 @@ export interface StaffIssueSummary {
   id: string;
   orderId: string;
   orderNumber: number;
+  /** The public code ("RP-K7M3Q"). */
+  orderLabel: string;
   orderType: string;
   status: string;
   customerName: string | null;
@@ -411,6 +414,8 @@ export interface StaffIssue {
   resolvedAt: string | null;
   messages: StaffIssueMessage[];
   orderNumber: number;
+  /** The public code ("RP-K7M3Q"). */
+  orderLabel: string;
   orderType: string;
   customerName: string | null;
   customerPhone: string | null;
@@ -457,6 +462,11 @@ function asIssueSummary(raw: unknown): StaffIssueSummary | null {
     id,
     orderId: str(i.orderId),
     orderNumber: num(i.orderNumber),
+    orderLabel: orderLabelOf({
+      orderNumber: num(i.orderNumber),
+      orderLabel: nullableStr(i.orderLabel),
+      orderSeries: nullableStr(i.orderSeries),
+    }),
     orderType: str(i.orderType, "takeaway"),
     status: str(i.status, "open"),
     customerName: nullableStr(i.customerName),
@@ -490,6 +500,11 @@ export function asStaffIssue(raw: unknown): StaffIssue | null {
       ? i.messages.map(asIssueMessage).filter((m): m is StaffIssueMessage => m !== null)
       : [],
     orderNumber: num(i.orderNumber),
+    orderLabel: orderLabelOf({
+      orderNumber: num(i.orderNumber),
+      orderLabel: nullableStr(i.orderLabel),
+      orderSeries: nullableStr(i.orderSeries),
+    }),
     orderType: str(i.orderType, "takeaway"),
     customerName: nullableStr(i.customerName),
     customerPhone: nullableStr(i.customerPhone),
@@ -2087,6 +2102,8 @@ export interface DispatchedOrder {
    */
   already: boolean;
   orderNumber: number;
+  /** The public code ("RP-K7M3Q"). */
+  orderLabel: string;
   customerName: string | null;
   addressLine: string | null;
   /** Google Maps for `addressLine`; null when the order has no usable
@@ -2123,6 +2140,11 @@ export async function dispatchStaffOrder(token: string, orderId: string): Promis
     data: {
       already: res.body.already === true,
       orderNumber: num(res.body.orderNumber),
+      orderLabel: orderLabelOf({
+        orderNumber: num(res.body.orderNumber),
+        orderLabel: nullableStr(res.body.orderLabel),
+        orderSeries: nullableStr(res.body.orderSeries),
+      }),
       customerName: nullableStr(res.body.customerName),
       addressLine: nullableStr(res.body.addressLine),
       directionsUrl: nullableStr(res.body.directionsUrl),

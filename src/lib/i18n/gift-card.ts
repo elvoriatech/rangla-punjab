@@ -47,7 +47,7 @@ const en = {
   timelineBought: "Bought",
   timelineShared: "Link opened",
   timelineRedeemedCounter: "Redeemed at the restaurant",
-  timelineRedeemedOrder: (number: string) => `Redeemed on order #${number}`,
+  timelineRedeemedOrder: (number: string) => `Redeemed on order ${number}`,
 
   legal: "This is a multi-purpose voucher. It cannot be exchanged for cash.",
   qrAlt: "QR code for this gift card",

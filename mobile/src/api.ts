@@ -1620,6 +1620,8 @@ export interface ApiVoucher {
   /** The order this voucher was spent on, once it has been. Null while it
    *  is still available/armed, and on a server that predates redemption. */
   redeemedOrderNumber: number | null;
+  /** That order's public code ("RP-K7M3Q"); null on older servers. */
+  redeemedOrderLabel?: string | null;
 }
 
 /** Why the balance moved. `orderNumber` is set for order-shaped rows;
@@ -1632,6 +1634,8 @@ export interface ApiLoyaltyEntry {
   delta: number;
   reason: ApiLoyaltyReason | (string & {});
   orderNumber: number | null;
+  /** The order's public code ("RP-K7M3Q"); null on older servers. */
+  orderLabel: string | null;
   /** The voucher's own value on the rows that are ABOUT a voucher
    *  ("voucher" = minted, "redeem" = spent); null on every other reason,
    *  and on a server that predates the field — callers then fall back to
@@ -1655,6 +1659,7 @@ function asVoucher(raw: unknown): ApiVoucher | null {
     status: typeof v.status === "string" ? v.status : "available",
     expiresAt: typeof v.expiresAt === "string" ? v.expiresAt : "",
     redeemedOrderNumber: typeof v.redeemedOrderNumber === "number" ? v.redeemedOrderNumber : null,
+    redeemedOrderLabel: typeof v.redeemedOrderLabel === "string" ? v.redeemedOrderLabel : null,
   };
 }
 
@@ -1697,6 +1702,7 @@ export async function fetchLoyalty(token: string | null): Promise<ApiLoyalty | n
             delta: Number(e.delta ?? 0),
             reason: typeof e.reason === "string" ? e.reason : "adjust",
             orderNumber: typeof e.orderNumber === "number" ? e.orderNumber : null,
+            orderLabel: typeof e.orderLabel === "string" ? e.orderLabel : null,
             valueCents: typeof e.valueCents === "number" ? e.valueCents : null,
             createdAt: typeof e.createdAt === "string" ? e.createdAt : "",
           } satisfies ApiLoyaltyEntry;

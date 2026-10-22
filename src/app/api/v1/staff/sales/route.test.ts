@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { orderCode } from "@/lib/order-code";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { signupUser } from "@/lib/auth-service";
@@ -137,7 +138,12 @@ describe("/api/v1/staff/sales", () => {
       onlineOrders: 2,
       onlineCents: 7500,
     });
-    expect(body.orders!.map((o) => o.orderLabel)).toEqual(["B-2", "O-2", "O-1", "B-1"]);
+    expect(body.orders!.map((o) => o.orderLabel)).toEqual([
+      orderCode("B", 2),
+      orderCode("O", 2),
+      orderCode("O", 1),
+      orderCode("B", 1),
+    ]);
     expect(body.orders!.map((o) => o.deletable)).toEqual([true, true, true, true]);
   });
 
@@ -161,12 +167,12 @@ describe("/api/v1/staff/sales", () => {
     const body = (await (
       await GET(request(`?date=${day}&pay=apple_pay`, staffToken))
     ).json()) as Body;
-    expect(body.orders!.map((o) => o.orderLabel)).toEqual(["O-2"]);
+    expect(body.orders!.map((o) => o.orderLabel)).toEqual([orderCode("O", 2)]);
     expect(body.filtered).toEqual({ orders: 1, totalCents: 4500 });
     expect(body.totals!.cashCents).toBe(2000);
 
     const cash = (await (await GET(request(`?date=${day}&pay=cash`, staffToken))).json()) as Body;
-    expect(cash.orders!.map((o) => o.orderLabel)).toEqual(["B-2", "B-1"]);
+    expect(cash.orders!.map((o) => o.orderLabel)).toEqual([orderCode("B", 2), orderCode("B", 1)]);
     expect(cash.filtered).toEqual({ orders: 1, totalCents: 2000 });
   });
 });

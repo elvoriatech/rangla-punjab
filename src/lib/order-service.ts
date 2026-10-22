@@ -184,7 +184,7 @@ export interface PlacedOrder {
   orderId: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   /** "B-12" / "O-7" — what every surface prints. */
   orderLabel?: string;
   /** What the guest owes: the basket AFTER any reward discount. Always
@@ -778,7 +778,7 @@ export interface ReceiptOrder extends OrderFulfilment {
   venueId?: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   tableNumber: string | null;
   customerEmail: string | null;
   /** The signed-in guest's own UI language, when this order has one.
@@ -913,7 +913,7 @@ export interface KitchenOrder extends OrderFulfilment {
   id: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   /** "app" / "web"; null on older orders. */
   orderChannel?: string | null;
   tableNumber: string | null;
@@ -1272,7 +1272,7 @@ export interface OrderTracking {
   id: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   status: string;
   orderType: string;
   paymentStatus: string;

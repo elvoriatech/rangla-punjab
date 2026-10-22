@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { orderCode } from "./order-code";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { env } from "./env";
@@ -13,6 +14,7 @@ import { NewOrderEmail, newOrderSubject } from "@/emails/new-order-email";
 const sample: ReceiptOrder = {
   id: "o1",
   orderNumber: 12,
+  orderSeries: null,
   tableNumber: "4",
   orderType: "dine_in",
   customerName: "Amir",
@@ -35,11 +37,13 @@ const sample: ReceiptOrder = {
 
 describe("new-order email template", () => {
   it("German dine-in, unpaid: subject carries table + total, body says what to collect", () => {
-    expect(newOrderSubject(sample, "de")).toMatch(/^Neue Bestellung Nr\. 12 · Tisch 4 · 23,80/);
+    expect(newOrderSubject(sample, "de")).toMatch(
+      new RegExp(`^Neue Bestellung Nr\\. ${orderCode(null, 12)} · Tisch 4 · 23,80`),
+    );
     const html = renderToStaticMarkup(
       NewOrderEmail({ order: sample, locale: "de", kitchenUrl: "https://x/kitchen" }),
     );
-    expect(html).toContain("Neue Bestellung Nr. 12");
+    expect(html).toContain(`Neue Bestellung Nr. ${orderCode(null, 12)}`);
     expect(html).toContain("Tisch 4");
     expect(html).toContain("Amir");
     expect(html).toContain('href="tel:+49 170 0000000"');
@@ -116,7 +120,9 @@ describe("new-order email template", () => {
       requestedFor: new Date("2026-09-18T18:30:00Z"),
       deliveryAddress: { street: "Hauptstr. 1", zip: "10115", city: "Berlin", note: "2nd floor" },
     };
-    expect(newOrderSubject(order, "en")).toMatch(/^New order #12 · Delivery · €23\.80/);
+    expect(newOrderSubject(order, "en")).toMatch(
+      new RegExp(`^New order ${orderCode(null, 12)} · Delivery · €23\\.80`),
+    );
     const html = renderToStaticMarkup(
       NewOrderEmail({ order, locale: "en", kitchenUrl: "https://x/kitchen" }),
     );
@@ -127,11 +133,13 @@ describe("new-order email template", () => {
   });
 
   it("follows the venue's language into Spanish and Arabic", () => {
-    expect(newOrderSubject(sample, "es")).toMatch(/^Nuevo pedido n\.º 12 · Mesa 4 · 23,80/);
+    expect(newOrderSubject(sample, "es")).toMatch(
+      new RegExp(`^Nuevo pedido n\\.º ${orderCode(null, 12)} · Mesa 4 · 23,80`),
+    );
     const es = renderToStaticMarkup(
       NewOrderEmail({ order: sample, locale: "es", kitchenUrl: "https://x/kitchen" }),
     );
-    expect(es).toContain("Nuevo pedido n.º 12");
+    expect(es).toContain(`Nuevo pedido n.º ${orderCode(null, 12)}`);
     expect(es).toContain("Cliente");
     expect(es).toMatch(/Aún sin pagar: cobrar 23,80/);
     expect(es).not.toContain("Noch nicht bezahlt");
@@ -140,7 +148,7 @@ describe("new-order email template", () => {
       NewOrderEmail({ order: sample, locale: "ar", kitchenUrl: "https://x/kitchen" }),
     );
     expect(ar).toContain('dir="rtl"');
-    expect(ar).toContain("طلب جديد رقم 12");
+    expect(ar).toContain(`طلب جديد رقم ${orderCode(null, 12)}`);
     expect(ar).toContain("طاولة 4");
   });
 
@@ -270,7 +278,9 @@ describe.runIf(env.EMAIL_TRANSPORT === "mailhog")("new-order notification delive
     const [ma, mb] = await Promise.all([mailFor(a), mailFor(b)]);
     expect(ma.length).toBe(1);
     expect(mb.length).toBe(1);
-    expect(ma[0]!.subject).toMatch(/Neue Bestellung Nr\. B-1 · Tisch 7/);
+    expect(ma[0]!.subject).toMatch(
+      new RegExp(`Neue Bestellung Nr\\. ${orderCode("B", 1)} · Tisch 7`),
+    );
 
     // Settling an online order alerts too (fire-and-forget from markOrderPaid).
     await asTenant(fx.tenantId, (tx) =>

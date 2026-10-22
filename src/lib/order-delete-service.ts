@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { orderLabel } from "./order-label";
 import { recordForOrder, recordOrderEventTx } from "./order-events";
 import { createLogger } from "./logger";
 import { getAccess } from "./team-access";
@@ -31,7 +32,9 @@ export async function deleteOrder(
   userId: string,
   orderId: string,
   reasonRaw: string,
-): Promise<{ ok: true; orderNumber: number } | { ok: false; error: DeleteOrderError }> {
+): Promise<
+  { ok: true; orderNumber: number; orderLabel: string } | { ok: false; error: DeleteOrderError }
+> {
   const access = await getAccess(userId);
   if (!access?.isOwner) return { ok: false, error: "forbidden" };
   const reason = reasonRaw.trim().slice(0, DELETE_REASON_MAX);
@@ -113,7 +116,11 @@ export async function deleteOrder(
       where: { data: { path: ["orderId"], equals: order.id } },
     });
     log.info("order.deleted", { orderId: order.id, orderNumber: order.orderNumber, userId });
-    return { ok: true as const, orderNumber: order.orderNumber };
+    return {
+      ok: true as const,
+      orderNumber: order.orderNumber,
+      orderLabel: orderLabel(order),
+    };
   });
 
   if (result.ok && released === "paid" && refBefore) {
@@ -137,7 +144,7 @@ export interface DeletedOrderRow {
   id: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   orderType: string;
   totalCents: number;
   currency: string;
@@ -164,6 +171,7 @@ export async function listDeletedOrders(
   return rows.map((r) => ({
     id: r.id,
     orderNumber: r.orderNumber,
+    orderSeries: r.orderSeries ?? null,
     orderType: r.orderType,
     totalCents: r.totalCents,
     currency: r.currency,

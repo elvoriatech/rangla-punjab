@@ -70,7 +70,7 @@ export interface ReportOrderRow {
   orderId: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   placedAt: Date;
   status: string;
   paymentStatus: string;

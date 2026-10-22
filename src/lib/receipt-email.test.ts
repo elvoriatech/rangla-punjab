@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { orderCode } from "./order-code";
 import { describe, expect, it } from "vitest";
 import { env } from "./env";
 import { prisma } from "./db";
@@ -14,6 +15,7 @@ import type { ReceiptOrder } from "./order-service";
 const sample: ReceiptOrder = {
   id: "o1",
   orderNumber: 12,
+  orderSeries: null,
   tableNumber: "4",
   orderType: "dine_in",
   customerName: null,
@@ -44,8 +46,10 @@ describe("receipt email template", () => {
         trackUrl: "https://x/t",
       }),
     );
-    expect(receiptSubject(sample, "de")).toBe("Ihre Bestellung Nr. 12 bei Rangla Punjab");
-    expect(html).toContain("Bestellung Nr. 12");
+    expect(receiptSubject(sample, "de")).toBe(
+      `Ihre Bestellung Nr. ${orderCode(null, 12)} bei Rangla Punjab`,
+    );
+    expect(html).toContain(`Bestellung Nr. ${orderCode(null, 12)}`);
     expect(html).toContain("MwSt. 19 % (enthalten)");
     // 23,80 gross → 3,80 VAT / 20,00 net at 19 %
     expect(html).toMatch(/3,80/);
@@ -159,19 +163,19 @@ describe("receipt email template", () => {
     const cases = [
       {
         locale: "es" as const,
-        subject: "Tu pedido n.º 12 en Rangla Punjab",
+        subject: `Tu pedido n.º ${orderCode(null, 12)} en Rangla Punjab`,
         vat: "IVA 19 % (incluido)",
         paid: "Pagado online (tarjeta).",
       },
       {
         locale: "it" as const,
-        subject: "Il tuo ordine n. 12 da Rangla Punjab",
+        subject: `Il tuo ordine n. ${orderCode(null, 12)} da Rangla Punjab`,
         vat: "IVA 19% (inclusa)",
         paid: "Pagato online (carta).",
       },
       {
         locale: "ar" as const,
-        subject: "طلبك رقم 12 لدى Rangla Punjab",
+        subject: `طلبك رقم ${orderCode(null, 12)} لدى Rangla Punjab`,
         vat: "ضريبة القيمة المضافة 19% (مشمولة)",
         paid: "مدفوع عبر الإنترنت (بطاقة).",
       },
@@ -217,7 +221,7 @@ describe("receipt email template", () => {
         trackUrl: "https://x/t",
       }),
     );
-    expect(receiptSubject(sample, "en")).toBe("Your order #12 at Rangla Punjab");
+    expect(receiptSubject(sample, "en")).toBe(`Your order ${orderCode(null, 12)} at Rangla Punjab`);
     expect(html).toContain("VAT 19% (included)");
     expect(html).toContain("Payment is settled at pickup.");
   });
@@ -398,7 +402,9 @@ describe.runIf(env.EMAIL_TRANSPORT === "mailhog")("receipt email delivery", () =
     expect(sent).toEqual({ sent: true });
     const mails = await mailFor(to);
     expect(mails.length).toBe(1);
-    expect(mails[0]!.subject).toMatch(/Bestellung Nr\. B-1 bei Mail Venue/);
+    expect(mails[0]!.subject).toMatch(
+      new RegExp(`Bestellung Nr\\. ${orderCode("B", 1)} bei Mail Venue`),
+    );
 
     const noEmail = await placeOrder(fx, { items: [{ itemId: fx.itemId, quantity: 1 }] });
     if (!noEmail.ok) throw new Error("order failed");

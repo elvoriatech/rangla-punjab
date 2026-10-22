@@ -95,6 +95,9 @@ export interface CustomerProfile {
 export interface AccountOrder {
   orderId: string;
   orderNumber: number;
+  /** The public code ("RP-K7M3Q") the server sends. */
+  orderLabel?: string | null;
+  orderSeries?: string | null;
   status: string;
   orderType: string;
   paymentStatus: string;

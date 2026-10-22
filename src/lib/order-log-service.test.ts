@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { orderCode } from "./order-code";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { signupUser } from "./auth-service";
 import { prisma } from "./db";
@@ -80,18 +81,28 @@ describe("order log", () => {
     expect((await deleteOrder(userId, order.id, "Testbestellung")).ok).toBe(true);
 
     const detail = await getOrderLog(userId, order.id);
-    expect(detail?.row).toMatchObject({ label: "O-5", deleted: true, totalCents: 6420 });
+    expect(detail?.row).toMatchObject({
+      label: orderCode("O", 5),
+      deleted: true,
+      totalCents: 6420,
+    });
     expect(detail?.events.map((e) => e.kind)).toEqual(["payment.started", "order.deleted"]);
     expect(detail?.guest.name).toBe("Aman");
     expect(detail?.items).toEqual([{ quantity: 1, name: "Dal", priceCents: 6420 }]);
 
     const day = { from: new Date(Date.now() - 3_600_000), to: new Date(Date.now() + 3_600_000) };
     expect((await listOrderLog(userId, { ...day, filter: "deleted" })).map((r) => r.label)).toEqual(
-      ["O-5"],
+      [orderCode("O", 5)],
     );
     // Searching the raw JSON finds it by its Stripe reference.
     expect(
       (await listOrderLog(userId, { ...day, q: "cs_live_x", filter: "all" })).map((r) => r.label),
-    ).toEqual(["O-5"]);
+    ).toEqual([orderCode("O", 5)]);
+    // …and by its public code, in any case, with or without the prefix.
+    expect(
+      (
+        await listOrderLog(userId, { ...day, q: orderCode("O", 5).toLowerCase(), filter: "all" })
+      ).map((r) => r.label),
+    ).toEqual([orderCode("O", 5)]);
   });
 });

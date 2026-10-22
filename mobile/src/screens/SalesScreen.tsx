@@ -287,7 +287,7 @@ export function SalesScreen({
                   <View key={o.id} style={[styles.row, i > 0 && styles.rowRule]}>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={styles.rowTitle}>
-                        #{o.orderLabel}
+                        {o.orderLabel}
                         <Text style={styles.rowTime}> · {clock(o.placedAt)}</Text>
                       </Text>
                       <Text style={styles.rowMeta} numberOfLines={1}>

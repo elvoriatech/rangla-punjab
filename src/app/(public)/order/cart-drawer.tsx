@@ -31,7 +31,7 @@ interface PlacedOrder {
   orderId: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   totalCents: number;
   currency: string;
   receiptToken: string;

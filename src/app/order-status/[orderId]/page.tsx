@@ -132,6 +132,7 @@ export default async function OrderStatusPage({
         }}
         order={{
           orderNumber: order.orderNumber,
+          orderSeries: order.orderSeries ?? null,
           status: order.status,
           orderType: order.orderType,
           paymentStatus: order.paymentStatus,

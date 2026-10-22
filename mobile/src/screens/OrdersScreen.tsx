@@ -169,7 +169,7 @@ export function OrdersScreen({
                 style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
                 onPress={() => onOpen(order)}
                 accessibilityRole="button"
-                accessibilityLabel={`${t.orderNo} ${order.orderNumber}`}
+                accessibilityLabel={`${t.orderNo} ${orderLabelOf(order)}`}
               >
                 <View style={styles.cardTop}>
                   <View style={{ flex: 1, gap: 4 }}>
@@ -178,7 +178,7 @@ export function OrdersScreen({
                         one word so the row survives a small phone. */}
                     <View style={styles.numberRow}>
                       <View style={styles.numberPills}>
-                        <Text style={styles.number}>#{orderLabelOf(order)}</Text>
+                        <Text style={styles.number}>{orderLabelOf(order)}</Text>
                         {s ? (
                           <View
                             style={[

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { orderLabelOf } from "../order-label";
 import {
   ActivityIndicator,
   Alert,
@@ -203,12 +204,12 @@ export function AccountScreen({
       const spent = fill(t.rewardsRedeemed, { value: entryValue(entry) });
       return entry.orderNumber === null
         ? spent
-        : `${spent} · ${t.rewardsOrder} #${orderNo(entry.orderNumber)}`;
+        : `${spent} · ${t.rewardsOrder} ${entry.orderLabel ?? orderNo(entry.orderNumber)}`;
     }
     if (entry.reason === "order") {
       return entry.orderNumber === null
         ? t.rewardsOrder
-        : `${t.rewardsOrder} #${orderNo(entry.orderNumber)}`;
+        : `${t.rewardsOrder} ${entry.orderLabel ?? orderNo(entry.orderNumber)}`;
     }
     return t.rewardsAdjust;
   };
@@ -424,7 +425,7 @@ export function AccountScreen({
                     onPress={() => onOpenOrder(o.orderId, o.receiptToken)}
                   >
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.orderNo}>#{String(o.orderNumber)}</Text>
+                      <Text style={styles.orderNo}>{orderLabelOf(o)}</Text>
                       <Text style={styles.orderMeta}>
                         {dt(o.placedAt)} ·{" "}
                         {(t.typeLabels as Record<string, string>)[o.orderType] ?? o.orderType}
@@ -675,7 +676,9 @@ export function AccountScreen({
                   <View key={v.id} style={[styles.voucherRow, styles.voucherRowUsed]}>
                     <Text style={styles.voucherUsedText}>
                       {fill(t.rewardsMeal, { value: money(v.valueCents, currency) })} ·{" "}
-                      {fill(t.rewardsUsedOn, { number: orderNo(v.redeemedOrderNumber ?? 0) })}
+                      {fill(t.rewardsUsedOn, {
+                        number: v.redeemedOrderLabel ?? orderNo(v.redeemedOrderNumber ?? 0),
+                      })}
                     </Text>
                   </View>
                 ))}

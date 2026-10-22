@@ -251,7 +251,7 @@ export function renderTicketEscPos(
   const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone });
   const money = (cents: number): string => ticketMoney(cents, order.currency);
   const name = ticketVenueName(venue.name);
-  const number = `#${orderLabel(order)}`;
+  const number = `${orderLabel(order)}`;
   const when = stamp.format(order.createdAt);
 
   const t = new Ticket(width);

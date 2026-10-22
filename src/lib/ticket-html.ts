@@ -57,7 +57,7 @@ type Glyph = keyof typeof GLYPHS;
 export interface TicketOrder {
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
   orderType: string;
   tableNumber: string | null;
   customerName: string | null;
@@ -354,7 +354,7 @@ export function renderTicketHtml(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=302">
-<title>${esc(`#${orderLabel(order)} — ${venue.name}`)}</title>
+<title>${esc(`${orderLabel(order)} — ${venue.name}`)}</title>
 <style>
 @page { margin: 0; size: auto; }
 * { box-sizing: border-box; }
@@ -445,7 +445,7 @@ ${
 ${venueName.sub ? `<p class="venue-sub">${esc(venueName.sub)}</p>` : ""}
 <p class="kind">${esc(channelLine(order))}</p>
 <p class="rule">${RULE}</p>
-<div class="head"><span>#${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
+<div class="head"><span>${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
 ${paid ? `<p class="pay">${esc(paid)}</p>` : ""}
 <p class="banner">${esc(typeBanner(order))}</p>
 ${rows.length > 0 ? `<div class="rows">${rows.join("")}</div>` : ""}
@@ -506,7 +506,7 @@ ${
 }
 <p class="kitchen-title">K&Uuml;CHENBON</p>
 <p class="rule">${RULE}</p>
-<div class="head kitchen-head"><span>#${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
+<div class="head kitchen-head"><span>${orderLabel(order)}</span><span>${esc(stamp.format(order.createdAt))}</span></div>
 <p class="banner">${esc(typeBanner(order))}</p>
 ${readyLine || order.requestedFor ? `<p class="kitchen-when">${esc(readyLine ?? `Geplant für ${clock.format(order.requestedFor!)} Uhr`)}</p>` : ""}
 <p class="rule">${RULE}</p>

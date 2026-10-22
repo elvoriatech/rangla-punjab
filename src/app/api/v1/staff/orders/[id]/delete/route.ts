@@ -40,7 +40,10 @@ export async function POST(
     return withCors(NextResponse.json({ ok: false, error: result.error }, { status }));
   }
   return withCors(
-    NextResponse.json({ ok: true, orderNumber: result.orderNumber }, { headers: STAFF_NO_STORE }),
+    NextResponse.json(
+      { ok: true, orderNumber: result.orderNumber, orderLabel: result.orderLabel },
+      { headers: STAFF_NO_STORE },
+    ),
   );
 }
 

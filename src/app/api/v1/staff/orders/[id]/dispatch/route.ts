@@ -40,6 +40,8 @@ export async function POST(
         ok: true,
         already: result.already,
         orderNumber: result.orderNumber,
+        orderSeries: result.orderSeries ?? null,
+        orderLabel: result.orderLabel,
         customerName: result.customerName,
         addressLine: result.addressLine,
         directionsUrl: result.directionsUrl,

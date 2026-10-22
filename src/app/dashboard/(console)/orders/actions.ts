@@ -78,7 +78,7 @@ export async function deleteOrderAction(form: FormData): Promise<void> {
   revalidatePath("/kitchen", "page");
   redirect(
     result.ok
-      ? `/dashboard/orders?deleted=${result.orderNumber}`
+      ? `/dashboard/orders?deleted=${encodeURIComponent(result.orderLabel)}`
       : `/dashboard/orders?delete_error=${result.error}`,
   );
 }

@@ -196,8 +196,8 @@ describe("/api/v1/staff/orders/{id}/ticket", () => {
     expect(html).toContain("Dal Makhani");
     expect(html).toContain("IM RESTAURANT — TISCH 7");
     expect(html).toContain("GESAMT");
-    // The order number, plain — "#7", not "#0007" (owner, 2026-10-01).
-    expect(/<span>#B-[1-9]\d*<\/span>/.test(html)).toBe(true);
+    // The public order code (owner, 2026-10-22), never the internal number.
+    expect(/<span>RP-[2-9A-HJKMNP-Z]{5}<\/span>/.test(html)).toBe(true);
 
     // Nothing the print WebView would have to fetch, and no Tailwind:
     // both print blank or unstyled on a tablet with no stylesheet.

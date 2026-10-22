@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { orderLabel } from "./order-label";
 import { Prisma } from "@prisma/client";
 import { normalizeImage } from "./image-normalize";
 import { deleteUpload, readUpload, writeUpload } from "./image-storage";
@@ -488,7 +489,9 @@ export interface StaffIssueSummary {
   orderId: string;
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
+  /** The public order code ("RP-K7M3Q") — what the app shows. */
+  orderLabel: string;
   orderType: string;
   status: IssueStatus;
   customerName: string | null;
@@ -502,7 +505,9 @@ export interface StaffIssueSummary {
 export interface StaffIssueView extends IssueView {
   orderNumber: number;
   /** "B" (cash) / "O" (online); null on older orders. */
-  orderSeries?: string | null;
+  orderSeries: string | null;
+  /** The public order code ("RP-K7M3Q") — what the app shows. */
+  orderLabel: string;
   orderType: string;
   customerName: string | null;
   customerPhone: string | null;
@@ -533,6 +538,8 @@ function toStaffIssueView(row: StaffIssueRow): StaffIssueView {
   return {
     ...toIssueView(row),
     orderNumber: row.order.orderNumber,
+    orderSeries: row.order.orderSeries,
+    orderLabel: orderLabel(row.order),
     orderType: row.order.orderType,
     customerName: row.order.customerName,
     customerPhone: row.order.customerPhone,
@@ -593,6 +600,8 @@ export async function listStaffIssues(
       id: row.id,
       orderId: row.orderId,
       orderNumber: row.order.orderNumber,
+      orderSeries: row.order.orderSeries,
+      orderLabel: orderLabel(row.order),
       orderType: row.order.orderType,
       status: asIssueStatus(row.status),
       customerName: row.order.customerName,

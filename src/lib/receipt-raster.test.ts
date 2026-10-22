@@ -27,6 +27,7 @@ describe("offer line picture for the receipt printer", () => {
   it("goes into the ESC/POS ticket instead of the 'statt' line", async () => {
     const order: TicketOrder = {
       orderNumber: 7,
+      orderSeries: null,
       orderType: "takeaway",
       tableNumber: null,
       customerName: null,

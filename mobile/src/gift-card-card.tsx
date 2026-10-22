@@ -102,7 +102,7 @@ function Timeline({ card }: { card: GiftCardView }): React.ReactElement | null {
     const label =
       card.redemption.kind === "order" && card.redemption.orderNumber !== null
         ? fill(t.giftCardTimelineRedeemedOrder, {
-            number: String(card.redemption.orderNumber),
+            number: card.redemption.orderLabel ?? String(card.redemption.orderNumber),
           })
         : t.giftCardTimelineRedeemedCounter;
     steps.push({ key: "redeemed", label, date: at });
