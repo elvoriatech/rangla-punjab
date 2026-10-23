@@ -7,8 +7,13 @@
 # `public/`. Everything else (source, lockfile, dev deps) stays in earlier
 # stages and is discarded.
 
+# Node is PINNED to a patched release (2026-10-23: the October 2026 Node.js
+# security release fixed a remote-code-execution bug, CVE-2026-111497, in
+# 22.x before 22.23.4). A floating "node:22-alpine" could keep reusing an
+# older cached base. Bump both FROM lines together on every Node security
+# release.
 # ---------- Base ----------
-FROM node:22-alpine AS base
+FROM node:22.23.4-alpine AS base
 WORKDIR /app
 ENV CI=true \
     NEXT_TELEMETRY_DISABLED=1
@@ -73,7 +78,7 @@ RUN APP_DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=publi
     pnpm build
 
 # ---------- Runner ----------
-FROM node:22-alpine AS runner
+FROM node:22.23.4-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
