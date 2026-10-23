@@ -1,4 +1,5 @@
-import { orderLabel } from "@/lib/order-label";
+import { internalOrderNumber, orderLabel } from "@/lib/order-label";
+import { claimFirstPrint } from "@/lib/print-claim";
 import { notFound } from "next/navigation";
 import { recordOrderEvent, staffActor } from "@/lib/order-events";
 import { getKitchenOrder } from "@/lib/order-service";
@@ -54,27 +55,46 @@ export default async function OrderTicketPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ auto?: string }>;
+  searchParams: Promise<{ auto?: string; claim?: string }>;
 }): Promise<React.ReactElement> {
   const userId = await requirePermission("orders");
 
   const { id } = await params;
-  const { auto } = await searchParams;
+  const { auto, claim } = await searchParams;
   const venueResult = await getVenueForUser(userId);
   if (!venueResult.ok) notFound();
   const venueName = venueResult.value.name;
   const order = await getKitchenOrder(userId, id);
   if (!order) notFound();
-  // The order log: printed from the website dashboard (auto or by hand).
-  void recordOrderEvent({
-    tenantId: venueResult.value.tenantId,
-    venueId: venueResult.value.id,
-    orderId: order.id,
-    orderLabel: orderLabel(order),
-    kind: "order.printed",
-    actor: await staffActor(userId),
-    summary: auto ? "Printed (dashboard, automatic)" : "Printed (dashboard)",
-  });
+  // Printing and the order log (owner, 2026-10-23):
+  //   ?claim=1 — the Orders page's AUTOMATIC print: only the first print of
+  //              the order on any device goes ahead (claimFirstPrint);
+  //   ?auto=1  — a Print button: always prints, recorded;
+  //   neither  — "View order": nothing is printed or recorded until the
+  //              page's own Print button is pressed.
+  const actor = await staffActor(userId);
+  let printNow = false;
+  if (claim === "1") {
+    printNow = await claimFirstPrint({
+      tenantId: venueResult.value.tenantId,
+      venueId: venueResult.value.id,
+      orderId: order.id,
+      orderLabel: internalOrderNumber(order),
+      actor,
+      summary: "Printed (dashboard, automatic)",
+    });
+  } else if (auto === "1") {
+    printNow = true;
+    void recordOrderEvent({
+      tenantId: venueResult.value.tenantId,
+      venueId: venueResult.value.id,
+      orderId: order.id,
+      orderLabel: internalOrderNumber(order),
+      kind: "order.printed",
+      actor,
+      summary: "Printed (dashboard)",
+    });
+  }
 
   const time = new Intl.DateTimeFormat("de-DE", {
     dateStyle: "short",
@@ -286,7 +306,7 @@ export default async function OrderTicketPage({
           </p>
         </section>
 
-        <PrintControls auto={auto === "1"} />
+        <PrintControls auto={printNow} orderId={order.id} recordOnPrint={!printNow} />
       </div>
     </div>
   );

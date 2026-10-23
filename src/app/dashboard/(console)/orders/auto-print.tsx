@@ -128,7 +128,9 @@ export function AutoPrint({
 
     for (const order of fresh) {
       const frame = document.createElement("iframe");
-      frame.src = `${printBase}/${order.id}?auto=1`;
+      // claim=1: the server prints it only if no device has printed this
+      // order yet (once in total — owner, 2026-10-23).
+      frame.src = `${printBase}/${order.id}?claim=1`;
       frame.setAttribute("aria-hidden", "true");
       frame.style.position = "fixed";
       frame.style.width = "0";

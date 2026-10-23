@@ -1836,10 +1836,14 @@ export async function updateStaffLoyalty(
 export async function fetchStaffTicketHtml(
   token: string,
   orderId: string,
+  /** An AUTOMATIC print: the server answers 409 ("conflict") when any
+   *  device already printed the order — once in total (2026-10-23). */
+  auto = false,
 ): Promise<StaffResult<string>> {
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}/api/v1/staff/orders/${encodeURIComponent(orderId)}/ticket`, {
+    const q = auto ? "?auto=1" : "";
+    res = await fetch(`${BASE_URL}/api/v1/staff/orders/${encodeURIComponent(orderId)}/ticket${q}`, {
       headers: { "X-Staff-Token": token, Accept: "text/html" },
     });
   } catch {
@@ -1859,10 +1863,12 @@ export async function fetchStaffTicketEscPos(
   token: string,
   orderId: string,
   paper: 58 | 80,
+  /** An AUTOMATIC print — see fetchStaffTicketHtml. */
+  auto = false,
 ): Promise<StaffResult<string>> {
   const res = await staffFetch(
     token,
-    `/api/v1/staff/orders/${encodeURIComponent(orderId)}/ticket?format=escpos&paper=${paper}`,
+    `/api/v1/staff/orders/${encodeURIComponent(orderId)}/ticket?format=escpos&paper=${paper}${auto ? "&auto=1" : ""}`,
   );
   if (!res) return { ok: false, error: "network" };
   if (res.status !== 200 || !res.body) return { ok: false, error: failure(res.status) };

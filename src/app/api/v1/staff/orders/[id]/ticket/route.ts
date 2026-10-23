@@ -12,6 +12,8 @@ import { dispatchUrl } from "@/lib/dispatch-service";
 import { getVenueForUser } from "@/lib/venue-service";
 import { orderEta } from "@/lib/order-eta";
 import { getOrderingConfigForUser } from "@/lib/staff-service";
+import { claimFirstPrint } from "@/lib/print-claim";
+import { internalOrderNumber } from "@/lib/order-label";
 
 /**
  * GET /api/v1/staff/orders/{id}/ticket → the 80 mm kitchen ticket, as a
@@ -38,19 +40,43 @@ export async function GET(
   if (!gate.ok) return gate.response;
 
   const { id } = await ctx.params;
-  // The order log: who printed it, when, and on what.
-  void recordForOrder(gate.staff.tenantId, id, {
-    kind: "order.printed",
-    actor: await staffActor(gate.staff.userId),
-    summary:
-      req.nextUrl.searchParams.get("format") === "escpos" ? "Printed (Bluetooth)" : "Printed",
-  });
   const [venue, order] = await Promise.all([
     getVenueForUser(gate.staff.userId),
     getKitchenOrder(gate.staff.userId, id),
   ]);
   if (!venue.ok || !order) {
     return withCors(NextResponse.json({ ok: false, error: "not_found" }, { status: 404 }));
+  }
+
+  // The order log: who printed it, when, and on what. `?auto=1` is the
+  // app's AUTOMATIC print: it goes ahead only if no device has printed this
+  // order yet — once in total (owner, 2026-10-23); otherwise 409 and the
+  // app skips it. A manual print always prints.
+  const bluetooth = req.nextUrl.searchParams.get("format") === "escpos";
+  const actor = await staffActor(gate.staff.userId);
+  if (req.nextUrl.searchParams.get("auto") === "1") {
+    const first = await claimFirstPrint({
+      tenantId: gate.staff.tenantId,
+      venueId: venue.value.id,
+      orderId: order.id,
+      orderLabel: internalOrderNumber(order),
+      actor,
+      summary: bluetooth ? "Printed (Bluetooth, automatic)" : "Printed (automatic)",
+    });
+    if (!first) {
+      return withCors(
+        NextResponse.json(
+          { ok: false, error: "already_printed" },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        ),
+      );
+    }
+  } else {
+    void recordForOrder(gate.staff.tenantId, id, {
+      kind: "order.printed",
+      actor,
+      summary: bluetooth ? "Printed (Bluetooth)" : "Printed",
+    });
   }
 
   // The QR encodes our DISPATCH link, not the Maps URL: scanning it

@@ -605,10 +605,18 @@ export function BoardScreen({
       if (fresh.length === 0) return;
       let failure: PrintOutcome | null = null;
       for (const id of fresh) {
-        const outcome = await printTicket(staffToken, id);
+        const outcome = await printTicket(staffToken, id, true);
         // One line however many tickets failed: a kitchen does not need
-        // the same sentence four times.
-        if (outcome !== "ok" && outcome !== "cancelled" && !failure) failure = outcome;
+        // the same sentence four times. Another device having printed it
+        // already is the point, not a failure.
+        if (
+          outcome !== "ok" &&
+          outcome !== "cancelled" &&
+          outcome !== "already_printed" &&
+          !failure
+        ) {
+          failure = outcome;
+        }
       }
       if (failure) sayPrint(failure);
     },

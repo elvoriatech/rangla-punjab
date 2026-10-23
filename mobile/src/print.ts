@@ -29,7 +29,10 @@ export type PrintOutcome =
   | "notfound"
   | "network"
   /** The document arrived but the platform refused to print it. */
-  | "failed";
+  | "failed"
+  /** An automatic print skipped because another device already printed
+   *  the order — once in total. Not a failure. */
+  | "already_printed";
 
 /**
  * iOS rejects a dismissed print sheet rather than resolving, and Android
@@ -139,11 +142,17 @@ export async function printViaBluetooth(
 /** Fetch one order's ticket and put it in front of a printer — the paired
  *  Bluetooth receipt printer when this device has one, else the phone's
  *  print dialog. */
-export async function printTicket(staffToken: string, orderId: string): Promise<PrintOutcome> {
+export async function printTicket(
+  staffToken: string,
+  orderId: string,
+  /** Automatic print: skipped when any device already printed the order. */
+  auto = false,
+): Promise<PrintOutcome> {
   const printer = Platform.OS === "android" && btPrintingAvailable() ? await getBtPrinter() : null;
   if (printer) {
-    const bytes = await fetchStaffTicketEscPos(staffToken, orderId, printer.paper);
+    const bytes = await fetchStaffTicketEscPos(staffToken, orderId, printer.paper, auto);
     if (!bytes.ok) {
+      if (bytes.error === "conflict") return "already_printed";
       if (bytes.error === "unauthorized") return "unauthorized";
       if (bytes.error === "notfound") return "notfound";
       if (bytes.error === "network") return "network";
@@ -151,8 +160,9 @@ export async function printTicket(staffToken: string, orderId: string): Promise<
     }
     return printViaBluetooth(printer, bytes.data);
   }
-  const res = await fetchStaffTicketHtml(staffToken, orderId);
+  const res = await fetchStaffTicketHtml(staffToken, orderId, auto);
   if (!res.ok) {
+    if (res.error === "conflict") return "already_printed";
     if (res.error === "unauthorized") return "unauthorized";
     if (res.error === "notfound") return "notfound";
     if (res.error === "network") return "network";
