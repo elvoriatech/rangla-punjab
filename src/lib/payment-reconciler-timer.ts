@@ -39,3 +39,35 @@ export function startPaymentReconciler(): void {
     setInterval(() => void run(), RECONCILE_INTERVAL_MS).unref();
   });
 }
+
+/**
+ * Pickup orders close themselves 20 minutes after their pickup time (owner,
+ * 2026-10-23; see pickup-autodone.ts). Same in-process timer pattern: every
+ * two minutes and once at boot, never overlapping, failures only warn.
+ */
+export function startPickupAutoDone(): void {
+  if (process.env.PICKUP_AUTO_DONE === "0") {
+    logger.info("orders.pickup_auto_done_disabled");
+    return;
+  }
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
+  let running = false;
+  const run = async (): Promise<void> => {
+    if (running) return;
+    running = true;
+    try {
+      const { runPickupAutoDone } = await import("./pickup-autodone");
+      await runPickupAutoDone();
+    } catch (err) {
+      logger.warn("orders.pickup_auto_done_failed", {
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    } finally {
+      running = false;
+    }
+  };
+
+  void run();
+  setInterval(() => void run(), 2 * 60 * 1000).unref();
+}

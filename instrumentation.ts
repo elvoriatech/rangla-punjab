@@ -30,8 +30,10 @@ export async function register(): Promise<void> {
     startPartitionMaintenance();
     // Imported only here, inside the Node.js branch: the payment code uses
     // node:crypto, and this file is also compiled for the Edge runtime.
-    const { startPaymentReconciler } = await import("./src/lib/payment-reconciler-timer");
+    const { startPaymentReconciler, startPickupAutoDone } =
+      await import("./src/lib/payment-reconciler-timer");
     startPaymentReconciler();
+    startPickupAutoDone();
   }
 }
 
