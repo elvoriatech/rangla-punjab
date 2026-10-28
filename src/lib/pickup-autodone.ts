@@ -124,10 +124,94 @@ export async function autoCompletePickups(tenantId: string, now = new Date()): P
   return closedIds.length;
 }
 
-/** The timer's job: the one restaurant (single-restaurant build). */
+/**
+ * Day close (owner, 2026-10-28: "move any status orders to daily sales if
+ * the date is changed"). After midnight — in the venue's timezone — every
+ * order from an EARLIER day that is still open (any type, any open status,
+ * out for delivery included) is set to "done": it leaves the board and
+ * counts in that day's Tagesumsatz like an order a person finished.
+ *
+ * Never an online order still waiting for its money (pending / failed):
+ * no money arrived, so it must not become revenue. Cancelled stays
+ * cancelled. Same status-guarded update, history entry and cash loyalty
+ * credit as the pickup rule above.
+ */
+const DAY_CLOSE_OPEN = ["placed", "preparing", "ready", "out_for_delivery"];
+/** Loyalty credit only for orders this recent (see below). */
+const DAY_CLOSE_CREDIT_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
+export async function autoCloseEarlierDays(tenantId: string, now = new Date()): Promise<number> {
+  const { dayBounds, todayIn } = await import("./daily-sales");
+  const closedIds = await asTenant(tenantId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { timezone: true },
+    });
+    const timeZone = venue?.timezone || "Europe/Berlin";
+    const startOfToday = dayBounds(todayIn(timeZone, now), timeZone).from;
+    const orders = await tx.order.findMany({
+      where: {
+        status: { in: DAY_CLOSE_OPEN },
+        paymentStatus: { notIn: ["pending", "failed"] },
+        createdAt: { lt: startOfToday },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 500,
+      select: {
+        id: true,
+        tenantId: true,
+        venueId: true,
+        orderNumber: true,
+        orderSeries: true,
+        status: true,
+        paymentStatus: true,
+        createdAt: true,
+      },
+    });
+    const closed: { id: string; paymentStatus: string; createdAt: Date }[] = [];
+    for (const o of orders) {
+      const updated = await tx.order.updateMany({
+        where: { id: o.id, status: o.status },
+        data: { status: "done" },
+      });
+      if (updated.count === 0) continue;
+      closed.push({ id: o.id, paymentStatus: o.paymentStatus, createdAt: o.createdAt });
+      await recordOrderEventTx(tx, {
+        tenantId: o.tenantId,
+        venueId: o.venueId,
+        orderId: o.id,
+        orderLabel: o.orderSeries ? `${o.orderSeries}-${o.orderNumber}` : String(o.orderNumber),
+        kind: "order.status",
+        actor: "system",
+        summary: `${o.status} → done (automatically, the day ended)`,
+        payload: { from: o.status, to: "done", auto: "day_close" },
+      });
+    }
+    return closed;
+  });
+  if (closedIds.length > 0) {
+    log.info("orders.day_close_done", { tenantId, closed: closedIds.length });
+    // Cash orders earn their points like a manual "done" — but only recent
+    // ones: the first run after this shipped also closes weeks-old orders
+    // nobody finished, and those must not mail anyone a surprise reward.
+    const { creditOrderIfEligible } = await import("./loyalty-service");
+    const recent = now.getTime() - DAY_CLOSE_CREDIT_WINDOW_MS;
+    for (const o of closedIds) {
+      if (o.paymentStatus !== "paid" && o.createdAt.getTime() >= recent) {
+        await creditOrderIfEligible(tenantId, o.id).catch(() => undefined);
+      }
+    }
+  }
+  return closedIds.length;
+}
+
+/** The timer's job: the one restaurant (single-restaurant build) — the
+ *  pickup rule, then the day close. */
 export async function runPickupAutoDone(): Promise<number> {
   const { resolveRestaurantTenantId } = await import("./payment-reconcile");
   const tenantId = await resolveRestaurantTenantId();
   if (!tenantId) return 0;
-  return autoCompletePickups(tenantId);
+  const pickups = await autoCompletePickups(tenantId);
+  const dayClose = await autoCloseEarlierDays(tenantId);
+  return pickups + dayClose;
 }

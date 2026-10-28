@@ -42,7 +42,8 @@ export function startPaymentReconciler(): void {
 
 /**
  * Pickup orders close themselves 20 minutes after their pickup time (owner,
- * 2026-10-23; see pickup-autodone.ts). Same in-process timer pattern: every
+ * 2026-10-23), and every order still open from an earlier day is closed
+ * after midnight (owner, 2026-10-28; both in pickup-autodone.ts). Same in-process timer pattern: every
  * two minutes and once at boot, never overlapping, failures only warn.
  */
 export function startPickupAutoDone(): void {

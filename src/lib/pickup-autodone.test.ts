@@ -4,7 +4,12 @@ import { prisma } from "./db";
 import { asTenant } from "./tenant";
 import { signupUser } from "./auth-service";
 import { signInCustomer } from "./customer-auth";
-import { autoCompletePickups, isPickupDue, PICKUP_AUTO_DONE_AFTER_MS } from "./pickup-autodone";
+import {
+  autoCloseEarlierDays,
+  autoCompletePickups,
+  isPickupDue,
+  PICKUP_AUTO_DONE_AFTER_MS,
+} from "./pickup-autodone";
 
 const MIN = 60 * 1000;
 const defaults = { etaPickupMinutes: 20, etaDeliveryMinutes: 50, etaAcceptSeconds: 30 };
@@ -171,6 +176,47 @@ describe("autoCompletePickups (database)", () => {
 
     // Running again changes nothing.
     expect(await autoCompletePickups(t.tenantId)).toBe(0);
+  });
+
+  it("after midnight, any order still open from an earlier day is closed (day close)", async () => {
+    const t = await setup();
+    const yesterday = new Date(Date.now() - 30 * 60 * MIN);
+    const oldDelivery = await t.order({
+      orderType: "delivery",
+      status: "out_for_delivery",
+      createdAt: yesterday,
+    });
+    const oldDineIn = await t.order({
+      orderType: "dine_in",
+      status: "preparing",
+      createdAt: yesterday,
+    });
+    const oldPlaced = await t.order({ status: "placed", createdAt: yesterday });
+    const oldUnpaidOnline = await t.order({
+      orderSeries: "O",
+      paymentStatus: "pending",
+      createdAt: yesterday,
+    });
+    const oldCancelled = await t.order({ status: "cancelled", createdAt: yesterday });
+    // Placed a minute ago: today, whatever the time of day the test runs.
+    const todayOpen = await t.order({
+      orderType: "dine_in",
+      createdAt: new Date(Date.now() - MIN),
+    });
+
+    expect(await autoCloseEarlierDays(t.tenantId)).toBe(3);
+    expect(await t.status(oldDelivery)).toBe("done");
+    expect(await t.status(oldDineIn)).toBe("done");
+    expect(await t.status(oldPlaced)).toBe("done");
+    expect(await t.status(oldUnpaidOnline)).toBe("ready");
+    expect(await t.status(oldCancelled)).toBe("cancelled");
+    expect(await t.status(todayOpen)).toBe("ready");
+
+    const history = await asTenant(t.tenantId, (tx) =>
+      tx.orderEvent.findMany({ where: { orderId: oldDineIn }, select: { summary: true } }),
+    );
+    expect(history).toEqual([{ summary: "preparing → done (automatically, the day ended)" }]);
+    expect(await autoCloseEarlierDays(t.tenantId)).toBe(0);
   });
 
   it("a cash pickup closed automatically earns the guest's loyalty points, like a manual close", async () => {
