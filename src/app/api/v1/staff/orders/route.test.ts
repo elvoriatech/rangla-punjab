@@ -259,6 +259,25 @@ describe("/api/v1/staff/*", () => {
     expect(garbage.orders?.map((o) => o.id)).toEqual(expect.arrayContaining([older, moved]));
   });
 
+  it("shows today's orders only: yesterday's open and finished ones stay off the board", async () => {
+    const today = await placeDineIn("31");
+    const yesterdayOpen = await placeDineIn("32");
+    const yesterdayDone = await placeDineIn("33");
+    const dayAgo = new Date(Date.now() - 26 * 60 * 60 * 1000);
+    await asTenant(tenantId, async (tx) => {
+      await tx.order.update({ where: { id: yesterdayOpen }, data: { createdAt: dayAgo } });
+      await tx.order.update({
+        where: { id: yesterdayDone },
+        data: { createdAt: dayAgo, status: "done" },
+      });
+    });
+
+    const ids = (await board()).orders?.map((o) => o.id) ?? [];
+    expect(ids).toContain(today);
+    expect(ids).not.toContain(yesterdayOpen);
+    expect(ids).not.toContain(yesterdayDone);
+  });
+
   it("keeps finished orders on the board but out of the open count", async () => {
     const orderId = await placeDineIn("12");
     await STATUS(request(`/api/v1/staff/orders/${orderId}/status`, staffToken, { to: "done" }), {

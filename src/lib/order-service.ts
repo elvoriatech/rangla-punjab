@@ -983,6 +983,9 @@ export interface RecentOrdersOptions {
   scope?: OrderScope;
   /** Only rows written at or after this instant (polling delta). */
   updatedSince?: Date;
+  /** Only orders PLACED at or after this instant — the app's board shows
+   *  the restaurant's current day only (owner, 2026-10-28). */
+  createdSince?: Date;
 }
 
 /** Newest orders for the kitchen screen. Any member of the tenant
@@ -1010,6 +1013,7 @@ export async function listRecentOrders(
   if (options.scope === "open") where.status = { notIn: closed };
   else if (options.scope === "closed") where.status = { in: closed };
   if (options.updatedSince) where.updatedAt = { gte: options.updatedSince };
+  if (options.createdSince) where.createdAt = { gte: options.createdSince };
 
   const rows = await asUser(userId, (tx) =>
     tx.order.findMany({

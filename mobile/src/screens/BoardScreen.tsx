@@ -172,17 +172,24 @@ function isScheduled(requestedFor: string | null): boolean {
   return Number.isFinite(at) && at > Date.now();
 }
 
-/** Same day in the DEVICE's timezone — "today" is the restaurant's day. */
-function isToday(iso: string): boolean {
+/**
+ * Same calendar day as now in the RESTAURANT's timezone (`zone`; the
+ * device's own when unset) — the board shows today's orders only (owner,
+ * 2026-10-28). The server already sends only today's; this drops the ones
+ * the app was still holding when midnight passed.
+ */
+function isToday(iso: string, zone?: string): boolean {
   if (!iso) return false;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
+  const day = (x: Date): string =>
+    x.toLocaleDateString("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  return day(d) === day(new Date());
 }
 
 export function BoardScreen({
@@ -366,6 +373,21 @@ export function BoardScreen({
       return d.toLocaleTimeString(tag, {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: zone,
+      });
+    },
+    [tag, zone],
+  );
+
+  /** "Di., 28.10." in the restaurant's zone and the app's language. */
+  const dateOf = useCallback(
+    (iso: string): string => {
+      const d = new Date(iso);
+      if (!iso || Number.isNaN(d.getTime())) return "";
+      return d.toLocaleDateString(tag, {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
         timeZone: zone,
       });
     },
@@ -909,10 +931,10 @@ export function BoardScreen({
   // Newest on top (owner, 2026-10-11) — the order that just came in is the
   // one the counter has to look at, without scrolling past the earlier ones.
   const open = orders
-    .filter((o) => !isClosedStatus(o.status))
+    .filter((o) => !isClosedStatus(o.status) && isToday(o.createdAt, zone))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const doneToday = orders
-    .filter((o) => isClosedStatus(o.status) && isToday(o.updatedAt || o.createdAt))
+    .filter((o) => isClosedStatus(o.status) && isToday(o.createdAt, zone))
     .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt));
 
   /**
@@ -943,7 +965,8 @@ export function BoardScreen({
     const lit = fresh.includes(order.id);
     const expanded = expandedIds.has(order.id);
     const number = orderLabelOf(order);
-    const placed = timeOf(order.createdAt);
+    // Date AND time (owner, 2026-10-28: the card showed only the time).
+    const placed = `${dateOf(order.createdAt)} · ${timeOf(order.createdAt)}`;
     /**
      * When the food actually left, on a delivery that is still out.
      *

@@ -6,6 +6,7 @@ import { ORDER_STATUSES, TERMINAL_STATUSES, canTransition } from "./order-status
 import { parseOrderingConfig, type OrderingConfig } from "./ordering-config";
 import { can, getAccess } from "./team-access";
 import { asUser, resolveActiveTenantId } from "./tenant";
+import { dayBounds, todayIn } from "./daily-sales";
 
 /**
  * The orders board the restaurant sees inside the guest app.
@@ -134,6 +135,17 @@ async function boardConfig(userId: string): Promise<OrderingConfig> {
   });
 }
 
+/** The venue's timezone ("Europe/Berlin" when unset), for the board's day. */
+async function boardTimezone(userId: string): Promise<string> {
+  return asUser(userId, async (tx) => {
+    const venue = await tx.venue.findFirst({
+      where: { deletedAt: null },
+      select: { timezone: true },
+    });
+    return venue?.timezone || "Europe/Berlin";
+  });
+}
+
 /**
  * `appCancelEnabled` defaults to FALSE here on purpose: a caller that
  * forgets to resolve the switch hands the app a board with no cancel
@@ -202,19 +214,35 @@ export function toStaffOrder(
 const CLOSED_LIMIT = 50;
 
 /**
- * The board's payload: every open order, plus the 50 most recently
- * placed finished ones so the day's history is scrollable. The two are
+ * The board's payload: TODAY's orders (restaurant timezone) — every open
+ * one, plus the 50 most recently placed finished ones so the day's
+ * history is scrollable. Earlier days are in Tagesumsatz / the order log. The two are
  * fetched separately on purpose — a busy service must never let closed
  * orders push a live one out of the window.
  *
  * `since` turns the call into a polling delta: only rows written at or
  * after that instant come back.
  */
-export async function listStaffOrders(userId: string, since?: Date): Promise<StaffOrder[]> {
-  const open = await listRecentOrders(userId, 100, { scope: "open", updatedSince: since });
+export async function listStaffOrders(
+  userId: string,
+  since?: Date,
+  now: Date = new Date(),
+): Promise<StaffOrder[]> {
+  // Today only, in the restaurant's own timezone (owner, 2026-10-28): an
+  // order from yesterday that nobody moved to "done" must not sit on this
+  // morning's board. Earlier days live in Tagesumsatz and the order log;
+  // midnight to midnight is the same day `daily-sales.ts` counts.
+  const timeZone = await boardTimezone(userId);
+  const createdSince = dayBounds(todayIn(timeZone, now), timeZone).from;
+  const open = await listRecentOrders(userId, 100, {
+    scope: "open",
+    updatedSince: since,
+    createdSince,
+  });
   const closed = await listRecentOrders(userId, CLOSED_LIMIT, {
     scope: "closed",
     updatedSince: since,
+    createdSince,
   });
   const orders = [...open, ...closed].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
