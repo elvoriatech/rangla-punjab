@@ -4,7 +4,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "de.ranglapunjabrestaurant.app",
-      "sha256_cert_fingerprints": ["REPLACE_WITH_EAS_UPLOAD_KEY_SHA256"]
+      "sha256_cert_fingerprints": [
+        "E2:88:48:F4:22:68:28:EE:25:7F:94:6A:21:85:8F:84:37:A1:51:2E:A5:BC:A1:9B:8E:7F:F4:EF:02:BA:44:C6",
+        "E7:CB:6F:5B:0A:09:60:BF:26:A9:F5:FF:87:6D:C9:54:4F:5F:1F:18:0E:CA:05:BC:3F:52:B3:FF:E8:AC:38:61"
+      ]
     }
   }
 ]
