@@ -269,6 +269,9 @@ function Shell(): React.ReactElement {
   const [passwordSheet, setPasswordSheet] = useState(false);
   /** The order a scanned delivery ticket asked us to send out. */
   const [dispatchOrderId, setDispatchOrderId] = useState<string | null>(null);
+  /** Counts scans, so scanning the SAME ticket again opens a fresh
+   *  dispatch screen (the screen is keyed on it) instead of nothing. */
+  const [dispatchScan, setDispatchScan] = useState(0);
 
   /**
    * The menu, and everything clock-shaped riding on it (`openNow`,
@@ -519,12 +522,16 @@ function Shell(): React.ReactElement {
    * The delivery ticket's QR — `https://<site>/dispatch/{orderId}?t=…`.
    *
    * On a phone with this app installed and verified for the site, the OS
-   * hands us that link instead of opening the browser. `useLinkingURL()`
-   * is expo-linking 57's recommended hook: it returns the URL that cold-
-   * started the app AND every one that arrives while it is running, so
-   * one effect covers both. It keeps returning the same value, hence the
-   * `handled` ref — re-running it on an unrelated state change would
-   * re-open the screen under the driver.
+   * hands us that link instead of opening the browser.
+   *
+   * EVERY scan is handled, including the same ticket scanned again (owner,
+   * 2026-11-19): the driver scans once for "out for delivery" and again
+   * at the door for "Zugestellt". This used `useLinkingURL()` plus a
+   * "same URL already handled" ref, so the second scan of the same ticket
+   * — the identical URL — did nothing and the order never got delivered.
+   * Now the cold-start URL is read once, and every link that arrives
+   * while the app runs comes through the `url` event, which fires per
+   * scan, identical or not.
    *
    * Two forks, and NEITHER is an error:
    *  - staff session ⇒ the in-app confirm screen;
@@ -541,25 +548,35 @@ function Shell(): React.ReactElement {
    * `auth-return` — is consumed by the in-app browser that opened it, so
    * anything that is not `/dispatch/{id}` is deliberately ignored here.
    */
-  const linkUrl = ExpoLinking.useLinkingURL();
-  const handledLink = useRef<string | null>(null);
-  useEffect(() => {
-    if (!linkUrl || !authReady || handledLink.current === linkUrl) return;
-    const { path } = ExpoLinking.parse(linkUrl);
+  const handleDispatchLink = useRef<(url: string) => void>(() => {});
+  handleDispatchLink.current = (url: string) => {
+    const { path } = ExpoLinking.parse(url);
     const orderId = /^\/?dispatch\/([^/?#]+)/.exec(path ?? "")?.[1];
     if (!orderId) return;
-    handledLink.current = linkUrl;
-    // A cold-start URL is cached by the native module; clearing it stops
-    // the same scan being replayed if this effect ever runs again.
-    ExpoLinking.clearInitialURL();
     if (!staffToken) {
-      void openInAppBrowser(linkUrl);
+      void openInAppBrowser(url);
       return;
     }
     setTrack(null);
     setDispatchOrderId(decodeURIComponent(orderId));
+    setDispatchScan((n) => n + 1);
     setTab("dispatch");
-  }, [linkUrl, authReady, staffToken]);
+  };
+  const coldStartRead = useRef(false);
+  useEffect(() => {
+    if (!authReady) return;
+    if (!coldStartRead.current) {
+      coldStartRead.current = true;
+      void ExpoLinking.getInitialURL().then((url) => {
+        if (!url) return;
+        // Cached by the native module; cleared so it is never replayed.
+        ExpoLinking.clearInitialURL();
+        handleDispatchLink.current(url);
+      });
+    }
+    const sub = ExpoLinking.addEventListener("url", ({ url }) => handleDispatchLink.current(url));
+    return () => sub.remove();
+  }, [authReady]);
 
   const offerCount = menu?.offerCount ?? 0;
 
@@ -882,6 +899,7 @@ function Shell(): React.ReactElement {
           ) : null}
           {menuCurrent && tab === "dispatch" && restaurant && dispatchOrderId ? (
             <DispatchScreen
+              key={dispatchScan}
               orderId={dispatchOrderId}
               onBack={() => {
                 setDispatchOrderId(null);

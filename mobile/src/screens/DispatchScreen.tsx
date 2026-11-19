@@ -4,7 +4,7 @@ import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-nat
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth";
 import type { DispatchRefusal, DispatchedOrder, StaffOrder } from "../staff";
-import { dispatchStaffOrder, fetchStaffOrders } from "../staff";
+import { advanceStaffOrder, dispatchStaffOrder, fetchStaffOrders } from "../staff";
 import { BrandHeader, OutlineButton, PrimaryButton } from "../components";
 import { useI18n } from "../i18n";
 import { useLayout } from "../layout";
@@ -29,6 +29,10 @@ import { colors, fonts, radius } from "../theme";
  * `already: true` is a SUCCESS: a second driver sent to the same address,
  * or the same driver scanning twice, sees "on the way" and still gets the
  * route. An error there would just be something to work around.
+ *
+ * Once it is on the way, "Zugestellt" marks it delivered (owner,
+ * 2026-11-19) — the same second step the web dispatch page has, so a
+ * driver whose phone opens the scan in the app can finish the order too.
  */
 export function DispatchScreen({
   orderId,
@@ -45,6 +49,8 @@ export function DispatchScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<DispatchedOrder | null>(null);
+  /** The handover: the order is `done`. */
+  const [delivered, setDelivered] = useState(false);
   /**
    * What the driver is about to take out, read from the board's own
    * list — the dispatch POST is the only v1 route for this order and it
@@ -110,6 +116,29 @@ export function DispatchScreen({
     setDone(res.data);
   }
 
+  async function deliver(): Promise<void> {
+    if (!staffToken || busy) return;
+    setBusy(true);
+    setError(null);
+    const res = await advanceStaffOrder(staffToken, orderId, "done");
+    setBusy(false);
+    if (!res.ok) {
+      if (res.error === "unauthorized") {
+        clearStaff();
+        return;
+      }
+      // 409: the board already finished it (or the day close did) —
+      // which is what the driver wanted.
+      if (res.reason === "invalid_transition") {
+        setDelivered(true);
+        return;
+      }
+      setError(t.dispatchDeliverFailed);
+      return;
+    }
+    setDelivered(true);
+  }
+
   /**
    * The route, in whichever maps app the phone has.
    *
@@ -147,14 +176,27 @@ export function DispatchScreen({
           <>
             <View style={styles.doneBox}>
               <Ionicons name="bicycle" size={44} color={colors.positive} />
-              <Text style={styles.doneTitle}>{t.dispatchOnTheWay}</Text>
+              <Text style={styles.doneTitle}>
+                {delivered || done.status === "done" ? t.dispatchDelivered : t.dispatchOnTheWay}
+              </Text>
               <Text style={styles.number}>{orderLabelOf(done)}</Text>
               {done.customerName ? <Text style={styles.meta}>{done.customerName}</Text> : null}
               {done.addressLine ? <Text style={styles.address}>{done.addressLine}</Text> : null}
               {/* Only when it is news: on a first scan the button above
                   already said what happened. */}
-              {done.already ? <Text style={styles.already}>{t.dispatchAlready}</Text> : null}
+              {done.already && !delivered && done.status !== "done" ? (
+                <Text style={styles.already}>{t.dispatchAlready}</Text>
+              ) : null}
             </View>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {!delivered && done.status !== "done" ? (
+              <PrimaryButton
+                label={t.dispatchDeliver}
+                tone="red"
+                busy={busy}
+                onPress={() => void deliver()}
+              />
+            ) : null}
             {done.directionsUrl ? (
               <PrimaryButton
                 label={t.dispatchRoute}
